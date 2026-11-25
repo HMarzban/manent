@@ -97,6 +97,13 @@ export function createAirWindows(options: {
     }
   }
 
+  function scriptRundownsOf(storyDocId: string): readonly string[] {
+    const seen = new Set<string>();
+    for (const link of storyLinks.linksOf(storyDocId))
+      if (link.kind === "script") seen.add(link.rundownId);
+    return [...seen];
+  }
+
   function windowOf(
     docId: string,
   ): { startsAt: number; endsAt: number } | null {
@@ -104,8 +111,9 @@ export function createAirWindows(options: {
     const place = directory.placeOf(docId);
     if (place === null) return null;
     if (place.kind === "rundown") return copyWindow(rundownWindow(docId));
+    if (place.kind !== "script") return null;
     const candidates: AirWindow[] = [];
-    for (const rundownId of storyLinks.rundownsOf(docId)) {
+    for (const rundownId of scriptRundownsOf(docId)) {
       const win = rundownWindow(rundownId);
       if (win !== null) candidates.push(win);
     }
@@ -117,9 +125,10 @@ export function createAirWindows(options: {
     const place = directory.placeOf(docId);
     if (place === null) return false;
     if (place.kind === "rundown") return isWithin(rundownWindow(docId), now);
-    return storyLinks
-      .rundownsOf(docId)
-      .some((rundownId) => isWithin(rundownWindow(rundownId), now));
+    if (place.kind !== "script") return false;
+    return scriptRundownsOf(docId).some((rundownId) =>
+      isWithin(rundownWindow(rundownId), now),
+    );
   }
 
   const hooks: SyncHooks = {

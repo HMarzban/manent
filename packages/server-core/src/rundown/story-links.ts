@@ -20,8 +20,6 @@ export interface StoryRowLink {
 export interface StoryLinks {
   /** Every row in any non-tombstoned rundown of `storyDocId`'s home whose `docId` equals `storyDocId`. */
   linksOf(storyDocId: string): readonly StoryRowLink[];
-  /** Every non-tombstoned rundown in `storyDocId`'s home that links `storyDocId`. */
-  rundownsOf(storyDocId: string): readonly string[];
   /** Refreshes the cached links of one rundown in `home` from its latest state. */
   refreshRundown(home: Home, rundownId: string, rundown: RundownJSON): void;
 }
@@ -132,12 +130,6 @@ export function createStoryLinks(storage: Storage): StoryLinks {
     return out;
   }
 
-  function rundownsOf(storyDocId: string): readonly string[] {
-    const seen = new Set<string>();
-    for (const link of linksOf(storyDocId)) seen.add(link.rundownId);
-    return [...seen];
-  }
-
   function refreshRundown(
     home: Home,
     rundownId: string,
@@ -152,5 +144,5 @@ export function createStoryLinks(storage: Storage): StoryLinks {
     byRundown.set(rundownId, extractLinks(rundown));
   }
 
-  return { linksOf, rundownsOf, refreshRundown };
+  return { linksOf, refreshRundown };
 }

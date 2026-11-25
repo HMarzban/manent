@@ -3,26 +3,15 @@
 import { browserClock, browserRandom, webTransport } from "@manent/client-web";
 import type { SocketLike } from "@manent/client-web";
 import { scriptBody } from "@manent/crdt";
-import { ENGINE_VERSIONS, TABLE_VERSION } from "@manent/pagination";
-import {
-  SCHEMA_VERSION,
-  blockText,
-  blocksOf,
-  randomBlockId,
-} from "@manent/schema";
+import { blockText, blocksOf, randomBlockId } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import {
   createMemoryStore,
   createSyncClient,
   soloLeader,
 } from "@manent/sync-client";
-import type {
-  DocHandle,
-  Frames,
-  LocalStore,
-  SyncClient,
-} from "@manent/sync-client";
-import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { DocHandle, LocalStore, SyncClient } from "@manent/sync-client";
+import { BOT_VERSIONS, NO_FRAMES } from "./bot-defaults.ts";
 import { createAckLedger } from "./ledger.ts";
 import type { AckLedger } from "./ledger.ts";
 
@@ -41,16 +30,6 @@ export interface Bot {
   typeInto(handle: DocHandle, blockId: string, text: string): void;
   close(): Promise<void>;
 }
-
-const VERSIONS = {
-  protocol: PROTOCOL_VERSION,
-  schema: SCHEMA_VERSION,
-  engine: ENGINE_VERSIONS.at(-1)!,
-  table: TABLE_VERSION,
-};
-
-/** A hidden tab's frames: none ever comes, so remote updates are shown by the fallback timer. */
-const NO_FRAMES: Frames = { request: () => () => {} };
 
 /** Bun's WebSocket, which sends the origin a browser would, as the transport's socket. */
 export function bunSocket(url: string, origin: string): SocketLike {
@@ -150,8 +129,8 @@ export function createBot(options: {
     userId,
     deviceId: options.deviceId ?? browserRandom.bytes(8).toHex(),
     build: "testkit",
-    versions: VERSIONS,
-    minServer: VERSIONS,
+    versions: BOT_VERSIONS,
+    minServer: BOT_VERSIONS,
     ports: {
       transport: webTransport({
         baseUrl,

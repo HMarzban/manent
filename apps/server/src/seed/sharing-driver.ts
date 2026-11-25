@@ -1,13 +1,6 @@
 // The seed driver's sharing: project groups, share grants, sent drafts, draft links and reader reads.
 import { createHash } from "node:crypto";
-import {
-  ORIGIN_REMOTE,
-  createDoc,
-  mergeUpdates,
-  startRound,
-  writeGroup,
-} from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
+import { startRound, writeGroup } from "@manent/crdt";
 import { SeedDriverError } from "@manent/demo";
 import type { SeedSharing, SeedWorkspaceId } from "@manent/demo";
 import { findGroups, readProjectGroups } from "@manent/server-core";
@@ -19,6 +12,7 @@ import {
   indexDocId,
   projectHome,
 } from "@manent/sync-protocol";
+import { pushDoc } from "./driving.ts";
 import type { Driving } from "./driving.ts";
 import { isFields } from "./link.ts";
 import { SEED_CALLER, SEED_HOST } from "./server.ts";
@@ -62,32 +56,6 @@ async function ensureProjectIndex(
     });
   }
   return docId;
-}
-
-async function pushDoc(
-  d: Driving,
-  userId: string,
-  docId: string,
-  fn: (doc: CrdtDoc) => void,
-): Promise<void> {
-  const link = await d.link(userId);
-  const doc = createDoc({ clientId: d.clientId() });
-  const { state } = await link.subscribe(docId, doc.clientId);
-  try {
-    doc.applyUpdate(state, ORIGIN_REMOTE);
-    const made: Uint8Array[] = [];
-    const stop = doc.subscribe((update) => made.push(update));
-    try {
-      fn(doc);
-    } finally {
-      stop();
-    }
-    if (made.length > 0) await link.push(docId, mergeUpdates(made));
-  } finally {
-    await link.unsubscribe(docId);
-    doc.destroy();
-    await d.runDue();
-  }
 }
 
 function readSendAnswer(body: unknown, path: string): SendResult {

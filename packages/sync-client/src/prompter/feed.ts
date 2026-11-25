@@ -5,11 +5,12 @@ import type {
   DocumentMessage,
   Message,
   PrompterRow,
+  VersionSet,
 } from "@manent/sync-protocol";
 import type { SyncClient } from "../client/client.ts";
 import { HANDSHAKE_TIMEOUT_MS } from "../ports/defaults.ts";
 import type { Subscribable, SyncClientPorts } from "../ports/ports.ts";
-import { createCell, isSameStories } from "./cell.ts";
+import { createCell } from "./cell.ts";
 import {
   applyPrompterPatch,
   readPrompterFeed,
@@ -41,6 +42,7 @@ interface PrompterOptions {
   rundownId: string;
   client: SyncClient;
   ports: SyncClientPorts;
+  versions?: VersionSet;
 }
 
 type FeedTimer = "handshake" | "loss";
@@ -50,7 +52,7 @@ class PrompterFeedClient {
   private readonly runOrder = createCell<readonly PrompterRow[]>([]);
   private readonly stories = createCell<
     ReadonlyMap<string, readonly BlockJSON[]>
-  >(new Map(), isSameStories);
+  >(new Map());
   private readonly status = createCell<PrompterStatus>({
     feed: "waiting",
     lastReceivedAt: null,
@@ -75,7 +77,8 @@ class PrompterFeedClient {
     this.socket = createPrompterSocket({
       ports: options.ports,
       host: {
-        versions: () => options.client.link.get().server?.current ?? null,
+        versions: () =>
+          options.versions ?? options.client.link.get().server?.current ?? null,
         welcomed: () => this.subscribe(),
         message: (message) => this.route(message),
         dropped: () => this.dropped(),
@@ -291,6 +294,7 @@ export function createPrompterHandle(options: {
   rundownId: string;
   client: SyncClient;
   ports: SyncClientPorts;
+  versions?: VersionSet;
 }): PrompterHandle {
   return new PrompterFeedClient(options).handle;
 }

@@ -21,11 +21,13 @@ export function createSubscribable<T>(
   };
 }
 
-// plain values, arrays and typed arrays, compared by content
-function isSameValue(a: unknown, b: unknown): boolean {
+/** Plain values, arrays, maps and typed arrays, compared by content. */
+export function isSameValue(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a !== "object" || typeof b !== "object") return false;
   if (a === null || b === null) return false;
+  if (a instanceof Map || b instanceof Map)
+    return a instanceof Map && b instanceof Map && isSameMap(a, b);
   if (ArrayBuffer.isView(a) || ArrayBuffer.isView(b))
     return ArrayBuffer.isView(a) && ArrayBuffer.isView(b) && isSameView(a, b);
   if (Array.isArray(a) !== Array.isArray(b)) return false;
@@ -37,6 +39,16 @@ function isSameValue(a: unknown, b: unknown): boolean {
       ([key, value]) => right.has(key) && isSameValue(value, right.get(key)),
     )
   );
+}
+
+function isSameMap(
+  a: ReadonlyMap<unknown, unknown>,
+  b: ReadonlyMap<unknown, unknown>,
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a)
+    if (!b.has(key) || !isSameValue(value, b.get(key))) return false;
+  return true;
 }
 
 function isSameView(a: ArrayBufferView, b: ArrayBufferView): boolean {

@@ -260,6 +260,43 @@ function finalizePages(
   });
 }
 
+function openContinuationPage(
+  columns: readonly SizedColumn[],
+  contentWidthPt: number,
+): DraftPage {
+  const page: DraftPage = {
+    lines: [],
+    rules: [],
+    cursorY: MARGIN_PT,
+    bodyRows: 0,
+  };
+  addColumnHeaderRow(page, columns, contentWidthPt);
+  return page;
+}
+
+function appendBuiltRow(
+  page: DraftPage,
+  built: ReturnType<typeof buildRowEntries>,
+  contentWidthPt: number,
+): void {
+  for (const entry of built.lines)
+    page.lines.push({
+      text: entry.text,
+      xPt: entry.xPt,
+      yPt: page.cursorY + entry.offsetYPt,
+      bold: entry.bold,
+    });
+  const bottomY = page.cursorY + built.heightPt;
+  page.rules.push({
+    x1Pt: MARGIN_PT,
+    x2Pt: MARGIN_PT + contentWidthPt,
+    yPt: bottomY,
+    widthPt: ROW_RULE_PT,
+  });
+  page.cursorY = bottomY;
+  page.bodyRows += 1;
+}
+
 /**
  * Lays out the rundown onto landscape pages in the 10 pt script font, returning exact positioned
  * lines and hairlines that both `writeRundownPdf` and the web preview draw.
@@ -293,41 +330,26 @@ export function layoutRundownPages(
     }),
   );
 
-  const drafts: DraftPage[] = [];
-  const startPage = (first: boolean): DraftPage => {
-    const page: DraftPage = {
-      lines: [],
-      rules: [],
-      cursorY: MARGIN_PT,
-      bodyRows: 0,
-    };
-    if (first) addOpeningHeading(page, rundown, options, fullWidthCells);
-    addColumnHeaderRow(page, sizedColumns, contentWidthPt);
-    drafts.push(page);
-    return page;
+  let current: DraftPage = {
+    lines: [],
+    rules: [],
+    cursorY: MARGIN_PT,
+    bodyRows: 0,
   };
+  addOpeningHeading(current, rundown, options, fullWidthCells);
+  addColumnHeaderRow(current, sizedColumns, contentWidthPt);
+  const drafts: DraftPage[] = [current];
 
-  let current = startPage(true);
   for (const row of rundown.rows) {
     const built = buildRowEntries(row, sizedColumns, fullWidthCells);
-    if (current.bodyRows > 0 && current.cursorY + built.heightPt > bodyBottomPt)
-      current = startPage(false);
-    for (const entry of built.lines)
-      current.lines.push({
-        text: entry.text,
-        xPt: entry.xPt,
-        yPt: current.cursorY + entry.offsetYPt,
-        bold: entry.bold,
-      });
-    const bottomY = current.cursorY + built.heightPt;
-    current.rules.push({
-      x1Pt: MARGIN_PT,
-      x2Pt: MARGIN_PT + contentWidthPt,
-      yPt: bottomY,
-      widthPt: ROW_RULE_PT,
-    });
-    current.cursorY = bottomY;
-    current.bodyRows += 1;
+    if (
+      current.bodyRows > 0 &&
+      current.cursorY + built.heightPt > bodyBottomPt
+    ) {
+      current = openContinuationPage(sizedColumns, contentWidthPt);
+      drafts.push(current);
+    }
+    appendBuiltRow(current, built, contentWidthPt);
   }
 
   return finalizePages(

@@ -523,3 +523,76 @@ test("a window-end timer firing after a backwards clock jump never auto-sends ch
   liveStory.destroy();
   prompter.stop();
 });
+
+test("a relayed rundown does not arm local synthetic heartbeats", async () => {
+  const fc = fakeClock(10_000);
+  const storage = createMemoryStorage({ now: () => fc.clock.now() });
+  let seq = 0;
+  const ids = (): string => `rel-${++seq}`;
+  let sync!: SyncService;
+  const airWindows = createAirWindows({ clock: fc.clock, storage });
+  const history = createHistoryService({
+    sync: () => sync,
+    storage,
+    clock: fc.clock,
+    ids,
+  });
+  let upstreamSink: {
+    snapshot(feed: PrompterFeed): void;
+    patch(patch: PrompterPatch): void;
+    error(code: "prompter_unavailable" | "forbidden" | "deleted"): void;
+  } | null = null;
+  const prompter = createPrompterService({
+    storage,
+    sync: () => sync,
+    history,
+    clock: fc.clock,
+    ids,
+    airWindows,
+    upstreamFeed: {
+      isRelayed: (docId) => docId === RUNDOWN,
+      subscribe(_docId, _userId, sink) {
+        upstreamSink = sink;
+        return () => {
+          upstreamSink = null;
+        };
+      },
+    },
+  });
+  sync = createSyncService({
+    storage,
+    clock: fc.clock,
+    defer: fc.defer,
+    ids,
+    versions: { current: V1, min: V1 },
+    hooks: [history, airWindows.hooks, prompter.hooks],
+    airWindow: airWindows.isInside,
+    airWindowOf: airWindows.windowOf,
+    prompterSubscribe: prompter.subscribePrompter,
+  });
+  await seedRundownAndStory({ storage, sync, prompter }, fc, "Relayed line");
+
+  const peer = fakePeer({ userId: "sam", name: "Sam" });
+  sync.attach(peer);
+  sync.receive(peer, {
+    type: "SUBSCRIBE",
+    docId: RUNDOWN,
+    generation: 0,
+    mode: "prompter",
+    clientIds: [],
+    lastServerSeq: 0,
+  });
+  expect(peer.take().map((m) => m.type)).toEqual(["SUBSCRIBED"]);
+
+  // Advancing 3 s with a silent upstream must emit zero synthetic local heartbeats
+  fc.advance(3_000);
+  expect(peer.take()).toEqual([]);
+
+  // Upstream snapshot and patch still flow through cleanly
+  upstreamSink!.snapshot({ v: 1, runOrder: [], stories: [] });
+  expect(peer.take().map((m) => m.type)).toEqual(["VIEW_SNAPSHOT"]);
+  upstreamSink!.patch({ v: 1, runOrder: null, stories: [], removed: [] });
+  expect(peer.take().map((m) => m.type)).toEqual(["VIEW_PATCH"]);
+
+  prompter.stop();
+});

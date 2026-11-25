@@ -195,6 +195,7 @@ class Client implements SyncClient, LinkDriverHost {
       rundownId,
       client: this,
       ports: this.options.ports,
+      versions: this.options.versions,
     });
   }
 

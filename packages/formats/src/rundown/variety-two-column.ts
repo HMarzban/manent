@@ -183,71 +183,90 @@ function drawStoryHeading(
   return cursorY;
 }
 
+interface StoryCursor {
+  cursorY: number;
+  drewRowOnPage: boolean;
+}
+
+function openVarietyPage(pdf: PDFKit.PDFDocument, geom: TableGeometry): number {
+  pdf.addPage({ size: [geom.widthPt, geom.heightPt], margin: 0 });
+  return geom.marginPt;
+}
+
+function drawPlacedRow(
+  pdf: PDFKit.PDFDocument,
+  state: StoryCursor,
+  placed: PlacedRow,
+  geom: TableGeometry,
+  scale: FontScale,
+  maxLinesPerPage: number,
+): void {
+  let offset = 0;
+  while (offset < placed.lines.length) {
+    const remainingLines = Math.floor(
+      (geom.bottomPt - state.cursorY - ROW_PAD_Y_PT * 2) / LINE_HEIGHT_PT,
+    );
+    const needLines = placed.lines.length - offset;
+    if (
+      state.drewRowOnPage &&
+      remainingLines < Math.min(needLines, maxLinesPerPage)
+    ) {
+      state.cursorY = openVarietyPage(pdf, geom);
+      state.drewRowOnPage = false;
+      continue;
+    }
+    const take = Math.max(
+      1,
+      Math.min(
+        needLines,
+        remainingLines > 0 ? remainingLines : maxLinesPerPage,
+      ),
+    );
+    state.cursorY = drawTableRowChunk(
+      pdf,
+      geom,
+      scale,
+      state.cursorY,
+      placed.side,
+      placed.style,
+      placed.lines.slice(offset, offset + take),
+    );
+    state.drewRowOnPage = true;
+    offset += take;
+  }
+}
+
 function drawStory(
   pdf: PDFKit.PDFDocument,
   row: RundownExportRow,
   geom: TableGeometry,
   scale: FontScale,
 ): void {
-  const newPage = (): number => {
-    pdf.addPage({ size: [geom.widthPt, geom.heightPt], margin: 0 });
-    return geom.marginPt;
+  const state: StoryCursor = {
+    cursorY: drawStoryHeading(
+      pdf,
+      rowStoryHeading(row),
+      geom,
+      scale,
+      openVarietyPage(pdf, geom),
+    ),
+    drewRowOnPage: false,
   };
-  let cursorY = drawStoryHeading(
-    pdf,
-    rowStoryHeading(row),
-    geom,
-    scale,
-    newPage(),
-  );
   const maxLinesPerPage = Math.max(
     1,
     Math.floor(
       (geom.bottomPt - geom.marginPt - ROW_PAD_Y_PT * 2) / LINE_HEIGHT_PT,
     ),
   );
-  let drewRowOnPage = false;
   for (const block of row.story!.blocks) {
     const placed = classifyBlock(block, geom);
     if (placed === null) continue;
     if (placed === "page_break") {
-      cursorY = newPage();
-      drewRowOnPage = false;
+      state.cursorY = openVarietyPage(pdf, geom);
+      state.drewRowOnPage = false;
       continue;
     }
-    let offset = 0;
-    while (offset < placed.lines.length) {
-      const remainingLines = Math.floor(
-        (geom.bottomPt - cursorY - ROW_PAD_Y_PT * 2) / LINE_HEIGHT_PT,
-      );
-      const needLines = placed.lines.length - offset;
-      if (
-        drewRowOnPage &&
-        remainingLines < Math.min(needLines, maxLinesPerPage)
-      ) {
-        cursorY = newPage();
-        drewRowOnPage = false;
-        continue;
-      }
-      const take = Math.max(
-        1,
-        Math.min(
-          needLines,
-          remainingLines > 0 ? remainingLines : maxLinesPerPage,
-        ),
-      );
-      cursorY = drawTableRowChunk(
-        pdf,
-        geom,
-        scale,
-        cursorY,
-        placed.side,
-        placed.style,
-        placed.lines.slice(offset, offset + take),
-      );
-      drewRowOnPage = true;
-      offset += take;
-    }
+    drawPlacedRow(pdf, state, placed, geom, scale, maxLinesPerPage);
   }
 }
 

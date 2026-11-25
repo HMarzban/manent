@@ -15,7 +15,7 @@ import type {
   PrompterPatch,
   PrompterRow,
 } from "@manent/sync-protocol";
-import { readBlocks } from "../src/index.ts";
+import { createSyncClient, readBlocks, soloLeader } from "../src/index.ts";
 import type { LeaderPort } from "../src/index.ts";
 import {
   createFakeClock,
@@ -574,5 +574,43 @@ test("a malformed payload never corrupts the feed and subscribes again from a sn
   expect(w.lastPeer().received.filter((m) => m.type === "UNSUBSCRIBE")).toEqual(
     [{ type: "UNSUBSCRIBE", docId: RUNDOWN, generation: 2 }],
   );
+  await client.close();
+});
+
+test("the prompter socket sends the client's configured versions before the main link connects", async () => {
+  const w = await createPrompterWorld(null);
+  const configured = v(1, 1, 3, 2);
+  const client = createSyncClient({
+    userId: "sam",
+    deviceId: "dev-prompter-versions",
+    build: "test",
+    versions: configured,
+    minServer: v(1, 0, 0, 0),
+    ports: {
+      transport: w.network.transport("sam"),
+      store: w.store,
+      leader: soloLeader("tab-prompter-versions"),
+      clock: w.fake.clock,
+      random: {
+        next: () => 0.5,
+        bytes: (n) => new Uint8Array(n),
+        clientId: () => 77,
+      },
+      frames: { request: () => () => {} },
+    },
+  });
+  client.setOnline(false);
+  await w.settle();
+  expect(client.link.get().server).toBeNull();
+
+  const handle = client.prompter(RUNDOWN);
+  await w.settle();
+  const hello = w
+    .lastPeer()
+    .received.find(
+      (m): m is Extract<Message, { type: "HELLO" }> => m.type === "HELLO",
+    );
+  expect(hello?.versions).toEqual(configured);
+  handle.close();
   await client.close();
 });
