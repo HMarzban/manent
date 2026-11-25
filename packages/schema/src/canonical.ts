@@ -1,5 +1,5 @@
 // The one spelling in which documents are compared, hashed and stored.
-import { fillBlockAttrs } from "./attrs.ts";
+import { GRAPHIC_ATTR_KEYS, fillBlockAttrs } from "./attrs.ts";
 import type {
   BlockJSON,
   DocJSON,
@@ -9,6 +9,7 @@ import type {
 } from "./json.ts";
 import { MARK_NAMES, isMarkName } from "./marks.ts";
 import { schema } from "./schema.ts";
+import { isObject } from "./shape.ts";
 
 /** Code-unit order, the same on every machine (no locale). */
 function compareText(a: string, b: string): number {
@@ -83,6 +84,21 @@ function canonicalRuns(runs: readonly TextJSON[]): TextJSON[] {
 const isSpelled = ([, value]: [string, unknown]): boolean =>
   value !== null && !(Array.isArray(value) && value.length === 0);
 
+const GRAPHIC_KEY_SET: ReadonlySet<string> = new Set(GRAPHIC_ATTR_KEYS);
+
+/** Declared key order for `attrs.graphic`, followed by any unknown keys sorted by name. */
+function canonicalGraphic(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  const known: [string, unknown][] = [];
+  for (const key of GRAPHIC_ATTR_KEYS)
+    if (Object.hasOwn(value, key) && value[key] !== undefined)
+      known.push([key, value[key]]);
+  const unknown = Object.entries(value)
+    .filter(([key, val]) => !GRAPHIC_KEY_SET.has(key) && val !== undefined)
+    .toSorted(([a], [b]) => compareText(a, b));
+  return Object.fromEntries([...known, ...unknown]);
+}
+
 /**
  * One block in canonical form: every known attribute in declared order with
  * its default filled, each holding null or an empty list left out, then every
@@ -92,6 +108,8 @@ const isSpelled = ([, value]: [string, unknown]): boolean =>
 export function canonicalBlock(block: BlockJSON): BlockJSON {
   const given = block.attrs ?? {};
   const filled: Record<string, unknown> = fillBlockAttrs(given);
+  if (filled.graphic !== null)
+    filled.graphic = canonicalGraphic(filled.graphic);
   const attrs: Record<string, unknown> = Object.fromEntries([
     ...Object.entries(filled).filter(isSpelled),
     ...unknownEntries(given, filled).filter(([, value]) => value !== null),

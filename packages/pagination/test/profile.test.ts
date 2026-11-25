@@ -141,6 +141,7 @@ test("every profile lays out every element, and the formats that only relabel sh
     "emote",
     "engine",
     "general",
+    "graphic",
     "group",
     "page_break",
     "parenthetical",

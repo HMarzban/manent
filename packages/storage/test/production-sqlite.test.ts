@@ -2,7 +2,12 @@ import { afterAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import fc from "fast-check";
 import type { SetBlockRow } from "../src/index.ts";
-import { crc32, openSqliteStorage, StorageError } from "../src/index.ts";
+import {
+  STORAGE_SCHEMA_VERSION,
+  crc32,
+  openSqliteStorage,
+  StorageError,
+} from "../src/index.ts";
 // the entry does not export the migrations: no other workspace reads them
 import { MIGRATIONS } from "../src/sqlite/migrations.ts";
 import {
@@ -66,7 +71,11 @@ test("migration 5 creates the production tables and raises every file's version"
     userVersion(file),
     userVersion(controlFile),
     userVersion(checkpointsFile),
-  ]).toEqual([11, 11, 11]);
+  ]).toEqual([
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+  ]);
   expect(tableColumns(file).page_locks).toEqual([
     "doc_id TEXT",
     "lock_level INTEGER",
@@ -121,7 +130,11 @@ test("a file at version 4 is migrated in place", async () => {
   };
   storage.close();
   expect(opened).toEqual({ tail: [[1, [1], "sam"]], locked: 0, anchors: [] });
-  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
+  expect(Object.values(files).map(userVersion)).toEqual([
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+  ]);
   expect(
     tableNames(files.documents).filter((name) =>
       PRODUCTION_TABLES.includes(name),

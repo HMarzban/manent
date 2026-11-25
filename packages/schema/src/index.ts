@@ -17,9 +17,23 @@ export {
   ALIGNMENTS,
   DEFAULT_BLOCK_ATTRS,
   DUALS,
+  GRAPHIC_ATTR_KEYS,
+  GRAPHIC_KINDS,
+  GRAPHIC_MAX_ALT_LENGTH,
+  GRAPHIC_MAX_DIMENSION_PX,
+  GRAPHIC_MAX_HEIGHT_LINES,
+  GRAPHIC_MAX_LABEL_LENGTH,
+  GRAPHIC_MIN_HEIGHT_LINES,
   fillBlockAttrs,
 } from "./attrs.ts";
-export type { Alignment, BlockAttrs, Dual } from "./attrs.ts";
+export type {
+  Alignment,
+  BlockAttrs,
+  Dual,
+  GraphicAttrs,
+  GraphicKind,
+} from "./attrs.ts";
+export { isGraphicAttrs } from "./block-attr-checks.ts";
 export {
   HIGHLIGHT_NAMES,
   MARK_NAMES,
@@ -33,6 +47,7 @@ export {
   NODE_NAMES,
   SCHEMA_VERSION,
   SECTION_TARGET_BLOCKS,
+  minSchemaVersionOf,
   schema,
 } from "./schema.ts";
 export type { NodeName } from "./schema.ts";

@@ -1,6 +1,7 @@
 // Every migration appends one entry to each of the three lists ([] where that kind of file does not change) and never edits an earlier one;
 // each list's length is STORAGE_SCHEMA_VERSION.
 import { ADMIN_MIGRATION } from "../admin/migration.ts";
+import { ASSETS_MIGRATION } from "../assets/migration.ts";
 import { PRIVATE_COPY_MIGRATION } from "../private-copy/migration.ts";
 import { PRODUCTION_MIGRATION } from "../production/migration.ts";
 import { PROMPTER_MIGRATION } from "../prompter/migration.ts";
@@ -41,6 +42,7 @@ export const MIGRATIONS: {
       `CREATE INDEX IF NOT EXISTS draft_links_by_token ON draft_links (token_hash)`,
     ],
     [`ALTER TABLE draft_links ADD COLUMN open INTEGER NOT NULL DEFAULT 0`],
+    [...ASSETS_MIGRATION.control],
   ],
   documents: [
     [
@@ -120,6 +122,7 @@ export const MIGRATIONS: {
       `CREATE INDEX IF NOT EXISTS draft_opens_by_send_user ON draft_opens (send_id, user_id)`,
     ],
     [`ALTER TABLE draft_sends ADD COLUMN direct_recipient_count INTEGER`],
+    [...ASSETS_MIGRATION.documents],
   ],
   checkpoints: [
     [
@@ -149,5 +152,6 @@ export const MIGRATIONS: {
       `CREATE INDEX IF NOT EXISTS checkpoint_pins_by_doc ON checkpoint_pins (doc_id, generation)`,
     ],
     [],
+    [...ASSETS_MIGRATION.checkpoints],
   ],
 });

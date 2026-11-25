@@ -23,6 +23,8 @@ export const BLOCK_TYPES = [
   "body",
   "break",
   "quote",
+  // inline images and broadcast chyrons (schema 3)
+  "graphic",
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
@@ -51,7 +53,7 @@ export const FORMATS = [
 export type FormatId = (typeof FORMATS)[number];
 
 /** The elements every format has. */
-const STRUCTURE = ["act_break", "group", "page_break"] as const;
+const STRUCTURE = ["act_break", "group", "page_break", "graphic"] as const;
 
 const SCREENPLAY = [
   "scene_heading",
