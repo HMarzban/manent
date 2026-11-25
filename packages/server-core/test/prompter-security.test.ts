@@ -1,5 +1,13 @@
 import { expect, test } from "bun:test";
-import { createDoc, initRundown, insertRows, scriptBody } from "@manent/crdt";
+import {
+  ORIGIN_LOAD,
+  createDoc,
+  initRundown,
+  insertRows,
+  loadDoc,
+  readRundown,
+  scriptBody,
+} from "@manent/crdt";
 import { SHOW_COLUMNS } from "@manent/schema";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type {
@@ -392,4 +400,126 @@ test("sending a same-home story without access to that story is refused", async 
   }
 
   srv.prompter.stop();
+});
+
+test("a window-end timer firing after a backwards clock jump never auto-sends changed rows", async () => {
+  const fc = fakeClock(10_000);
+  let now = 10_000;
+  const timers: { at: number; fn: () => void }[] = [];
+  const stepClock = {
+    now: () => now,
+    schedule(fn: () => void, delayMs: number): () => void {
+      const entry = { at: now + delayMs, fn };
+      timers.push(entry);
+      return () => {
+        const index = timers.indexOf(entry);
+        if (index !== -1) timers.splice(index, 1);
+      };
+    },
+  };
+  const storage = createMemoryStorage({ now: () => stepClock.now() });
+  let seq = 0;
+  const ids = (): string => `ver-${++seq}`;
+  let sync!: SyncService;
+  const airWindows = createAirWindows({ clock: stepClock, storage });
+  const history = createHistoryService({
+    sync: () => sync,
+    storage,
+    clock: stepClock,
+    ids,
+  });
+  const prompter = createPrompterService({
+    storage,
+    sync: () => sync,
+    history,
+    clock: stepClock,
+    ids,
+    airWindows,
+  });
+  sync = createSyncService({
+    storage,
+    clock: stepClock,
+    defer: fc.defer,
+    ids,
+    versions: { current: V1, min: V1 },
+    hooks: [history, airWindows.hooks, prompter.hooks],
+    airWindow: airWindows.isInside,
+    airWindowOf: airWindows.windowOf,
+    prompterSubscribe: prompter.subscribePrompter,
+  });
+
+  // Air window is [5_000, 130_000]; now = 10_000 is inside it.
+  await seedRundownAndStory({ storage, sync, prompter }, fc, "First wording");
+  const sent = prompter.send("sam", {
+    docId: RUNDOWN,
+    rowId: ROW_MAIN,
+    key: keyOf(30),
+  });
+  await flushAll(fc);
+  expect((await sent).ok).toBe(true);
+
+  const file = storage.open({ kind: "project", id: PROJECT });
+  const loadFromFile = (docId: string, clientId?: number) => {
+    const row = file.log.get(docId)!;
+    const checkpoint = file.checkpoints.newest(docId, row.generation);
+    const doc =
+      checkpoint === null
+        ? createDoc({ clientId })
+        : loadDoc(checkpoint.state, { clientId });
+    for (const entry of file.log.tail(
+      docId,
+      row.generation,
+      checkpoint?.seq ?? 0,
+    ).rows)
+      doc.applyUpdate(entry.update, ORIGIN_LOAD);
+    return doc;
+  };
+
+  // Edit story while inside the air window so the row becomes changed and schedules windowEndTimers.
+  const sam = fakePeer({ userId: "sam", name: "Sam" });
+  sync.attach(sam);
+  sync.receive(sam, {
+    type: "SUBSCRIBE",
+    docId: STORY,
+    generation: 0,
+    mode: "edit",
+    clientIds: [201],
+    lastServerSeq: 0,
+  });
+  const liveStory = loadFromFile(STORY, 201);
+  const updates: Uint8Array[] = [];
+  const stop = liveStory.subscribe((u) => updates.push(u));
+  scriptBody(liveStory).write((w) => {
+    w.deleteText(BLK_DIAL, 0, "First wording".length);
+    w.insertText(BLK_DIAL, 0, "Corrected wording");
+  });
+  stop();
+  sync.receive(sam, {
+    type: "PUSH",
+    docId: STORY,
+    generation: 1,
+    clientSeq: 1,
+    update: updates[0]!,
+    heal: false,
+  });
+  await flushAll(fc);
+  sync.detach(sam);
+
+  // Confirm row is now changed and a window-end timer was scheduled.
+  expect(timers.length).toBeGreaterThan(0);
+  const rdBefore = loadFromFile(RUNDOWN);
+  expect(readRundown(rdBefore).rows[0]?.prompter?.state).toBe("changed");
+  rdBefore.destroy();
+
+  // Simulate a backwards clock jump to before startsAt (5_000) and fire the shifted timer at t = 4_000.
+  now = 4_000;
+  for (const timer of timers.splice(0, timers.length)) timer.fn();
+  await flushAll(fc);
+
+  expect(file.prompter.latest(RUNDOWN, ROW_MAIN)?.senderUserId).toBe("sam");
+  const rdAfter = loadFromFile(RUNDOWN);
+  expect(readRundown(rdAfter).rows[0]?.prompter?.state).toBe("changed");
+  rdAfter.destroy();
+  liveStory.destroy();
+  prompter.stop();
 });
