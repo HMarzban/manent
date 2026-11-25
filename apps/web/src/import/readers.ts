@@ -2,6 +2,7 @@
 import type { ImportedScript, SourceFormat, XmlParser } from "@manent/formats";
 import type { IdSource } from "@manent/schema";
 import { FDR_NOT_READABLE } from "@manent/ui";
+import { readInkFile } from "./ink-reader.ts";
 
 interface ReaderRow {
   readonly extension: string;
@@ -29,6 +30,7 @@ export const IMPORTABLE_EXTENSIONS: readonly string[] = Object.freeze([
   ".pdf",
   ".docx",
   ".txt",
+  ".ink",
 ]);
 
 /** .fdx → readFdx with parseXml; .fountain → readFountain after decodeText; .fdr is answered with how to bring it in as an .fdx; .pdf, .docx and .txt load lazily through @manent/formats. */
@@ -72,5 +74,6 @@ export function importReaders(parseXml: XmlParser): readonly ImportReader[] {
         return formats.readPlainText(formats.decodeText(bytes), { ids });
       },
     },
+    { extension: ".ink", from: "ink", read: readInkFile },
   ];
 }
