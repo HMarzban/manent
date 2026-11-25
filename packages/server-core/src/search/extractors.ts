@@ -1,8 +1,10 @@
-// Viewer-safe text extractors per document kind for full-text search.
+// Viewer-safe and editor-only text extractors per document kind for full-text search.
 import { scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocKind } from "@manent/sync-protocol";
 import { viewSnapshot } from "../view/view.ts";
+import { extractCutsText } from "./cuts-extractor.ts";
+import { extractRundownText } from "./rundown-extractor.ts";
 
 export interface SearchExtractor {
   readonly kind: DocKind;
@@ -26,8 +28,10 @@ export function extractBodyText(doc: CrdtDoc): string {
   return lines.join("\n");
 }
 
-export const SEARCH_EXTRACTORS: readonly SearchExtractor[] = [
-  { kind: "script", text: extractBodyText },
+export const SEARCH_EXTRACTORS: readonly SearchExtractor[] = Object.freeze([
+  { kind: "script", text: extractBodyText, editorText: extractCutsText },
   { kind: "outline", text: extractBodyText },
   { kind: "ink", text: extractBodyText },
-];
+  { kind: "room_log", text: extractBodyText },
+  { kind: "rundown", text: extractRundownText },
+]);
