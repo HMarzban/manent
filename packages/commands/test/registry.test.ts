@@ -976,6 +976,7 @@ test("the handler table names every command but the generated ones", () => {
     "prompter.files": noop,
     "prompter.stopFiles": noop,
     "script.renameCharacter": noop,
+    "library.search": noop,
     "library.newFolder": noop,
     "library.renameFolder": noop,
     "library.moveToFolder": noop,

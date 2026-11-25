@@ -1,30 +1,76 @@
 // The Library's search field, in its title bar between the workspace switcher and Import….
-import { Button, Input, LIBRARY_WORDS, cn } from "@manent/ui";
+import { Button, Input, SEARCH_WORDS, cn } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { SearchIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { registerSearchFieldFocus } from "../../search/search-focus.ts";
+import { useEnvironment } from "../../services/context.tsx";
 import { libraryHref, useLibraryAddress } from "./library-address.ts";
 
+const DEBOUNCE_MS = 150;
+
 /**
- * Searches the workspace the address shows as the person types, keeping the address's view to go back to once the
- * field is cleared; Esc clears it.
+ * Searches the workspace the address shows with a 150 ms debounce, keeping the address's view to go back to once the
+ * field is cleared; Esc clears it, and ArrowDown moves focus into the first result row.
  */
 export function SearchField(): ReactNode {
   const navigate = useNavigate();
+  const { schedule } = useEnvironment();
   const address = useLibraryAddress();
   const { q } = address;
   const [value, setValue] = useState(q ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
-  // the address's search also changes without the field, as when the side list shows a view or the person goes back
-  useEffect(() => setValue(q ?? ""), [q]);
-  const searchFor = (next: string): void => {
-    setValue(next);
+  const cancelTimer = useRef<(() => void) | null>(null);
+  const addressRef = useRef(address);
+  addressRef.current = address;
+
+  // Keep the field in sync when the address changes externally (e.g. Filter ▾, sidebar navigation, Back).
+  useEffect(() => {
+    cancelTimer.current?.();
+    cancelTimer.current = null;
+    setValue(q ?? "");
+  }, [q]);
+
+  useEffect(
+    () =>
+      registerSearchFieldFocus(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }),
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      cancelTimer.current?.();
+      cancelTimer.current = null;
+    },
+    [],
+  );
+
+  const commitQuery = (next: string): void => {
+    cancelTimer.current?.();
+    cancelTimer.current = null;
     void navigate({
-      href: libraryHref({ ...address, q: next }),
+      href: libraryHref({ ...addressRef.current, q: next }),
       replace: true,
     });
   };
+
+  const scheduleQuery = (next: string): void => {
+    setValue(next);
+    cancelTimer.current?.();
+    if (next.trim() === "") {
+      commitQuery("");
+      return;
+    }
+    cancelTimer.current = schedule(() => {
+      cancelTimer.current = null;
+      commitQuery(next);
+    }, DEBOUNCE_MS);
+  };
+
   return (
     <div className="relative flex w-popover min-w-0 shrink-4 items-center">
       <SearchIcon
@@ -34,17 +80,30 @@ export function SearchField(): ReactNode {
       <Input
         ref={inputRef}
         type="search"
-        aria-label={LIBRARY_WORDS.search}
-        placeholder={LIBRARY_WORDS.searchPlaceholder}
+        data-search-field="library"
+        aria-label={SEARCH_WORDS.fieldLabel}
+        placeholder={SEARCH_WORDS.placeholder}
         value={value}
-        onChange={(event) => searchFor(event.target.value)}
+        onChange={(event) => scheduleQuery(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key !== "Escape" || value === "") return;
-          event.preventDefault();
-          searchFor("");
+          if (event.key === "Escape" && value !== "") {
+            event.preventDefault();
+            setValue("");
+            commitQuery("");
+            return;
+          }
+          if (event.key === "ArrowDown") {
+            const firstRow = document.querySelector<HTMLElement>(
+              '[data-search-results] [role="listitem"] [role="button"], [data-search-results] [role="listitem"] button',
+            );
+            if (firstRow !== null) {
+              event.preventDefault();
+              firstRow.focus();
+            }
+          }
         }}
         className={cn(
-          "h-control w-full ps-8 text-ui [&::-webkit-search-cancel-button]:hidden",
+          "h-control w-full min-w-0 ps-8 text-ui [&::-webkit-search-cancel-button]:hidden",
           value === "" ? undefined : "pe-7",
         )}
       />
@@ -53,12 +112,13 @@ export function SearchField(): ReactNode {
           type="button"
           variant="ghost"
           size="icon-xs"
-          aria-label={LIBRARY_WORDS.clearSearch}
+          aria-label={SEARCH_WORDS.clearSearch}
           onClick={() => {
-            searchFor("");
+            setValue("");
+            commitQuery("");
             inputRef.current?.focus();
           }}
-          className="absolute end-1"
+          className="absolute end-1 cursor-pointer"
         >
           <XIcon
             aria-hidden="true"

@@ -4,7 +4,6 @@ import type { LayoutBlock, Pagination } from "@manent/pagination";
 import { PLACE_WORDS, READOUT_WORDS, matchesQuery } from "@manent/ui";
 import type { PaletteRow, PaletteSource } from "@manent/ui";
 import type { EditorControl } from "../editor-host/control.ts";
-import type { ContinueItem, ProjectItem } from "../services/ports.ts";
 import type { OutlineSelectors } from "../state/outline.store.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 
@@ -111,36 +110,6 @@ export function createPlaceSource(options: {
               row(`${LINE}${name}`, "place", PLACE_WORDS.nextLine(name), null),
             );
       return matching(query, [...scenes, ...pages, ...lines]);
-    },
-  };
-}
-
-/** The scripts the person continues and the projects that hold one, each under where it lives. */
-export function createDocumentSource(options: {
-  scripts: () => readonly ContinueItem[];
-  projects: () => readonly ProjectItem[];
-}): PaletteSource {
-  return {
-    kind: "document",
-    rows(query) {
-      const scripts = options
-        .scripts()
-        .map((script) =>
-          row(
-            `${DOCUMENT}${script.docId}`,
-            "document",
-            script.title,
-            script.projectTitle,
-          ),
-        );
-      const shown = new Set(scripts.map((script) => script.id));
-      const projects = options.projects().flatMap((project) => {
-        const id = `${DOCUMENT}${project.firstDocId}`;
-        return project.firstDocId === null || shown.has(id)
-          ? []
-          : [row(id, "document", project.title, null)];
-      });
-      return matching(query, [...scripts, ...projects]);
     },
   };
 }
