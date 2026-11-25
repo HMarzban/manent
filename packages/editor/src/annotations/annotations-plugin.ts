@@ -3,6 +3,7 @@ import type { ChangeHint } from "@manent/pagination";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import type { DecorationSet } from "prosemirror-view";
+import { changesKey } from "../changes/plugin.ts";
 import { toIndex, updateIndex } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -156,7 +157,13 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
           const repaged =
             paginationKey.getState(view.state)?.pagination !==
             paginationKey.getState(prevState)?.pagination;
-          if (now === was && !repaged) return;
+          const nowChanges = changesKey.getState(view.state);
+          const wasChanges = changesKey.getState(prevState);
+          const changesShifted =
+            (nowChanges?.comparison !== null &&
+              nowChanges?.display === "page") !==
+            (wasChanges?.comparison !== null && wasChanges?.display === "page");
+          if (now === was && !repaged && !changesShifted) return;
           // from the states either side of the update, so a removal in a transaction followed by others is said
           const removed = newlyRemoved(was, now);
           if (removed.length > 0) options.onRemoved(removed);

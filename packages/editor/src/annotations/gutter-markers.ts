@@ -6,6 +6,8 @@ import {
   gutterColumnPx,
   markPosition,
 } from "../changes/layer.ts";
+import type { GutterColumn } from "../changes/layer.ts";
+import { changesKey } from "../changes/plugin.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
 import type { Place } from "./anchor-places.ts";
@@ -121,11 +123,22 @@ function drawnPages(frame: HTMLElement, count: number): number[] {
   return [...new Set(pages)].toSorted((a, b) => a - b);
 }
 
+/** True while page-mode diff author initials occupy gutter column 0. */
+const hasPageChanges = (state: EditorView["state"]): boolean => {
+  const changes = changesKey.getState(state);
+  return (
+    changes !== undefined &&
+    changes.comparison !== null &&
+    changes.display === "page"
+  );
+};
+
 /** Where each marker whose block starts on a drawn page stands: the gutter, level with the block's first line. */
 function spotsOf(
   frame: HTMLElement,
   pages: PaginationState,
   markers: readonly Marker[],
+  column: GutterColumn,
 ): Spot[] {
   const { pagination, settings } = pages;
   return drawnPages(frame, pagination.pages.length).flatMap((k) => {
@@ -144,7 +157,7 @@ function spotsOf(
         {
           marker,
           top: at.topPx,
-          left: gutterColumnPx(at.gutterPx, GUTTER_COLUMNS.comments),
+          left: gutterColumnPx(at.gutterPx, column),
         },
       ];
     });
@@ -247,7 +260,10 @@ export function createGutter(
       clearDrawn();
       return;
     }
-    const spots = spotsOf(frame, pages, markers);
+    const column = hasPageChanges(view.state)
+      ? GUTTER_COLUMNS.comments
+      : GUTTER_COLUMNS.changes;
+    const spots = spotsOf(frame, pages, markers, column);
     const zoom = zoomOf(frame);
     const next = JSON.stringify([zoom, spots]);
     if (next === key) return;

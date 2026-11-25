@@ -592,9 +592,9 @@ html[data-white-page] .mn-pages {
   --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
 
   /* desk and page furniture: px. --desk-pad scales with page zoom;
-     --desk-gutter, which holds the markers beside the sheet, does not. */
+     --desk-gutter, which holds the markers beside the sheet (annotations + people), does not. */
   --desk-pad: 32px;
-  --desk-gutter: 32px;
+  --desk-gutter: 96px;
   --page-zoom: 1;
   --tour-ring: var(--p-demo-600);
 }

@@ -410,7 +410,8 @@ test("schema-emitted inline marks (data-color, data-highlight, .caps, strong) ar
     hasThemeRule("mark[data-highlight]", "color", "inherit"),
     hasThemeRule(".mn-page-view .caps", "text-transform", "uppercase"),
     hasThemeRule(".mn-page-view strong", "font-weight", "700"),
-  ]).toEqual([true, true, true]);
+    Number.parseFloat(resolveValue(theme, "--desk-gutter", v("dark"))) >= 96,
+  ]).toEqual([true, true, true, true]);
 
   const low: string[] = [];
   for (const variant of VARIANTS) {

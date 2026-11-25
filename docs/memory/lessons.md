@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Multi-column gutter markers overflowed a single-column desk gutter behind the side panel
+
+- Date: 2026-11-25
+
+### What happened
+
+`--desk-gutter` remained `32px` while annotation markers sat unconditionally in column 1 (`+36px` from the sheet edge) and grew to ~50 px for mixed Comment/Note badges, with collaborator initials in column 2 (`+64px`). At `1280px` with the right side panel open, both badges collided with each other and clipped past the page desk's right edge behind the panel.
+
+### How it was caught
+
+By visual inspection and live browser bounding-box checks with the right side panel open.
+
+### Rule
+
+Keep `--desk-gutter` wide enough (`>= 96px`) to hold all visible gutter columns with breathing room, and anchor annotation badges at column 0 (`+8px` beside the sheet) whenever page-mode diff initials are absent so wide mixed badges never collide with collaborator avatars or clip off-screen.
+
+### Enforced by
+
+`tools/test/theme.test.ts` (asserting `--desk-gutter >= 96px`) and `packages/editor/test/annotations-plugin.dom.test.ts` (verifying column 0 in normal editing and column 1 when page-mode changes are active).
+
 ## Theme CSS styled legacy mark attributes instead of what the schema emitted
 
 - Date: 2026-11-25
