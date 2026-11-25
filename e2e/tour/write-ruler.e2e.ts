@@ -7,7 +7,9 @@ tourScenario("write-ruler", async ({ page, scenario, step }) => {
   await expect(page.locator("[data-tour='status:server']")).toHaveText(
     "Synced",
   );
-  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+  await page
+    .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+    .click();
   await (await step(0)).click();
   await page.keyboard.press("Escape");
   // a speech below the top of the page, where the Ruler's bar is drawn

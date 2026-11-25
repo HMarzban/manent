@@ -19,7 +19,9 @@ tourScenario("production-sides", async ({ page, scenario, step }) => {
     "Synced",
   );
   if (!(await leftPanel.isVisible())) {
-    await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+    await page
+      .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+      .click();
     await page.getByRole("menuitemcheckbox", { name: "Left panel" }).click();
     await page.keyboard.press("Escape");
     await expect(leftPanel).toBeVisible();

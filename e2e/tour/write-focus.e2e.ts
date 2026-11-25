@@ -17,14 +17,18 @@ tourScenario("write-focus", async ({ page, scenario, step }) => {
   // Ensure the left Scenes panel is open before entering Focus mode so toggling off brings Scenes back
   const leftPanel = page.locator("[data-region='left_panel']");
   if (!(await leftPanel.isVisible())) {
-    await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+    await page
+      .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+      .click();
     await page.locator("[data-tour='view.leftPanel']").click();
     await page.keyboard.press("Escape");
     await expect(leftPanel).toBeVisible();
   }
 
   await selectTourStep(page, scenario.promise, 0);
-  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+  await page
+    .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+    .click();
   await (await step(0)).click();
   await page.keyboard.press("Escape");
 
@@ -36,7 +40,9 @@ tourScenario("write-focus", async ({ page, scenario, step }) => {
   ).toBeVisible();
 
   // Choose Focus mode again: both panels return as they were, including Scenes
-  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+  await page
+    .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+    .click();
   await page.locator("[data-tour='view.focusMode']").click();
   await page.keyboard.press("Escape");
   await expect(leftPanel).toBeVisible();
