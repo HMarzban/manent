@@ -8,6 +8,7 @@ export * from "./complete/index.ts";
 export * from "./cursors/index.ts";
 export * from "./elements/index.ts";
 export * from "./identity/index.ts";
+export * from "./ink/index.ts";
 export * from "./keys/index.ts";
 export * from "./margin-marks/index.ts";
 export * from "./margin-people/index.ts";

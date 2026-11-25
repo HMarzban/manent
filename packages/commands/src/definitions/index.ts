@@ -40,6 +40,7 @@ import { RUNDOWN_COMMANDS } from "./rundown.ts";
 import { PROMPTER_COMMANDS } from "./prompter.ts";
 import { WORKSPACE_COMMANDS } from "./workspace.ts";
 import { ACCOUNT_COMMANDS } from "./account.ts";
+import { INK_COMMANDS } from "./ink.ts";
 
 export const COMMANDS = defineCommands([
   ...APP_COMMANDS,
@@ -80,6 +81,7 @@ export const COMMANDS = defineCommands([
   ...PROMPTER_COMMANDS,
   ...WORKSPACE_COMMANDS,
   ...ACCOUNT_COMMANDS,
+  ...INK_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];

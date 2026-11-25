@@ -56,3 +56,5 @@ export * from "./workspace.ts";
 export * from "./account.ts";
 export * from "./notifications.ts";
 export * from "./api-keys.ts";
+export * from "./ink.ts";
+export * from "./game-exports.ts";
