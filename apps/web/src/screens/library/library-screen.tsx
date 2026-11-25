@@ -26,7 +26,7 @@ import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
-import { panelsActions, usePanel } from "../../state/panels.store.ts";
+import { panelsActions } from "../../state/panels.store.ts";
 import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
@@ -212,23 +212,6 @@ function GettingReady(props: {
   );
 }
 
-function LibrarySidePanel(): ReactNode {
-  const open = usePanel("side").tab !== null;
-  if (!open) return null;
-  return (
-    <>
-      <div
-        aria-hidden="true"
-        onClick={() => panelsActions.close("side")}
-        className="absolute inset-0 z-10 bg-scrim md:hidden"
-      />
-      <div className="absolute inset-y-0 end-0 z-20 flex min-h-0 max-w-full border-s border-line shadow-overlay md:static md:z-auto md:border-s-0 md:shadow-none">
-        <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
-      </div>
-    </>
-  );
-}
-
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
   const { api, person } = props;
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
@@ -300,7 +283,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
             <GettingReady name={shown.name} seeding={shown.seeding} />
           )}
         </div>
-        <LibrarySidePanel />
+        <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
       </div>
       <LibraryStatusBar projects={projects} />
     </div>
