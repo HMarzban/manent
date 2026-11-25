@@ -186,8 +186,9 @@ function useScriptStyleRevision(docId: string, active: boolean): number {
 function RulerBarContent(props: {
   docId: string;
   barRef: RefObject<HTMLDivElement | null>;
+  onLayout: () => void;
 }): ReactNode {
-  const { docId, barRef } = props;
+  const { docId, barRef, onLayout } = props;
   const services = useServices();
   const { editor } = services;
   const columnCells = useEditorFact("columnCells");
@@ -246,6 +247,7 @@ function RulerBarContent(props: {
   }, [projectId, editable, locked]);
 
   const [barLeftPx, setBarLeftPx] = useState(0);
+  useLayoutEffect(onLayout);
   useLayoutEffect(() => {
     if (barRef.current !== null)
       setBarLeftPx(barRef.current.getBoundingClientRect().left);
@@ -383,10 +385,16 @@ function RulerBarContent(props: {
 export function RulerBar(props: { docId: string }): ReactNode {
   const shown = useRulerShown();
   const bar = useRef<HTMLDivElement>(null);
-  useKeepPageStill(bar);
+  const keepStill = useKeepPageStill(bar);
   return (
     <div ref={bar} data-tour="ruler" style={RULER_AREA} className="relative">
-      {shown ? <RulerBarContent docId={props.docId} barRef={bar} /> : null}
+      {shown ? (
+        <RulerBarContent
+          docId={props.docId}
+          barRef={bar}
+          onLayout={keepStill}
+        />
+      ) : null}
     </div>
   );
 }

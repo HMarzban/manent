@@ -118,15 +118,20 @@ test("the build writes a service worker holding the whole shell, fonts included"
   const chunks = chunksOf(built, outDir);
   const entry = chunks.find((chunk) => chunk.entry);
   if (entry === undefined) throw new TypeError("no entry chunk");
-  const entryReach = new Set(
-    staticReachOf(chunks, entry).map((c) => basename(c.name)),
+  const editorEntry = chunks.find((chunk) =>
+    chunk.entryPoint?.endsWith("services/person-editor.ts"),
   );
+  if (editorEntry === undefined) throw new TypeError("no person-editor chunk");
+  const requiredReach = new Set([
+    ...staticReachOf(chunks, entry).map((c) => basename(c.name)),
+    ...staticReachOf(chunks, editorEntry).map((c) => basename(c.name)),
+  ]);
   const onDemandMarkers = ["pdfjs-dist/", "packages/formats/"];
   const heavyOnDemand = new Set(
     chunks
       .filter(
         (chunk) =>
-          !entryReach.has(basename(chunk.name)) &&
+          !requiredReach.has(basename(chunk.name)) &&
           (onDemandMarkers.some((marker) =>
             chunk.entryPoint?.includes(marker),
           ) ||

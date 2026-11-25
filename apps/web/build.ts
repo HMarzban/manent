@@ -53,16 +53,18 @@ function onDemandAssetUrls(
 ): ReadonlySet<string> {
   const outputs = Object.entries(metafile.outputs);
   const byName = new Map(outputs);
-  const entryStatic = new Set<string>();
+  const requiredStatic = new Set<string>();
   const queue = outputs
     .filter(
       ([name, out]) =>
-        name.endsWith(".js") && out.entryPoint?.endsWith("index.html"),
+        name.endsWith(".js") &&
+        (out.entryPoint?.endsWith("index.html") === true ||
+          out.entryPoint?.endsWith("services/person-editor.ts") === true),
     )
     .map(([name]) => name);
   for (const name of queue) {
-    if (entryStatic.has(name)) continue;
-    entryStatic.add(name);
+    if (requiredStatic.has(name)) continue;
+    requiredStatic.add(name);
     const out = byName.get(name);
     if (out === undefined) continue;
     for (const imp of out.imports)
@@ -72,7 +74,7 @@ function onDemandAssetUrls(
     inkWorkerPaths.map((p) => `/${relative(outDir, p).replaceAll("\\", "/")}`),
   );
   for (const [name, out] of outputs) {
-    if (!name.endsWith(".js") || entryStatic.has(name)) continue;
+    if (!name.endsWith(".js") || requiredStatic.has(name)) continue;
     const isHeavy =
       ON_DEMAND_INPUTS.some((marker) => out.entryPoint?.includes(marker)) ||
       Object.keys(out.inputs).some((input) =>
