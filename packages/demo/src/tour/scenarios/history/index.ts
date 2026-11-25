@@ -9,6 +9,7 @@ import { HISTORY_WHO_WROTE } from "./history-who-wrote.ts";
 import { HISTORY_VIEW_VERSION } from "./history-view-version.ts";
 import { HISTORY_RESTORE_REVERSE } from "./history-restore-reverse.ts";
 import { HISTORY_SEND_DRAFT } from "./history-send-draft.ts";
+import { HISTORY_VERSION_LINK } from "./history-version-link.ts";
 
 export const HISTORY: readonly TourScenario[] = [
   HISTORY_EVERY_VERSION,
@@ -20,4 +21,5 @@ export const HISTORY: readonly TourScenario[] = [
   HISTORY_VIEW_VERSION,
   HISTORY_RESTORE_REVERSE,
   HISTORY_SEND_DRAFT,
+  HISTORY_VERSION_LINK,
 ];

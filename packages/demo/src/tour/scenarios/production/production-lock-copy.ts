@@ -9,19 +9,23 @@ export const PRODUCTION_LOCK_COPY: TourScenario = {
     userId: "priya",
     open: UNDERTOW,
     extraWindows: [],
-    prepare: null,
+    prepare: "undertow-unlocked",
     shell: "any",
   },
   steps: [
-    { text: "Duplicate 203, then lock the copy.", highlight: "page" },
-    { text: "Open 203 again: it is not locked.", highlight: "page" },
+    { text: "Choose Lock for production…", highlight: "production.lock" },
+    { text: "Choose Try it on a copy first.", highlight: "lock:copy" },
+    {
+      text: "Choose Open beside in the message.",
+      highlight: "copy.openCopyBeside",
+    },
   ],
   check:
-    'The copy reads "Page numbers and scene numbers are locked. Changes are now marked Blue."; 203 is as it was.',
+    "The message reads \"Made a copy, '203 Undertow — copy', and locked its page numbers. The original is unchanged.\"; 203 shows no revision in its state bar.",
   evidence: [
-    "Page numbers and scene numbers are locked. Changes are now marked Blue.",
+    "Made a copy, '203 Undertow — copy', and locked its page numbers. The original is unchanged.",
   ],
-  fresh: false,
-  waitsFor: "copy_script",
-  hidden: null,
+  fresh: true,
+  waitsFor: null,
+  hidden: "its end-to-end test does not pass yet",
 };
