@@ -1,4 +1,5 @@
 // The sources autocomplete asks at the caret, one per line, in the order their offers are listed.
+import { inkNamesSource } from "./ink-names.ts";
 import { projectNamesSource } from "./project-names.ts";
 import { MAX_SUGGESTIONS, scriptNamesSource } from "./suggest.ts";
 import type {
@@ -10,6 +11,7 @@ import type {
 export const COMPLETION_SOURCES: readonly CompletionSource[] = Object.freeze([
   scriptNamesSource,
   projectNamesSource,
+  inkNamesSource,
 ]);
 
 /**
