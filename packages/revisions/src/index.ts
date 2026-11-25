@@ -5,5 +5,6 @@ export * from "./checks/index.ts";
 export * from "./compare/index.ts";
 export * from "./merge/index.ts";
 export * from "./names/index.ts";
+export * from "./numbers/index.ts";
 export * from "./production/index.ts";
 export * from "./restore/index.ts";

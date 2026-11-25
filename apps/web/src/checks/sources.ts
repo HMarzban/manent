@@ -3,6 +3,7 @@ import { livePagination } from "../editor-host/live-editor.ts";
 import { outsideFontSentence } from "../send/output-checks.tsx";
 import { bracketTimeCheck } from "../timing/checks.ts";
 import { STAGE_2_CHECK_SOURCES } from "./script-sources.ts";
+import { nearDuplicateChecks } from "../numbers/near-duplicates.ts";
 
 /** What can be done about a check from where it is listed. */
 export interface CheckAction {
@@ -41,4 +42,5 @@ export const CHECK_SOURCES: readonly CheckSource[] = [
   outsideFont,
   ...STAGE_2_CHECK_SOURCES,
   bracketTimeCheck,
+  nearDuplicateChecks,
 ];

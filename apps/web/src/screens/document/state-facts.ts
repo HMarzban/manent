@@ -10,6 +10,8 @@ import { useOutlineStartFacts } from "../../outline-doc/start-fact.ts";
 import { useRundownFacts } from "../../rundown/state-facts.ts";
 import { usePrompterSendFacts } from "../../prompter/state-fact.ts";
 import { usePrompterFilesFacts } from "../../prompter-files/state-facts.ts";
+import { useReadAloudFacts } from "../../read-aloud/state-facts.ts";
+import { useSprintFacts } from "../../goals/state-facts.ts";
 
 export const STATE_FACT_SOURCES: readonly ((
   docId: string,
@@ -24,4 +26,6 @@ export const STATE_FACT_SOURCES: readonly ((
   useRundownFacts,
   usePrompterSendFacts,
   usePrompterFilesFacts,
+  useReadAloudFacts,
+  useSprintFacts,
 ];
