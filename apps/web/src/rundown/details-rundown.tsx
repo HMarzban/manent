@@ -3,15 +3,15 @@ import { setRundownFields } from "@manent/crdt";
 import type { RundownFieldsJSON } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
 import {
+  Button,
   Input,
   Label,
   RUNDOWN_WORDS,
   formatDuration,
   formatTime,
 } from "@manent/ui";
-import { TriangleExclamationPointIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { DatePickerPopover } from "./date-picker-popover.tsx";
 import {
@@ -26,42 +26,11 @@ import {
 import { formatAirDate, parseDurationMs } from "./dur-format.ts";
 import { recordRundownUndo } from "./handlers.ts";
 import { useRundownView } from "./rundown-session.ts";
-
-function FieldAlert(props: {
-  readonly id: string;
-  readonly message: string;
-}): ReactNode {
-  return (
-    <p
-      id={props.id}
-      role="alert"
-      className="flex items-start gap-1 text-meta text-fg"
-    >
-      <TriangleExclamationPointIcon
-        aria-hidden="true"
-        className="mt-0.5 size-icon shrink-0 text-attention"
-      />
-      <span>{props.message}</span>
-    </p>
-  );
-}
-
-function handleFieldKeyDown(
-  event: KeyboardEvent<HTMLInputElement>,
-  commit: () => void,
-  cancel: () => void,
-): void {
-  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-    event.preventDefault();
-    commit();
-    return;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    event.stopPropagation();
-    cancel();
-  }
-}
+import {
+  RundownFieldAlert,
+  RundownHintedTextField,
+  handleRundownFieldKeyDown,
+} from "./rundown-states.tsx";
 
 interface RundownDetailsFormProps {
   readonly docId: string;
@@ -79,6 +48,10 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
   const { isDateTaken, writeIndexAirDate } = useProjectRundownIndex(docId);
 
   useEffect(() => {
+    if (readOnly) {
+      handleRef.current = null;
+      return;
+    }
     let live = true;
     let opened: DocHandle | null = null;
     void services
@@ -99,7 +72,7 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
       handleRef.current = null;
       if (opened !== null) void opened.close();
     };
-  }, [services, docId]);
+  }, [services, docId, readOnly]);
 
   // Keep the workspace index's airDate aligned when an own Date change is undone or redone.
   useEffect(() => {
@@ -121,17 +94,14 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
   const [windowDraft, setWindowDraft] = useState<string | null>(null);
   const [windowError, setWindowError] = useState<string | null>(null);
 
-  const dateId = useId();
-  const dateErrorId = useId();
-  const airId = useId();
-  const airHintId = useId();
-  const airErrorId = useId();
-  const targetId = useId();
-  const targetHintId = useId();
-  const targetErrorId = useId();
-  const windowId = useId();
-  const windowUnitId = useId();
-  const windowErrorId = useId();
+  const uid = useId();
+  const dateId = `${uid}-date`;
+  const dateErrorId = `${uid}-date-err`;
+  const airId = `${uid}-air`;
+  const targetId = `${uid}-target`;
+  const windowId = `${uid}-window`;
+  const windowUnitId = `${uid}-window-unit`;
+  const windowErrorId = `${uid}-window-err`;
 
   const nowMs = now();
   const formattedDate =
@@ -235,7 +205,7 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
   };
 
   const inputClass = readOnly
-    ? "h-control cursor-not-allowed tabular-nums text-ui opacity-50 aria-invalid:border-line-strong aria-invalid:ring-0"
+    ? "h-control tabular-nums text-ui text-fg aria-invalid:border-line-strong aria-invalid:ring-0"
     : "h-control tabular-nums text-ui aria-invalid:border-line-strong aria-invalid:ring-0";
 
   return (
@@ -248,91 +218,72 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
         <Label htmlFor={dateId} className="text-ui font-medium text-fg">
           {RUNDOWN_WORDS.dateLabel}
         </Label>
-        <DatePickerPopover
-          id={dateId}
-          value={fields.airDate}
-          formattedValue={formattedDate}
-          label={RUNDOWN_WORDS.dateLabel}
-          readOnly={readOnly}
-          describedBy={dateError === null ? undefined : dateErrorId}
-          nowMs={nowMs}
-          onSelect={handleSelectDate}
-        />
+        {readOnly ? (
+          <Button
+            id={dateId}
+            type="button"
+            variant="outline"
+            aria-disabled="true"
+            aria-describedby={dateError === null ? undefined : dateErrorId}
+            className="h-control w-full cursor-default justify-between text-ui font-normal text-fg"
+          >
+            <span className="truncate tabular-nums">{formattedDate}</span>
+          </Button>
+        ) : (
+          <DatePickerPopover
+            id={dateId}
+            value={fields.airDate}
+            formattedValue={formattedDate}
+            label={RUNDOWN_WORDS.dateLabel}
+            readOnly={false}
+            describedBy={dateError === null ? undefined : dateErrorId}
+            nowMs={nowMs}
+            onSelect={handleSelectDate}
+          />
+        )}
         {dateError === null ? null : (
-          <FieldAlert id={dateErrorId} message={dateError} />
+          <RundownFieldAlert id={dateErrorId} message={dateError} />
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={airId} className="text-ui font-medium text-fg">
-          {RUNDOWN_WORDS.airLabel}
-        </Label>
-        <Input
-          id={airId}
-          data-tour="rundown:air"
-          readOnly={readOnly}
-          aria-invalid={airError !== null ? true : undefined}
-          aria-describedby={
-            airError === null ? airHintId : `${airHintId} ${airErrorId}`
-          }
-          value={airDraft ?? airDisplay}
-          onChange={(event) => {
-            if (readOnly) return;
-            setAirDraft(event.target.value);
-            if (airError !== null) setAirError(null);
-          }}
-          onKeyDown={(event) =>
-            handleFieldKeyDown(event, commitAir, () => {
-              setAirDraft(null);
-              setAirError(null);
-            })
-          }
-          onBlur={commitAir}
-          className={inputClass}
-        />
-        <p id={airHintId} className="text-meta text-fg-muted">
-          {RUNDOWN_WORDS.airHint(formattedDate)}
-        </p>
-        {airError === null ? null : (
-          <FieldAlert id={airErrorId} message={airError} />
-        )}
-      </div>
+      <RundownHintedTextField
+        id={airId}
+        label={RUNDOWN_WORDS.airLabel}
+        hint={RUNDOWN_WORDS.airHint(formattedDate)}
+        value={airDraft ?? airDisplay}
+        error={airError}
+        readOnly={readOnly}
+        inputClass={inputClass}
+        tourTarget="rundown:air"
+        onChange={(next) => {
+          setAirDraft(next);
+          if (airError !== null) setAirError(null);
+        }}
+        onCommit={commitAir}
+        onCancel={() => {
+          setAirDraft(null);
+          setAirError(null);
+        }}
+      />
 
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={targetId} className="text-ui font-medium text-fg">
-          {RUNDOWN_WORDS.targetLabel}
-        </Label>
-        <Input
-          id={targetId}
-          readOnly={readOnly}
-          aria-invalid={targetError !== null ? true : undefined}
-          aria-describedby={
-            targetError === null
-              ? targetHintId
-              : `${targetHintId} ${targetErrorId}`
-          }
-          value={targetDraft ?? targetDisplay}
-          onChange={(event) => {
-            if (readOnly) return;
-            setTargetDraft(event.target.value);
-            if (targetError !== null) setTargetError(null);
-          }}
-          onKeyDown={(event) =>
-            handleFieldKeyDown(event, commitTarget, () => {
-              setTargetDraft(null);
-              setTargetError(null);
-            })
-          }
-          onBlur={commitTarget}
-          className={inputClass}
-        />
-        <p id={targetHintId} className="text-meta text-fg-muted">
-          {RUNDOWN_WORDS.targetHint}
-        </p>
-        {targetError === null ? null : (
-          <FieldAlert id={targetErrorId} message={targetError} />
-        )}
-      </div>
+      <RundownHintedTextField
+        id={targetId}
+        label={RUNDOWN_WORDS.targetLabel}
+        hint={RUNDOWN_WORDS.targetHint}
+        value={targetDraft ?? targetDisplay}
+        error={targetError}
+        readOnly={readOnly}
+        inputClass={inputClass}
+        onChange={(next) => {
+          setTargetDraft(next);
+          if (targetError !== null) setTargetError(null);
+        }}
+        onCommit={commitTarget}
+        onCancel={() => {
+          setTargetDraft(null);
+          setTargetError(null);
+        }}
+      />
 
       <div className="flex flex-col gap-1">
         <Label htmlFor={windowId} className="text-ui font-medium text-fg">
@@ -356,7 +307,7 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
               if (windowError !== null) setWindowError(null);
             }}
             onKeyDown={(event) =>
-              handleFieldKeyDown(event, commitWindow, () => {
+              handleRundownFieldKeyDown(event, commitWindow, () => {
                 setWindowDraft(null);
                 setWindowError(null);
               })
@@ -369,7 +320,7 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
           </span>
         </div>
         {windowError === null ? null : (
-          <FieldAlert id={windowErrorId} message={windowError} />
+          <RundownFieldAlert id={windowErrorId} message={windowError} />
         )}
       </div>
     </div>
