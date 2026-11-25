@@ -657,3 +657,174 @@ test("cross-project isolation: ticks and unticks in Project A never affect Proje
   expect(readProjectCanAlso(h.storage, DOC_PRIVATE).size).toBe(0);
   expect(h.sync.access.capabilitiesOf("sam", WS_MAIN_INDEX)).toEqual([]);
 });
+
+test("revoked subscriber on an open socket cannot self-reinstate via groups, owner-only maps, or tombstone re-insert", async () => {
+  const h = createHarness();
+  await seedProjects(h);
+
+  // Open a live subscription for Priya while she still holds issue_revisions
+  const stalePriya = fakePeer({ userId: "priya", name: "Priya", versions: V1 });
+  h.sync.attach(stalePriya);
+  h.sync.receive(stalePriya, {
+    type: "SUBSCRIBE",
+    docId: PROJ_A_INDEX,
+    generation: 0,
+    mode: "edit",
+    clientIds: [601],
+    lastServerSeq: 0,
+  });
+  await h.flush();
+  stalePriya.take();
+
+  // Owner Dana revokes Priya on all capabilities, granting issue_revisions and delete only to g-producers (Dana only),
+  // and creates then deletes g-temp (leaving a Yjs tombstone on g-temp).
+  expect(
+    (
+      await pushAs(h, "dana", PROJ_A_INDEX, 602, (doc) => {
+        writeGroup(doc, {
+          id: "g-producers",
+          name: "Producers",
+          role: "comment",
+          memberUserIds: ["dana"],
+          watermark: false,
+        });
+        writeGroup(doc, {
+          id: "g-temp",
+          name: "Temp",
+          role: "edit",
+          memberUserIds: ["priya"],
+          watermark: false,
+        });
+        const canAlso = jsonMap(doc, "can_also");
+        for (const cap of OWNER_CAPABILITIES)
+          canAlso.set(cap, { userIds: [], groupIds: ["g-producers"] });
+      })
+    ).some((m) => m.type === "ACK"),
+  ).toBe(true);
+
+  expect(
+    (
+      await pushAs(h, "dana", PROJ_A_INDEX, 603, (doc) => {
+        jsonMap(doc, "groups").delete("g-temp");
+      })
+    ).some((m) => m.type === "ACK"),
+  ).toBe(true);
+  stalePriya.take();
+
+  expect(h.sync.access.capabilitiesOf("priya", DOC_A_SCRIPT)).toEqual([]);
+
+  // Exploit A: stale Priya pushes a groups-only update adding herself to g-producers -> MUST be refused 4422!
+  const committed1 = h.readDoc(PROJ_A_INDEX);
+  const local1 = loadDoc(committed1.encodeState(), { clientId: 601 });
+  committed1.destroy();
+  const v1 = local1.encodeStateVector();
+  writeGroup(local1, {
+    id: "g-producers",
+    name: "Producers",
+    role: "comment",
+    memberUserIds: ["dana", "priya"],
+    watermark: false,
+  });
+  const groupEscalation = local1.diff(v1);
+  local1.destroy();
+
+  h.sync.receive(stalePriya, {
+    type: "PUSH",
+    docId: PROJ_A_INDEX,
+    generation: 1,
+    clientSeq: 1,
+    update: groupEscalation,
+    heal: false,
+  });
+  await h.flush();
+  expect(stalePriya.take()).toEqual([
+    expect.objectContaining({ type: "ERROR", code: 4422 }),
+  ]);
+  expect(h.sync.access.capabilitiesOf("priya", DOC_A_SCRIPT)).toEqual([]);
+  h.sync.detach(stalePriya);
+
+  // Exploit B: stale subscriber (opened before revoke) tries tombstone re-insert of g-temp + template write -> refused 4422!
+  const h2 = createHarness();
+  await seedProjects(h2);
+  const stalePriya2 = fakePeer({
+    userId: "priya",
+    name: "Priya",
+    versions: V1,
+  });
+  h2.sync.attach(stalePriya2);
+  h2.sync.receive(stalePriya2, {
+    type: "SUBSCRIBE",
+    docId: PROJ_A_INDEX,
+    generation: 0,
+    mode: "edit",
+    clientIds: [611],
+    lastServerSeq: 0,
+  });
+  await h2.flush();
+  stalePriya2.take();
+
+  expect(
+    (
+      await pushAs(h2, "dana", PROJ_A_INDEX, 612, (doc) => {
+        writeGroup(doc, {
+          id: "g-temp",
+          name: "Temp",
+          role: "edit",
+          memberUserIds: ["priya"],
+          watermark: false,
+        });
+        jsonMap(doc, "can_also").set("issue_revisions", {
+          userIds: [],
+          groupIds: ["g-temp"],
+        });
+      })
+    ).some((m) => m.type === "ACK"),
+  ).toBe(true);
+  // Dana removes g-temp (leaving tombstone in groups)
+  expect(
+    (
+      await pushAs(h2, "dana", PROJ_A_INDEX, 613, (doc) => {
+        jsonMap(doc, "groups").delete("g-temp");
+      })
+    ).some((m) => m.type === "ACK"),
+  ).toBe(true);
+  stalePriya2.take();
+
+  // Stale Priya tries to tombstone-reinsert g-temp AND write can_also in the same push -> refused 4422!
+  const committed2 = h2.readDoc(PROJ_A_INDEX);
+  const local2 = loadDoc(committed2.encodeState(), { clientId: 611 });
+  committed2.destroy();
+  const v2 = local2.encodeStateVector();
+  writeGroup(local2, {
+    id: "g-temp",
+    name: "Temp",
+    role: "edit",
+    memberUserIds: ["priya"],
+    watermark: false,
+  });
+  jsonMap(local2, "can_also").set("delete", {
+    userIds: ["priya"],
+    groupIds: [],
+  });
+  const tombstoneEscalation = local2.diff(v2);
+  local2.destroy();
+
+  h2.sync.receive(stalePriya2, {
+    type: "PUSH",
+    docId: PROJ_A_INDEX,
+    generation: 1,
+    clientSeq: 1,
+    update: tombstoneEscalation,
+    heal: false,
+  });
+  await h2.flush();
+  expect(stalePriya2.take()).toEqual([
+    expect.objectContaining({ type: "ERROR", code: 4422 }),
+  ]);
+  expect(
+    h2.sync.access
+      .capabilitiesOf("priya", DOC_A_SCRIPT)
+      ?.includes("issue_revisions"),
+  ).toBe(false);
+  h2.sync.detach(stalePriya2);
+});
