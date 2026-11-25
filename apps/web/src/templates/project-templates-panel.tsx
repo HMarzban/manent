@@ -8,6 +8,7 @@ import type {
 } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
+import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   Button,
   DIALOG_WORDS,
@@ -16,7 +17,8 @@ import {
   SHARING_WORDS,
   SHOW_TEMPLATE_WORDS,
 } from "@manent/ui";
-import { useCallback, useEffect, useId, useState } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
+import { useCallback, useContext, useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import type { ProjectIndex } from "../project/project-index.ts";
 import { useIndexRead } from "../screens/project-settings/project-data.ts";
@@ -25,6 +27,7 @@ import type { ProjectKind } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
 import {
   clearProjectDefault,
+  findProjectWorkspaceSync,
   isTemplateProjectKind,
   listWorkspaceTemplates,
   readProjectRundownDefault,
@@ -180,6 +183,7 @@ export function TemplatesGroup(props: {
   } = props;
   const services = useServices();
   const { now } = useEnvironment();
+  const queries = useContext(QueryClientContext);
   const headingId = useId();
   const defaults = useIndexRead(index, "template", readDefaults);
   const [wsInfo, setWsInfo] = useState<{ id: string; name: string } | null>(
@@ -196,33 +200,39 @@ export function TemplatesGroup(props: {
       setWsInfo({ id: givenWsId, name: givenWsName ?? givenWsId });
       return;
     }
-    let shown = true;
-    void services.api.me().then((me) => {
-      if (!shown) return;
-      const workspaces = me.ok ? me.me.workspaces : [];
-      for (const ws of workspaces) {
-        if (
-          services.library
-            .projects(ws.id)
-            .get()
-            .some((p) => p.projectId === projectId)
-        ) {
-          setWsInfo({ id: ws.id, name: ws.name });
-          return;
-        }
-      }
-      if (
-        services.library
-          .projects(services.userId)
-          .get()
-          .some((p) => p.projectId === projectId)
-      )
-        setWsInfo({ id: services.userId, name: services.userId });
+    const cached =
+      queries?.getQueryData<readonly WorkspaceRef[]>(["me", services.userId]) ??
+      [];
+    const syncHit = findProjectWorkspaceSync({
+      library: services.library,
+      userId: services.userId,
+      projectId,
+      workspaces: cached,
     });
+    if (syncHit !== null) {
+      setWsInfo({ id: syncHit.workspaceId, name: syncHit.workspaceName });
+      return;
+    }
+    let shown = true;
+    void services.api
+      .me()
+      .then((me) => {
+        if (!shown) return;
+        const workspaces = me.ok ? me.me.workspaces : [];
+        const hit = findProjectWorkspaceSync({
+          library: services.library,
+          userId: services.userId,
+          projectId,
+          workspaces,
+        });
+        if (hit !== null)
+          setWsInfo({ id: hit.workspaceId, name: hit.workspaceName });
+      })
+      .catch(() => {});
     return () => {
       shown = false;
     };
-  }, [givenWsId, givenWsName, services, projectId]);
+  }, [givenWsId, givenWsName, services, projectId, queries]);
 
   useEffect(() => {
     if (wsInfo === null) return;

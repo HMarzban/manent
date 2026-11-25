@@ -27,6 +27,7 @@ import {
   OutlineContext,
   PeopleContext,
 } from "../state/bridge-contexts.ts";
+import { useOpenDialog } from "../state/dialog.store.ts";
 import { createFactsStore } from "../state/facts.store.ts";
 import type { FactsSelectors, FactsWriter } from "../state/facts.store.ts";
 import { createOutlineStore } from "../state/outline.store.ts";
@@ -173,6 +174,20 @@ const saveTemplateHost = loadApart(
     (await import("../templates/save-template-dialog.tsx")).SaveTemplateHost,
 );
 const SaveTemplateHost = saveTemplateHost.Component;
+
+function SaveTemplateDialogHost(props: {
+  readonly docId: string | null;
+}): ReactNode {
+  const open = useOpenDialog() === "save_template";
+  if (!open) return null;
+  return (
+    <SurfaceBoundary fallback={() => null}>
+      <Suspense fallback={null}>
+        <SaveTemplateHost docId={props.docId} />
+      </Suspense>
+    </SurfaceBoundary>
+  );
+}
 
 function TourFloatingHost(): ReactNode {
   const { tabStorage } = useEnvironment();
@@ -344,11 +359,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                     </SurfaceBoundary>
                     <GlobalKeys />
                     <TrashConfirmDialog />
-                    <SurfaceBoundary fallback={() => null}>
-                      <Suspense fallback={null}>
-                        <SaveTemplateHost docId={docId} />
-                      </Suspense>
-                    </SurfaceBoundary>
+                    <SaveTemplateDialogHost docId={docId} />
                     <TourFloatingHost />
                   </>
                 )}

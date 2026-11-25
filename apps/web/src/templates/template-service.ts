@@ -31,7 +31,12 @@ import type { FormatId, RundownColumnId } from "@manent/schema";
 import { paperForRegion } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
-import type { PersonServices, ProjectKind } from "../services/ports.ts";
+import type { WorkspaceRef } from "@manent/sync-protocol";
+import type {
+  LibraryIndex,
+  PersonServices,
+  ProjectKind,
+} from "../services/ports.ts";
 
 /** Named project default stored under `project.rundownSkeleton` or `project.scriptSkeleton`. */
 export interface StoredProjectTemplate<
@@ -39,6 +44,45 @@ export interface StoredProjectTemplate<
 > {
   readonly name: string;
   readonly skeleton: S;
+}
+
+/** Resolves `projectId`'s project title and workspace from cached workspaces first (offline-safe), falling back to personal workspace. */
+export function findProjectWorkspaceSync(options: {
+  readonly library: Pick<LibraryIndex, "projects">;
+  readonly userId: string;
+  readonly projectId: string;
+  readonly workspaces: readonly WorkspaceRef[];
+}): {
+  readonly projectTitle: string;
+  readonly workspaceId: string;
+  readonly workspaceName: string;
+} | null {
+  const { library, userId, projectId, workspaces } = options;
+  for (const ws of workspaces) {
+    const hit = library
+      .projects(ws.id)
+      .get()
+      .find((p) => p.projectId === projectId);
+    if (hit !== undefined) {
+      return {
+        projectTitle: hit.title,
+        workspaceId: ws.id,
+        workspaceName: ws.name,
+      };
+    }
+  }
+  const own = library
+    .projects(userId)
+    .get()
+    .find((p) => p.projectId === projectId);
+  if (own !== undefined) {
+    return {
+      projectTitle: own.title,
+      workspaceId: userId,
+      workspaceName: own.title,
+    };
+  }
+  return null;
 }
 
 /** True only for Show and News projects, which support reusable templates. */

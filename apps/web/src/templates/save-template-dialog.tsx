@@ -1,5 +1,7 @@
 // Save template dialog for Show and News scripts and rundowns: saves as project default or shared in workspace, offline-first.
 import type { TemplateKind } from "@manent/crdt";
+import { indexDocId } from "@manent/sync-protocol";
+import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   Button,
   DIALOG_WORDS,
@@ -17,13 +19,15 @@ import {
   createValue,
   useSubscribable,
 } from "@manent/ui";
+import { QueryClientContext } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { ProjectKind } from "../services/ports.ts";
 import { dialogActions, useOpenDialog } from "../state/dialog.store.ts";
 import {
+  findProjectWorkspaceSync,
   isTemplateProjectKind,
   saveTemplate,
   stripHandleForTemplate,
@@ -280,47 +284,50 @@ export function SaveTemplateHost(props: {
   const title = useSubscribable(titleSub) ?? "";
   const rawDocKind = useSubscribable(docKindSub);
 
+  const queries = useContext(QueryClientContext);
   const [meta, setMeta] = useState<{
     projectTitle: string;
     workspaceId: string;
     workspaceName: string;
+    canSaveProjectDefault: boolean;
   } | null>(null);
 
   useEffect(() => {
     if (!open || projectId === null) return;
     let shown = true;
-    void api.me().then((me) => {
-      if (!shown) return;
-      const workspaces = me.ok ? me.me.workspaces : [];
-      for (const ws of workspaces) {
-        const hit = library
-          .projects(ws.id)
-          .get()
-          .find((p) => p.projectId === projectId);
-        if (hit !== undefined) {
-          setMeta({
-            projectTitle: hit.title,
-            workspaceId: ws.id,
-            workspaceName: ws.name,
-          });
-          return;
-        }
-      }
-      const own = library
-        .projects(userId)
-        .get()
-        .find((p) => p.projectId === projectId);
-      if (own !== undefined)
-        setMeta({
-          projectTitle: own.title,
-          workspaceId: userId,
-          workspaceName: own.title,
-        });
+    const cached =
+      queries?.getQueryData<readonly WorkspaceRef[]>(["me", userId]) ?? [];
+    const syncHit = findProjectWorkspaceSync({
+      library,
+      userId,
+      projectId,
+      workspaces: cached,
     });
+    const rolePromise = api
+      .role(indexDocId("project", projectId))
+      .catch(() => null);
+    void (async () => {
+      let resolved = syncHit;
+      if (resolved === null) {
+        const me = await api.me().catch(() => null);
+        const workspaces = me?.ok ? me.me.workspaces : [];
+        resolved = findProjectWorkspaceSync({
+          library,
+          userId,
+          projectId,
+          workspaces,
+        });
+      }
+      const role = await rolePromise;
+      if (!shown || resolved === null) return;
+      // server project `"template"` map is owners-only; editors only see Shared in {workspace}
+      const canSaveProjectDefault = role === null ? true : role === "owner";
+      setMeta({ ...resolved, canSaveProjectDefault });
+    })();
     return () => {
       shown = false;
     };
-  }, [open, api, library, userId, projectId]);
+  }, [open, api, library, userId, projectId, queries]);
 
   if (
     !open ||
@@ -343,6 +350,7 @@ export function SaveTemplateHost(props: {
       workspaceId={meta.workspaceId}
       workspaceName={meta.workspaceName}
       initialName={title || meta.projectTitle}
+      canSaveProjectDefault={meta.canSaveProjectDefault}
     />
   );
 }

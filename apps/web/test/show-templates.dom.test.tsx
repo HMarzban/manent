@@ -20,6 +20,7 @@ import type {
 import { SHOW_COLUMNS, randomBlockId } from "@manent/schema";
 import type { DocHandle, DocStatus, SyncClient } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
+import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   DIALOG_WORDS,
   LAYOUT_SETTINGS_WORDS,
@@ -27,6 +28,7 @@ import {
   SHOW_TEMPLATE_WORDS,
   createValue,
 } from "@manent/ui";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -48,9 +50,13 @@ import type {
   ProjectKind,
 } from "../src/services/ports.ts";
 import { isProjectUntouched } from "../src/services/sync/library-create.ts";
+import { dialogActions } from "../src/state/dialog.store.ts";
 import { bindGuard } from "../src/state/guard.ts";
 import { TemplatesGroup } from "../src/templates/project-templates-panel.tsx";
-import { SaveTemplateDialog } from "../src/templates/save-template-dialog.tsx";
+import {
+  SaveTemplateDialog,
+  SaveTemplateHost,
+} from "../src/templates/save-template-dialog.tsx";
 import {
   applyScriptTemplateToHandle,
   listWorkspaceTemplates,
@@ -71,7 +77,9 @@ const BLK_2_ID = randomBlockId();
 let mounted: Root | null = null;
 
 afterEach(async () => {
+  if (mounted === null) return;
   await act(async () => {
+    dialogActions.close();
     mounted?.unmount();
   });
   mounted = null;
@@ -750,5 +758,177 @@ describe("NewRundownSplitControl and template instantiation", () => {
         handle,
       ),
     ).toBe(true);
+  });
+});
+
+function makeHostServices(options: {
+  readonly docs: ReadonlyMap<string, CrdtDoc>;
+  readonly api: PersonServices["api"];
+}): {
+  services: PersonServices;
+  environment: ReturnType<typeof testEnvironment>;
+} {
+  const { services: base, environment } = makeServicesWithDocs(options.docs);
+  const projectItem = {
+    projectId: "proj-1",
+    title: "The Late Desk",
+    kind: "show" as const,
+    firstDocId: "rd-1",
+    lastEdited: { byName: "Dana", at: NOW },
+    place: { kind: "synced" as const },
+  };
+  const library = {
+    ...base.library,
+    projects: (wsId: string) =>
+      createValue(wsId === "ws-1" ? [projectItem] : []),
+    documentProject: (id: string) =>
+      createValue(id === "rd-1" ? "proj-1" : null),
+    documentKind: (id: string) =>
+      createValue(id === "rd-1" ? ("show" as ProjectKind) : null),
+    documentTitle: (id: string) =>
+      createValue(id === "rd-1" ? "Weeknight rundown" : null),
+    docKindOf: (id: string) =>
+      createValue(id === "rd-1" ? ("rundown" as const) : null),
+  };
+  return {
+    environment,
+    services: { ...base, api: options.api, library },
+  };
+}
+
+describe("SaveTemplateHost ACL and offline workspace resolution", () => {
+  test("editor role hides This project's default and saves to workspace templates", async () => {
+    const rundownDoc = makeSampleRundownDoc();
+    const projectDoc = createDoc();
+    const wsDoc = createDoc();
+    const docs = new Map<string, CrdtDoc>([
+      ["rd-1", rundownDoc],
+      [indexDocId("project", "proj-1"), projectDoc],
+      [indexDocId("workspace", "ws-1"), wsDoc],
+    ]);
+    const ws: WorkspaceRef = { id: "ws-1", name: "Studio A", seeding: null };
+    const { services: base } = makeServicesWithDocs(docs);
+    const { services, environment } = makeHostServices({
+      docs,
+      api: {
+        ...base.api,
+        me: async () => ({
+          ok: true,
+          me: { userId: "dana", name: "Dana", workspaces: [ws] },
+        }),
+        role: async (docId) =>
+          docId === indexDocId("project", "proj-1") ? "edit" : null,
+      },
+    });
+
+    const container = document.createElement("div");
+    document.body.replaceChildren(container);
+    mounted = createRoot(container);
+
+    await act(async () => {
+      dialogActions.open("save_template");
+      mounted?.render(
+        <EnvironmentProvider environment={environment}>
+          <ServicesProvider services={services}>
+            <SaveTemplateHost docId="rd-1" />
+          </ServicesProvider>
+        </EnvironmentProvider>,
+      );
+    });
+    await flushMicrotasks();
+
+    const dialog = document.body.querySelector<HTMLElement>(
+      '[data-surface="save_template_dialog"]',
+    );
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).not.toContain(
+      SHOW_TEMPLATE_WORDS.projectDefault,
+    );
+    expect(dialog?.textContent).toContain(
+      SHOW_TEMPLATE_WORDS.sharedInWorkspace("Studio A"),
+    );
+
+    const submit = dialog?.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    await act(async () => {
+      submit?.click();
+    });
+    await flushMicrotasks();
+
+    expect(readProjectRundownDefault(projectDoc)).toBeNull();
+    expect(listWorkspaceTemplates(wsDoc, "rundown")).toHaveLength(1);
+    expect(listWorkspaceTemplates(wsDoc, "rundown")[0]?.name).toBe(
+      "Weeknight rundown",
+    );
+  });
+
+  test("opens and saves offline using cached workspaces when api.me() is unreachable", async () => {
+    const rundownDoc = makeSampleRundownDoc();
+    const projectDoc = createDoc();
+    const wsDoc = createDoc();
+    const docs = new Map<string, CrdtDoc>([
+      ["rd-1", rundownDoc],
+      [indexDocId("project", "proj-1"), projectDoc],
+      [indexDocId("workspace", "ws-1"), wsDoc],
+    ]);
+    const ws: WorkspaceRef = { id: "ws-1", name: "Studio A", seeding: null };
+    const { services: base } = makeServicesWithDocs(docs);
+    let meCalls = 0;
+    const { services, environment } = makeHostServices({
+      docs,
+      api: {
+        ...base.api,
+        me: async () => {
+          meCalls += 1;
+          throw new Error("offline");
+        },
+        role: async () => {
+          throw new Error("offline");
+        },
+      },
+    });
+
+    const queryClient = new QueryClient();
+    queryClient.setQueryData<readonly WorkspaceRef[]>(["me", "dana"], [ws]);
+
+    const container = document.createElement("div");
+    document.body.replaceChildren(container);
+    mounted = createRoot(container);
+
+    await act(async () => {
+      dialogActions.open("save_template");
+      mounted?.render(
+        <QueryClientProvider client={queryClient}>
+          <EnvironmentProvider environment={environment}>
+            <ServicesProvider services={services}>
+              <SaveTemplateHost docId="rd-1" />
+            </ServicesProvider>
+          </EnvironmentProvider>
+        </QueryClientProvider>,
+      );
+    });
+    await flushMicrotasks();
+
+    expect(meCalls).toBe(0);
+    const dialog = document.body.querySelector<HTMLElement>(
+      '[data-surface="save_template_dialog"]',
+    );
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain(
+      SHOW_TEMPLATE_WORDS.sharedInWorkspace("Studio A"),
+    );
+
+    const submit = dialog?.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    await act(async () => {
+      submit?.click();
+    });
+    await flushMicrotasks();
+
+    expect(readProjectRundownDefault(projectDoc)?.name).toBe(
+      "Weeknight rundown",
+    );
   });
 });
