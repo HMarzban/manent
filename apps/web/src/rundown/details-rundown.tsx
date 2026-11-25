@@ -24,6 +24,7 @@ import {
   useProjectRundownIndex,
 } from "./details-rundown-fields.ts";
 import { formatAirDate, parseDurationMs } from "./dur-format.ts";
+import { recordRundownUndo } from "./handlers.ts";
 import { useRundownView } from "./rundown-session.ts";
 
 function FieldAlert(props: {
@@ -142,10 +143,12 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
     fields.targetMs === null ? "" : formatDuration(fields.targetMs);
   const windowMinutes = Math.round(fields.windowLeadMs / MS_PER_MINUTE);
 
-  const writeFields = (patch: Partial<RundownFieldsJSON>): void => {
+  const writeFields = (patch: Partial<RundownFieldsJSON>): boolean => {
     const handle = handleRef.current;
-    if (handle === null || readOnly) return;
+    if (handle === null || readOnly) return false;
     setRundownFields(handle.doc(), patch);
+    recordRundownUndo(docId, { message: null });
+    return true;
   };
 
   const handleSelectDate = (nextIso: string): void => {
@@ -162,11 +165,12 @@ function RundownDetailsForm(props: RundownDetailsFormProps): ReactNode {
     setDateError(null);
     const nextAirAt =
       fields.airAt === null ? null : moveAirAtToDate(fields.airAt, nextIso);
-    writeFields(
+    const written = writeFields(
       nextAirAt === null
         ? { airDate: nextIso }
         : { airDate: nextIso, airAt: nextAirAt },
     );
+    if (!written) return;
     lastWrittenDateRef.current = nextIso;
     writeIndexAirDate(nextIso);
   };

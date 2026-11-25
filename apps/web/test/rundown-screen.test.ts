@@ -6,6 +6,7 @@ import { formatAirDate, parseDurationMs } from "../src/rundown/dur-format.ts";
 import { registerRundownUndo } from "../src/rundown/handlers.ts";
 import { rowReadoutText } from "../src/rundown/row-readout.tsx";
 import { buildRundownClock } from "../src/rundown/rundown-access.ts";
+import { buildRundownForExport } from "../src/rundown/send/rundown-export-model.ts";
 import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
 import type { ShellState } from "../src/services/ports.ts";
 import { bindGuard } from "../src/state/guard.ts";
@@ -251,4 +252,97 @@ test("edit.undo and edit.redo route through the rundown rows slot when a rundown
     stopUndo();
     rundownActions.setContext(docId, null);
   }
+});
+
+test("rundown export writes prompter status words for sent and changed stories and em dash when unset", () => {
+  const rundown: RundownJSON = {
+    rundown: {
+      airDate: "2026-11-17",
+      airAt: new Date(2026, 10, 17, 18, 0, 0).getTime(),
+      windowLeadMs: 3_600_000,
+      targetMs: 1_800_000,
+    },
+    columns: ["number", "story", "prompter"],
+    rows: [
+      {
+        id: "r1",
+        order: "001",
+        kind: "script",
+        cells: {
+          story: { value: "Lead", userId: "ana", setAt: 1, previous: null },
+        },
+        docId: "doc-1",
+        blockId: null,
+        durationMs: 60_000,
+        prompter: {
+          state: "on",
+          versionId: "v1",
+          sentAt: 10,
+          sentByUserId: "ana",
+        },
+        unnumbered: false,
+      },
+      {
+        id: "r2",
+        order: "002",
+        kind: "script",
+        cells: {
+          story: { value: "Update", userId: "ana", setAt: 1, previous: null },
+        },
+        docId: "doc-2",
+        blockId: null,
+        durationMs: 60_000,
+        prompter: {
+          state: "changed",
+          versionId: "v1",
+          sentAt: 10,
+          sentByUserId: "ana",
+        },
+        unnumbered: false,
+      },
+      {
+        id: "r3",
+        order: "003",
+        kind: "script",
+        cells: {
+          story: { value: "Draft", userId: "ana", setAt: 1, previous: null },
+        },
+        docId: "doc-3",
+        blockId: null,
+        durationMs: 60_000,
+        prompter: null,
+        unnumbered: false,
+      },
+      {
+        id: "r4",
+        order: "004",
+        kind: "item",
+        cells: {
+          story: { value: "Bumper", userId: "ana", setAt: 1, previous: null },
+        },
+        docId: null,
+        blockId: null,
+        durationMs: 15_000,
+        prompter: null,
+        unnumbered: false,
+      },
+    ],
+  };
+  const clock = buildRundownClock(rundown, () => null);
+  const exported = buildRundownForExport({
+    title: "Lannick One News",
+    rundown,
+    clock,
+    rows: rundown.rows,
+    allColumns: rundown.columns,
+    titleColumn: "story",
+    stories: new Map(),
+    missingDocIds: new Set(),
+  });
+  expect(exported.rows.map((row) => row.cells.prompter)).toEqual([
+    "On prompter",
+    "Changed — not on prompter",
+    "—",
+    "—",
+  ]);
 });

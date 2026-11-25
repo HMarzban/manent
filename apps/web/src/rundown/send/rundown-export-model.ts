@@ -13,6 +13,7 @@ import type {
 } from "@manent/schema";
 import {
   EDITOR_WORDS,
+  PROMPTER_WORDS,
   RUNDOWN_SEND_WORDS,
   RUNDOWN_WORDS,
   formatClockTime,
@@ -187,11 +188,11 @@ function formattedCellValue(options: {
           ? ""
           : formatClockTime(timing.backAt);
     case "prompter":
-      return row.kind === "script" &&
-        row.docId !== null &&
-        row.prompter !== null
-        ? ""
-        : RUNDOWN_WORDS.dash;
+      if (row.kind !== "script" || row.docId === null || row.prompter === null)
+        return PROMPTER_WORDS.noScript;
+      return row.prompter.state === "on"
+        ? PROMPTER_WORDS.onPrompter
+        : PROMPTER_WORDS.changed;
   }
 }
 

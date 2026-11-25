@@ -714,6 +714,33 @@ test("Details → Rundown edits Date, Air, Target and Air window starts, refuses
   await until(
     () => document.querySelector('[data-date="2026-11-24"]') !== null,
   );
+  // Calendar grid wraps columnheaders and each week of gridcells inside direct role="row" elements
+  const calendarGrid = document
+    .querySelector('[data-date="2026-11-24"]')
+    ?.closest('[role="grid"]');
+  expect(calendarGrid).not.toBeNull();
+  const calendarRows = [...(calendarGrid?.children ?? [])];
+  expect(calendarRows.length).toBe(7);
+  expect(calendarRows.every((row) => row.getAttribute("role") === "row")).toBe(
+    true,
+  );
+  expect(
+    [...calendarRows[0]!.children].every(
+      (cell) => cell.getAttribute("role") === "columnheader",
+    ),
+  ).toBe(true);
+  expect(calendarRows[0]!.children.length).toBe(7);
+  expect(
+    calendarRows
+      .slice(1)
+      .every(
+        (week) =>
+          week.children.length === 7 &&
+          [...week.children].every(
+            (cell) => cell.getAttribute("role") === "gridcell",
+          ),
+      ),
+  ).toBe(true);
   await act(async () => {
     (
       document.querySelector('[data-date="2026-11-24"]') as HTMLButtonElement
@@ -791,4 +818,96 @@ test("Details → Rundown is read-only under S3-RG-34 for Can edit without edit_
     dateButton.click();
   });
   expect(document.querySelector('[data-date="2026-11-19"]')).toBeNull();
+});
+
+test("header cell edits emit an undo message and Details field edits stay aligned with earlier cell undo labels", async () => {
+  mockDescribe("owner", ["edit_rundowns"]);
+  const rundownDoc = createSampleShowDoc();
+  const { host, services } = await mountRundown({
+    rundownDoc,
+    nowMs: new Date(2026, 10, 17, 23, 0, 0).getTime(),
+  });
+  await until(() => host.querySelector('[role="grid"]') !== null);
+
+  // Edit header row (ROW_H1) and undo it -> emits undidCellChange for row 1
+  const headerCell = host.querySelector(
+    `[data-row-id="${ROW_H1}"][role="gridcell"]`,
+  ) as HTMLElement;
+  await act(async () => {
+    headerCell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  const headerInput = headerCell.querySelector("input") as HTMLInputElement;
+  typeInto(headerInput, "ACT ONE UPDATED");
+  await act(async () => {
+    headerInput.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_H1)?.cells.segment
+      ?.value,
+  ).toBe("ACT ONE UPDATED");
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_H1)?.cells.segment
+      ?.value,
+  ).toBe("ACT ONE");
+  expect(services.messages.current()?.text).toBe(
+    RUNDOWN_WORDS.undidCellChange("Segment", 1),
+  );
+  act(() => {
+    const cur = services.messages.current();
+    if (cur !== null) services.messages.dismiss(cur.id);
+  });
+
+  // Edit Dur cell, then edit Air in Details: first undo reverts Air without stealing Dur's toast, second undo reverts Dur with its toast
+  const durCell = host.querySelector(
+    `[data-row-id="${ROW_1}"][data-col-id="dur"]`,
+  ) as HTMLElement;
+  await act(async () => {
+    durCell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  const durInput = durCell.querySelector("input") as HTMLInputElement;
+  typeInto(durInput, "5:00");
+  await act(async () => {
+    durInput.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+
+  await act(async () => {
+    panelsActions.open("side", "details");
+  });
+  await until(() => host.querySelector('[data-tour="rundown:air"]') !== null);
+  const airInput = fieldByLabel(
+    host.querySelector('[data-region="side_panel"]')!,
+    "Air",
+  ) as HTMLInputElement;
+  await enterFieldValue(airInput, "23:40");
+  expect(readRundown(rundownDoc).rundown.airAt).toBe(
+    new Date(2026, 10, 17, 23, 40, 0).getTime(),
+  );
+
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(readRundown(rundownDoc).rundown.airAt).toBe(
+    new Date(2026, 10, 17, 23, 35, 0).getTime(),
+  );
+  expect(services.messages.current()).toBeNull();
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_1)?.cells.dur?.value,
+  ).toBe(300_000);
+
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_1)?.cells.dur,
+  ).toBeUndefined();
+  expect(services.messages.current()?.text).toBe(
+    RUNDOWN_WORDS.undidCellChange("Dur", 1),
+  );
 });

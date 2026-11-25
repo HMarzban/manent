@@ -39,12 +39,14 @@ import { computeLiveDuration } from "../src/rundown/beside.ts";
 import {
   dropImportFiles,
   dropScriptLink,
+  findRundownPageArea,
   parseDroppedScriptLink,
 } from "../src/rundown/drop.ts";
 import {
   SPLIT_NEEDS_MORE_SLUGS,
   createUndoGroupTracker,
   extractRowsFromBlocks,
+  readStoryBlocks,
   replaceRowWithSplit,
 } from "../src/rundown/rows-from-script.ts";
 import { RundownScreen } from "../src/rundown/screen.tsx";
@@ -65,10 +67,12 @@ import { bindGuard } from "../src/state/guard.ts";
 import { rundownActions } from "../src/state/rundown.store.ts";
 import { publishTimingFacts } from "../src/timing/timing-facts.ts";
 import {
+  createClock,
   createNavigation,
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
+import { typeInto } from "./document-frame.fixtures.tsx";
 import { until } from "./sync.fixtures.ts";
 
 withDom();
@@ -572,6 +576,9 @@ test("drop link, split by slug, undo, cross-project refusal, file import and sto
     mounted!.render(<RouterProvider router={router} />);
   });
   await until(() => host.querySelector('[role="grid"]') !== null);
+  expect(findRundownPageArea(document)).toBe(
+    host.querySelector<HTMLElement>("[data-rundown-page]"),
+  );
 
   const clearMessages = (): void => {
     let cur = services.messages.current();
@@ -771,13 +778,39 @@ test("drop link, split by slug, undo, cross-project refusal, file import and sto
     () => services.messages.current()?.text === SPLIT_NEEDS_MORE_SLUGS,
   );
   act(clearMessages);
+  // Clear single01 from row selection before selecting ROW_1
+  await act(async () => {
+    singleCell.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  });
 
-  // Select ROW_1 and run importRows -> splits into 4 script rows + 2 header rows, then 1 undo restores ROW_1 with S3-RG-60
+  // Edit Dur on ROW_1 before splitting, then split via importRows and undo twice: split undoes first, Dur undoes second with its label
+  const row1Dur = host.querySelector(
+    `[data-row-id="${ROW_1}"][data-col-id="dur"]`,
+  ) as HTMLElement;
+  await act(async () => {
+    row1Dur.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  const durInput = row1Dur.querySelector("input") as HTMLInputElement;
+  typeInto(durInput, "4:00");
+  await act(async () => {
+    durInput.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_1)?.cells.dur?.value,
+  ).toBe(240_000);
+
+  // Select ROW_1 and run importRows -> splits into 4 script rows + 2 header rows, then 1 undo restores ROW_1
   const row1Cell = host.querySelector(
     `[data-row-id="${ROW_1}"][data-col-id="segment"]`,
   ) as HTMLElement;
   await act(async () => {
     row1Cell.click();
+  });
+  await act(async () => {
     row1Cell.dispatchEvent(
       new KeyboardEvent("keydown", { key: " ", bubbles: true }),
     );
@@ -799,6 +832,19 @@ test("drop link, split by slug, undo, cross-project refusal, file import and sto
   });
   await until(() => readRundown(rundownDoc).rows.some((r) => r.id === ROW_1));
   expect(services.messages.current()?.text).toBe(RUNDOWN_WORDS.undidImportRows);
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_1)?.cells.dur?.value,
+  ).toBe(240_000);
+
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(
+    readRundown(rundownDoc).rows.find((r) => r.id === ROW_1)?.cells.dur,
+  ).toBeUndefined();
+  expect(services.messages.current()?.text).toBe(
+    RUNDOWN_WORDS.undidCellChange("Dur", 2),
+  );
 
   // Direct openBeside(story, at) works when invoked from a slug row too
   await act(async () => {
@@ -808,4 +854,62 @@ test("drop link, split by slug, undo, cross-project refusal, file import and sto
   await act(async () => {
     closeBeside();
   });
+});
+
+test("reading story blocks stops waiting after ten seconds when a remote handle stalls", async () => {
+  const clock = createClock(1_000);
+  const stalledDoc = createDoc();
+  scriptBody(stalledDoc).write((w) =>
+    w.insertBlocks(null, [block(SLUG_1_ID, "slug", "STALLED SLUG")]),
+  );
+  const stalledStatus = createValue<DocStatus>({
+    saved: false,
+    docSync: "syncing",
+    link: "online",
+    waiting: 0,
+    synced: false,
+    wentOfflineAt: null,
+    neverSynced: true,
+    recovered: 0,
+    side: [],
+  });
+  let closed = false;
+  const stalledHandle = {
+    ...fakeHandle(STORY_ID, stalledDoc),
+    status: stalledStatus,
+    close: async () => {
+      closed = true;
+    },
+  } as unknown as DocHandle;
+  const environment = testEnvironment({
+    now: clock.now,
+    schedule: clock.schedule,
+  });
+  const base = testServices({
+    userId: "dana",
+    environment,
+    router: createNavigation({ routeId: "/", href: "/", search: {} })
+      .navigation,
+  });
+  const services: PersonServices = {
+    ...base,
+    openHandle: async () => stalledHandle,
+  };
+
+  let settled = false;
+  const pending = readStoryBlocks(services, STORY_ID, clock.schedule).then(
+    (blocks) => {
+      settled = true;
+      return blocks;
+    },
+  );
+  await Promise.resolve();
+  clock.advance(9_999);
+  await Promise.resolve();
+  expect(settled).toBe(false);
+
+  clock.advance(1);
+  const blocks = await pending;
+  expect(closed).toBe(true);
+  expect(blocks.map((entry) => entry.attrs?.id)).toEqual([SLUG_1_ID]);
 });

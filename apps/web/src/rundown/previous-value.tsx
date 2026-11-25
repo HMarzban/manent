@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { nameOf } from "../services/sync/index-entries.ts";
 import { rundownActions } from "../state/rundown.store.ts";
@@ -159,8 +159,11 @@ export function usePreviousValue(options: {
       return;
     const coord = currentOpen ?? cur.view.activeCell;
     if (coord === null) return;
-    const row = rundown.rows.find((candidate) => candidate.id === coord.rowId);
-    if (row === undefined) return;
+    const rowIndex = rundown.rows.findIndex(
+      (candidate) => candidate.id === coord.rowId,
+    );
+    if (rowIndex === -1) return;
+    const row = rundown.rows[rowIndex]!;
     const found = storedCellOf(
       row,
       row.kind === "header" ? titleCol : coord.columnId,
@@ -177,7 +180,8 @@ export function usePreviousValue(options: {
 
     const timing = cur.view.clock?.rows.find((entry) => entry.id === row.id);
     const title = rowTitleOf(row);
-    const fallbackTitle = title !== "" ? title : RUNDOWN_WORDS.rowFallback(1);
+    const fallbackTitle =
+      title !== "" ? title : RUNDOWN_WORDS.rowFallback(rowIndex + 1);
     const place: RestoredRowPlace =
       row.kind === "header" ||
       timing?.number === null ||
@@ -231,9 +235,13 @@ export function usePreviousValue(options: {
   return { openCell, tourCell, openFor, close, restore };
 }
 
-function anchorStyleFor(coord: GridCellCoord | null): CSSProperties {
+function anchorStyleFor(
+  coord: GridCellCoord | null,
+  container: HTMLElement | null,
+): CSSProperties {
   if (coord === null) return { top: 0, left: 0, width: 0, height: 0 };
-  const cells = document.querySelectorAll<HTMLElement>('[role="gridcell"]');
+  const root: ParentNode = container ?? document;
+  const cells = root.querySelectorAll<HTMLElement>('[role="gridcell"]');
   let fallback: HTMLElement | null = null;
   let exact: HTMLElement | null = null;
   for (const node of cells) {
@@ -261,8 +269,9 @@ export function PreviousValuePopover(props: {
   readonly docId: string;
   readonly state: PreviousValueState;
   readonly canEdit: boolean;
+  readonly gridContainerRef: RefObject<HTMLDivElement | null>;
 }): ReactNode {
-  const { docId, state, canEdit } = props;
+  const { docId, state, canEdit, gridContainerRef } = props;
   const { now } = useEnvironment();
   const view = useRundownView(docId);
   const restoreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -287,8 +296,8 @@ export function PreviousValuePopover(props: {
 
   useLayoutEffect(() => {
     if (target === null) return;
-    setAnchorStyle(anchorStyleFor(state.openCell));
-  }, [target, state.openCell]);
+    setAnchorStyle(anchorStyleFor(state.openCell, gridContainerRef.current));
+  }, [target, state.openCell, gridContainerRef]);
 
   useEffect(() => {
     if (target === null || !canEdit) return;

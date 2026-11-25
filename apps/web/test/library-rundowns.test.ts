@@ -89,6 +89,29 @@ test("a new rundown picks today or the first later free day, with 19:00 and 30:0
       WED_18_NOV_2026,
     ),
   ).toBe("2026-11-21");
+
+  // When the latest rundown's CRDT has not loaded yet, scan earlier loaded rundowns before falling back to 19:00 / 30:00
+  const unloadedLatest = planNewRundown({
+    existing: [
+      {
+        airDate: "2026-11-17",
+        airAt: airAtForDate("2026-11-17", 21, 30),
+        targetMs: 55 * 60 * 1000,
+      },
+      {
+        airDate: "2026-11-18",
+        airAt: null,
+        targetMs: null,
+      },
+    ],
+    nowMs: WED_18_NOV_2026,
+  });
+  expect(unloadedLatest).toEqual({
+    airDate: "2026-11-19",
+    airAt: airAtForDate("2026-11-19", 21, 30),
+    windowLeadMs: DEFAULT_WINDOW_LEAD_MS,
+    targetMs: 55 * 60 * 1000,
+  });
 });
 
 test("stories for a rundown keep row order with plain numbers, skip headers and unnumbered rows, and leave loose scripts out", () => {
@@ -218,6 +241,16 @@ test("new Show and News projects start on today's rundown with their kind's colu
     "news",
     w.settleAll,
     async (docId) => {
+      const wsHandle = await dana.sync.client.open(
+        indexDocId("workspace", MEDIUM),
+      );
+      const indexed = readWorkspace({
+        projects: liveMap(wsHandle, "projects"),
+        documents: liveMap(wsHandle, "documents"),
+      }).documents.get(docId);
+      expect(indexed?.airDate).toBe(today);
+      await wsHandle.close();
+
       const handle = await dana.sync.client.open(docId);
       expect(readRundown(handle.doc()).columns).toEqual([...NEWS_COLUMNS]);
       insertRows(

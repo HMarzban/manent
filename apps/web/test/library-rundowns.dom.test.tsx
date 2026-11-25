@@ -41,6 +41,7 @@ import {
   ServicesProvider,
 } from "../src/services/context.tsx";
 import type {
+  ContinueItem,
   CreateResult,
   DocumentStart,
   LibraryIndex,
@@ -103,14 +104,18 @@ function fakeHandle(docId: string, crdtDoc: CrdtDoc): DocHandle {
 }
 
 let mounted: Root | null = null;
+const originalFetch = globalThis.fetch;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  globalThis.fetch = originalFetch;
 });
 
 async function renderRundownLibrary(options: {
   projects: readonly ProjectItem[];
+  continueList?: readonly ContinueItem[];
   docs: ReadonlyMap<string, CrdtDoc>;
+  docKinds?: ReadonlyMap<string, "script" | "rundown">;
   onAddCopy?: (
     projectId: string | null,
     title: string,
@@ -136,9 +141,10 @@ async function renderRundownLibrary(options: {
     }),
   });
   const projectsValue = createValue(options.projects);
+  const continueValue = createValue(options.continueList ?? []);
   const empty = createValue<readonly never[]>([]);
   const library: LibraryIndex = {
-    continueList: () => empty,
+    continueList: (id) => (id === "medium" ? continueValue : empty),
     projects: (id) => (id === "medium" ? projectsValue : empty),
     readProjects: async (id) => (id === "medium" ? options.projects : []),
     loadState: () => createValue<"cached" | "problem">("cached"),
@@ -146,7 +152,7 @@ async function renderRundownLibrary(options: {
     importProject: async () => ({ projectId: "p", docId: "d" }),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
-    docKindOf: () => createValue(null),
+    docKindOf: (id) => createValue(options.docKinds?.get(id) ?? null),
     documentProject: () => createValue(null),
     renameDocument: () => {},
     addCopy: async (_ws, projectId, _kind, title, start) =>
@@ -430,12 +436,105 @@ test("a Show project with no rundowns shows No rundowns yet with New rundown and
 
   const tourList = document.querySelector('[data-tour="library:rundowns"]');
   expect(tourList?.textContent).toContain("No rundowns yet");
+  const allNewButtons = document.querySelectorAll<HTMLButtonElement>(
+    '[data-tour="rundown.new"]',
+  );
+  expect(allNewButtons.length).toBe(1);
   const newButton = [
     ...(tourList?.querySelectorAll<HTMLButtonElement>("button") ?? []),
   ].find((btn) => btn.textContent?.includes("New rundown"));
   expect(newButton).not.toBeUndefined();
+  expect(newButton?.getAttribute("data-tour")).toBe("rundown.new");
   expect(newButton?.className).toContain("cursor-pointer");
   await act(async () => newButton?.click());
   expect(startedColumns).toEqual([...SHOW_COLUMNS]);
   expect(router.state.location.pathname).toBe("/s/rd-first");
+});
+
+test("read-only project access disables New rundown with a reason and Continue rows show a rundown's broadcast date and air time", async () => {
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.endsWith("/api/docs/describe")) {
+      return new Response(JSON.stringify({ role: "view", capabilities: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ people: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const wsDoc = createDoc({ clientId: 1 });
+  jsonMap(wsDoc, "projects").set("news-ro", {
+    title: "Lannick One News",
+    kind: "news",
+    createdAt: NOW,
+    createdByUserId: "ana",
+  });
+  jsonMap(wsDoc, "documents").set("rd-ro", {
+    projectId: "news-ro",
+    title: "Wed 18 Nov",
+    kind: "rundown",
+    createdAt: NOW,
+    editedAt: null,
+    editedByUserId: null,
+    airDate: "2026-11-18",
+    rundownId: null,
+  });
+  const rdDoc = createDoc({ clientId: 2 });
+  initRundown(
+    rdDoc,
+    {
+      airDate: "2026-11-18",
+      airAt: airAtForDate("2026-11-18", 18, 0),
+      windowLeadMs: DEFAULT_WINDOW_LEAD_MS,
+      targetMs: 60 * 60 * 1000,
+    },
+    NEWS_COLUMNS,
+  );
+  const docs = new Map<string, CrdtDoc>([
+    [indexDocId("workspace", "medium"), wsDoc],
+    [indexDocId("user", DANA.userId), createDoc({ clientId: 3 })],
+    ["rd-ro", rdDoc],
+  ]);
+
+  await renderRundownLibrary({
+    projects: [
+      {
+        projectId: "news-ro",
+        title: "Lannick One News",
+        kind: "news",
+        firstDocId: "rd-ro",
+        lastEdited: { byName: "Ana", at: NOW },
+        place: { kind: "synced" },
+      },
+    ],
+    continueList: [
+      {
+        docId: "rd-ro",
+        title: "Wed 18 Nov",
+        projectTitle: "Lannick One News",
+        kind: "news",
+        place: { kind: "synced" },
+      },
+    ],
+    docs,
+    docKinds: new Map([["rd-ro", "rundown"]]),
+  });
+
+  const newButton = document.querySelector<HTMLButtonElement>(
+    '[data-tour="rundown.new"]',
+  );
+  expect(newButton?.getAttribute("aria-disabled")).toBe("true");
+  const describedBy = newButton?.getAttribute("aria-describedby") ?? "";
+  expect(document.getElementById(describedBy)?.textContent).toBe(
+    "New rundown — needs edit access",
+  );
+
+  const continueSection = document.querySelector(
+    'section[aria-label="Continue"]',
+  );
+  expect(continueSection?.textContent).toContain("Wed 18 Nov · Air 18:00");
 });

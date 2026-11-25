@@ -7,11 +7,14 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RUNDOWN_WORDS,
   useCommandState,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { localIsoDate } from "../../rundown/create-rundown.ts";
+import { formatAirDate } from "../../rundown/dur-format.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectKind } from "../../services/ports.ts";
 import { dialogActions, useOpenDialog } from "../../state/dialog.store.ts";
@@ -59,8 +62,8 @@ export function NewProjectPopover(props: {
   workspaceId: string | null;
 }): ReactNode {
   const { workspaceId } = props;
-  const { library, commands } = useServices();
-  const { dom } = useEnvironment();
+  const { library, commands, messages } = useServices();
+  const { dom, now } = useEnvironment();
   const navigate = useNavigate();
   const id = useId();
   const open = useOpenDialog() === SURFACE;
@@ -79,6 +82,19 @@ export function NewProjectPopover(props: {
     setCreating(true);
     try {
       const { docId } = await library.createProject(workspace, kind);
+      if (kind === "show" || kind === "news") {
+        const nowMs = now();
+        const dateLabel = formatAirDate(localIsoDate(nowMs), nowMs);
+        if (dateLabel !== "") {
+          messages.push({
+            id: `rundown.new.${nowMs}.${docId}`,
+            text: RUNDOWN_WORDS.newRundownFor(dateLabel),
+            lifetime: "brief",
+            ownWork: false,
+            actions: [],
+          });
+        }
+      }
       dialogActions.close();
       void navigate({ href: `/s/${docId}` });
     } finally {
