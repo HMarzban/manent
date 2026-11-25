@@ -105,3 +105,61 @@ test("a snapshot can be put back, and commits are counted", () => {
     setRequests: [4, 0],
   });
 });
+
+test("memory sharing matches SQLite on removeRole clearing source/lastActive and refusing duplicate send or link ids", () => {
+  s.shareLinks.grant(DOC, "dana", "edit", "group:writers");
+  s.shareLinks.markActive(DOC, "dana");
+  s.directory.removeRole(DOC, "dana");
+  s.directory.setRole(DOC, "dana", "view", []);
+  expect(s.shareLinks.grantsOf(DOC)).toEqual([
+    { userId: "dana", role: "view", source: "own" },
+  ]);
+  expect(s.shareLinks.lastActiveOf(DOC)).toEqual([
+    { userId: "dana", lastActiveAt: null },
+  ]);
+
+  const send = {
+    id: "send-1",
+    docId: DOC,
+    versionId: "ver-1",
+    name: "White",
+    groupIds: [],
+    recipientUserIds: ["dana"],
+    watermarkedUserIds: [],
+    files: ["pdf"],
+    what: "whole_script",
+    againstVersionId: null,
+    sentByUserId: "sam",
+    sentAt: 1_000,
+    directRecipientCount: 1,
+  };
+  f.sharing.addSend(send);
+  expect(() => f.sharing.addSend(send)).toThrow(StorageError);
+  expect(f.sharing.sendsOf(DOC)).toEqual([send]);
+
+  const shareLink = {
+    id: "sl-1",
+    docId: DOC,
+    tokenHash: new Uint8Array([1, 2, 3]),
+    role: "view",
+    expiresAt: null,
+    createdByUserId: "sam",
+  };
+  s.shareLinks.addShareLink(shareLink);
+  expect(() => s.shareLinks.addShareLink(shareLink)).toThrow(StorageError);
+
+  const draftLink = {
+    id: "dl-1",
+    sendId: "send-1",
+    tokenHash: new Uint8Array([4, 5, 6]),
+    signIn: true,
+    open: true,
+    expiresAt: null,
+  };
+  s.shareLinks.addDraftLink(draftLink);
+  expect(() => s.shareLinks.addDraftLink(draftLink)).toThrow(StorageError);
+  expect(s.shareLinks.draftLinkOf(new Uint8Array([4, 5, 6]))).toEqual({
+    ...draftLink,
+    createdAt: 1_000,
+  });
+});

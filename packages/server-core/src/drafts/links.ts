@@ -109,7 +109,8 @@ export function resolveDraftLink(options: {
   if (link.signIn) {
     if (userId === null) return refused("unauthenticated");
     const restricted =
-      send.groupIds.length > 0 || send.recipientUserIds.length > 0;
+      link.open !== true &&
+      (send.groupIds.length > 0 || send.recipientUserIds.length > 0);
     if (restricted && !send.recipientUserIds.includes(userId))
       return refused("not_sent");
   }

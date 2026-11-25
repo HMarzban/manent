@@ -18,7 +18,7 @@ export const searchRoutes: readonly Route[] = [
     path: "/api/search",
     handle(context) {
       const { sync, search, auth } = context.config;
-      if (sync === null || search === undefined)
+      if (sync === null || sync.mode === "relay" || search === undefined)
         return failure("not_found", 404);
       const identity = context.user();
       if (identity === null) return failure("unauthenticated", 401);

@@ -60,6 +60,8 @@ export interface DocLog {
   append(item: AppendItem): number;
   /** Never lowers the document's schema version. */
   raiseSchema(docId: string, toVersion: number): void;
+  /** Updates the document's pinned layout engine version. */
+  setEngineVersion(docId: string, version: number): void;
   /** `quarantine` defaults to true; `throughSeq` bounds the upper sequence inclusive; `corrupt` lists the sequences whose checksum fails. */
   tail(
     docId: string,

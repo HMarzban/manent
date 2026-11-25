@@ -5,23 +5,15 @@ import type { ServerService } from "./services.ts";
 
 export const notificationsService: ServerService = {
   create(deps) {
-    const resendApiKey =
-      deps.resendApiKey !== undefined
-        ? deps.resendApiKey
-        : process.env.MANENT_RESEND_API_KEY?.trim() || null;
-    const resendFrom =
-      deps.resendFrom !== undefined
-        ? deps.resendFrom
-        : process.env.MANENT_RESEND_FROM?.trim() || null;
     const notify = createNotificationsService({
       storage: deps.storage,
       users: createDemoDirectory(),
       clock: deps.clock,
       openUrl: deps.openUrl ?? "http://localhost:4747",
-      resendApiKey,
-      resendFrom,
+      resendApiKey: deps.resendApiKey ?? null,
+      resendFrom: deps.resendFrom ?? null,
       fetch: globalThis.fetch,
-      log: console.error,
+      log: deps.log,
     });
     return { hooks: [notify], config: { notify } };
   },

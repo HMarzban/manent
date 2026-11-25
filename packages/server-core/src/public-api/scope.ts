@@ -125,7 +125,7 @@ function verifyWorkspaceDoc(
     .filter((grant) => grant.source === "workspace");
   if (
     workspaceGrantees.length > 0 &&
-    !workspaceGrantees.some((grant) => wsMembers.has(grant.userId))
+    !workspaceGrantees.every((grant) => wsMembers.has(grant.userId))
   ) {
     return null;
   }
@@ -134,11 +134,6 @@ function verifyWorkspaceDoc(
 }
 
 function readStringField(entry: object, key: string): string | null {
-  const value: unknown = Reflect.get(entry, key);
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function readNullableStringField(entry: object, key: string): string | null {
   const value: unknown = Reflect.get(entry, key);
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -190,8 +185,8 @@ export function listWorkspaceFolder(
       const name =
         readStringField(raw, "name") ?? readStringField(raw, "title") ?? id;
       const parentId =
-        readNullableStringField(raw, "parentId") ??
-        readNullableStringField(raw, "parentFolderId");
+        readStringField(raw, "parentId") ??
+        readStringField(raw, "parentFolderId");
       folderIds.add(id);
       if (parentId === folderId) {
         childFolders.push({ folderId: id, name });
@@ -210,7 +205,7 @@ export function listWorkspaceFolder(
         continue;
       }
       if (isTrashedEntry(raw)) continue;
-      const projFolderId = readNullableStringField(raw, "folderId");
+      const projFolderId = readStringField(raw, "folderId");
       if (projFolderId !== folderId) continue;
       const title = readStringField(raw, "title") ?? projectId;
       matchedProjects.set(projectId, { title, documents: [] });

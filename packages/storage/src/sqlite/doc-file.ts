@@ -90,6 +90,9 @@ function prepareLog(db: Database) {
     raiseSchema: db.query<never, [string, number]>(
       "UPDATE documents SET schema_version = ?2 WHERE id = ?1 AND schema_version < ?2",
     ),
+    setEngineVersion: db.query<never, [string, number]>(
+      "UPDATE documents SET engine_version = ?2 WHERE id = ?1",
+    ),
     tail: db.query<StoredUpdate, [string, number, number]>(
       'SELECT seq, update_blob AS "update", crc32 AS crc, user_id AS userId, origin, created_at AS createdAt FROM doc_updates WHERE doc_id = ?1 AND generation = ?2 AND seq > ?3 ORDER BY seq',
     ),
@@ -234,6 +237,8 @@ function createLog(db: Database, sql: Statements, now: () => number): DocLog {
     append: (item) => transact(db, () => appendRow(sql, item, now())),
     raiseSchema: (docId, toVersion) =>
       transact(db, () => sql.raiseSchema.run(docId, toVersion)),
+    setEngineVersion: (docId, version) =>
+      transact(db, () => sql.setEngineVersion.run(docId, version)),
     tail(docId, generation, afterSeq, options) {
       const tail = readTail(
         sql,

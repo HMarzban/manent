@@ -173,7 +173,8 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     try {
       result = fn();
     } catch (error) {
-      if (error instanceof RangeError) throw error;
+      if (error instanceof RangeError || error instanceof StorageError)
+        throw error;
       throw new StorageError("commit_failed", { cause: error });
     } finally {
       work = null;
@@ -243,7 +244,12 @@ function createDirectory(ctx: Context): Storage["directory"] {
         state().roles.set(pairKey(docId, userId), row);
       }),
     removeRole: (docId, userId) =>
-      commit(() => state().roles.delete(pairKey(docId, userId))),
+      commit(() => {
+        const key = pairKey(docId, userId);
+        state().roles.delete(key);
+        state().control.shareLinks.sources.delete(key);
+        state().control.shareLinks.lastActive.delete(key);
+      }),
     roleOf(docId, userId) {
       const row = state().roles.get(pairKey(docId, userId));
       if (row === undefined) return null;

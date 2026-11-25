@@ -159,19 +159,7 @@ export function storageContract(
   });
 
   test("people get colours in the order they first register, and the eleventh shares the first's", () => {
-    const people = [
-      "sam",
-      "dana",
-      "priya",
-      "leo",
-      "ana",
-      "you",
-      "p7",
-      "p8",
-      "p9",
-      "p10",
-      "p11",
-    ];
+    const people = "sam,dana,priya,leo,ana,you,p7,p8,p9,p10,p11".split(",");
     // a second id changes nothing
     people.forEach((userId, n) => {
       f.log.registerClients(DOC, userId, [100 + n]);
@@ -342,10 +330,14 @@ export function storageContract(
     });
   });
 
-  test("the schema minimum only rises", () => {
+  test("the schema minimum only rises and engine version updates", () => {
     f.log.raiseSchema(DOC, 3);
     f.log.raiseSchema(DOC, 2);
     expect(f.log.get(DOC)!.schemaVersion).toBe(3);
+    f.log.setEngineVersion(DOC, 2);
+    expect(f.log.get(DOC)!.engineVersion).toBe(2);
+    f.log.setEngineVersion(DOC, 1);
+    expect(f.log.get(DOC)!.engineVersion).toBe(1);
   });
 
   test("what was committed is there after a reopen", async () => {

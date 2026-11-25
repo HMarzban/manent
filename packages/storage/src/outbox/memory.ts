@@ -49,7 +49,9 @@ export function createMemoryOutbox(options: {
     due(limit): OutboxRow[] {
       const current = now();
       const cutoff = current - OUTBOX_RETENTION_MS;
-      const capped = Math.max(0, Math.floor(limit));
+      const capped = Number.isFinite(limit)
+        ? Math.max(0, Math.floor(limit))
+        : 0;
       return commit(() => {
         const tables = read();
         for (const [id, row] of tables.rows) {

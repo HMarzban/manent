@@ -1005,3 +1005,23 @@ test("insert-delete-reinsert trash-field forgery is refused on both private and 
 
   h.trash.stop();
 });
+
+test("moving a private-copy document to Trash is refused with 400 bad_request", async () => {
+  const h = createHarness();
+  await seedWorkspaceAndDocs(h);
+  const privateCopyId = "019a0000-0000-7000-8000-000000000099";
+  const danaHome = { kind: "user", id: "dana" } as const;
+  h.storage.directory.place(privateCopyId, danaHome, "private", "dana");
+  h.storage.directory.setRole(privateCopyId, "dana", "owner", []);
+  h.storage.open(danaHome).log.create({
+    id: privateCopyId,
+    kind: "private",
+    ownerUserId: "dana",
+    schemaVersion: 1,
+    engineVersion: null,
+  });
+  const res = await h.post("/api/trash/move", { docId: privateCopyId }, "dana");
+  expect(res).toEqual({ status: 400, body: { error: "bad_request" } });
+  expect(h.storage.trash.get(privateCopyId)).toBeNull();
+  h.trash.stop();
+});

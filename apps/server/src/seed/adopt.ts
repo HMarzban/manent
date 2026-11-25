@@ -3,7 +3,13 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ORIGIN_LOAD, createDoc, jsonMap, loadDoc } from "@manent/crdt";
+import {
+  ORIGIN_LOAD,
+  createDoc,
+  jsonMap,
+  loadDoc,
+  updateMeta,
+} from "@manent/crdt";
 import { openSqliteStorage, parseHome } from "@manent/storage";
 import type { DocDirectory, Home, Storage } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
@@ -177,6 +183,55 @@ export async function mergeDanaFavourites(
   }
 }
 
+/** Appends missing staged favourites directly to Dana's live private index when resuming offline before server listen. */
+function applyStagedFavouritesToStorage(
+  live: Storage,
+  entries: Readonly<Record<string, unknown>>,
+): void {
+  const danaIndex = indexDocId("user", "dana");
+  const danaHome: Home = { kind: "user", id: "dana" };
+  if (live.directory.placeOf(danaIndex) === null) return;
+  const file = live.open(danaHome);
+  const row = file.log.get(danaIndex);
+  if (row === null) return;
+  const checkpoint = file.checkpoints.newest(danaIndex, row.generation);
+  const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
+  try {
+    const from = checkpoint?.seq ?? 0;
+    for (const { update } of file.log.tail(danaIndex, row.generation, from, {
+      quarantine: false,
+    }).rows)
+      doc.applyUpdate(update, ORIGIN_LOAD);
+    const made: Uint8Array[] = [];
+    const stop = doc.subscribe((update) => made.push(update));
+    try {
+      const favourites = jsonMap(doc, "favourites");
+      for (const [id, value] of Object.entries(entries))
+        if (favourites.get(id) === null) favourites.set(id, value);
+    } finally {
+      stop();
+    }
+    if (made.length === 0) return;
+    file.transaction(() => {
+      for (const update of made) {
+        file.log.append({
+          docId: danaIndex,
+          generation: row.generation,
+          update,
+          userId: "dana",
+          origin: "system",
+          clocks: updateMeta(update).map(({ clientId, toClock }) => ({
+            clientId,
+            clock: toClock,
+          })),
+        });
+      }
+    });
+  } finally {
+    doc.destroy();
+  }
+}
+
 /**
  * Moves a whole staging seed into the live data: (1) each home's files renamed into `dataDir`,
  * replacing any of the same name; (2) every document but the index placed, with its roles; (3)
@@ -190,7 +245,9 @@ export async function adoptStaging(
   const { live, stagingDir, dataDir, homes } = options;
   const danaIndex = indexDocId("user", "dana");
   const danaHome: Home = { kind: "user", id: "dana" };
-  const adoptDana = live.directory.placeOf(danaIndex) === null;
+  const adoptDana =
+    live.directory.placeOf(danaIndex) === null &&
+    live.directory.documentsIn(danaHome).length === 0;
   for (const home of adoptDana ? [...homes, "user:dana"] : homes)
     for (const name of filesOf(home))
       if (existsSync(join(stagingDir, name)))
@@ -234,7 +291,9 @@ export async function resumeStaging(
 ): Promise<"adopted" | "running" | "cleared"> {
   const { stagingDir } = options;
   if (existsSync(join(stagingDir, STAGING_DONE))) {
-    await adoptStaging(options);
+    const stagedFavourites = await adoptStaging(options);
+    if (stagedFavourites !== null)
+      applyStagedFavouritesToStorage(options.live, stagedFavourites);
     return "adopted";
   }
   const run = readSeedRun(stagingDir);
