@@ -1,6 +1,6 @@
 // Prompter feed relay on the desktop node: answers prompter SUBSCRIBE for a relayed rundown from
 // the person's upstream prompter handle, forwarding snapshots, patches, heartbeats and feed loss.
-import { syncError } from "@manent/server-core";
+import { diffPrompterFeed, syncError } from "@manent/server-core";
 import type {
   Clock,
   Peer,
@@ -51,33 +51,6 @@ function readFeedFromHandle(handle: PrompterHandle): PrompterFeed {
   for (const [storyId, blocks] of handle.stories.get())
     stories.push({ storyId, blocks: [...blocks] });
   return { v: 1, runOrder: [...handle.runOrder.get()], stories };
-}
-
-function diffFeed(
-  previous: PrompterFeed,
-  next: PrompterFeed,
-): PrompterPatch | null {
-  const runOrderChanged =
-    JSON.stringify(previous.runOrder) !== JSON.stringify(next.runOrder);
-  const prevStories = new Map(
-    previous.stories.map((s) => [s.storyId, JSON.stringify(s.blocks)]),
-  );
-  const nextIds = new Set<string>();
-  const stories: PrompterStory[] = [];
-  for (const story of next.stories) {
-    nextIds.add(story.storyId);
-    if (prevStories.get(story.storyId) !== JSON.stringify(story.blocks))
-      stories.push(story);
-  }
-  const removed = [...prevStories.keys()].filter((id) => !nextIds.has(id));
-  if (!runOrderChanged && stories.length === 0 && removed.length === 0)
-    return null;
-  return {
-    v: 1,
-    runOrder: runOrderChanged ? next.runOrder : null,
-    stories,
-    removed,
-  };
 }
 
 function livePeers(entry: RelayedFeed): Peer[] {
@@ -242,7 +215,9 @@ export function createPrompterRelay(
       for (const peer of needSnapshot) entry.snapshotted.add(peer);
     }
     const patch =
-      entry.lastFeed === null ? null : diffFeed(entry.lastFeed, nextFeed);
+      entry.lastFeed === null
+        ? null
+        : diffPrompterFeed(entry.lastFeed, nextFeed);
     entry.lastFeed = nextFeed;
 
     const heartbeatDue =
@@ -286,8 +261,9 @@ export function createPrompterRelay(
         entry.cancelSweep = null;
         if (active.get(entry.key) !== entry) return;
         if (livePeers(entry).length === 0) return teardown(entry);
-        if (docRowOf(entry.docId) === null)
-          return rejectAll(entry, "deleted", 0);
+        const row = docRowOf(entry.docId);
+        if (row === null) return rejectAll(entry, "deleted", 0);
+        if (eligiblePeers(entry, row.generation).length === 0) return;
         scheduleNext();
       }, SWEEP_MS);
     };

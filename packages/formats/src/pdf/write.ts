@@ -1,21 +1,13 @@
 // A PDF drawn line by line from the positioned lines of the engine a script was paginated with, in
 // the script font's own faces, every glyph on the grid of 10 cells to the inch.
-import {
-  CELL_PT,
-  FONT_FACE_KEYS,
-  FONT_METRICS,
-  STYLE,
-  UNIT_PT,
-  engineFor,
-} from "@manent/pagination";
+import { CELL_PT, STYLE, UNIT_PT, engineFor } from "@manent/pagination";
 import type {
   Engine,
-  FontFaceKey,
   FrontPage,
   PageGeometry,
   Pagination,
 } from "@manent/pagination";
-import PDFDocument from "pdfkit";
+import { drawGlyphRun, fontScale, startPdf } from "./draw.ts";
 import type { ScriptFontFiles } from "./fonts.ts";
 import {
   durationOfParts,
@@ -51,92 +43,14 @@ export interface PdfOptions {
   readonly durationMs?: number | null;
 }
 
-const FONT_SIZE_PT = 12;
-const PT_PER_FONT_UNIT = FONT_SIZE_PT / FONT_METRICS.unitsPerEm;
-/** Added after every glyph, so that each advances one cell. */
-const CHARACTER_SPACING_PT = CELL_PT - FONT_METRICS.advance * PT_PER_FONT_UNIT;
-/** Where a browser puts the baseline in a 12 pt line box, from the box's top. */
-const BASELINE_PT =
-  (FONT_SIZE_PT -
-    (FONT_METRICS.ascent - FONT_METRICS.descent) * PT_PER_FONT_UNIT) /
-    2 +
-  FONT_METRICS.ascent * PT_PER_FONT_UNIT;
-const BOX_HEIGHT_PT = 9;
-const BOX_LINE_PT = 0.5;
+const SCRIPT_SCALE = fontScale(12, CELL_PT);
 const RULE_LINE_PT = 0.6;
 const UNDERLINE_BELOW_PT = 1.5;
 const STRIKE_ABOVE_PT = 3.5;
+
 interface Pen {
   readonly doc: PDFKit.PDFDocument;
   readonly engine: Engine;
-}
-
-/** Clusters drawn in one face, or one cluster the font has no glyph for (`face` null). */
-interface Piece {
-  readonly text: string;
-  readonly face: FontFaceKey | null;
-  /** Cells before the piece in its run. */
-  readonly cell: number;
-  readonly cells: number;
-}
-
-// The declarations ask for a list of features to turn on, but pdfkit hands this value to fontkit,
-// which reads an object as switches: only an object turns ligatures and kerning off.
-function textOptions(): PDFKit.Mixins.TextOptions {
-  const options: PDFKit.Mixins.TextOptions = {
-    baseline: "alphabetic",
-    lineBreak: false,
-    characterSpacing: CHARACTER_SPACING_PT,
-  };
-  Reflect.set(options, "features", {
-    liga: false,
-    clig: false,
-    dlig: false,
-    calt: false,
-    kern: false,
-  });
-  return options;
-}
-
-function faceOf(subset: "latin" | "latin-ext", style: number): FontFaceKey {
-  const weight = (style & STYLE.BOLD) === 0 ? "400" : "700";
-  const slant = (style & STYLE.ITALIC) === 0 ? "normal" : "italic";
-  return `${subset}-${weight}-${slant}`;
-}
-
-// The subset whose files hold every code point of `cluster`; null when no one subset does, so the
-// font has no glyph for it.
-function subsetOf(
-  engine: Engine,
-  cluster: string,
-): "latin" | "latin-ext" | null {
-  const subset = engine.fontSubset(cluster.codePointAt(0)!);
-  for (const char of cluster)
-    if (engine.fontSubset(char.codePointAt(0)!) !== subset) return null;
-  return subset;
-}
-
-// `text` cut by cluster into pieces of one face; a cluster of 0 cells is passed over.
-function piecesOf(engine: Engine, text: string, style: number): Piece[] {
-  const pieces: Piece[] = [];
-  for (let at = 0, cell = 0; at < text.length;) {
-    const end = engine.graphemeEnd(text, at);
-    const cells = engine.clusterCells(text, at, end, false);
-    const cluster = text.slice(at, end);
-    const subset = subsetOf(engine, cluster);
-    const face = subset === null ? null : faceOf(subset, style);
-    const last = pieces.at(-1);
-    if (cells > 0 && face !== null && last?.face === face)
-      pieces[pieces.length - 1] = {
-        ...last,
-        text: last.text + cluster,
-        cells: last.cells + cells,
-      };
-    else if (cells > 0) pieces.push({ text: cluster, face, cell, cells });
-    cell += cells;
-    at = end;
-  }
-  return pieces;
 }
 
 function rule(
@@ -162,21 +76,7 @@ function drawRun(
   x: number,
   y: number,
 ): number {
-  for (const piece of piecesOf(engine, text, style)) {
-    const left = x + piece.cell * CELL_PT;
-    if (piece.face === null)
-      doc
-        .save()
-        .lineWidth(BOX_LINE_PT)
-        .rect(left, y - BOX_HEIGHT_PT, piece.cells * CELL_PT, BOX_HEIGHT_PT)
-        .stroke()
-        .restore();
-    else
-      doc
-        .font(piece.face)
-        .fontSize(FONT_SIZE_PT)
-        .text(piece.text, left, y, textOptions());
-  }
+  drawGlyphRun(doc, text, style, x, y, SCRIPT_SCALE, engine);
   const cells = engine.clusterCells(text, 0, text.length, false);
   if ((style & STYLE.UNDERLINE) !== 0)
     rule(doc, x, y + UNDERLINE_BELOW_PT, cells);
@@ -186,7 +86,7 @@ function drawRun(
 
 // The baseline of the row `y` units below the top of the text area, in points.
 const rowY = (geometry: PageGeometry, y: number): number =>
-  geometry.marginTopPt + y * UNIT_PT + BASELINE_PT;
+  geometry.marginTopPt + y * UNIT_PT + SCRIPT_SCALE.baselinePt;
 
 function drawLines(
   pen: Pen,
@@ -309,21 +209,13 @@ export async function writePdfParts(
     throw new RangeError("a PDF is written from at least one part, not none");
   const engines = parts.map(engineOf);
   const { geometry } = first.profile;
-  const created = new Date(options.createdAt ?? 0);
-  // pdfkit opens Helvetica unless font is null, and its browser build carries no standard fonts:
-  // every piece sets its own face, so none is opened.
-  const settings: PDFKit.PDFDocumentOptions = {
-    size: [geometry.widthPt, geometry.heightPt],
-    margin: 0,
-    autoFirstPage: false,
-    info: {
-      Title: options.title ?? "",
-      CreationDate: created,
-      ModDate: created,
-    },
-  };
-  Reflect.set(settings, "font", null);
-  const doc = new PDFDocument(settings);
+  const { pdf: doc, finish } = startPdf({
+    widthPt: geometry.widthPt,
+    heightPt: geometry.heightPt,
+    title: options.title ?? "",
+    createdAt: options.createdAt,
+    fonts: options.fonts,
+  });
   const computedDuration =
     options.durationMs !== undefined
       ? options.durationMs
@@ -338,13 +230,6 @@ export async function writePdfParts(
       section: sections[pageIndex] ?? null,
     }));
   });
-  const chunks: Uint8Array<ArrayBuffer>[] = [];
-  const written = new Promise<Uint8Array>((resolve, reject) => {
-    doc.on("data", (chunk: Uint8Array<ArrayBuffer>) => chunks.push(chunk));
-    doc.on("end", () => resolve(new Blob(chunks).bytes()));
-    doc.on("error", reject);
-  });
-  for (const key of FONT_FACE_KEYS) doc.registerFont(key, options.fonts[key]);
   for (const page of options.front ?? []) {
     doc.addPage();
     drawLines({ doc, engine: engines[0]! }, page.lines, geometry);
@@ -365,8 +250,7 @@ export async function writePdfParts(
       options,
     );
   }
-  doc.end();
-  return await written;
+  return await finish();
 }
 
 /**

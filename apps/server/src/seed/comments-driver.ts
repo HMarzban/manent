@@ -1,9 +1,6 @@
 // The seed driver's comments: rounds, threads, replies, resolutions and flags over the server's real sync seam.
 import {
-  ORIGIN_REMOTE,
-  createDoc,
   flagThread,
-  mergeUpdates,
   readCommentRounds,
   reopenThread,
   replyToThread,
@@ -11,10 +8,10 @@ import {
   startRound,
   startThread,
 } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
 import { SeedDriverError } from "@manent/demo";
 import type { SeedComments } from "@manent/demo";
 import { commentsDocId, docIdV7 } from "@manent/sync-protocol";
+import { pushDoc } from "./driving.ts";
 import type { Driving } from "./driving.ts";
 
 const V7_RANDOM_BYTES = 10;
@@ -48,35 +45,6 @@ async function ensureCommentsDoc(
     });
   }
   return docId;
-}
-
-/** Subscribes `userId` to `docId`, runs `fn` capturing its CRDT update, pushes it, and unsubscribes. */
-async function pushDoc<T>(
-  d: Driving,
-  userId: string,
-  docId: string,
-  fn: (doc: CrdtDoc) => T,
-): Promise<T> {
-  const link = await d.link(userId);
-  const doc = createDoc({ clientId: d.clientId() });
-  const { state } = await link.subscribe(docId, doc.clientId);
-  try {
-    doc.applyUpdate(state, ORIGIN_REMOTE);
-    const made: Uint8Array[] = [];
-    const stop = doc.subscribe((update) => made.push(update));
-    let result: T;
-    try {
-      result = fn(doc);
-    } finally {
-      stop();
-    }
-    if (made.length > 0) await link.push(docId, mergeUpdates(made));
-    return result;
-  } finally {
-    await link.unsubscribe(docId);
-    doc.destroy();
-    await d.runDue();
-  }
 }
 
 /** Comments driver over `/api/docs`, authority round creation, and WebSocket pushes. */

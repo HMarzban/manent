@@ -1,15 +1,13 @@
 // A headless viewer: the real sync client over a real socket, reading one document in view mode.
 import { browserClock, browserRandom, webTransport } from "@manent/client-web";
 import type { SocketLike } from "@manent/client-web";
-import { ENGINE_VERSIONS, TABLE_VERSION } from "@manent/pagination";
-import { SCHEMA_VERSION } from "@manent/schema";
 import {
   createMemoryStore,
   createSyncClient,
   soloLeader,
 } from "@manent/sync-client";
-import type { Frames, ViewHandle } from "@manent/sync-client";
-import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { ViewHandle } from "@manent/sync-client";
+import { BOT_VERSIONS, NO_FRAMES } from "./bot-defaults.ts";
 import { bunSocket } from "./bot.ts";
 
 export interface ViewerBot {
@@ -17,15 +15,6 @@ export interface ViewerBot {
   readonly view: ViewHandle;
   close(): Promise<void>;
 }
-
-const VERSIONS = {
-  protocol: PROTOCOL_VERSION,
-  schema: SCHEMA_VERSION,
-  engine: ENGINE_VERSIONS.at(-1)!,
-  table: TABLE_VERSION,
-};
-
-const NO_FRAMES: Frames = { request: () => () => {} };
 
 /** Subscribes to `docId` in `view` mode over `options.socket` (or `bunSocket`). */
 export function createViewerBot(options: {
@@ -44,8 +33,8 @@ export function createViewerBot(options: {
     userId,
     deviceId,
     build: "testkit",
-    versions: VERSIONS,
-    minServer: VERSIONS,
+    versions: BOT_VERSIONS,
+    minServer: BOT_VERSIONS,
     ports: {
       transport: webTransport({
         baseUrl,

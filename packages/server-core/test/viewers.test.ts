@@ -287,3 +287,37 @@ test("writers-only material never reaches a viewer and a revoked viewer gets no 
   expect(leo.take()).toEqual([]);
   expect(ana.take().map((message) => message.type)).toEqual(["VIEW_PATCH"]);
 });
+
+test("membership change reaches viewers of an unloaded room before eviction", () => {
+  const { service, leo, ana, storage } = createServiceWorld();
+  storage.directory.setRole(DOC, "ana", "view", []);
+  service.receive(leo, subscribe(DOC, "view", []));
+  service.receive(ana, subscribe(DOC, "view", []));
+  leo.take();
+  ana.take();
+  expect(service.stats()).toMatchObject({ rooms: 1, loadedRooms: 0 });
+
+  storage.directory.removeRole(DOC, "leo");
+  service.membershipChanged(DOC, "leo", null, "sam");
+
+  const leoMsgs = leo.take();
+  expect(leoMsgs.map((m) => m.type)).toEqual(["CONTROL", "ERROR"]);
+  const leoControl = leoMsgs[0] as Extract<Message, { type: "CONTROL" }>;
+  expect(leoControl.kind).toBe("membership_changed");
+  expect(JSON.parse(text(leoControl.data))).toEqual({
+    userId: "leo",
+    role: null,
+    byUserId: "sam",
+  });
+  expect(leoMsgs[1]).toMatchObject({
+    type: "ERROR",
+    code: 4403,
+    message: "forbidden",
+  });
+
+  const anaMsgs = ana.take();
+  expect(anaMsgs.map((m) => m.type)).toEqual(["CONTROL"]);
+  const anaControl = anaMsgs[0] as Extract<Message, { type: "CONTROL" }>;
+  expect(anaControl.kind).toBe("membership_changed");
+  expect(JSON.parse(text(anaControl.data))).toEqual({});
+});

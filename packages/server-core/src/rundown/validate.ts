@@ -1,9 +1,15 @@
-// What a push to a rundown may write: rights, allowed roots, row shapes, cells and server-only keys.
-import { jsonMap, readRundownWrites } from "@manent/crdt";
+// What a push to a rundown may write: rights, allowed roots, fields, columns, row shapes, cells and server-only keys.
+import {
+  STORED_COLUMNS,
+  jsonMap,
+  readRundownColumns,
+  readRundownWrites,
+} from "@manent/crdt";
 import type { CrdtDoc, RundownWrites, TransactionReport } from "@manent/crdt";
 import {
   ROW_KINDS,
   RUNDOWN_COLUMNS_ROOT,
+  RUNDOWN_COLUMN_IDS,
   RUNDOWN_FIELDS_ROOT,
   RUNDOWN_ROWS_ROOT,
   isBlockId,
@@ -39,15 +45,6 @@ const ALLOWED_ROW_KEYS: readonly string[] = Object.freeze([
   "durationMs",
   "prompter",
   "unnumbered",
-]);
-
-const STORED_COLUMNS: readonly RundownColumnId[] = Object.freeze([
-  "segment",
-  "story",
-  "writer",
-  "presenter",
-  "type",
-  "dur",
 ]);
 
 const BASE62 = /^[0-9A-Za-z]+$/;
@@ -86,6 +83,19 @@ const issue = (path: string, code: IssueCode, message: string): Issue => ({
   severity: "reject",
   message,
 });
+
+const bad = (path: string, message: string): Issue =>
+  issue(path, "bad_attr", message);
+
+const unknownAttr = (path: string, message: string): Issue =>
+  issue(path, "unknown_attr", message);
+
+const FIELD_CHECKS: Readonly<Record<string, (value: unknown) => boolean>> = {
+  airDate: (value) => typeof value === "string",
+  airAt: (value) => value === null || isSafeInt(value),
+  windowLeadMs: isNonNegativeInt,
+  targetMs: (value) => value === null || isNonNegativeInt(value),
+};
 
 function rootIssues(report: TransactionReport): Issue[] {
   const issues = report.maps
@@ -133,27 +143,50 @@ function isValidPrevious(value: unknown): boolean {
   return validInner && typeof userId === "string" && isSafeInt(setAt);
 }
 
+function checkFields(doc: CrdtDoc, issues: Issue[]): void {
+  for (const [key, value] of Object.entries(
+    jsonMap(doc, RUNDOWN_FIELDS_ROOT).entries(),
+  )) {
+    const check = FIELD_CHECKS[key];
+    if (check === undefined)
+      issues.push(
+        unknownAttr(
+          `rundown.${key}`,
+          `a push wrote unknown rundown field "${key}"`,
+        ),
+      );
+    else if (!check(value))
+      issues.push(bad(`rundown.${key}`, `rundown.${key} has an invalid value`));
+  }
+}
+
+function checkColumns(doc: CrdtDoc, issues: Issue[]): void {
+  const columns = readRundownColumns(doc);
+  for (let i = 0; i < columns.length; i += 1) {
+    if (!RUNDOWN_COLUMN_IDS.some((col) => col === columns[i]))
+      issues.push(
+        bad(`columns.${i}`, `columns[${i}] is not a valid rundown column`),
+      );
+  }
+}
+
 function checkRowKeys(
   rowId: string,
   keys: readonly string[],
   issues: Issue[],
 ): void {
   for (const key of keys) {
+    const path = `rows.${rowId}.${key}`;
     if (SERVER_ONLY_ROW_KEYS.includes(key))
       issues.push(
-        issue(
-          `rows.${rowId}.${key}`,
-          "unknown_attr",
+        unknownAttr(
+          path,
           `a push wrote server-only key "${key}" on row ${rowId}`,
         ),
       );
     else if (!ALLOWED_ROW_KEYS.includes(key))
       issues.push(
-        issue(
-          `rows.${rowId}.${key}`,
-          "unknown_attr",
-          `a push wrote unknown key "${key}" on row ${rowId}`,
-        ),
+        unknownAttr(path, `a push wrote unknown key "${key}" on row ${rowId}`),
       );
   }
 }
@@ -163,11 +196,7 @@ function checkRowLinks(rowId: string, rawRow: MapLike, issues: Issue[]): void {
     const docId = rawRow.get("docId");
     if (docId !== null && (typeof docId !== "string" || !isDocId(docId)))
       issues.push(
-        issue(
-          `rows.${rowId}.docId`,
-          "bad_attr",
-          `row ${rowId} has an invalid docId`,
-        ),
+        bad(`rows.${rowId}.docId`, `row ${rowId} has an invalid docId`),
       );
   }
   if (rawRow.has("blockId")) {
@@ -177,18 +206,13 @@ function checkRowLinks(rowId: string, rawRow: MapLike, issues: Issue[]): void {
       (typeof blockId !== "string" || !isBlockId(blockId))
     )
       issues.push(
-        issue(
-          `rows.${rowId}.blockId`,
-          "bad_attr",
-          `row ${rowId} has an invalid blockId`,
-        ),
+        bad(`rows.${rowId}.blockId`, `row ${rowId} has an invalid blockId`),
       );
   }
   if (rawRow.has("unnumbered") && typeof rawRow.get("unnumbered") !== "boolean")
     issues.push(
-      issue(
+      bad(
         `rows.${rowId}.unnumbered`,
-        "bad_attr",
         `row ${rowId} unnumbered must be a boolean`,
       ),
     );
@@ -200,30 +224,19 @@ function checkLiveRow(
   issues: Issue[],
 ): MapLike | null {
   if (!isMapLike(rawRow)) {
-    issues.push(
-      issue(`rows.${rowId}`, "bad_attr", `row ${rowId} is not a map`),
-    );
+    issues.push(bad(`rows.${rowId}`, `row ${rowId} is not a map`));
     return null;
   }
   const id = rawRow.get("id");
   if (typeof id !== "string" || id !== rowId || !isBlockId(id))
-    issues.push(
-      issue(`rows.${rowId}.id`, "bad_attr", `row ${rowId} has an invalid id`),
-    );
+    issues.push(bad(`rows.${rowId}.id`, `row ${rowId} has an invalid id`));
   if (!isRowKind(rawRow.get("kind")))
-    issues.push(
-      issue(
-        `rows.${rowId}.kind`,
-        "bad_attr",
-        `row ${rowId} has an invalid kind`,
-      ),
-    );
+    issues.push(bad(`rows.${rowId}.kind`, `row ${rowId} has an invalid kind`));
   const order = rawRow.get("order");
   if (typeof order !== "string" || !BASE62.test(order))
     issues.push(
-      issue(
+      bad(
         `rows.${rowId}.order`,
-        "bad_attr",
         `row ${rowId} order must be a non-empty base-62 string`,
       ),
     );
@@ -231,13 +244,7 @@ function checkLiveRow(
   if (!rawRow.has("cells")) return null;
   const rawCells = rawRow.get("cells");
   if (!isMapLike(rawCells)) {
-    issues.push(
-      issue(
-        `rows.${rowId}.cells`,
-        "bad_attr",
-        `row ${rowId} cells is not a map`,
-      ),
-    );
+    issues.push(bad(`rows.${rowId}.cells`, `row ${rowId} cells is not a map`));
     return null;
   }
   return rawCells;
@@ -254,9 +261,7 @@ function checkCell(
   const { columnId, value } = cell;
   const path = `rows.${rowId}.cells.${columnId}`;
   if (!isStoredColumn(columnId)) {
-    issues.push(
-      issue(path, "bad_attr", `column "${columnId}" cannot hold a stored cell`),
-    );
+    issues.push(bad(path, `column "${columnId}" cannot hold a stored cell`));
     return;
   }
   // deleting a cell (for example undoing a first cell write) reports value: null
@@ -266,38 +271,28 @@ function checkCell(
   )
     return;
   if (!isPlainObject(value)) {
-    issues.push(issue(path, "bad_attr", `cell "${columnId}" is not an object`));
+    issues.push(bad(path, `cell "${columnId}" is not an object`));
     return;
   }
   if (typeof value.userId !== "string" || value.userId !== pusherUserId)
     issues.push(
-      issue(
+      bad(
         `${path}.userId`,
-        "bad_attr",
         `cell "${columnId}" names another user as its writer`,
       ),
     );
   if (!isSafeInt(value.setAt))
     issues.push(
-      issue(
-        `${path}.setAt`,
-        "bad_attr",
-        `cell "${columnId}" has an invalid setAt`,
-      ),
+      bad(`${path}.setAt`, `cell "${columnId}" has an invalid setAt`),
     );
   if (!isValidCellValue(columnId, value.value))
     issues.push(
-      issue(
-        `${path}.value`,
-        "bad_attr",
-        `cell "${columnId}" has an invalid value`,
-      ),
+      bad(`${path}.value`, `cell "${columnId}" has an invalid value`),
     );
   if (!isValidPrevious(value.previous))
     issues.push(
-      issue(
+      bad(
         `${path}.previous`,
-        "bad_attr",
         `cell "${columnId}" has an invalid previous value`,
       ),
     );
@@ -312,11 +307,7 @@ function readWrites(
     return readRundownWrites(doc, report.update);
   } catch (error) {
     issues.push(
-      issue(
-        "",
-        "bad_attr",
-        error instanceof Error ? error.message : "invalid rundown write",
-      ),
+      bad("", error instanceof Error ? error.message : "invalid rundown write"),
     );
     return null;
   }
@@ -324,7 +315,7 @@ function readWrites(
 
 /**
  * Checks a push to a rundown document against the pusher's role and `edit_rundowns`
- * capability, allowed roots, row shapes, cell ownership and server-only keys.
+ * capability, allowed roots, fields, columns, row shapes, cell ownership and server-only keys.
  */
 export const validateRundownPush: PushValidator = ({
   report,
@@ -336,21 +327,19 @@ export const validateRundownPush: PushValidator = ({
     !isWriterRole(access.role) ||
     !access.capabilities.includes("edit_rundowns")
   )
-    return [
-      issue(
-        "",
-        "bad_attr",
-        `${peer.userId} may not edit rundown ${room.docId}`,
-      ),
-    ];
+    return [bad("", `${peer.userId} may not edit rundown ${room.docId}`)];
   if (room.doc === null)
     return [
       ...rootIssues(report),
-      issue("", "bad_attr", `the room of ${room.docId} is not loaded`),
+      bad("", `the room of ${room.docId} is not loaded`),
     ];
   const issues = rootIssues(report);
   const writes = readWrites(room.doc, report, issues);
-  if (writes === null || writes.rows.length === 0) return issues;
+  if (writes === null) return issues;
+  if (writes.roots.includes(RUNDOWN_FIELDS_ROOT)) checkFields(room.doc, issues);
+  if (writes.roots.includes(RUNDOWN_COLUMNS_ROOT))
+    checkColumns(room.doc, issues);
+  if (writes.rows.length === 0) return issues;
   const rowsView = jsonMap(room.doc, RUNDOWN_ROWS_ROOT);
   for (const row of writes.rows) {
     checkRowKeys(row.rowId, row.keys, issues);

@@ -7,6 +7,7 @@ export const RELAYED_CONTROL_KINDS: readonly ControlKind[] = Object.freeze([
   "draft_opened",
   "driver_changed",
   "handed_in",
+  "sent_to_prompter",
   "trashed",
   "untrashed",
 ]);

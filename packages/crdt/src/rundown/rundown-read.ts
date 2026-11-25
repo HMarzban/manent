@@ -22,7 +22,8 @@ import { compareStrings } from "./rundown-order.ts";
 
 const DEFAULT_WINDOW_LEAD_MS = 3600000;
 
-const STORED_COLUMNS: readonly RundownColumnId[] = Object.freeze([
+/** The rundown column ids that hold stored last-writer cells. */
+export const STORED_COLUMNS: readonly RundownColumnId[] = Object.freeze([
   "segment",
   "story",
   "writer",
@@ -180,6 +181,18 @@ function readRow(key: string, rowMap: Y.Map<unknown>): RundownRowJSON | null {
     prompter: readPrompterState(rowMap.get("prompter")),
     unnumbered: rowMap.get("unnumbered") === true,
   };
+}
+
+/** Raw entries stored in the rundown's `columns` root array, without filtering unknown items. */
+export function readRundownColumns(doc: CrdtDoc): unknown[] {
+  const arr = yDocOf(doc).getArray<unknown>(RUNDOWN_COLUMNS_ROOT);
+  const items = arr.toArray();
+  // stray map entries written onto the columns root are surfaced as invalid items
+  const mapEntries: unknown = Reflect.get(arr, "_map");
+  if (mapEntries instanceof Map)
+    for (const item of mapEntries.values())
+      if (item instanceof Y.Item && !item.deleted) items.push(null);
+  return items;
 }
 
 /** Reads the rundown's fields, columns and rows sorted by `order`, then `id`. */

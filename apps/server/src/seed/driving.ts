@@ -1,4 +1,6 @@
 // What every action of the seed driver reaches the server with: a person's routes, socket, ids and keys.
+import { ORIGIN_REMOTE, createDoc, mergeUpdates } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import { SeedDriverError } from "@manent/demo";
 import type { SeedCapability } from "@manent/demo";
 import type { Clock } from "@manent/server-core";
@@ -35,6 +37,37 @@ export const isSeedClock = (clock: Clock): clock is SeedClock =>
   "set" in clock && "runDue" in clock;
 
 const hex = (byte: number): string => byte.toString(16).padStart(2, "0");
+
+/** Subscribes `userId` to `docId`, runs `fn` capturing its CRDT update, pushes it, and unsubscribes. */
+export async function pushDoc<T>(
+  d: Driving,
+  userId: string,
+  docId: string,
+  fn: (doc: CrdtDoc) => T,
+): Promise<T> {
+  const link = await d.link(userId);
+  const doc = createDoc({ clientId: d.clientId() });
+  let subscribed = false;
+  try {
+    const { state } = await link.subscribe(docId, doc.clientId);
+    subscribed = true;
+    doc.applyUpdate(state, ORIGIN_REMOTE);
+    const made: Uint8Array[] = [];
+    const stop = doc.subscribe((update) => made.push(update));
+    let result: T;
+    try {
+      result = fn(doc);
+    } finally {
+      stop();
+    }
+    if (made.length > 0) await link.push(docId, mergeUpdates(made));
+    return result;
+  } finally {
+    if (subscribed) await link.unsubscribe(docId);
+    doc.destroy();
+    await d.runDue();
+  }
+}
 
 export function createDriving(
   target: SeedServer | LiveTarget,

@@ -97,9 +97,10 @@ function createLossyQueue<T>(
 }
 
 function copyEvent(event: { data: unknown }): { data: unknown } {
-  return event.data instanceof ArrayBuffer
-    ? { data: event.data.slice(0) }
-    : { data: event.data };
+  if (event.data instanceof ArrayBuffer) return { data: event.data.slice(0) };
+  if (event.data instanceof Uint8Array)
+    return { data: new Uint8Array(event.data) };
+  return { data: event.data };
 }
 
 /**

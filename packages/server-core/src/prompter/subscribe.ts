@@ -303,7 +303,7 @@ export function createPrompterFeedHub(options: {
           });
         }
         startUpstream(docId, peer.userId, state, upstreamFeed);
-        armHeartbeat(docId, state);
+        // upstream heartbeats arrive via patch; local heartbeats would double-arm and mask feed loss
         return;
       }
 

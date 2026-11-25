@@ -182,7 +182,7 @@ export function createRundownDurations(options: {
   function recompute(storyDocId: string, isRetry: boolean): void {
     if (storage.directory.tombstoneOf(storyDocId) !== null) return;
     const place = storage.directory.placeOf(storyDocId);
-    if (place === null) return;
+    if (place === null || place.kind !== "script") return;
     const links = storyLinks
       .linksOf(storyDocId)
       .filter((link) => link.kind === "script");

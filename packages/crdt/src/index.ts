@@ -58,6 +58,7 @@ export {
   writePrompterState,
 } from "./rundown/rundown-doc.ts";
 export type { NewRow } from "./rundown/rundown-doc.ts";
+export { STORED_COLUMNS, readRundownColumns } from "./rundown/rundown-read.ts";
 export { orderBetween } from "./rundown/rundown-order.ts";
 export { readRundownWrites } from "./rundown/rundown-writes.ts";
 export type { RundownWrites } from "./rundown/rundown-writes.ts";

@@ -40,6 +40,30 @@ const EDITOR_ONLY_CONTROLS: ReadonlySet<ControlKind> = new Set([
   "draft_opened",
 ]);
 
+/** CONTROL { seq: the room's head, kind, data } to each editor (and viewer, unless editor-only) of `room` that `to` names. */
+function deliverControl(
+  room: Room,
+  message: { kind: ControlKind; data: Uint8Array },
+  to: (peer: Peer) => boolean,
+): void {
+  const seq = room.row.headSeq;
+  const control = prepareMessage({
+    type: "CONTROL",
+    ...docOf(room),
+    seq,
+    ...message,
+  });
+  if (EDITOR_ONLY_CONTROLS.has(message.kind)) {
+    for (const [peer, sub] of room.editors) {
+      const { role } = sub.access;
+      if ((role === "owner" || role === "edit") && to(peer)) peer.send(control);
+    }
+    return;
+  }
+  for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
+    if (to(peer)) peer.send(control);
+}
+
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
 ): SyncService {
@@ -119,35 +143,11 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
-  /** CONTROL { seq: the room's head, kind, data } to each editor (and viewer, unless editor-only) of the loaded room that `to` names; nothing when it is not loaded. */
-  function sendControl(
-    docId: string,
-    message: { kind: ControlKind; data: Uint8Array },
-    to: (peer: Peer) => boolean,
-  ): void {
+  const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
     const room = rooms.find(docId);
     if (room === null || room.doc === null) return;
-    const seq = room.row.headSeq;
-    const control = prepareMessage({
-      type: "CONTROL",
-      ...docOf(room),
-      seq,
-      ...message,
-    });
-    if (EDITOR_ONLY_CONTROLS.has(message.kind)) {
-      for (const [peer, sub] of room.editors) {
-        const { role } = sub.access;
-        if ((role === "owner" || role === "edit") && to(peer))
-          peer.send(control);
-      }
-      return;
-    }
-    for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
-      if (to(peer)) peer.send(control);
-  }
-
-  const broadcast: SyncService["broadcast"] = (docId, kind, data) =>
-    sendControl(docId, { kind, data }, () => true);
+    deliverControl(room, { kind, data }, () => true);
+  };
 
   const writePath = createWritePath({
     limits,
@@ -305,13 +305,19 @@ export function createSyncService(
     detach,
     accessChanged: subscribed.accessChanged,
     membershipChanged(docId, userId, role, byUserId) {
-      // only the person's own subscriptions learn whose role changed, to what and by whom, before any of them ends
-      const kind = "membership_changed";
-      const data = encodeJson({ userId, role, byUserId });
-      const theirs = { kind, data } as const;
-      sendControl(docId, theirs, (peer) => peer.userId === userId);
-      const others = { kind, data: encodeJson({}) } as const;
-      sendControl(docId, others, (peer) => peer.userId !== userId);
+      // only the person's own subscriptions learn whose role changed, to what and by whom, before any of them ends;
+      // includes an unloaded viewers-only room so viewers still hear CONTROL before eviction
+      const room = rooms.find(docId);
+      if (room !== null) {
+        const kind = "membership_changed";
+        const data = encodeJson({ userId, role, byUserId });
+        deliverControl(room, { kind, data }, (peer) => peer.userId === userId);
+        deliverControl(
+          room,
+          { kind, data: encodeJson({}) },
+          (peer) => peer.userId !== userId,
+        );
+      }
       subscribed.membershipChanged(docId, userId, role);
     },
     removed(docId) {

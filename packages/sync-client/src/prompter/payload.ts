@@ -23,11 +23,13 @@ function readJson(bytes: Uint8Array): unknown {
   }
 }
 
-function readNullableNumber(value: unknown): number | null | undefined {
-  if (value === null) return null;
+type NullableNumber = { ok: true; value: number | null } | { ok: false };
+
+function readNullableNumber(value: unknown): NullableNumber {
+  if (value === null) return { ok: true, value: null };
   return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+    ? { ok: true, value }
+    : { ok: false };
 }
 
 function readPrompterRow(value: unknown): PrompterRow | null {
@@ -38,14 +40,14 @@ function readPrompterRow(value: unknown): PrompterRow | null {
   if (storyId !== null && typeof storyId !== "string") return null;
   const rowNumber = readNullableNumber(value.number);
   const durationMs = readNullableNumber(value.durationMs);
-  if (rowNumber === undefined || durationMs === undefined) return null;
+  if (!rowNumber.ok || !durationMs.ok) return null;
   return {
     rowId,
     kind,
-    number: rowNumber,
+    number: rowNumber.value,
     title,
     storyId,
-    durationMs,
+    durationMs: durationMs.value,
   };
 }
 
