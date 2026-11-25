@@ -267,11 +267,34 @@ export async function selectTourStep(
   promise: string,
   index: number,
 ): Promise<void> {
-  const row = tourPanel(page)
-    .getByRole("listitem")
-    .filter({ hasText: promise })
-    .locator("ol > li > div")
-    .nth(index);
+  const panel = tourPanel(page);
+  const back = panel.getByRole("button", { name: "All parts" });
+  const allFilter = panel.getByRole("button", { name: "All", exact: true });
+  await expect(back.or(allFilter)).toBeVisible();
+  const stepRows = panel.locator("ol > li > div");
+  const alreadyOpen =
+    (await back.isVisible()) &&
+    (await panel.getByText(promise, { exact: true }).count()) > 0 &&
+    (await stepRows.count()) > index;
+  if (!alreadyOpen) {
+    if (await back.isVisible()) {
+      await back.click();
+      await expect(allFilter).toBeVisible();
+    }
+    if ((await allFilter.getAttribute("aria-pressed")) !== "true")
+      await allFilter.click();
+    const card = panel.locator("[data-tour-card]").filter({ hasText: promise });
+    if ((await card.count()) === 0) {
+      const collapsed = panel.locator("h2 > button[aria-expanded='false']");
+      const count = await collapsed.count();
+      for (let i = 0; i < count; i++) {
+        await collapsed.first().click();
+        if ((await card.count()) > 0) break;
+      }
+    }
+    await card.first().click();
+  }
+  const row = stepRows.nth(index);
   if ((await row.getAttribute("aria-current")) !== "true") await row.click();
   await expect(row).toHaveAttribute("aria-current", "true");
 }
@@ -418,7 +441,11 @@ async function showsOutsideTour(page: Page, text: string): Promise<boolean> {
         selected?.textContent === tourTab
           ? side?.querySelector("[role='tabpanel']")
           : null;
-      return shown.some((element) => tour?.contains(element) !== true);
+      return shown.some(
+        (element) =>
+          tour?.contains(element) !== true &&
+          element.closest("[data-tour-chrome]") === null,
+      );
     }, DOCUMENT_WORDS.tourTab);
 }
 

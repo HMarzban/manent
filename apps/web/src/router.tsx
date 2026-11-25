@@ -22,6 +22,7 @@ import type { PersonServices } from "./services/ports.ts";
 import { chooseUrl, choosePerson } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
 import { panelsActions } from "./state/panels.store.ts";
+import { tourActions } from "./state/tour.store.ts";
 
 /** `importer`, except that a load failing after the page has begun to leave never settles: a navigation cancels the pending load, and the router would take that failure for a newer build and reload the page, cancelling the navigation. */
 export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
@@ -184,6 +185,7 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       const result = choice ? await choosePerson(choice, api) : null;
       if (result?.ok) usePerson.getState().setPerson(result.person);
       closingPanels = params.get("panels") === "closed";
+      if (closingPanels) tourActions.suppress();
       params.delete("person");
       params.delete("panels");
       const search = params.toString();
@@ -211,6 +213,7 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
     if (!closingPanels) return;
     closingPanels = false;
     for (const panel of PANEL_IDS) panelsActions.close(panel);
+    tourActions.close();
   });
   return router;
 }

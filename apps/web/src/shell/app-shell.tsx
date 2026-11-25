@@ -30,6 +30,7 @@ import type { OutlineWriter } from "../state/outline.store.ts";
 import { paletteActions, usePaletteOpen } from "../state/palette.store.ts";
 import { usePanel } from "../state/panels.store.ts";
 import { createPeopleStore } from "../state/people.store.ts";
+import { tourActions, useTourActive } from "../state/tour.store.ts";
 import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
 import { useMenuChoiceFocus } from "./menu-focus.ts";
@@ -141,6 +142,29 @@ const palette = loadApart(
 const ShellPalette = palette.Component;
 /** Starts loading the palette's code. */
 export const preloadShellPalette = palette.preload;
+
+// the closed-panel floating Tour bar loads only while a Tour scenario is active with the side panel closed
+const tourFloat = loadApart(
+  async () => (await import("../demo/tour-floating-bar.tsx")).TourFloatingBar,
+);
+const TourFloatingBar = tourFloat.Component;
+
+function TourFloatingHost(): ReactNode {
+  const { tabStorage } = useEnvironment();
+  const active = useTourActive();
+  const side = usePanel("side").tab;
+  useEffect(() => {
+    tourActions.hydrate(tabStorage);
+  }, [tabStorage]);
+  if (active === null || side === "tour") return null;
+  return (
+    <SurfaceBoundary fallback={() => null}>
+      <Suspense fallback={null}>
+        <TourFloatingBar />
+      </Suspense>
+    </SurfaceBoundary>
+  );
+}
 
 /** The bridge's stores, made once for the life of the shell. */
 function useBridgeStores() {
@@ -294,6 +318,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                     </SurfaceBoundary>
                     <GlobalKeys />
                     <TrashConfirmDialog />
+                    <TourFloatingHost />
                   </>
                 )}
               </PeopleContext>

@@ -5,7 +5,10 @@ import { RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ControlState } from "../api.ts";
+import { useEnvironment } from "../services/context.tsx";
+import { tourActions } from "../state/tour.store.ts";
 import { BarButton } from "./bar-button.tsx";
+import { clearDemoTourStorage } from "./tour-progress.ts";
 import { SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 
@@ -15,10 +18,14 @@ import type { DemoControl } from "./use-demo.ts";
  */
 export function ResetControl(props: DemoControl): ReactNode {
   const { client } = props;
+  const { storage, tabStorage } = useEnvironment();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const reset = async (): Promise<void> => {
     setOpen(false);
+    tourActions.close();
+    tourActions.select(null);
+    clearDemoTourStorage(storage, tabStorage);
     const queryKey = [SERVER_STATUS_QUERY, props.id];
     const answered = client.reset();
     // an answer to a question asked before the press would say it is still running
