@@ -17,6 +17,7 @@ A comment says why, or what the signature cannot: a unit, what `null` means, wha
 - Sentence case. A sentence ends with a full stop; a label or a button does not. No exclamation marks. Numbers are digits.
 - One word per thing, as the glossary in `tools/glossary.ts` lists, and a unit test checks every interface string against it.
 - Every colour is a token in `packages/ui/src/theme.css`; a unit test refuses a colour anywhere else.
+- Interface surfaces, skeletons, empty states, motion, avatars, dialogs and Present follow [Design system](design-system.md).
 
 ## Commits
 

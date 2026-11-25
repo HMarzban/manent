@@ -55,3 +55,12 @@
 .mn-room :is([data-ink], span[data-color]) {
   color: var(--page-ink);
 }
+
+.mn-room {
+  scroll-padding-block-start: 4rem;
+}
+
+.mn-room .mn-desk {
+  padding-inline: calc(var(--desk-pad) * var(--page-zoom));
+  padding-block-start: 4rem;
+}
