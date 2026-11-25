@@ -4,6 +4,7 @@ import { DRAFTS_WORDS, EDITOR_WORDS, MATERIAL_WORDS } from "@manent/ui";
 import type { ComponentType } from "react";
 import { withAlternates } from "../material/alternates/with-alternates.ts";
 import type { SendFormId } from "../screens/send/form-ids.ts";
+import { SIDES_WHAT_OPTION } from "./sides-file.tsx";
 
 /** The JSON of the script's writers' material roots, by entry id, which a What option's transform reads. */
 export interface MaterialSnapshot {
@@ -72,6 +73,7 @@ export const SEND_WHAT_OPTIONS: readonly SendWhatOption[] = [
     transform: null,
     lockedOnly: true,
   },
+  SIDES_WHAT_OPTION,
 ];
 
 /** The options `form` offers with the file type `fileTypeId` (null: none chosen), in list order. */
