@@ -1,10 +1,15 @@
-import { expectEvidence, tourScenario } from "../support/tour.ts";
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 tourScenario("production-omit", async ({ page, scenario, step }) => {
   await step(0);
   const heading = page.locator('[data-editor-host] [data-scene="25"]');
   await heading.scrollIntoViewIfNeeded();
   await heading.click();
+  await selectTourStep(page, scenario.promise, 1);
   await page
     .locator('[data-region="status_bar"]')
     .getByRole("button", { name: "View", exact: true })

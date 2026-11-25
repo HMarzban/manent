@@ -26,5 +26,5 @@ export const WRITE_RULER: TourScenario = {
   evidence: ["Layout", "Indent"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

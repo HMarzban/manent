@@ -10,6 +10,10 @@ tourScenario("production-issue-blue", async ({ page, scenario, step }) => {
   await expect(await step(1)).toContainText(overflow);
   await (await step(2)).click();
   await expect(page).toHaveURL((at) => !at.pathname.endsWith("/send/issue"));
+  // a sheet is drawn once it is in view; scroll to revised page 12A so its Blue Rev. header renders
+  const revBreak = page.locator('[data-editor-host] .pb[data-label="12A"]');
+  await expect(revBreak).toBeAttached();
+  await revBreak.scrollIntoViewIfNeeded();
   // the header is drawn from the sheet's attribute
   await expect(
     page

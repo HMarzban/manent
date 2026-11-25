@@ -166,6 +166,7 @@ function BaselineMenu(props: {
       <DropdownMenu>
         <DropdownMenuTrigger
           data-changes-since=""
+          data-tour="history.changesSince"
           render={
             <Button
               variant="outline"

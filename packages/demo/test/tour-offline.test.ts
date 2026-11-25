@@ -6,17 +6,16 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-const NOT_PASSING = "its end-to-end test does not pass yet";
 const OFFLINE = TOUR.scenarios.filter((s) => s.group === "Go offline");
 
-test("Go offline shows four scenarios and hides three whose test does not pass yet", () => {
+test("Go offline shows all seven scenarios", () => {
   expect(OFFLINE.map((s) => [s.id, s.waitsFor, s.hidden])).toEqual([
     ["offline-write", null, null],
-    ["offline-overlap", null, NOT_PASSING],
-    ["offline-recovered", null, NOT_PASSING],
+    ["offline-overlap", null, null],
+    ["offline-recovered", null, null],
     ["offline-slow", null, null],
     ["offline-server-stopped", null, null],
-    ["offline-reorganised", null, NOT_PASSING],
+    ["offline-reorganised", null, null],
     ["offline-sign-out", null, null],
   ]);
 });

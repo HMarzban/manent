@@ -31,5 +31,5 @@ export const PRODUCTION_RECALL: TourScenario = {
   evidence: ["Recall Blue", "Blue (corrected)"],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

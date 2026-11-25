@@ -16,5 +16,5 @@ export const WRITE_EXPORT: TourScenario = {
   evidence: ["Exported 'Every Key But One'."],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

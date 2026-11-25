@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { EKBO } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_NAME_DRAFT: TourScenario = {
   id: "history-name-draft",
@@ -25,5 +24,5 @@ export const HISTORY_NAME_DRAFT: TourScenario = {
   evidence: ["Table read draft"],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

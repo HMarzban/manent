@@ -22,5 +22,5 @@ export const WRITE_FIRST_RUN: TourScenario = {
   evidence: ["Saved · Only in this browser — not backed up", "Saved · Synced"],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

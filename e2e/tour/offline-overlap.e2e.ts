@@ -1,6 +1,6 @@
 // The Tour's offline-overlap scenario: a line changed by two people, one of them offline, is put to review, and the
 // wording chosen there stays.
-import { REVIEW_WORDS, SYNC_CENTRE_WORDS } from "@manent/ui";
+import { DOCUMENT_WORDS, REVIEW_WORDS, SYNC_CENTRE_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settled } from "../editor/support.ts";
@@ -34,9 +34,15 @@ tourScenario("offline-overlap", async ({ windows, scenario, step }) => {
     evidence: [receipt!, toReview!],
   });
   await (await step(3)).click();
-  await dana.getByRole("button", { name: SYNC_CENTRE_WORDS.review }).click();
+  await dana
+    .getByRole("dialog")
+    .getByRole("button", { name: SYNC_CENTRE_WORDS.review, exact: true })
+    .click();
   await dana
     .getByRole("button", { name: REVIEW_WORDS.useNamed(["Priya"]) })
     .click();
+  const slot = dana.locator("[data-tour='message_slot']");
+  const dismiss = slot.getByRole("button", { name: DOCUMENT_WORDS.dismiss });
+  if (await dismiss.isVisible()) await dismiss.click();
   await expectEvidence([dana], { ...scenario, evidence: [used!] });
 });

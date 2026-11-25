@@ -34,5 +34,5 @@ export const WRITE_BOARD: TourScenario = {
   evidence: ["204 · sc. 11", "Scene 11"],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

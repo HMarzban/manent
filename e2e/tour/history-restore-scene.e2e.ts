@@ -1,7 +1,11 @@
 import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
-import { expectEvidence, tourScenario } from "../support/tour.ts";
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 const RESTORED = "No. Play me a C. The top one.";
 
@@ -32,9 +36,9 @@ tourScenario("history-restore-scene", async ({ page, scenario, step }) => {
         .getByRole("tab", { name: DOCUMENT_WORDS.tourTab })
         .click();
     }
-    await page.getByRole("heading", { level: 1 }).getByRole("button").click();
     await (await step(0)).click();
     await sceneHeading(page).click();
+    await selectTourStep(page, scenario.promise, 1);
     await page
       .getByRole("button", { name: "First draft — row menu", exact: true })
       .click();

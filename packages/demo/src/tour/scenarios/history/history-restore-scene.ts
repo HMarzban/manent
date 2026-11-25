@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { EKBO } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_RESTORE_SCENE: TourScenario = {
   id: "history-restore-scene",
@@ -17,7 +16,7 @@ export const HISTORY_RESTORE_SCENE: TourScenario = {
   steps: [
     {
       text: 'Open History and choose "First draft".',
-      highlight: "history.open",
+      highlight: "tab:history",
     },
     {
       text: "Put the caret in scene 14, choose Restore this scene, then Restore scene 14.",
@@ -29,5 +28,5 @@ export const HISTORY_RESTORE_SCENE: TourScenario = {
   evidence: ["No. Play me a C. The top one.", "Before restore"],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

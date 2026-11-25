@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { JUMPOX } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_CHANGES_PROSE: TourScenario = {
   id: "history-changes-prose",
@@ -25,5 +24,5 @@ export const HISTORY_CHANGES_PROSE: TourScenario = {
   evidence: ["On Tuesdays the bin lorry came down Mallow Street"],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

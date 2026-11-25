@@ -25,25 +25,23 @@ test("the History group holds its scenarios in order, each ready for its feature
   ]);
 });
 
-test("every History scenario that is built is hidden until its end-to-end test passes", () => {
+test("History shows every passing scenario and keeps unpassing ones hidden", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "History" && s.waitsFor === null)
       .map((s) => [s.id, s.hidden]),
-  ).toEqual(
-    [
-      "history-every-version",
-      "history-changes-since",
-      "history-changes-prose",
-      "history-restore-scene",
-      "history-name-draft",
-      "history-who-wrote",
-      "history-view-version",
-      "history-restore-reverse",
-      "history-send-draft",
-      "history-version-link",
-    ].map((id) => [id, "its end-to-end test does not pass yet"]),
-  );
+  ).toEqual([
+    ["history-every-version", null],
+    ["history-changes-since", "its end-to-end test does not pass yet"],
+    ["history-changes-prose", null],
+    ["history-restore-scene", null],
+    ["history-name-draft", null],
+    ["history-who-wrote", null],
+    ["history-view-version", null],
+    ["history-restore-reverse", null],
+    ["history-send-draft", null],
+    ["history-version-link", null],
+  ]);
 });
 
 test("the Tour with its History scenarios is valid for the demo's people and preparations", () => {

@@ -143,6 +143,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
           render={
             <Button
               variant="ghost"
+              data-tour="app.syncCentre"
               className="h-auto min-h-control max-w-full justify-start gap-0 text-start text-ui font-normal whitespace-normal tabular-nums group-data-[tone=alert]:font-medium"
             />
           }

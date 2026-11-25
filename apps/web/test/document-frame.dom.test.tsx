@@ -70,7 +70,7 @@ test("a commenter's state bar says so", async () => {
   expect(
     region(frame.container, "state_bar").querySelector("[role='status']")
       ?.textContent,
-  ).toBe("View only");
+  ).toBe("View only — you can comment");
 });
 
 test("the state bar's region is hidden while it has no line, so F6 passes it by", async () => {

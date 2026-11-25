@@ -2,7 +2,11 @@ import { LIBRARY_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
 import { settled } from "../editor/support.ts";
-import { expectEvidence, tourScenario } from "../support/tour.ts";
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 /** Clicks just right of a line's last word, which puts the caret at its end. */
 async function clickAtEnd(line: Locator): Promise<void> {
@@ -28,6 +32,7 @@ tourScenario("write-first-run", async ({ page, scenario, step }) => {
   await page.keyboard.type("INT. KITCHEN - NIGHT");
   await step(1);
   await expect(page.getByRole("button", { name: unsynced })).toBeVisible();
+  await selectTourStep(page, scenario.promise, 2);
   await page.getByRole("button", { name: unsynced }).click();
   await (await step(2)).click();
   await expectEvidence([page], { ...scenario, evidence: [synced!] });
