@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { readBudgets } from "../budgets.ts";
+import { assertMarkersKept } from "../client/merge/scenario.ts";
+import { regionsIn, seededRandom } from "../client/people.ts";
 import { documentOfPages } from "../corpus/documents.ts";
+import type { Scenario } from "../harness.ts";
 
 const benchRoot = join(import.meta.dir, "..");
 
@@ -237,3 +240,150 @@ test("each client scenario loads the blocks its name promises", async () => {
   }
   expect(loaded).toEqual(promised);
 }, 600_000);
+
+const COLLAB_IDS = [
+  "crowd-120",
+  "convergence-120",
+  "merge-offline-120",
+  "merge-offline-book-2000",
+  "locked-120",
+  "history-ui-120",
+  "soak-client-120",
+] as const;
+type CollabId = (typeof COLLAB_IDS)[number];
+const isCollabId = (scenario: string): scenario is CollabId =>
+  COLLAB_IDS.some((id) => id === scenario);
+
+const COLLAB_SCENARIOS: Readonly<
+  Record<
+    CollabId,
+    {
+      file: string;
+      workload: Scenario["workload"];
+      processes: number;
+      metrics: readonly string[];
+    }
+  >
+> = {
+  "crowd-120": {
+    file: "client/crowd/crowd-120.bench.ts",
+    workload: "W1",
+    processes: 5,
+    metrics: [
+      "keystroke_paint_alone",
+      "keystroke_paint_realistic",
+      "keystroke_paint_extreme",
+      "keystroke_paint_rewrite",
+      "remote_extra_realistic",
+      "remote_extra_extreme",
+    ],
+  },
+  "convergence-120": {
+    file: "client/convergence/convergence-120.bench.ts",
+    workload: "W1",
+    processes: 5,
+    metrics: ["visible_ms", "bytes_sent", "bytes_received"],
+  },
+  "merge-offline-120": {
+    file: "client/merge/merge-offline-120.bench.ts",
+    workload: "W1",
+    processes: 5,
+    metrics: [
+      "converge_ms",
+      "longest_task_ms",
+      "bytes_exchanged",
+      "doc_bytes_after",
+    ],
+  },
+  "merge-offline-book-2000": {
+    file: "client/merge/merge-offline-book-2000.bench.ts",
+    workload: "W7",
+    processes: 5,
+    metrics: [
+      "converge_ms",
+      "longest_task_ms",
+      "bytes_exchanged",
+      "doc_bytes_after",
+    ],
+  },
+  "locked-120": {
+    file: "client/locked/locked-120.bench.ts",
+    workload: "W1",
+    processes: 5,
+    metrics: ["first_editable_warm", "keystroke_paint", "client_ids"],
+  },
+  "history-ui-120": {
+    file: "client/history-ui/history-ui-120.bench.ts",
+    workload: "W1",
+    processes: 5,
+    metrics: ["list_ms", "compare_ms", "restore_ms"],
+  },
+  "soak-client-120": {
+    file: "client/soak/soak-client-120.bench.ts",
+    workload: "W1",
+    processes: 1,
+    metrics: ["heap_growth", "heap_slope", "node_growth"],
+  },
+};
+
+test("the collaboration scenarios match their workloads, processes and budgets", async () => {
+  const discovered: unknown[] = [];
+  for (const id of COLLAB_IDS) {
+    const { default: scenario }: { default: Scenario } = await import(
+      join(benchRoot, COLLAB_SCENARIOS[id].file)
+    );
+    discovered.push([scenario.id, scenario.workload, scenario.processes]);
+  }
+  expect(discovered).toEqual(
+    COLLAB_IDS.map((id) => [
+      id,
+      COLLAB_SCENARIOS[id].workload,
+      COLLAB_SCENARIOS[id].processes,
+    ]),
+  );
+  const { budgets } = await readBudgets(benchRoot, "D-modest");
+  expect(
+    budgets
+      .filter(
+        (row) =>
+          isCollabId(row.scenario) &&
+          !COLLAB_SCENARIOS[row.scenario].metrics.includes(row.metric),
+      )
+      .map((row) => `${row.scenario} ${row.metric}`),
+  ).toEqual([]);
+});
+
+test("an offline merge that loses a typed marker fails the scenario", () => {
+  expect(() =>
+    assertMarkersKept(
+      ["⟦dana:1⟧", "⟦sam:17⟧"],
+      "INT. ROOM - DAY\n⟦dana:1⟧ Action line.",
+      ["Recovered ⟦sam:17⟧ line"],
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertMarkersKept(
+      ["⟦dana:1⟧", "⟦sam:17⟧"],
+      "INT. ROOM - DAY\n⟦dana:1⟧ Action line.",
+      ["Recovered other text"],
+    ),
+  ).toThrow(
+    "a typed marker is in neither the script nor Recovered text: ⟦sam:17⟧",
+  );
+});
+
+test("people helpers partition regions cleanly and seed random deterministically", () => {
+  const blocks = Array.from({ length: 100 }, (_, i) => ({ id: `b-${i}` }));
+  expect(regionsIn(blocks, 0.1, 0.7, 3)).toEqual([
+    { firstBlockId: "b-10", lastBlockId: "b-29" },
+    { firstBlockId: "b-30", lastBlockId: "b-49" },
+    { firstBlockId: "b-50", lastBlockId: "b-69" },
+  ]);
+  const a = seededRandom(4747);
+  const b = seededRandom(4747);
+  expect([a.next(), a.clientId(), [...a.bytes(4)]]).toEqual([
+    b.next(),
+    b.clientId(),
+    [...b.bytes(4)],
+  ]);
+});
