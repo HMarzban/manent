@@ -9,6 +9,10 @@ import type {
 } from "@manent/pagination";
 import { drawGlyphRun, fontScale, startPdf } from "./draw.ts";
 import type { ScriptFontFiles } from "./fonts.ts";
+import { drawPageGraphics } from "./graphics.ts";
+import type { PdfAsset } from "./graphics.ts";
+
+export type { PdfAsset };
 import {
   durationOfParts,
   sectionsOfPagination,
@@ -41,6 +45,8 @@ export interface PdfOptions {
   readonly revisionLabel?: string | null;
   readonly day?: string | null;
   readonly durationMs?: number | null;
+  /** Decoded PNG/JPEG blobs keyed by SHA-256 assetId; missing entries render as vector placeholders. */
+  readonly assets?: ReadonlyMap<string, PdfAsset>;
 }
 
 const SCRIPT_SCALE = fontScale(12, CELL_PT);
@@ -156,6 +162,8 @@ function drawPage(
         .fill()
         .restore();
     }
+  if (laid.graphics.length > 0)
+    drawPageGraphics(doc, laid.graphics, geometry, options.assets, engine);
   drawLines(
     pen,
     laid.lines.filter((line) => !replaced.has(line.kind)),

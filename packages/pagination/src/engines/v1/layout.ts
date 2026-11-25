@@ -7,6 +7,7 @@ import type {
   LineKind,
   LinePlace,
   LineRun,
+  PositionedGraphic,
   PositionedLine,
 } from "../../positioned-lines.ts";
 import { STYLE, UNIT_PT, UNITS_PER_LINE } from "../../units.ts";
@@ -15,6 +16,7 @@ import { runAt } from "./dual.ts";
 import { isSceneHeading, speechNumber } from "./cast.ts";
 import { suffixOf } from "./fill.ts";
 import { pageNumberText } from "./furniture.ts";
+import { graphicBoxLines, positionGraphic } from "./graphics.ts";
 import { keyAt } from "./keep.ts";
 import { sceneNumber } from "./scene-numbers.ts";
 import { walkOf, walkPage } from "./walk.ts";
@@ -137,18 +139,19 @@ function addText(
   i: number,
   m: number,
   top: number,
+  blockLine = m,
 ): void {
   const { spec } = p.metrics[i]!;
   const { runs, cells } = runsOf(p, i, m);
   const y = textY(spec, top);
   lines.push({
     kind: "text",
-    x: xOf(spec, cells, m === 0),
+    x: xOf(spec, cells, blockLine === 0),
     y,
     cells,
     runs,
     blockId: p.blocks[i]!.id,
-    blockLine: m,
+    blockLine,
   });
   if (m === 0) addNumbers(p, lines, i, y);
 }
@@ -201,13 +204,26 @@ function addFurniture(walk: Walk, lines: PositionedLine[]): void {
     );
 }
 
-/** A page's lines, text and furniture, sorted by `y`, then `x`. Throws RangeError for an index past the last page. */
+/** A page's lines and graphics, text and furniture, sorted by `y`, then `x`. Throws RangeError for an index past the last page. */
 export function layoutPage(p: Pagination, pageIndex: number): LaidOutPage {
   const lines: PositionedLine[] = [];
+  const graphics: PositionedGraphic[] = [];
   const walk = walkOf(
     p,
     pageIndex,
-    (i, m, top) => addText(p, lines, i, m, top),
+    (i, m, top) => {
+      const block = p.blocks[i]!;
+      if (block.type === "graphic") {
+        const boxLines = graphicBoxLines(block);
+        if (m === 0)
+          graphics.push(
+            positionGraphic(block, p.metrics[i]!.spec, top, boxLines),
+          );
+        if (m >= boxLines) addText(p, lines, i, m, top, m - boxLines);
+        return;
+      }
+      addText(p, lines, i, m, top);
+    },
     () => {},
   );
   walkPage(walk);
@@ -216,6 +232,7 @@ export function layoutPage(p: Pagination, pageIndex: number): LaidOutPage {
     index: walk.page.index,
     label: walk.page.label,
     lines: lines.toSorted((a, b) => a.y - b.y || a.x - b.x),
+    graphics,
   };
 }
 
@@ -229,12 +246,25 @@ export function linePlacesOf(p: Pagination, pageIndex: number): LinePlace[] {
     walkOf(
       p,
       pageIndex,
-      (i, m, top) =>
+      (i, m, top) => {
+        const block = p.blocks[i]!;
+        if (block.type === "graphic") {
+          const boxLines = graphicBoxLines(block);
+          const hasCaption = p.metrics[i]!.lines > boxLines;
+          if (hasCaption ? m < boxLines : m > 0) return;
+          places.push({
+            blockId: block.id,
+            blockLine: hasCaption ? m - boxLines : 0,
+            y: textY(p.metrics[i]!.spec, top),
+          });
+          return;
+        }
         places.push({
-          blockId: p.blocks[i]!.id,
+          blockId: block.id,
           blockLine: m,
           y: textY(p.metrics[i]!.spec, top),
-        }),
+        });
+      },
       () => {},
     ),
   );

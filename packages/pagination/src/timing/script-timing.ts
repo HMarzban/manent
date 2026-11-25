@@ -30,8 +30,8 @@ const add = (a: TimeTotal, b: TimeTotal): TimeTotal => ({
 
 /**
  * One block's share: a dialogue block counts every UTF-16 unit of its text, a bracket its first
- * well-formed `T=` time, any other element nothing. A block excluded from timing counts nothing
- * but keeps its bracket forms.
+ * well-formed `T=` time, any other element (including `"graphic"`) nothing (`0 ms`). A block
+ * excluded from timing counts nothing but keeps its bracket forms.
  */
 export function timeBlock(
   block: TimedBlock,

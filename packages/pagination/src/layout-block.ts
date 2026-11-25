@@ -1,5 +1,8 @@
 // What the engine reads of a block, and a caller's changes to it before it is measured.
-import type { Alignment, Dual } from "@manent/schema";
+import type { Alignment, Dual, GraphicAttrs } from "@manent/schema";
+
+/** Flat graphic metadata carried by a `"graphic"` LayoutBlock. */
+export type LayoutGraphic = GraphicAttrs;
 
 /** Frozen; one per block. Its identity is what incremental pagination compares. */
 export interface LayoutBlock {
@@ -18,6 +21,8 @@ export interface LayoutBlock {
   readonly width: number | null;
   readonly spaceBefore: number | null;
   readonly noContd: boolean;
+  /** Present on `"graphic"` blocks (schema 3). */
+  readonly graphic?: LayoutGraphic | null;
 }
 
 /** A caller's change to one block before it is measured. */

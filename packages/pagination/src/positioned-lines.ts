@@ -1,4 +1,5 @@
-// A page as lines placed on its grid: what the PDF and the print view draw.
+// A page as lines and graphics placed on its grid: what the PDF and the print view draw.
+import type { GraphicKind } from "@manent/schema";
 
 export const LINE_KINDS = [
   "text",
@@ -32,10 +33,30 @@ export interface PositionedLine {
   readonly blockLine: number;
 }
 
+/** One inline graphic box placed on a page's grid. */
+export interface PositionedGraphic {
+  readonly blockId: string;
+  readonly kind: GraphicKind;
+  readonly assetId: string | null;
+  readonly label: string;
+  readonly alt: string;
+  /** Cells from the text edge. */
+  readonly x: number;
+  /** Units (half-lines) from the top of the text area. */
+  readonly y: number;
+  /** Width of the graphic box in cells. */
+  readonly widthCells: number;
+  /** Height of the graphic box in whole lines (integer 2..24). */
+  readonly heightLines: number;
+  readonly aspectWidth: number | null;
+  readonly aspectHeight: number | null;
+}
+
 export interface LaidOutPage {
   readonly index: number;
   readonly label: string;
   readonly lines: readonly PositionedLine[];
+  readonly graphics: readonly PositionedGraphic[];
 }
 
 /** Where a text line of a page sits: line `blockLine` of the block `blockId`, at the `y` its PositionedLine has. */

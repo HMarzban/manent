@@ -1,4 +1,5 @@
 // Writing the format-neutral script as a Final Draft (.fdx) file.
+import { formatGraphicExportCue } from "@manent/pagination";
 import type { BlockJSON, ScriptNote } from "@manent/schema";
 import type {
   KeptItem,
@@ -115,7 +116,10 @@ function writeParagraph(
   const id = idOf(block);
   const attrs = block.attrs ?? {};
   const element = attrs.type ?? "action";
-  const written = fdxTypeOf(element, attrs.kind);
+  const written =
+    element === "graphic"
+      ? { type: "General", leftOut: "Graphic" }
+      : fdxTypeOf(element, attrs.kind);
   if (written.leftOut !== null)
     w.made.push({
       kind: "element_type",
@@ -126,8 +130,17 @@ function writeParagraph(
     });
   const keptType = element === "general" ? w.kept.type(id) : null;
   const paragraph = w.kept.node("paragraph_part", id, "Paragraph");
+  const contentRuns =
+    element === "graphic"
+      ? [
+          {
+            type: "text" as const,
+            text: formatGraphicExportCue(attrs.graphic, blockTextOf(block)),
+          },
+        ]
+      : (block.content ?? []);
   const runs = writeRuns(
-    block.content ?? [],
+    contentRuns,
     w.kept.node("run_part", id, "Runs"),
     revisionsOf(
       w.script.production?.sources ?? [],

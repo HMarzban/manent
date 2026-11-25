@@ -1,4 +1,5 @@
 // Writing a script as Fountain: each element in the form the reader takes back, forced only where it would read as another.
+import { formatGraphicExportCue } from "@manent/pagination";
 import { renderedType } from "@manent/schema";
 import type { BlockJSON, BlockType, TextJSON } from "@manent/schema";
 import type {
@@ -293,6 +294,15 @@ class Body {
         return plain(bare, (read) => isRead(read, bare, "transition", bare))
           ? full
           : `>${full}`;
+      case "graphic": {
+        const cue = formatGraphicExportCue(block.attrs?.graphic, bare);
+        const notes = (this.notes.get(id) ?? [])
+          .map((n) => fountainNote(n.text))
+          .join("");
+        return plain(cue, (read) => isRead(read, cue, "action", cue))
+          ? `${cue}${notes}`
+          : `!${cue}${notes}`;
+      }
     }
     if (this.kept.lyrics.has(id)) return `~${full}`;
     if (block.attrs?.align === "center") return `> ${full} <`;
