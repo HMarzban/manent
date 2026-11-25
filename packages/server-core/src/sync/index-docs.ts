@@ -4,12 +4,13 @@ import {
   PROJECT_INDEX_MAPS,
   WORKSPACE_INDEX_MAPS,
 } from "@manent/crdt";
-import type { TransactionReport } from "@manent/crdt";
+import type { CrdtDoc, TransactionReport } from "@manent/crdt";
 import type { Issue } from "@manent/schema";
 import type { Home } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import { validateProjectIndexWrites } from "../project/validate.ts";
+import { validateWorkspaceIndexWrites } from "../workspace/validate-index.ts";
 import type { Access } from "./access.ts";
 
 /** The kinds that hold maps and never a script body. */
@@ -56,7 +57,7 @@ const notIndex = (path: string, message: string): Issue => ({
  */
 export function validateIndexPush(
   report: TransactionReport,
-  index: { docId: string; home: Home },
+  index: { docId: string; home: Home; doc?: CrdtDoc | null },
   access: Access,
 ): Issue[] {
   const scope = scopeOf(index);
@@ -80,5 +81,9 @@ export function validateIndexPush(
     issues.push(notIndex("body", "a push wrote a script body into an index"));
   if (scope === "project")
     issues.push(...validateProjectIndexWrites(report, access));
+  if (scope === "workspace")
+    issues.push(
+      ...validateWorkspaceIndexWrites(report, index.doc ?? null, access),
+    );
   return issues;
 }
