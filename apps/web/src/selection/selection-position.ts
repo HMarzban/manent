@@ -117,7 +117,7 @@ export function usePointerSelection(docId: string): Place | null {
     const onSelectionChange = (): void => {
       // the press's own changes arrive until the wait ends, which reads the selection afresh
       if (pressing || wait !== null) return;
-      if (fromBar) follow();
+      if (fromBar || isWithin(document.activeElement, TOOLBAR)) follow();
       else hide();
     };
     document.addEventListener("pointerdown", onPointerDown, true);

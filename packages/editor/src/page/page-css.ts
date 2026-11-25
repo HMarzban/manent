@@ -228,6 +228,9 @@ p.el.el-page_break::before {
 mn-offfont {
   text-decoration: underline dotted;
 }
+.caps {
+  text-transform: uppercase;
+}
 .mn-mark {
   position: absolute;
 }
