@@ -8,6 +8,8 @@ import type {
   ZoomSetting,
 } from "@manent/editor";
 import type { KeyValueMap } from "@manent/settings";
+import { focusModeActions } from "../state/focus-mode.store.ts";
+import type { FocusRememberedPanels } from "../state/focus-mode.store.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import type { PanelsState } from "../state/panels.store.ts";
@@ -36,6 +38,12 @@ export interface PlaceStore {
   /** Page view until the person chooses Reflow view. */
   layoutView(): LayoutView;
   saveLayoutView(view: LayoutView): void;
+  /** False until the person enters Focus mode. */
+  focusMode(): boolean;
+  saveFocusMode(on: boolean): void;
+  /** Panel tabs remembered before entering Focus mode; null when absent. */
+  focusPanels(): FocusRememberedPanels | null;
+  saveFocusPanels(remembered: FocusRememberedPanels | null): void;
   /** Null until the person's zoom is first saved here. */
   zoom(): ZoomSetting | null;
   saveZoom(zoom: ZoomSetting): void;
@@ -90,6 +98,18 @@ const isPanelsState = (value: unknown): value is PanelsState =>
   isPanel(LEFT_TABS, value.left) &&
   isPanel(SIDE_TABS, value.side);
 
+const isOptionalTab = <T extends string>(
+  tabs: readonly T[],
+  value: unknown,
+): value is T | null => value === null || tabs.some((tab) => tab === value);
+
+const isFocusRememberedPanels = (
+  value: unknown,
+): value is FocusRememberedPanels =>
+  isRecord(value) &&
+  isOptionalTab(LEFT_TABS, value.left) &&
+  isOptionalTab(SIDE_TABS, value.side);
+
 // a percent from the editor's ZOOM_MIN to its ZOOM_MAX, which the presets begin and end at
 const isZoomSetting = (value: unknown): value is ZoomSetting =>
   value === "fit_width" ||
@@ -134,6 +154,14 @@ export function createPlaceStore(options: {
     saveRuler: (shown) => map.set("ruler", shown),
     layoutView: () => (map.get("layoutView") === "reflow" ? "reflow" : "page"),
     saveLayoutView: (view) => map.set("layoutView", view),
+    focusMode: () => map.get("focusMode") === true,
+    saveFocusMode: (on) => map.set("focusMode", on),
+    focusPanels() {
+      const value = map.get("focusPanels");
+      return isFocusRememberedPanels(value) ? value : null;
+    },
+    saveFocusPanels: (remembered) =>
+      map.set("focusPanels", remembered ?? undefined),
     zoom() {
       const value = map.get("zoom");
       return isZoomSetting(value) ? value : null;
@@ -191,9 +219,19 @@ export function keepViewState(
   schedule: (fn: () => void, delayMs: number) => () => void,
 ): () => void {
   stopCurrentKeeper();
-  restorePanels(store.panels() ?? FIRST_PANELS);
+  const wantFocus = store.focusMode();
+  if (!wantFocus) focusModeActions.restore(false, null);
+  const savedPanels = store.panels() ?? FIRST_PANELS;
+  restorePanels(savedPanels);
   // after the panels, whose writes are not this person's choice; a script with scenes leaves an open left panel alone
-  panelsActions.setLeftChosen(store.leftChosen());
+  panelsActions.setLeftChosen(store.leftChosen() || wantFocus);
+  if (wantFocus) {
+    const remembered = store.focusPanels() ?? {
+      left: savedPanels.left.tab,
+      side: savedPanels.side.tab,
+    };
+    focusModeActions.restore(true, remembered);
+  }
   if (rulerActions.get() !== store.ruler()) rulerActions.set(store.ruler());
   if (layoutViewActions.get() !== store.layoutView())
     layoutViewActions.set(store.layoutView());
@@ -221,6 +259,10 @@ export function keepViewState(
     layoutViewActions.subscribe(() =>
       store.saveLayoutView(layoutViewActions.get()),
     ),
+    focusModeActions.subscribe(() => {
+      store.saveFocusMode(focusModeActions.get());
+      store.saveFocusPanels(focusModeActions.remembered());
+    }),
     whenPageLeaves(flush),
   ];
   const stop = (): void => {
