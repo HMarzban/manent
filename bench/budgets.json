@@ -673,6 +673,69 @@
       "stat": "max",
       "budget": 600000,
       "hardFail": 1200000
+    },
+    {
+      "scenario": "server.power-loss",
+      "metric": "acked_lost",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 0
+    },
+    {
+      "scenario": "prompter.staleness",
+      "metric": "staleness_ms",
+      "stat": "p99",
+      "budget": 1000,
+      "hardFail": 2000
+    },
+    {
+      "scenario": "rundown.w4",
+      "metric": "fanout_ms",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 200
+    },
+    {
+      "scenario": "rundown.w4",
+      "metric": "event_loop_lag_ms",
+      "stat": "p99",
+      "budget": 20,
+      "hardFail": 100
+    },
+    {
+      "scenario": "rundown.w4",
+      "metric": "list_ms",
+      "stat": "p95",
+      "budget": 300,
+      "hardFail": 1000
+    },
+    {
+      "scenario": "rundown.w5",
+      "metric": "fanout_ms",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 200
+    },
+    {
+      "scenario": "rundown.w5",
+      "metric": "event_loop_lag_ms",
+      "stat": "p99",
+      "budget": 20,
+      "hardFail": 100
+    },
+    {
+      "scenario": "rundown.w5",
+      "metric": "rooms_after_idle",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 0
+    },
+    {
+      "scenario": "rundown.w5",
+      "metric": "last_synced_ms",
+      "stat": "p99",
+      "budget": 3000,
+      "hardFail": 10000
     }
   ]
 }
