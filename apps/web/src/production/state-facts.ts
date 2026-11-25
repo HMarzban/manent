@@ -23,7 +23,8 @@ import {
   formatDayTime,
   useSubscribable,
 } from "@manent/ui";
-import type { StateFact } from "@manent/ui";
+import type { StateFact, StatusFacts } from "@manent/ui";
+import { useOpenDocument } from "../screens/document/open-document.ts";
 import { useEnvironment } from "../services/context.tsx";
 import { useProductionServices } from "./live-services.ts";
 
@@ -107,8 +108,9 @@ function marksFact(
 }
 
 /**
- * The production facts of `state`: the recall of the latest issue within RECALL_WINDOW_MS, else the active
- * revision with `revisedPages`, started on `dayOf` its start; then the mark mode when it is not Collated.
+ * The production facts of `state`: for editors, the recall of the latest issue within RECALL_WINDOW_MS, else the
+ * active revision with `revisedPages`, started on `dayOf` its start; then the mark mode when it is not Collated.
+ * Comment/view-only roles omit editor-only recall/revision facts so they never shadow "View only — you can comment".
  */
 export function productionFacts(
   state: CachedProduction | null,
@@ -116,26 +118,29 @@ export function productionFacts(
   revisedPages: number,
   mode: MarkMode,
   dayOf: (at: number) => string,
+  canEdit = true,
 ): StateFact[] {
   if (state === null || !state.state.locked) return [];
   const { sets } = state.state;
   const active = sets.at(-1);
   const colour = active === undefined ? null : colourOf(active.colour);
   const facts: StateFact[] = [];
-  const recall = recallFact(state.state, now);
-  if (recall !== null) facts.push(recall);
-  if (
-    active !== undefined &&
-    colour !== null &&
-    (recall === null || revisedPages > 0)
-  )
-    facts.push({
-      kind: "revision",
-      colour,
-      name: active.name,
-      started: formatRevisionDate(dayOf(active.startedAt)),
-      pages: revisedPages,
-    });
+  if (canEdit) {
+    const recall = recallFact(state.state, now);
+    if (recall !== null) facts.push(recall);
+    if (
+      active !== undefined &&
+      colour !== null &&
+      (recall === null || revisedPages > 0)
+    )
+      facts.push({
+        kind: "revision",
+        colour,
+        name: active.name,
+        started: formatRevisionDate(dayOf(active.startedAt)),
+        pages: revisedPages,
+      });
+  }
   const marks = mode === "collated" ? null : marksFact(mode, sets);
   if (marks !== null) facts.push(marks);
   return facts;
@@ -144,13 +149,24 @@ export function productionFacts(
 const NOTHING = createValue<CachedProduction | null>(null);
 const NO_PAGES = createValue<readonly string[]>([]);
 const COLLATED = createValue<MarkMode>("collated");
+const NO_STATUS = createValue<StatusFacts | null>(null);
 
 /** The state bar's production facts for `docId`; none until its production services exist. */
 export function useProductionFacts(docId: string): readonly StateFact[] {
   const services = useProductionServices(docId);
+  const doc = useOpenDocument(docId);
   const { now } = useEnvironment();
   const state = useSubscribable(services?.client.current() ?? NOTHING);
   const revised = useSubscribable(services?.revisedPages ?? NO_PAGES);
   const mode = useSubscribable(services?.mode ?? COLLATED);
-  return productionFacts(state, now(), revised.length, mode, deviceDay);
+  const status = useSubscribable(doc?.status ?? NO_STATUS);
+  const canEdit = status === null || status.access === "edit";
+  return productionFacts(
+    state,
+    now(),
+    revised.length,
+    mode,
+    deviceDay,
+    canEdit,
+  );
 }

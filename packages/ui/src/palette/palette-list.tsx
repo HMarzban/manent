@@ -217,7 +217,7 @@ export function EntryList(props: {
     <Autocomplete.List
       ref={scroller}
       aria-label={label}
-      className="min-h-0 flex-1 overflow-auto p-1 empty:hidden"
+      className="min-h-0 flex-1 overflow-auto p-1 pb-2 scroll-pb-2 empty:hidden"
     >
       {entriesOf(sections).length > VIRTUAL_ABOVE ? (
         <VirtualEntries

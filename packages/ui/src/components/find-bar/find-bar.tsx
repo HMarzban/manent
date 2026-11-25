@@ -1,10 +1,20 @@
 // The Find bar: a field, the count, previous, next, Replace and close; Replace gives way to a second field, which
 // takes focus, and its buttons.
-import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { FIND_WORDS } from "../../words/navigation.ts";
 import { Button } from "../stock/button.tsx";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../stock/input-group.tsx";
 import { Input } from "../stock/input.tsx";
 
 export interface FindBarProps {
@@ -82,22 +92,27 @@ export function FindBar(props: FindBarProps): ReactNode {
   return (
     <div
       role="search"
-      className="flex min-h-findbar flex-wrap items-center gap-2 border-b border-line bg-chrome px-2 py-1 text-ui animate-in fade-in-0 duration-(--dur-fast) ease-out"
+      className="flex min-h-findbar flex-wrap items-center gap-2 border-b border-line bg-chrome px-2 py-1.5 text-ui animate-in fade-in-0 duration-(--dur-fast) ease-out"
     >
-      <Input
-        ref={field}
-        type="search"
-        aria-label={FIND_WORDS.find}
-        placeholder={FIND_WORDS.find}
-        value={find}
-        onChange={(event) => props.onFindChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (!isEnter(event)) return;
-          event.preventDefault();
-          onStep(event.shiftKey ? -1 : 1);
-        }}
-        className="h-control min-w-32 max-w-60 flex-1 text-ui"
-      />
+      <InputGroup className="h-control min-w-32 max-w-60 flex-1">
+        <InputGroupAddon align="inline-start">
+          <SearchIcon aria-hidden="true" className="size-icon" />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={field}
+          type="search"
+          aria-label={FIND_WORDS.find}
+          placeholder={FIND_WORDS.find}
+          value={find}
+          onChange={(event) => props.onFindChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (!isEnter(event)) return;
+            event.preventDefault();
+            onStep(event.shiftKey ? -1 : 1);
+          }}
+          className="text-ui"
+        />
+      </InputGroup>
       <span role="status" className="shrink-0 text-meta text-fg-muted">
         {find === "" ? null : FIND_WORDS.count(current, count)}
       </span>

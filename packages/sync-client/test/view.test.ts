@@ -221,3 +221,52 @@ test("a viewer follows a move to the new generation", async () => {
   expect(view.blocks.get()).toEqual([b(A, "one"), b(B, "two")]);
   expect(view.status.get()).toMatchObject({ live: true });
 });
+
+test("a viewer updates its live role on membership_changed CONTROL and ignores empty payloads for other people", async () => {
+  const w = await setup();
+  const { server } = w;
+  server.write(DOC2, (writer) => writer.insertBlocks(null, [b(A, "one")]));
+  const client = w.makeClient();
+  const view = client.view(DOC2);
+  await w.online();
+  expect(view.status.get().role).toBe("edit");
+
+  // empty payload for another person leaves role unchanged
+  server.send({
+    type: "CONTROL",
+    docId: DOC2,
+    generation: 1,
+    seq: 1,
+    kind: "membership_changed",
+    data: utf8("{}"),
+  });
+  await w.settle();
+  expect(view.status.get().role).toBe("edit");
+
+  // live role change to comment updates status.role immediately
+  server.send({
+    type: "CONTROL",
+    docId: DOC2,
+    generation: 1,
+    seq: 2,
+    kind: "membership_changed",
+    data: utf8(
+      JSON.stringify({ userId: "leo", role: "comment", byUserId: "dana" }),
+    ),
+  });
+  await w.settle();
+  expect(view.status.get().role).toBe("comment");
+
+  // live removal sets role to null
+  server.send({
+    type: "CONTROL",
+    docId: DOC2,
+    generation: 1,
+    seq: 3,
+    kind: "membership_changed",
+    data: utf8(JSON.stringify({ userId: "leo", role: null, byUserId: "dana" })),
+  });
+  await w.settle();
+  expect(view.status.get().role).toBeNull();
+  view.close();
+});

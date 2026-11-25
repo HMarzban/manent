@@ -90,7 +90,7 @@ function LayoutField(props: {
     setDraft(unit.shown(Math.max(0, current + by)));
   };
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <Label htmlFor={id} className="text-ui">
         {label}
       </Label>
@@ -134,7 +134,7 @@ export function LayoutGroup(props: { docId: string }): ReactNode {
   return (
     <section className="flex flex-col gap-2">
       <h3 className="pt-2 text-ui font-semibold">{WORDS.group}</h3>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-ui">{WORDS.alignment}</span>
         <Segmented
           label={WORDS.alignment}
