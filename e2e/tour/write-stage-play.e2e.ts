@@ -23,7 +23,9 @@ tourScenario("write-stage-play", async ({ page, scenario, step }) => {
   // the scenario starts with the left panel closed
   if (await left.isVisible()) await pressKeyOf(page, "view.leftPanel");
   await expect(left).toBeHidden();
-  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+  await page
+    .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+    .click();
   await (await step(0)).click();
   // a checkbox item leaves its menu open
   await page.keyboard.press("Escape");

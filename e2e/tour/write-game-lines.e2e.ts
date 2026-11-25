@@ -110,7 +110,9 @@ tourScenario("write-game-lines", async ({ page, scenario, step }) => {
   await expect(page.locator("[data-tour='page']")).toBeVisible();
   const knotsTab = page.locator("[data-tour='tab:scenes']");
   if (!(await knotsTab.isVisible())) {
-    await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+    await page
+      .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+      .click();
     await page.locator("[data-tour='view.leftPanel']").click();
   }
   await expect(knotsTab).toBeVisible();
