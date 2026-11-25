@@ -25,8 +25,8 @@ export function ThreadRow(props: {
   const { id, thread, items, flags } = entry;
   const removed = thread.anchor !== null && state.removedIds.has(id);
   const baseClass = active
-    ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors"
-    : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle";
+    ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors active:bg-control"
+    : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle active:bg-control";
 
   if (thread.state.kind === "resolved") {
     return (
@@ -142,8 +142,8 @@ export function NoteRow(props: {
       onClick={onOpen}
       className={
         active
-          ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors"
-          : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle"
+          ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors active:bg-control"
+          : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle active:bg-control"
       }
     >
       <div className="flex items-center gap-2">

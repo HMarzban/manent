@@ -28,9 +28,20 @@ const STEPS: Readonly<Record<string, number>> = {
 };
 
 const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
+  const cards = [...event.currentTarget.querySelectorAll("button")];
+  if (cards.length === 0) return;
+  if (event.key === "Home") {
+    event.preventDefault();
+    cards[0]?.focus();
+    return;
+  }
+  if (event.key === "End") {
+    event.preventDefault();
+    cards.at(-1)?.focus();
+    return;
+  }
   const step = STEPS[event.key];
   if (step === undefined) return;
-  const cards = [...event.currentTarget.querySelectorAll("button")];
   const target = cards.find((card) => card === event.target);
   const next =
     target === undefined ? undefined : cards[cards.indexOf(target) + step];
@@ -66,10 +77,13 @@ export function NewProjectPopover(props: {
   };
   const create = async (workspace: string, kind: ProjectKind) => {
     setCreating(true);
-    const { docId } = await library.createProject(workspace, kind);
-    setCreating(false);
-    dialogActions.close();
-    void navigate({ href: `/s/${docId}` });
+    try {
+      const { docId } = await library.createProject(workspace, kind);
+      dialogActions.close();
+      void navigate({ href: `/s/${docId}` });
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (unavailable)
@@ -83,8 +97,15 @@ export function NewProjectPopover(props: {
         {LIBRARY_WORDS.newProject}
       </PopoverTrigger>
       {/* focus goes back to whatever opened it, which may be the empty list's button */}
-      <PopoverContent finalFocus={false} align="end" className="w-auto">
-        <div className="grid grid-cols-4 gap-2" onKeyDown={moveBetweenCards}>
+      <PopoverContent
+        finalFocus={false}
+        align="end"
+        className="w-auto max-w-(--available-width)"
+      >
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          onKeyDown={moveBetweenCards}
+        >
           {NEW_PROJECT_CARDS.map((card) => (
             <button
               key={card.kind}
@@ -95,7 +116,7 @@ export function NewProjectPopover(props: {
               onClick={() => {
                 if (workspaceId !== null) void create(workspaceId, card.kind);
               }}
-              className="mn-card flex w-36 flex-col items-start gap-1 p-3 text-start disabled:text-fg-disabled"
+              className="mn-card flex w-36 max-w-full min-w-0 flex-col items-start gap-1 p-3 text-start disabled:text-fg-disabled"
             >
               <span className="flex items-center gap-2">
                 <KindIcon

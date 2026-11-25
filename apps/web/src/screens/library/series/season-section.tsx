@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { RowPlace } from "../../../services/ports.ts";
+import { DOCUMENT_ROW_LINES } from "../document-row-lines.ts";
 import {
   COL_DUE,
   COL_EDITED,
@@ -160,7 +161,7 @@ export function SeasonSection(props: {
           >
             <VirtualRows
               count={episodes.length}
-              rowHeight="one"
+              rowHeight={DOCUMENT_ROW_LINES.length > 0 ? "two" : "one"}
               label={heading}
               renderRow={renderRow}
             />

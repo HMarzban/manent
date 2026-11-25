@@ -1,5 +1,5 @@
 // Comment/reply/note composer field with @mention autocomplete, offline fallback and keyboard submission.
-import { Button, COMMENTS_WORDS, Textarea } from "@manent/ui";
+import { Button, COMMENTS_WORDS, Skeleton, Textarea } from "@manent/ui";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { CommentPerson } from "./people-request.ts";
@@ -11,6 +11,7 @@ interface MentionMatch {
 }
 
 const MENTION_TRIGGER = /(?:^|\s)@([^\s]*)$/;
+const MENTION_SKELETON_WIDTHS = ["w-24", "w-32", "w-20"] as const;
 
 function activeMention(text: string, caret: number): MentionMatch | null {
   const before = text.slice(0, caret);
@@ -50,7 +51,10 @@ export function MentionField(props: {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [chosen, setChosen] = useState<readonly CommentPerson[]>([]);
+  const [requested, setRequested] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const onLoadPeopleRef = useRef(onLoadPeople);
+  onLoadPeopleRef.current = onLoadPeople;
 
   useEffect(() => {
     if (autoFocus) fieldRef.current?.focus();
@@ -62,10 +66,22 @@ export function MentionField(props: {
     mention === null
       ? []
       : people.filter((p) => p.name.toLowerCase().includes(query));
+  const hasLoader = onLoadPeople !== undefined;
+  const mentionActive = mention !== null;
 
   useEffect(() => {
-    if (mention !== null) onLoadPeople?.();
-  }, [mention !== null, onLoadPeople]);
+    if (peopleState !== "idle") {
+      setRequested(false);
+      return;
+    }
+    if (mentionActive && hasLoader) {
+      setRequested(true);
+      onLoadPeopleRef.current?.();
+    }
+  }, [mentionActive, hasLoader, peopleState]);
+
+  const loadingPeople =
+    hasLoader && requested && peopleState === "idle" && people.length === 0;
 
   const pickPerson = (person: CommentPerson): void => {
     if (mention === null) return;
@@ -144,6 +160,7 @@ export function MentionField(props: {
       {mention === null ? null : (
         <div
           role="listbox"
+          aria-busy={loadingPeople || undefined}
           aria-label={placeholder}
           className="flex max-h-40 flex-col overflow-y-auto rounded-md bg-overlay p-1 text-ui shadow-overlay ring-1 ring-line"
         >
@@ -151,6 +168,19 @@ export function MentionField(props: {
             <p className="px-2 py-1 text-meta text-fg-muted">
               {COMMENTS_WORDS.peopleOffline}
             </p>
+          ) : loadingPeople ? (
+            <div className="flex flex-col gap-1 p-1">
+              {MENTION_SKELETON_WIDTHS.map((width, index) => (
+                <div
+                  key={index}
+                  aria-hidden="true"
+                  className="flex items-center gap-2 px-1 py-1"
+                >
+                  <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
+                  <Skeleton className={`h-3 ${width}`} />
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
             <p className="px-2 py-1 text-meta text-fg-muted">
               {COMMENTS_WORDS.noMatches}

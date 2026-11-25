@@ -258,12 +258,10 @@ export function ReaderCommentPopover(props: {
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (el === null) return;
-    const rect = el.getBoundingClientRect();
-    const maxLeft = Math.max(EDGE_PX, window.innerWidth - rect.width - EDGE_PX);
-    const maxTop = Math.max(
-      EDGE_PX,
-      window.innerHeight - rect.height - EDGE_PX,
-    );
+    const width = el.offsetWidth || el.getBoundingClientRect().width;
+    const height = el.offsetHeight || el.getBoundingClientRect().height;
+    const maxLeft = Math.max(EDGE_PX, window.innerWidth - width - EDGE_PX);
+    const maxTop = Math.max(EDGE_PX, window.innerHeight - height - EDGE_PX);
     el.style.left = `${Math.max(EDGE_PX, Math.min(mode.place.left, maxLeft))}px`;
     el.style.top = `${Math.max(EDGE_PX, Math.min(mode.place.top, maxTop))}px`;
   });
@@ -293,7 +291,7 @@ export function ReaderCommentPopover(props: {
     body = (
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-label font-medium text-fg">
+          <span className="text-ui font-medium text-fg">
             {COMMENTS_WORDS.commentLabel}
           </span>
           <Button
@@ -353,7 +351,7 @@ export function ReaderCommentPopover(props: {
       aria-label={COMMENTS_WORDS.commentLabel}
       data-open=""
       data-tour="comment_popover"
-      className="fixed z-50 flex w-popover flex-col overflow-y-auto rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line"
+      className="fixed z-50 flex w-popover max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line animate-in fade-in-0 zoom-in-95 duration-(--dur-fast) ease-out"
       style={{
         left: mode.place.left,
         top: mode.place.top,

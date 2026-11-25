@@ -26,12 +26,11 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
   useLayoutEffect(() => {
     const element = rootRef.current;
     if (element === null) return;
-    const rect = element.getBoundingClientRect();
-    const maxLeft = Math.max(EDGE_PX, window.innerWidth - rect.width - EDGE_PX);
-    const maxTop = Math.max(
-      EDGE_PX,
-      window.innerHeight - rect.height - EDGE_PX,
-    );
+    const width = element.offsetWidth || element.getBoundingClientRect().width;
+    const height =
+      element.offsetHeight || element.getBoundingClientRect().height;
+    const maxLeft = Math.max(EDGE_PX, window.innerWidth - width - EDGE_PX);
+    const maxTop = Math.max(EDGE_PX, window.innerHeight - height - EDGE_PX);
     const left = Math.min(Math.max(place.left, EDGE_PX), maxLeft);
     const top = Math.min(Math.max(place.top, EDGE_PX), maxTop);
     element.style.left = `${left}px`;
@@ -77,7 +76,7 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
       data-tour="pitch_field"
       aria-label={ROOM_WORDS.pitchFieldLabel}
       onKeyDown={onDialogKeyDown}
-      className="fixed z-50 flex w-popover flex-col overflow-hidden rounded-lg bg-overlay px-4 py-3 text-ui text-fg shadow-overlay ring-1 ring-line"
+      className="fixed z-50 flex w-popover animate-in flex-col overflow-hidden rounded-lg bg-overlay px-4 py-3 text-ui text-fg shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95"
       style={{ left: place.left, top: place.top }}
     >
       <Input

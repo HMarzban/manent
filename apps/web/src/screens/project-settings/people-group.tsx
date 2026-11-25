@@ -1,7 +1,7 @@
 // People: the project's groups, each with its role, its members by full name and its watermark; only the owner changes them.
 import { readGroups, writeGroup } from "@manent/crdt";
 import type { CrdtDoc, GroupEntry } from "@manent/crdt";
-import { Avatar, PROJECT_WORDS, Row, Switch } from "@manent/ui";
+import { Avatar, PROJECT_WORDS, Row, Skeleton, Switch } from "@manent/ui";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../../initials.ts";
@@ -14,6 +14,31 @@ const groupsOf = (doc: CrdtDoc): readonly GroupEntry[] => [
   ...readGroups(doc).values(),
 ];
 
+const PLACEHOLDER_GROUPS = 2;
+
+function PeopleGroupSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-3 py-2">
+      {Array.from({ length: PLACEHOLDER_GROUPS }, (_, index) => (
+        <div key={index} aria-hidden="true" className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-44" />
+          <div className="flex min-h-row-2 items-center justify-between gap-4">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+            <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
+          </div>
+          <div className="flex min-h-row items-center gap-2">
+            <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
+            <Skeleton className="h-3.5 w-32" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PeopleGroup(props: {
   index: ProjectIndex;
   projectId: string;
@@ -21,11 +46,13 @@ export function PeopleGroup(props: {
   canChange: boolean;
 }): ReactNode {
   const { index, projectId, people, canChange } = props;
-  const groups = useIndexRead(index, "groups", groupsOf) ?? [];
+  const groups = useIndexRead(index, "groups", groupsOf);
+  if (groups.kind === "loading") return <PeopleGroupSkeleton />;
+  if (groups.kind === "unavailable") return null;
   const write = async (group: GroupEntry): Promise<void> => {
     writeGroup((await index.handle()).doc(), group);
   };
-  return groups.map((group) => (
+  return groups.value.map((group) => (
     <GroupSection
       key={group.id}
       group={group}

@@ -144,11 +144,13 @@ function useRowMeta(docId: string, row: HistoryRow): ReactNode {
   const chosen = useRowExtensionLine(docId, row.item);
   if (chosen !== null) return renderRowLine(chosen);
   const { item } = row;
-  if (item.kind === "named" || item.kind === "sent")
-    return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
-  return item.summary === null || item.summary.changes === 0
-    ? null
-    : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
+  const text =
+    item.kind === "named" || item.kind === "sent"
+      ? HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time)
+      : item.summary === null || item.summary.changes === 0
+        ? null
+        : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
+  return text === null ? null : <span title={text}>{text}</span>;
 }
 
 function VersionRow(props: {
@@ -167,11 +169,13 @@ function VersionRow(props: {
   const authors = row.item.summary?.authorUserIds ?? [];
   const selected = useHistory("selected") === row.item.id;
   const named = row.item.kind === "named" || row.item.kind === "sent";
+  const title = row.item.name ?? (isTitledByTime(row) ? row.time : row.title);
   // Enter opens the version as it was; a click shows its changes the way Show says
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (
       event.key !== "Enter" ||
-      event.target !== event.currentTarget.firstChild
+      !(event.target instanceof Element) ||
+      !event.target.classList.contains("mn-row")
     )
       return;
     event.preventDefault();
@@ -192,17 +196,17 @@ function VersionRow(props: {
           <Row
             selected={selected}
             leading={named ? STAR : undefined}
-            meta={meta === null ? undefined : meta}
+            meta={meta ?? undefined}
             trailing={[
               ...(authors.length === 0
                 ? []
                 : [<Avatars key="avatars" userIds={authors} />]),
               ...(row.local === null ? [] : [HISTORY_WORDS.onDevice]),
-              ...(handle === null ? [] : [handle]),
             ]}
+            menu={handle ?? undefined}
             onActivate={props.onShow}
           >
-            {row.item.name ?? (isTitledByTime(row) ? row.time : row.title)}
+            <span title={title}>{title}</span>
           </Row>
           {props.naming === null ? null : (
             <NameField
@@ -328,15 +332,15 @@ export function WorkingRow(props: {
 function SettingRow(props: { change: SettingChange }): ReactNode {
   const { key, at, byUserId, was } = props.change;
   const { userId } = useServices();
+  const label = SETTINGS.get(key).label;
+  const meta = DOCUMENT_WORDS.setBy(
+    byUserId === userId ? YOU : nameOf(byUserId),
+    formatTime(at),
+    valueLabel(key, was, "row"),
+  );
   return (
-    <Row
-      meta={DOCUMENT_WORDS.setBy(
-        byUserId === userId ? YOU : nameOf(byUserId),
-        formatTime(at),
-        valueLabel(key, was, "row"),
-      )}
-    >
-      {SETTINGS.get(key).label}
+    <Row meta={<span title={meta}>{meta}</span>}>
+      <span title={label}>{label}</span>
     </Row>
   );
 }
@@ -367,11 +371,7 @@ export function VersionRows(props: {
     const item = items[index]!;
     if (item.kind === "setting") return <SettingRow change={item.change} />;
     if (item.kind === "day")
-      return (
-        <h4 className="px-2 pt-2 text-micro text-fg-muted uppercase">
-          {item.label}
-        </h4>
-      );
+      return <h4 className="mn-group-label">{item.label}</h4>;
     return (
       <VersionRow
         docId={docId}

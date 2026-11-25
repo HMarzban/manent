@@ -85,7 +85,7 @@ function Mark(props: { mark: TitleMark }): ReactNode {
     case "count":
       return (
         <span className="text-meta text-fg-muted tabular-nums">
-          {mark.label} {mark.count}
+          {mark.count} {mark.label}
         </span>
       );
     case "text":

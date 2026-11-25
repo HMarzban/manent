@@ -53,6 +53,7 @@ export interface RundownViewItem {
 
 export interface RundownsData {
   readonly workspaceId: string | null;
+  readonly loaded: boolean;
   readonly rundowns: readonly RundownViewItem[];
   readonly canEdit: boolean;
 }
@@ -66,15 +67,20 @@ function compareRundownsByDate(a: RundownViewItem, b: RundownViewItem): number {
   return b.createdAt - a.createdAt || a.docId.localeCompare(b.docId);
 }
 
-function useProjectWorkspace(projectId: string): string | null {
+function useProjectWorkspace(projectId: string): {
+  readonly workspaceId: string | null;
+  readonly settled: boolean;
+} {
   const { api, library, userId } = useServices();
   const address = useLibraryAddress();
   const [workspaceId, setWorkspaceId] = useState<string | null>(
     address.workspaceId,
   );
+  const [settled, setSettled] = useState(address.workspaceId !== null);
   useEffect(() => {
     let shown = true;
     const stops: (() => void)[] = [];
+    setSettled(address.workspaceId !== null);
     const check = (candidates: readonly string[]): void => {
       for (const id of candidates) {
         const listed = library.projects(id);
@@ -82,32 +88,43 @@ function useProjectWorkspace(projectId: string): string | null {
           if (
             shown &&
             listed.get().some((project) => project.projectId === projectId)
-          )
+          ) {
             setWorkspaceId(id);
+            setSettled(true);
+          }
         };
         stops.push(listed.subscribe(look));
         look();
       }
     };
     if (address.workspaceId !== null) check([address.workspaceId]);
-    void api.me().then((me) => {
-      if (!shown) return;
-      const ids = me.ok ? me.me.workspaces.map((w) => w.id) : [];
-      check([...ids, userId]);
-    });
+    void api.me().then(
+      (me) => {
+        if (!shown) return;
+        const ids = me.ok ? me.me.workspaces.map((w) => w.id) : [];
+        check([...ids, userId]);
+        setSettled(true);
+      },
+      () => {
+        if (shown) setSettled(true);
+      },
+    );
     return () => {
       shown = false;
       for (const stop of stops) stop();
     };
   }, [api, library, userId, projectId, address.workspaceId]);
-  return workspaceId ?? address.workspaceId;
+  const resolved = workspaceId ?? address.workspaceId;
+  return { workspaceId: resolved, settled: settled || resolved !== null };
 }
 
 /** Subscribes to a Show or News project's rundowns, their CRDT timing/rows, nested stories and device state. */
 export function useRundownsData(projectId: string): RundownsData {
   const { openHandle, onDevice, userId } = useServices();
   const { tabStorage, online } = useEnvironment();
-  const workspaceId = useProjectWorkspace(projectId);
+  const { workspaceId, settled: workspaceSettled } =
+    useProjectWorkspace(projectId);
+  const [loaded, setLoaded] = useState(false);
   const [documents, setDocuments] = useState<
     ReadonlyMap<string, DocumentEntry>
   >(() => new Map());
@@ -145,8 +162,12 @@ export function useRundownsData(projectId: string): RundownsData {
   }, [tabStorage, userId, projectId]);
 
   useEffect(() => {
-    if (workspaceId === null) return;
+    if (workspaceId === null) {
+      setLoaded(workspaceSettled);
+      return;
+    }
     let shown = true;
+    setLoaded(false);
     const stops: (() => void)[] = [];
     const opened: DocHandle[] = [];
     void openHandle(indexDocId("workspace", workspaceId)).then(
@@ -158,12 +179,16 @@ export function useRundownsData(projectId: string): RundownsData {
           documents: liveMap(handle, "documents"),
         };
         const update = (): void => {
-          if (shown) setDocuments(readWorkspace(maps).documents);
+          if (!shown) return;
+          setDocuments(readWorkspace(maps).documents);
+          setLoaded(true);
         };
         update();
         stops.push(maps.documents.subscribe(update));
       },
-      () => {},
+      () => {
+        if (shown) setLoaded(true);
+      },
     );
     void openHandle(indexDocId("user", userId)).then(
       (handle) => {
@@ -183,7 +208,7 @@ export function useRundownsData(projectId: string): RundownsData {
       for (const stop of stops) stop();
       for (const handle of opened) void handle.close();
     };
-  }, [workspaceId, userId, openHandle]);
+  }, [workspaceId, workspaceSettled, userId, openHandle]);
 
   const rundownEntries = useMemo(
     () =>
@@ -356,5 +381,5 @@ export function useRundownsData(projectId: string): RundownsData {
     online,
   ]);
 
-  return { workspaceId, rundowns, canEdit: serverAccess ?? true };
+  return { workspaceId, loaded, rundowns, canEdit: serverAccess ?? true };
 }

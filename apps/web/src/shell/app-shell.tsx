@@ -269,7 +269,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
             <OutlineContext value={outline.selectors}>
               <PeopleContext value={people.selectors}>
                 <div
-                  className="grid h-screen bg-chrome text-fg"
+                  className="grid h-screen overflow-x-clip bg-chrome text-fg"
                   style={GRID}
                   {...(screen === "reader" ? {} : drop)}
                 >

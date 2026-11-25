@@ -3,6 +3,7 @@ import {
   BESIDE_WORDS,
   COPIES_WORDS,
   LIBRARY_WORDS,
+  Skeleton,
   StateBar,
   useSubscribable,
 } from "@manent/ui";
@@ -208,12 +209,32 @@ function SourceBeside(props: {
           registered={NO_ACTION}
         />
       </div>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+      {access === "checking" ? (
         <div
-          ref={place}
-          className="mn-desk min-h-full [--page-zoom:1] [&>.mn-zoom]:mx-auto"
-        />
-      </div>
+          aria-busy="true"
+          className="flex min-h-0 flex-1 justify-center overflow-auto bg-desk p-8"
+        >
+          <div
+            aria-hidden="true"
+            className="flex w-full max-w-content flex-col gap-3 rounded-surface border border-line bg-raised p-8"
+          >
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-11/12" />
+            <Skeleton className="h-3 w-4/5" />
+            <Skeleton className="mt-4 h-4 w-1/3" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+        </div>
+      ) : (
+        <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+          <div
+            ref={place}
+            className="mn-desk min-h-full [--page-zoom:1] [&>.mn-zoom]:mx-auto"
+          />
+        </div>
+      )}
     </>
   );
 }

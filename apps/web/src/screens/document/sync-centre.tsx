@@ -41,7 +41,7 @@ function Part(props: { className?: string; children: ReactNode }): ReactNode {
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-2 border-t border-line px-4 py-3 first:border-t-0",
+        "flex shrink-0 flex-col items-start gap-2 border-t border-line px-4 py-3 first:border-t-0",
         props.className,
       )}
     >

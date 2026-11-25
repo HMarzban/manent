@@ -20,15 +20,19 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
   const drag = useRef<{ x: number; widthPx: number } | null>(null);
   const onKeyDown = (event: KeyboardEvent): void => {
     // the panel is on the left: moving the edge right widens it
-    const step =
+    const next =
       event.key === "ArrowRight"
-        ? STEP_PX
+        ? widthPx + STEP_PX
         : event.key === "ArrowLeft"
-          ? -STEP_PX
-          : 0;
-    if (step === 0) return;
+          ? widthPx - STEP_PX
+          : event.key === "Home"
+            ? MIN_WIDTH_PX
+            : event.key === "End"
+              ? MAX_WIDTH_PX
+              : null;
+    if (next === null) return;
     event.preventDefault();
-    panelsActions.resize("left", widthPx + step);
+    panelsActions.resize("left", next);
   };
   const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -38,6 +42,9 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
     const start = drag.current;
     if (start !== null)
       panelsActions.resize("left", start.widthPx + event.clientX - start.x);
+  };
+  const endDrag = (): void => {
+    drag.current = null;
   };
   return (
     <div
@@ -49,13 +56,12 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
       aria-valuemax={MAX_WIDTH_PX}
       tabIndex={0}
       // a hairline, with a wider band to take hold of it
-      className="relative w-px shrink-0 cursor-col-resize bg-line transition-colors after:absolute after:inset-y-0 after:-inset-x-1 hover:bg-line-strong"
+      className="relative w-px shrink-0 cursor-col-resize bg-line transition-colors after:absolute after:inset-y-0 after:-inset-x-1 hover:bg-line-strong focus-visible:bg-accent-solid"
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     />
   );
 }

@@ -20,8 +20,32 @@ import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { NoProjects, ProjectList } from "./project-list.tsx";
 import { PLACE_COLUMN, RowMenu, placeProps } from "./row-place.tsx";
 
-// the placeholder rows drawn while the workspace is not known
-const PLACEHOLDER_ROWS = 6;
+// structured placeholder widths for the two library sections while the workspace is not known
+const PLACEHOLDER_SECTIONS: readonly {
+  readonly labelWidth: string;
+  readonly rows: readonly {
+    readonly title: string;
+    readonly meta: string;
+    readonly place: string;
+  }[];
+}[] = [
+  {
+    labelWidth: "w-16",
+    rows: [
+      { title: "w-44", meta: "w-28", place: "w-16" },
+      { title: "w-56", meta: "w-24", place: "w-20" },
+      { title: "w-36", meta: "w-32", place: "w-16" },
+    ],
+  },
+  {
+    labelWidth: "w-20",
+    rows: [
+      { title: "w-52", meta: "w-24", place: "w-16" },
+      { title: "w-40", meta: "w-32", place: "w-20" },
+      { title: "w-48", meta: "w-28", place: "w-16" },
+    ],
+  },
+];
 
 /**
  * The second line of `item`'s row: the first of DOCUMENT_ROW_LINES that has one, else its project and kind; a project
@@ -105,9 +129,36 @@ export function ContinueList(props: {
 
 function Placeholders(): ReactNode {
   return (
-    <div aria-hidden="true" className="flex flex-col gap-1">
-      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
-        <Skeleton key={index} data-placeholder className="h-row-2" />
+    <div aria-busy="true" className="flex flex-col gap-6">
+      {PLACEHOLDER_SECTIONS.map((section, sectionIndex) => (
+        <div
+          key={sectionIndex}
+          aria-hidden="true"
+          className="flex flex-col gap-1"
+        >
+          <div className="px-3 pt-4 pb-1">
+            <Skeleton className={cn("h-3", section.labelWidth)} />
+          </div>
+          <div className="mn-table flex flex-col">
+            {section.rows.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                data-placeholder=""
+                className={cn(
+                  "flex min-h-row-2 items-center gap-3 px-3 py-2",
+                  rowIndex > 0 ? "border-t border-line" : undefined,
+                )}
+              >
+                <Skeleton className="size-icon shrink-0" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Skeleton className={cn("h-3.5 max-w-full", row.title)} />
+                  <Skeleton className={cn("h-3 max-w-full", row.meta)} />
+                </div>
+                <Skeleton className={cn("h-4 shrink-0", row.place)} />
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );

@@ -3,7 +3,7 @@ import { readEpisodes } from "@manent/crdt";
 import type { CrdtDoc, EpisodeEntry, JsonMapView } from "@manent/crdt";
 import type { AnchorResolution } from "@manent/revisions";
 import type { DocHandle } from "@manent/sync-client";
-import { DropdownMenuItem, FACTS_WORDS, Row } from "@manent/ui";
+import { DropdownMenuItem, FACTS_WORDS, Row, Skeleton } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import {
   useCallback,
@@ -31,10 +31,17 @@ interface OpenFacts {
   readonly episodesMap: JsonMapView;
 }
 
+type OpenFactsState =
+  | { kind: "loading" }
+  | { kind: "ready"; open: OpenFacts }
+  | { kind: "unavailable" };
+
+const PLACEHOLDER_FACTS = 3;
+
 /** Opens the project index's `facts` and `episodes` maps for `projectId`, closing our own ref on unmount. */
-function useOpenFacts(projectId: string): OpenFacts | null {
+function useOpenFacts(projectId: string): OpenFactsState {
   const { projectIndex } = useServices();
-  const [open, setOpen] = useState<OpenFacts | null>(null);
+  const [state, setState] = useState<OpenFactsState>({ kind: "loading" });
   useEffect(() => {
     const index = projectIndex(projectId);
     let mounted = true;
@@ -44,18 +51,24 @@ function useOpenFacts(projectId: string): OpenFacts | null {
       index.map("episodes"),
     ]).then(
       ([handle, factsMap, episodesMap]) => {
-        if (mounted) setOpen({ handle, factsMap, episodesMap });
+        if (mounted)
+          setState({
+            kind: "ready",
+            open: { handle, factsMap, episodesMap },
+          });
       },
       // the person's sync could not start: the facts list stays absent
-      () => {},
+      () => {
+        if (mounted) setState({ kind: "unavailable" });
+      },
     );
     // the index stays open: the screen and any open script in the project share the same session
     return () => {
       mounted = false;
-      setOpen(null);
+      setState({ kind: "loading" });
     };
   }, [projectIndex, projectId]);
-  return open;
+  return state;
 }
 
 /** Server-held access level on `projectId`'s index; fails closed while loading and on 401/403/404. */
@@ -246,10 +259,29 @@ function OpenFactsList(props: {
   );
 }
 
+function FactsListSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-2 pt-2">
+      <Skeleton aria-hidden="true" className="my-1.5 h-3.5 w-24" />
+      {Array.from({ length: PLACEHOLDER_FACTS }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex min-h-row-2 flex-col justify-center gap-1.5"
+        >
+          <Skeleton className="h-3.5 w-3/4" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** The project's pinned facts, listed under Names and facts in Project settings. */
 export function FactsListView(props: { projectId: string }): ReactNode {
-  const open = useOpenFacts(props.projectId);
+  const state = useOpenFacts(props.projectId);
   const access = useFactsAccess(props.projectId);
-  if (open === null || access === "no_access") return null;
-  return <OpenFactsList open={open} access={access} />;
+  if (access === "no_access" || state.kind === "unavailable") return null;
+  if (state.kind === "loading") return <FactsListSkeleton />;
+  return <OpenFactsList open={state.open} access={access} />;
 }

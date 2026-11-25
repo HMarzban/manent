@@ -31,7 +31,7 @@ import {
 import { useCanEdit } from "./ruler-bar.tsx";
 import { VersionPane, useBaselineContent } from "./version-pane.tsx";
 
-const PLACEHOLDER_ROWS = 3;
+const PLACEHOLDER_WIDTHS = ["w-3/5", "w-2/3", "w-1/2", "w-3/4"] as const;
 
 /** The device's rows stand for the list while it loads; a list nobody can change here is read-only. */
 function stateOf(
@@ -77,9 +77,20 @@ function EmptyLine(): ReactNode {
 
 function Placeholders(): ReactNode {
   return (
-    <div aria-hidden="true" className="flex flex-col gap-2 px-2 py-2">
-      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
-        <Skeleton key={index} className="h-row-2" />
+    <div aria-busy="true" className="flex flex-col gap-1 px-2 py-2">
+      <Skeleton aria-hidden="true" className="mx-1 my-1 h-3 w-16" />
+      {PLACEHOLDER_WIDTHS.map((width, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex min-h-row-2 items-center gap-2 px-1"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className={`h-3.5 ${width}`} />
+            <Skeleton className="h-3 w-2/5" />
+          </div>
+          <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
+        </div>
       ))}
     </div>
   );
@@ -173,14 +184,16 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
   const state = stateOf(listed.state, listed.rows.length, editable);
   const offline = listed.state.kind === "offline";
   const rows = (): ReactNode => (
-    <VersionRows
-      docId={docId}
-      rows={listed.rows}
-      offline={offline}
-      draft={draft}
-      onNearEnd={() => history.more(docId)}
-      onShow={showRow}
-    />
+    <div className="min-h-0 flex-1">
+      <VersionRows
+        docId={docId}
+        rows={listed.rows}
+        offline={offline}
+        draft={draft}
+        onNearEnd={() => history.more(docId)}
+        onShow={showRow}
+      />
+    </div>
   );
   // Working heads the list, and ends it with Drafts only
   const working =
@@ -204,7 +217,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
     <section
       aria-label={DOCUMENT_WORDS.historyTab}
       data-tour="history_list"
-      className="flex flex-col px-1"
+      className="flex h-full min-h-0 flex-1 flex-col px-1"
     >
       <HistoryChanges
         docId={docId}

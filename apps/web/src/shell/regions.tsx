@@ -24,10 +24,13 @@ const FOCUSABLE_SELECTOR = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   "[tabindex]:not([tabindex='-1'])",
   "[contenteditable='true']",
+  "[contenteditable='plaintext-only']",
 ].join(", ");
-const FIELD_SELECTOR = "input, textarea, select, [contenteditable='true']";
+const FIELD_SELECTOR =
+  "input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only']";
 const DIALOG_SELECTOR = "[role='dialog'], [role='alertdialog']";
 
 /** One region of the window, drawn in its own grid area of the shell. */

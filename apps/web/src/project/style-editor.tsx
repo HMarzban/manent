@@ -168,7 +168,7 @@ function UnitInput(props: {
       disabled={disabled}
       placeholder={PROJECT_WORDS.styleAsFormat}
       value={shown}
-      className="h-8 tabular-nums text-ui"
+      className="h-control tabular-nums text-ui"
       onFocus={() => {
         setFocused(true);
         setDraft(value === null ? "" : String(value));
@@ -232,7 +232,7 @@ function ElementRow(props: {
             }
             disabled={disabled}
           >
-            <SelectTrigger id={capitalsId} className="h-8 w-full text-ui">
+            <SelectTrigger id={capitalsId} className="h-control w-full text-ui">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

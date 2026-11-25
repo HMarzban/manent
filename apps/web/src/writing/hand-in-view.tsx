@@ -5,6 +5,7 @@ import {
   Button,
   ConsequenceDialog,
   LIBRARY_WORDS,
+  Skeleton,
   WRITING_WORDS,
   messageFor,
   useSubscribable,
@@ -22,32 +23,51 @@ import { handInPrivateCopy } from "./requests.ts";
 // the live page's changes, which reach the editor, load with it
 const loadChanges = () => import("../editor-host/changes.ts");
 
-/** The copy's changes, drawn on the live page while shown; null while they are read, or cannot be. */
-function useCopyChanges(docId: string): CopyChanges | null {
+type CopyChangesState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly changes: CopyChanges }
+  | { readonly kind: "unavailable" };
+
+const CHANGES_LOADING: CopyChangesState = Object.freeze({ kind: "loading" });
+const CHANGES_UNAVAILABLE: CopyChangesState = Object.freeze({
+  kind: "unavailable",
+});
+
+/** The copy's changes, drawn on the live page while shown. */
+function useCopyChanges(docId: string): CopyChangesState {
   const services = useServices();
   const privateDocId = writingActions.openTarget(docId);
-  const [changes, setChanges] = useState<CopyChanges | null>(null);
+  const [state, setState] = useState<CopyChangesState>(CHANGES_LOADING);
   useEffect(() => {
     let shown = true;
-    setChanges(null);
-    void compareCopy(services, docId, privateDocId).then((read) => {
-      if (!shown || read === null) return;
-      setChanges(read);
-      void loadChanges().then(({ showChanges }) => {
-        if (shown)
-          showChanges(docId, {
-            baseline: read.room,
-            comparison: read.comparison,
-            display: "page",
-          });
-      });
-    });
+    setState(CHANGES_LOADING);
+    void compareCopy(services, docId, privateDocId).then(
+      (read) => {
+        if (!shown) return;
+        if (read === null) {
+          setState(CHANGES_UNAVAILABLE);
+          return;
+        }
+        setState({ kind: "ready", changes: read });
+        void loadChanges().then(({ showChanges }) => {
+          if (shown)
+            showChanges(docId, {
+              baseline: read.room,
+              comparison: read.comparison,
+              display: "page",
+            });
+        });
+      },
+      () => {
+        if (shown) setState(CHANGES_UNAVAILABLE);
+      },
+    );
     return () => {
       shown = false;
       void loadChanges().then(({ showChanges }) => showChanges(docId, null));
     };
   }, [services, docId, privateDocId]);
-  return changes;
+  return state;
 }
 
 /** Hand in's consequence dialog: the request goes once per press, and a retry carries the same key. */
@@ -112,7 +132,8 @@ function HandInDialog(props: {
 function HandIn(props: { docId: string }): ReactNode {
   const { docId } = props;
   const { messages } = useServices();
-  const changes = useCopyChanges(docId);
+  const copyState = useCopyChanges(docId);
+  const changes = copyState.kind === "ready" ? copyState.changes : null;
   const [asking, setAsking] = useState(false);
   const headingId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -147,20 +168,33 @@ function HandIn(props: { docId: string }): ReactNode {
       >
         {WRITING_WORDS.handInHeading}
       </h2>
-      {changes === null ? null : (
-        <p className="text-ui text-fg-muted">
-          {nothing
-            ? WRITING_WORDS.nothingToHandIn
-            : WRITING_WORDS.handInLine(scenes.length)}
-        </p>
-      )}
-      <ul className="flex flex-col">
-        {scenes.map((scene) => (
-          <li key={scene.sceneId} className="px-2 py-1 text-ui tabular-nums">
-            {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
-          </li>
-        ))}
-      </ul>
+      {copyState.kind === "loading" ? (
+        <div aria-busy="true" className="flex flex-col gap-2">
+          <Skeleton aria-hidden="true" className="h-4 w-48" />
+          <div aria-hidden="true" className="flex flex-col gap-1 px-2">
+            <Skeleton className="h-control-sm w-40" />
+            <Skeleton className="h-control-sm w-36" />
+          </div>
+        </div>
+      ) : changes !== null ? (
+        <>
+          <p className="text-ui text-fg-muted">
+            {nothing
+              ? WRITING_WORDS.nothingToHandIn
+              : WRITING_WORDS.handInLine(scenes.length)}
+          </p>
+          <ul className="flex flex-col">
+            {scenes.map((scene) => (
+              <li
+                key={scene.sceneId}
+                className="px-2 py-1 text-ui tabular-nums"
+              >
+                {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
       <div className="flex gap-2">
         <Button
           size="sm"

@@ -137,7 +137,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
     <Popover open={open} onOpenChange={onOpenChange}>
       <span
         ref={root}
-        className="group flex max-w-full min-w-[min(var(--status-w),100%)] shrink-0 @max-2xl:order-last @max-2xl:w-full data-[tone=alert]:min-w-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+        className="group flex max-w-full min-w-[min(var(--status-w),100%)] shrink-0 @max-3xl:order-last @max-3xl:w-full data-[tone=alert]:min-w-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
       >
         <PopoverTrigger
           render={
@@ -172,7 +172,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
         finalFocus={false}
         align="start"
         initialFocus={focusOnOpen(popup)}
-        className="w-popover max-w-(--available-width) gap-0 overflow-hidden p-0 text-ui"
+        className="max-h-[min(32rem,var(--available-height))] w-popover max-w-(--available-width) gap-0 overflow-y-auto p-0 text-ui"
       >
         <div className="contents" onClickCapture={onClickCapture}>
           <SyncCentre doc={doc} />

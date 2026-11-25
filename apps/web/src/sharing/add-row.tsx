@@ -80,13 +80,16 @@ export function AddRow(props: {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Select
           items={items}
           value={chosen}
           onValueChange={(value) => setChosen(value)}
         >
-          <SelectTrigger aria-label={WORDS.addPlaceholder} className="flex-1">
+          <SelectTrigger
+            aria-label={WORDS.addPlaceholder}
+            className="min-w-0 flex-1"
+          >
             <SelectValue placeholder={WORDS.addPlaceholder} />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +108,6 @@ export function AddRow(props: {
           disabled={target === null}
           aria-disabled={needsRole ? true : undefined}
           aria-describedby={needsRole ? reasonId : undefined}
-          className="aria-disabled:text-fg-muted"
           onClick={() => {
             if (!needsRole) void add();
           }}

@@ -14,7 +14,7 @@ export function MenuFace(props: {
   return (
     <span
       className={cn(
-        "flex items-center gap-1 rounded-control px-2 transition-colors hover:bg-subtle active:bg-control",
+        "group/menu-face flex items-center gap-1 rounded-control px-2 transition-colors hover:bg-subtle active:bg-control",
         HEIGHTS[props.size],
       )}
       title={props.title}
@@ -22,7 +22,7 @@ export function MenuFace(props: {
       <span className="truncate">{props.children}</span>
       <ChevronDownIcon
         aria-hidden="true"
-        className="size-icon shrink-0 text-fg-muted"
+        className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/menu-face:text-fg in-data-popup-open:rotate-180 motion-safe:transition-transform"
       />
     </span>
   );

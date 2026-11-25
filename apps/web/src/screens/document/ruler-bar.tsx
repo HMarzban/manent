@@ -310,22 +310,23 @@ export function RulerBar(props: { docId: string }): ReactNode {
             }}
           />
           {differsFromElement && element !== null && caretInfo !== null ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute top-1/2 right-2 z-10 -translate-y-1/2"
-              onClick={() => {
-                if (rulerMod === null) return;
-                promoteToElement(
-                  caretInfo,
-                  indent,
-                  width,
-                  rulerMod.snapshotSelectedOverrides(docId),
-                );
-              }}
-            >
-              {PROJECT_WORDS.applyToEvery(element)}
-            </Button>
+            <div className="absolute top-1/2 right-2 z-10 -translate-y-1/2 rounded-control bg-chrome">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (rulerMod === null) return;
+                  promoteToElement(
+                    caretInfo,
+                    indent,
+                    width,
+                    rulerMod.snapshotSelectedOverrides(docId),
+                  );
+                }}
+              >
+                {PROJECT_WORDS.applyToEvery(element)}
+              </Button>
+            </div>
           ) : null}
         </>
       ) : null}

@@ -17,11 +17,13 @@ function BesideStatus(props: { source: Subscribable<StatusFacts> }): ReactNode {
   return (
     <span
       ref={root}
-      className="group flex shrink-0 tabular-nums data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+      className="group flex min-w-0 shrink tabular-nums data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
     >
-      <span ref={deviceSlot} className="group-data-spans:hidden" />
-      <span className="whitespace-pre group-data-spans:hidden">{" · "}</span>
-      <span ref={serverSlot} />
+      <span ref={deviceSlot} className="shrink-0 group-data-spans:hidden" />
+      <span className="shrink-0 whitespace-pre group-data-spans:hidden">
+        {" · "}
+      </span>
+      <span ref={serverSlot} className="min-w-0 truncate" />
     </span>
   );
 }
@@ -56,12 +58,14 @@ export function BesideFrame(props: {
       data-beside={kind}
       data-tour="beside"
       data-region={kind === "version" ? "page" : "side_panel"}
-      className="z-10 flex min-h-0 w-1/2 flex-col justify-self-end border-l border-line bg-desk"
+      className="z-10 flex min-h-0 w-1/2 animate-in flex-col justify-self-end border-l border-line bg-desk duration-(--dur-base) ease-out fade-in-0 slide-in-from-end-4"
       style={PAGE_AREA}
     >
-      <header className="flex flex-col gap-1 px-3 py-2 text-ui">
+      <header className="flex flex-col gap-1 border-b border-line bg-chrome px-3 py-2 text-ui">
         <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate">{title}</span>
+          <span title={title} className="min-w-0 flex-1 truncate font-medium">
+            {title}
+          </span>
           {status === null ? null : <BesideStatus source={status} />}
           <CloseButton
             label={DOCUMENT_WORDS.closeBeside(title)}

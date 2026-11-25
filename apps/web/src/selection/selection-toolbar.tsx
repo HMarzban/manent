@@ -12,8 +12,20 @@ import {
   useCommands,
 } from "@manent/ui";
 import { ChevronDownIcon } from "lucide-react";
-import { useContext, useEffect, useReducer, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import type {
+  FocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent,
+  ReactNode,
+} from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import { useEditorFact } from "../state/facts.store.ts";
@@ -26,6 +38,7 @@ import type {
 } from "./slots.ts";
 
 const SHOW_AFTER_MS = 150;
+const EDGE_PX = 8;
 const PAGE_REGION = "[data-region='page']";
 // the bar and its More menu, which is drawn outside it
 const TOOLBAR = "[data-selection-toolbar]";
@@ -252,12 +265,30 @@ function toMoreItems(
   });
 }
 
+const toolbarButtons = (root: HTMLElement): HTMLButtonElement[] => [
+  ...root.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+];
+
+function syncTabStops(
+  root: HTMLElement,
+  active: HTMLButtonElement | null = null,
+): void {
+  const buttons = toolbarButtons(root);
+  if (buttons.length === 0) return;
+  const chosen =
+    (active !== null && buttons.includes(active) ? active : null) ??
+    buttons.find((item) => item.tabIndex === 0) ??
+    buttons[0];
+  for (const item of buttons) item.tabIndex = item === chosen ? 0 : -1;
+}
+
 function Bar(props: { docId: string; place: Place }): ReactNode {
   const { docId, place } = props;
   const { service } = useCommands();
   const services = useServices();
   const environment = useEnvironment();
   const facts = useContext(FactsContext);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [, changed] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     const stops = [service.subscribe(changed)];
@@ -281,21 +312,76 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
     },
     actionContext,
   );
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (el === null) return;
+    const half = el.getBoundingClientRect().width / 2;
+    const minLeft = EDGE_PX + half;
+    const maxLeft = Math.max(minLeft, window.innerWidth - EDGE_PX - half);
+    el.style.left = `${Math.min(Math.max(place.x, minLeft), maxLeft)}px`;
+    syncTabStops(el);
+  });
   if (main.length === 0 && more.length === 0 && state === null) return null;
   const moreItems = toMoreItems(more, service, actionContext);
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    const root = rootRef.current;
+    const active = event.target;
+    if (root === null || !(active instanceof Element) || !root.contains(active))
+      return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      environment.dom.focusPage();
+      return;
+    }
+    if (!(active instanceof HTMLButtonElement)) return;
+    const buttons = toolbarButtons(root);
+    const index = buttons.indexOf(active);
+    if (index === -1) return;
+    const next =
+      event.key === "ArrowRight"
+        ? (index + 1) % buttons.length
+        : event.key === "ArrowLeft"
+          ? (index - 1 + buttons.length) % buttons.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? buttons.length - 1
+              : null;
+    if (next === null) return;
+    event.preventDefault();
+    const target = buttons[next];
+    if (target === undefined) return;
+    syncTabStops(root, target);
+    target.focus();
+  };
+  const onFocus = (event: FocusEvent<HTMLDivElement>): void => {
+    const root = rootRef.current;
+    if (
+      root !== null &&
+      event.target instanceof HTMLButtonElement &&
+      root.contains(event.target)
+    )
+      syncTabStops(root, event.target);
+  };
   return (
     <div
+      ref={rootRef}
       role="toolbar"
       aria-label={SELECTION_WORDS.toolbar}
       data-selection-toolbar=""
       style={{ left: place.x, top: place.y, transform: SHIFT[place.side] }}
-      className="fixed z-50 flex h-control-lg items-center gap-0.5 rounded-lg bg-overlay p-1 shadow-overlay ring-1 ring-line"
+      className="fixed z-50"
       onMouseDown={keepPageFocus}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
     >
-      {main.slice(0, moreAt).map(button)}
-      {moreItems.length === 0 ? null : <MoreMenu items={moreItems} />}
-      {main.slice(moreAt).map(button)}
-      {state === null ? null : button(state)}
+      <div className="flex h-control-lg animate-in items-center gap-0.5 rounded-lg bg-overlay p-1 shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95">
+        {main.slice(0, moreAt).map(button)}
+        {moreItems.length === 0 ? null : <MoreMenu items={moreItems} />}
+        {main.slice(moreAt).map(button)}
+        {state === null ? null : button(state)}
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import {
   Button,
   PROMPTER_WINDOW_WORDS,
+  Skeleton,
   Switch,
   Tooltip,
   TooltipContent,
@@ -44,7 +45,15 @@ function FeedStatus(props: { readonly status: PrompterBarStatus }): ReactNode {
   const { status } = props;
   switch (status.kind) {
     case "loading":
-      return null;
+      return (
+        <span aria-busy="true" className="flex items-center gap-2">
+          <Skeleton
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full"
+          />
+          <Skeleton aria-hidden="true" className="h-4 w-24" />
+        </span>
+      );
     case "live":
       return (
         <>

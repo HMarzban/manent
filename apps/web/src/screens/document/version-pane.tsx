@@ -5,15 +5,26 @@ import { compareModeOf } from "@manent/revisions";
 import type { CompareNote, Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
-import { EDITOR_WORDS, HISTORY_WORDS } from "@manent/ui";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { EDITOR_WORDS, HISTORY_WORDS, Skeleton } from "@manent/ui";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BesideFrame } from "../../beside/beside-frame.tsx";
-import { livePagination } from "../../editor-host/live-editor.ts";
+import {
+  liveEditor,
+  livePagination,
+  subscribeLiveEditors,
+} from "../../editor-host/live-editor.ts";
 import { mountVersionView } from "../../editor-host/version-view.ts";
 import type { VersionView } from "../../editor-host/version-view.ts";
 import { baselineAt } from "../../history/baseline.ts";
+import { docOfContent } from "../../history/content-doc.ts";
 import { useServices } from "../../services/context.tsx";
 import { useHistory } from "../../state/history.store.ts";
 import { useOpenDocument } from "./open-document.ts";
@@ -25,28 +36,71 @@ const NOTES: Readonly<Record<CompareNote, string>> = Object.freeze({
   engines: HISTORY_WORDS.compareEngines,
 });
 
+type BaselineState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly content: VersionContent }
+  | { readonly kind: "unavailable" };
+
+const LOADING_BASELINE: BaselineState = Object.freeze({ kind: "loading" });
+const UNAVAILABLE_BASELINE: BaselineState = Object.freeze({
+  kind: "unavailable",
+});
+
+const baselineStates = new Map<string, BaselineState>();
+const baselineListeners = new Set<() => void>();
+
+function notifyBaseline(): void {
+  for (const listener of baselineListeners) listener();
+}
+
+function subscribeBaseline(listener: () => void): () => void {
+  baselineListeners.add(listener);
+  return () => {
+    baselineListeners.delete(listener);
+  };
+}
+
+function setBaselineState(entryKey: string, next: BaselineState): void {
+  if (baselineStates.get(entryKey) === next) return;
+  baselineStates.set(entryKey, next);
+  notifyBaseline();
+}
+
 /** The baseline's content once it has loaded; null while it loads, and when it cannot be had. */
 export function useBaselineContent(docId: string): VersionContent | null {
   const { history } = useServices();
   const baseline = useHistory("baseline");
   const at = baselineAt(baseline);
   const key = JSON.stringify(at);
+  const entryKey = `${docId}:${key}`;
   const [loaded, setLoaded] = useState<{
     key: string;
-    content: VersionContent | null;
+    state: BaselineState;
   } | null>(null);
   useEffect(() => {
     if (at === null) return undefined;
     let shown = true;
-    void history.content(docId, at).then((content) => {
-      if (shown) setLoaded({ key, content });
-    });
+    setBaselineState(entryKey, LOADING_BASELINE);
+    void history
+      .content(docId, at)
+      .then(
+        (content): BaselineState =>
+          content === null ? UNAVAILABLE_BASELINE : { kind: "ready", content },
+        () => UNAVAILABLE_BASELINE,
+      )
+      .then((state) => {
+        if (!shown) return;
+        setBaselineState(entryKey, state);
+        setLoaded({ key, state });
+      });
     return () => {
       shown = false;
+      if (baselineStates.delete(entryKey)) notifyBaseline();
     };
     // `key` names `at`, which is made anew on every render
-  }, [history, docId, key]);
-  return loaded?.key === key ? loaded.content : null;
+  }, [history, docId, key, entryKey]);
+  const state = loaded?.key === key ? loaded.state : LOADING_BASELINE;
+  return state.kind === "ready" ? state.content : null;
 }
 
 /** The header's line: why the changes are shown by text and element only, when they are. */
@@ -139,6 +193,17 @@ export function VersionPane(props: {
   const beside = position === "beside";
   const comparison = beside ? props.comparison : null;
   const scope = beside ? sceneIds : null;
+  const entryKey = `${docId}:${JSON.stringify(baselineAt(baseline))}`;
+  const baselineState = useSyncExternalStore(
+    subscribeBaseline,
+    () => baselineStates.get(entryKey) ?? UNAVAILABLE_BASELINE,
+    () => UNAVAILABLE_BASELINE,
+  );
+  const hasLiveEditor = useSyncExternalStore(
+    subscribeLiveEditors,
+    () => liveEditor(docId) !== null,
+    () => false,
+  );
 
   useLayoutEffect(() => {
     const element = place.current;
@@ -170,7 +235,33 @@ export function VersionPane(props: {
     baseline.date === null
       ? baseline.title
       : `${baseline.title}, ${baseline.date}`;
-  const body = (
+  const comparing =
+    beside &&
+    content !== null &&
+    comparison === null &&
+    hasLiveEditor &&
+    docOfContent(content) !== null;
+  const loading =
+    (content === null && baselineState.kind === "loading") || comparing;
+  const body = loading ? (
+    <div
+      aria-busy="true"
+      className="flex min-h-0 flex-1 justify-center overflow-auto bg-desk p-8"
+    >
+      <div
+        aria-hidden="true"
+        className="flex w-full max-w-content flex-col gap-3 rounded-surface border border-line bg-raised p-8"
+      >
+        <Skeleton className="h-4 w-2/5" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-11/12" />
+        <Skeleton className="h-3 w-4/5" />
+        <Skeleton className="mt-4 h-4 w-1/3" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-3/4" />
+      </div>
+    </div>
+  ) : (
     <div
       ref={place}
       tabIndex={0}

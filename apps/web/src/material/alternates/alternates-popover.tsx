@@ -61,7 +61,9 @@ export function AlternatesPopover(props: AlternatesPopoverProps): ReactNode {
   useLayoutEffect(() => {
     const element = root.current;
     if (element === null) return;
-    const top = topOf(place, element.getBoundingClientRect().height);
+    const height =
+      element.offsetHeight || element.getBoundingClientRect().height;
+    const top = topOf(place, height);
     element.style.top = `${top}px`;
   });
 
@@ -111,7 +113,7 @@ export function AlternatesPopover(props: AlternatesPopoverProps): ReactNode {
       aria-label={MATERIAL_WORDS.alternates}
       data-open=""
       data-tour="alternates"
-      className="fixed z-50 flex w-popover flex-col overflow-hidden rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line"
+      className="fixed z-50 flex w-popover animate-in flex-col overflow-hidden rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95"
       style={{
         left: place.left,
         top: place.top,

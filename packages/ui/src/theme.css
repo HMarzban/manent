@@ -462,6 +462,9 @@ html[data-white-page] .mn-pages {
     --page-rev-tan-paper: var(--page-paper);
     --elev-page: 0 0 #0000;
   }
+  [data-slot="skeleton"] {
+    border: 1px solid var(--line);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -952,7 +955,8 @@ html[data-white-page] .mn-pages {
 [role="tree"],
 [role="tablist"],
 [role="tabpanel"],
-[data-ring="inset"] {
+[data-ring="inset"],
+.mn-table {
   --focus-gap: calc(var(--focus-w) * -1);
 }
 
@@ -1034,9 +1038,10 @@ html[data-white-page] .mn-pages {
   color: var(--fg-muted);
 }
 
-/* 7. Loading placeholders hold still. */
+/* 7. Loading placeholders use the control fill so they read on chrome and
+      raised surfaces; reduced motion stops their pulse below. */
 [data-slot="skeleton"] {
-  animation: none;
+  background-color: var(--bg-control);
 }
 
 /* 8. A toggle that is on, or a button pressed as one, takes the selected role
@@ -1092,12 +1097,24 @@ html[data-white-page] .mn-pages {
 /* 11. The selected tab's bar is blue; a tab at rest is muted text. */
 [data-slot="tabs-trigger"] {
   color: var(--fg-muted);
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
 }
 [data-slot="tabs-trigger"]:is([data-active], :hover) {
   color: var(--fg);
 }
 [data-slot="tabs-trigger"]::after {
   background-color: var(--bg-accent);
+}
+[data-orientation="horizontal"] [data-slot="tabs-trigger"]::after {
+  transform: scaleX(0.6);
+  transition:
+    opacity var(--dur-base) var(--curve-enter),
+    transform var(--dur-base) var(--curve-enter);
+}
+[data-orientation="horizontal"] [data-slot="tabs-trigger"][data-active]::after {
+  transform: scaleX(1);
 }
 
 /* 12. One menu surface: its edge is a hairline, it is as wide as its longest
@@ -1199,6 +1216,117 @@ html[data-white-page] .mn-pages {
   background-image: linear-gradient(var(--bg-subtle), var(--bg-subtle));
 }
 
+/* 15. Tokenised micro-motion across stock popups, buttons, items and controls. */
+:is(
+  [data-slot$="dialog-overlay"],
+  [data-slot$="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+) {
+  --tw-animation-duration: var(--dur-fast);
+  --tw-ease: var(--curve-enter);
+}
+:is(
+  [data-slot$="dialog-overlay"],
+  [data-slot$="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+):is([data-closed], [data-state="closed"]) {
+  --tw-ease: var(--curve-exit);
+}
+[class~="group/button"] {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: var(--dur-fast);
+}
+[class~="group/button"]:not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled],
+    [aria-pressed="true"]
+  ):is([class~="hover:bg-muted"], [class~="hover:bg-input/50"]):active {
+  background-color: var(--bg-control);
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):active {
+  translate: none;
+}
+[class~="group/button"] svg.lucide {
+  transition: color var(--dur-fast) var(--curve-enter);
+}
+:is(
+  [role^="menuitem"],
+  [data-slot="select-item"],
+  [role="listbox"]:not(#mn-complete) [role="option"]
+) {
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="switch"] {
+  transition:
+    background-color var(--dur-base) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+[data-slot="switch-thumb"] {
+  transition-duration: var(--dur-base);
+}
+[data-slot="switch"]:not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):active
+  [data-slot="switch-thumb"] {
+  transform: scale(0.92);
+}
+[data-slot="radio-group-item"] {
+  transition:
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="radio-group-item"]:not(:disabled, [data-disabled]):hover {
+  border-color: var(--fg);
+}
+[data-slot="toggle"],
+[data-slot="toggle-group-item"] {
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+:is([data-slot="toggle"], [data-slot="toggle-group-item"]):not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled],
+    [aria-pressed="true"]
+  ):active {
+  background-color: var(--bg-control);
+}
+[data-slot="select-trigger"] > svg:last-child {
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="select-trigger"][data-popup-open] > svg:last-child {
+  transform: rotate(180deg);
+}
+[data-slot$="menu-sub-trigger"] > svg:last-child {
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+[data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
+  > svg:last-child {
+  transform: translateX(2px);
+}
+
 /* --------------------------------------------------------------------------
    ROWS. Manent's own list row, used by Scenes, Pages, the Library tree,
    versions, threads, the Tour and the rundown. Layout is utilities; the
@@ -1207,6 +1335,10 @@ html[data-white-page] .mn-pages {
 .mn-row {
   position: relative;
   border-radius: var(--shape-control);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
 }
 /* only a row that does something looks like it does: its own keys, or the
    control around it. A selected row keeps its fill under the pointer: the
@@ -1218,6 +1350,17 @@ html[data-white-page] .mn-pages {
 button:not(:disabled, [aria-disabled="true"]):hover
   > .mn-row:not([aria-selected="true"]) {
   background-color: var(--bg-subtle);
+}
+.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):where(
+    :not([aria-current]),
+    [aria-current="false"]
+  ):active,
+button:not(:disabled, [aria-disabled="true"]):active
+  > .mn-row:not([aria-selected="true"]):where(
+    :not([aria-current]),
+    [aria-current="false"]
+  ) {
+  background-color: var(--bg-control);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
 .mn-row[aria-selected="true"] {
@@ -1233,6 +1376,9 @@ button:not(:disabled, [aria-disabled="true"]):hover
   inset-block: 4px;
   inset-inline-start: 0;
   border-inline-start: 2px solid var(--bg-accent);
+}
+.mn-row [data-leading] {
+  transition: color var(--dur-fast) var(--curve-enter);
 }
 .mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
   color: var(--fg-accent);
@@ -1490,6 +1636,10 @@ button:not(:disabled, [aria-disabled="true"]):hover
   background-color: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--shape-surface);
+  transition:
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter);
 }
 .mn-card[data-new] {
   background-color: transparent;
@@ -1498,6 +1648,10 @@ button:not(:disabled, [aria-disabled="true"]):hover
 }
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
+}
+button.mn-card:not(:disabled):active {
+  background-color: var(--bg-subtle);
+  transform: translateY(1px);
 }
 .mn-card[aria-current]:not([aria-current="false"]) {
   background-color: var(--bg-selected);
@@ -1815,10 +1969,20 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   height: var(--marker);
   color: var(--fg-muted);
   border-radius: var(--shape-control);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
 }
 :is(.mn-marker, .mn-room-tag, .mn-room-link):hover {
   background-color: var(--bg-subtle);
   color: var(--fg);
+}
+:is(.mn-marker, .mn-room-tag, .mn-room-link):not(
+    :disabled,
+    [aria-disabled="true"],
+    [aria-pressed="true"]
+  ):active {
+  background-color: var(--bg-control);
 }
 :is(.mn-marker, .mn-room-tag, .mn-room-link)[aria-pressed="true"] {
   background-color: var(--bg-selected);
@@ -1912,6 +2076,8 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   *::after {
     --tw-enter-scale: 1 !important;
     --tw-exit-scale: 1 !important;
+    --tw-enter-rotate: 0deg !important;
+    --tw-exit-rotate: 0deg !important;
     --tw-enter-translate-x: 0 !important;
     --tw-enter-translate-y: 0 !important;
     --tw-exit-translate-x: 0 !important;
@@ -1925,6 +2091,19 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   }
   [class~="group/button"]:active {
     translate: none !important;
+  }
+  [data-slot="switch-thumb"],
+  [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
+  [data-slot="select-trigger"] > svg:last-child,
+  [data-slot$="menu-sub-trigger"] > svg:last-child {
+    transition: none !important;
+  }
+  [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
+  button.mn-card:active,
+  [data-slot="switch"]:active [data-slot="switch-thumb"],
+  [data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
+    > svg:last-child {
+    transform: none !important;
   }
 }
 
@@ -1985,6 +2164,13 @@ html[data-switching] *::after {
     background: Canvas;
     color: CanvasText;
     outline: 1px solid CanvasText;
+  }
+  [data-slot="skeleton"] {
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+  }
+  .mn-avatar[data-who] {
+    border-color: CanvasText;
   }
 }
 

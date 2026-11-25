@@ -39,10 +39,12 @@ function ColumnResizeHandle({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    const measured =
+      event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0;
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
-      startWidth: width,
+      startWidth: measured > 0 ? Math.round(measured) : width,
     };
   };
 

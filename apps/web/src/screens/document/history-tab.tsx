@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { HISTORY_SECTIONS } from "./history-sections.ts";
 import type { HistorySection } from "./history-sections.ts";
+import { PanelListSkeleton } from "./panel-surface.tsx";
 
 // the shell reads this tab's presence from the entry, which the panel's components would push over its size budget
 const loadPanel = () => import("./history-panel.tsx");
@@ -22,7 +23,7 @@ function HistoryTab(props: { docId: string | null }): ReactNode {
   const sections = useVisibleSections(docId ?? "");
   if (docId === null) return null;
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PanelListSkeleton />}>
       <HistoryPanel docId={docId} sections={sections} />
     </Suspense>
   );

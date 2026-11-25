@@ -211,8 +211,9 @@ export function BoardGrid(props: BoardGridProps): ReactNode {
       className="min-w-full overflow-x-auto"
     >
       <div
+        data-ring="inset"
         style={{ gridTemplateColumns: columns }}
-        className="grid min-w-full overflow-hidden rounded-surface border border-line bg-chrome"
+        className="grid w-max min-w-full overflow-hidden rounded-surface border border-line bg-chrome"
       >
         <div
           aria-hidden="true"

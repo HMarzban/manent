@@ -140,7 +140,9 @@ test("a current row can carry a visible word as well as its attribute", () => {
     el.getAttribute("aria-current"),
     el.lastElementChild?.tagName,
     el.lastElementChild?.textContent,
-  ]).toEqual(["true", "SPAN", "Chosen"]);
+    el.lastElementChild?.className.includes("shrink-0"),
+    el.lastElementChild?.className.includes("whitespace-nowrap"),
+  ]).toEqual(["true", "SPAN", "Chosen", true, true]);
 });
 
 const focusedPlace = (): string | null | undefined =>

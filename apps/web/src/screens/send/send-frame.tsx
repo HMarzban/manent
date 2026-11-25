@@ -7,6 +7,7 @@ import {
   PROGRESS_AFTER_MS,
   SEND_WORDS,
   STILL_WORKING_MS,
+  Skeleton,
   useTiming,
 } from "@manent/ui";
 import { TriangleExclamationPointIcon } from "lucide-react";
@@ -20,7 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
@@ -201,23 +202,91 @@ function ActionLine(props: {
 // the form and its pages side by side, centred, once the screen holds both (1,100 px); the pages under the form before then
 const PAIR =
   "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
+const SKELETON_TILES = 4;
+const TILE_SCALE = 0.085;
+// US Letter proportions (612 × 792 pt) scaled to tile size
+const PLACEHOLDER_FRAME: CSSProperties = Object.freeze({
+  width: `${612 * TILE_SCALE}pt`,
+  height: `${792 * TILE_SCALE}pt`,
+});
+
+/** Realistic page-aspect skeleton tiles while the script's pagination is still loading. */
+export function PageTilesSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-wrap gap-x-2 gap-y-3">
+      {Array.from({ length: SKELETON_TILES }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex flex-col items-center gap-1"
+        >
+          <Skeleton className="rounded-none" style={PLACEHOLDER_FRAME} />
+          <Skeleton className="h-3 w-4" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Structured form placeholder matching SendFrame's layout while a Send form or its access check loads. */
+export function SendFormSkeleton(props: { rows?: number }): ReactNode {
+  const rowCount = props.rows ?? 3;
+  return (
+    <div aria-busy="true" className="@container min-h-0 flex-1 overflow-auto">
+      <div className={PAIR}>
+        <div
+          aria-hidden="true"
+          className="flex w-content max-w-full min-w-0 flex-col divide-y divide-line"
+        >
+          {Array.from({ length: rowCount }, (_, index) => (
+            <div key={index} className="flex items-center gap-4 py-4">
+              <Skeleton className="h-3.5 w-key shrink-0" />
+              <Skeleton className="h-control flex-1" />
+            </div>
+          ))}
+          <div className="flex justify-end pt-4">
+            <Skeleton className="h-control-lg w-32" />
+          </div>
+        </div>
+        <div
+          aria-hidden="true"
+          className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
+        >
+          <div className="flex flex-wrap gap-x-2 gap-y-3">
+            {Array.from({ length: SKELETON_TILES }, (_, index) => (
+              <Skeleton key={index} className="h-24 w-16 rounded-none" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** What long work shows beside its busy button: its progress, Still working…, and Cancel when it can be cancelled. */
 function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   const { action, step } = props;
   const { progress, cancel } = action;
-  if (!action.busy) return null;
+  const showProgress = action.busy && progress !== null && step >= 1;
+  const showStillWorking = action.busy && step >= 2;
+  const hasStatus = showProgress || showStillWorking;
   return (
     <>
-      {progress !== null && step >= 1 ? (
-        <span className="text-ui text-fg-muted">{progress}</span>
-      ) : null}
-      {step >= 2 ? (
-        <span className="text-ui text-fg-muted">
-          {DIALOG_WORDS.stillWorking}
-        </span>
-      ) : null}
-      {cancel !== null && step >= 3 ? (
+      <span
+        role="status"
+        aria-live="polite"
+        className={hasStatus ? "flex flex-wrap items-center gap-3" : "sr-only"}
+      >
+        {showProgress ? (
+          <span className="text-ui text-fg-muted">{progress}</span>
+        ) : null}
+        {showStillWorking ? (
+          <span className="text-ui text-fg-muted">
+            {DIALOG_WORDS.stillWorking}
+          </span>
+        ) : null}
+      </span>
+      {action.busy && cancel !== null && step >= 3 ? (
         <Button variant="outline" size="lg" onClick={cancel}>
           {DIALOG_WORDS.cancel}
         </Button>
@@ -235,10 +304,11 @@ export function SendFrame(props: {
   title: string;
   aside: string | null;
   rows: readonly SendRow[];
+  checksPending?: boolean;
   pages: ReactNode;
   action: SendAction;
 }): ReactNode {
-  const { title, aside, rows, pages, action } = props;
+  const { title, aside, rows, checksPending = false, pages, action } = props;
   const { place, titleBar } = useSendHost();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lineId = useId();
@@ -276,6 +346,15 @@ export function SendFrame(props: {
       <div className="@container min-h-0 flex-1 overflow-auto">
         <div className={PAIR}>
           <div className="flex w-content max-w-full min-w-0 flex-col">
+            {checksPending ? (
+              <div
+                aria-busy="true"
+                className="flex items-center gap-4 border-b border-line py-4"
+              >
+                <Skeleton aria-hidden="true" className="h-3.5 w-key shrink-0" />
+                <Skeleton aria-hidden="true" className="h-4 w-48" />
+              </div>
+            ) : null}
             <Rows rows={rows} />
             <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
               <ActionLine

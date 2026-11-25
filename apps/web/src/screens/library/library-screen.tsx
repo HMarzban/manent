@@ -7,6 +7,7 @@ import {
   CommandButton,
   DEMO_WORDS,
   LIBRARY_WORDS,
+  Skeleton,
   createValue,
   useCommandState,
   useSubscribable,
@@ -149,6 +150,8 @@ function usePublishWorkspace(shown: {
   useEffect(() => () => workspaceActions.set("writable"), []);
 }
 
+const GETTING_READY_ROWS = ["w-48", "w-36", "w-56", "w-44"] as const;
+
 /**
  * What the main column says in place of the lists of a workspace that is being seeded, which hold nothing until it is
  * ready, or whose seed stopped.
@@ -158,12 +161,39 @@ function GettingReady(props: {
   seeding: NonNullable<WorkspaceRef["seeding"]>;
 }): ReactNode {
   const { name, seeding } = props;
+  if (seeding.failed) {
+    return (
+      <div role="status" className="pt-6">
+        <p className="text-ui">{DEMO_WORDS.seedingFailed}</p>
+      </div>
+    );
+  }
   return (
-    <p className="pt-6 text-ui">
-      {seeding.failed
-        ? DEMO_WORDS.seedingFailed
-        : LIBRARY_WORDS.gettingReady(name, seeding.done, seeding.total)}
-    </p>
+    <div className="flex flex-col gap-4 pt-6">
+      <p role="status" className="text-ui text-fg-muted">
+        {LIBRARY_WORDS.gettingReady(name, seeding.done, seeding.total)}
+      </p>
+      <div aria-busy="true" className="mn-table flex flex-col">
+        <div aria-hidden="true" className="flex flex-col">
+          <div className="mn-table-head flex items-center gap-3 px-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="ms-auto hidden h-3 w-16 @lg:block" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          {GETTING_READY_ROWS.map((width, index) => (
+            <div
+              key={index}
+              className="flex min-h-row items-center gap-3 border-t border-line px-3 first:border-t-0"
+            >
+              <Skeleton className="size-icon shrink-0" />
+              <Skeleton className={`h-3.5 max-w-full ${width}`} />
+              <Skeleton className="ms-auto hidden h-3 w-20 @lg:block" />
+              <Skeleton className="h-3.5 w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -200,11 +230,15 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       </h1>
       <ShellRegion
         region="title_bar"
-        className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2"
+        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-2 border-b border-line px-2 py-1"
       >
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
-        ) : null}
+        ) : serverProblem ? null : (
+          <div aria-busy="true" className="shrink-0">
+            <Skeleton aria-hidden="true" className="h-control w-36" />
+          </div>
+        )}
         <SearchField />
         <span className="flex-1" />
         <CommandButton id="file.import" variant="outline" />

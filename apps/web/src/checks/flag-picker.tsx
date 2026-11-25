@@ -13,8 +13,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
   SHARING_WORDS,
+  Skeleton,
 } from "@manent/ui";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -22,6 +23,28 @@ import { fullNameOf } from "../services/sync/index-entries.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import { fetchFlaggablePeople, writeCheckFlag } from "./flag-write.ts";
 import type { FlaggablePerson } from "./flag-write.ts";
+
+const PLACEHOLDER_OPTIONS = 3;
+
+function FlagPickerSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-1 p-1">
+      {Array.from({ length: PLACEHOLDER_OPTIONS }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex min-h-row-2 items-center gap-2 px-2"
+        >
+          <Skeleton className="size-avatar shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface KnownPerson {
   readonly userId: string;
@@ -77,14 +100,31 @@ export function FlagControl(props: {
   const [people, setPeople] = useState<readonly FlaggablePerson[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [writing, setWriting] = useState(false);
+  const mounted = useRef(true);
+  const loadSeq = useRef(0);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const loadPeople = useCallback((): void => {
     if (!canFlag) return;
+    const seq = ++loadSeq.current;
     setLoading(true);
-    void fetchFlaggablePeople(docId, services.userId).then((found) => {
-      setPeople(found ?? []);
-      setLoading(false);
-    });
+    void fetchFlaggablePeople(docId, services.userId)
+      .then((found) => {
+        if (!mounted.current || loadSeq.current !== seq) return;
+        setPeople(found ?? []);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted.current || loadSeq.current !== seq) return;
+        setPeople([]);
+        setLoading(false);
+      });
   }, [canFlag, docId, services.userId]);
 
   const existing = activeFlagFor(checkKey, flags, threads);
@@ -173,7 +213,9 @@ export function FlagControl(props: {
                 </span>
               </DropdownMenuItem>
             ))
-          ) : loading ? null : (
+          ) : loading ? (
+            <FlagPickerSkeleton />
+          ) : (
             <p className="px-2 py-1 text-ui text-fg-muted">
               {CHECKS_WORDS.flagEmpty}
             </p>

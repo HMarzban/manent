@@ -212,7 +212,13 @@ export function ProjectSettingsScreen(): ReactNode {
           <div className="flex max-w-content flex-col gap-8">
             <Group
               group="format_style"
-              lines={[...formatLines(project, locks), ownerLine]}
+              lines={[
+                ...formatLines(
+                  project,
+                  locks.kind === "ready" ? locks.value : null,
+                ),
+                ownerLine,
+              ]}
             >
               <Rows group="format_style" projectId={projectId} />
             </Group>

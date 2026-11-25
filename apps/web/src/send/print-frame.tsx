@@ -168,6 +168,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
         ...(checks === null ? [] : [checks]),
         ...(what === null ? [] : [what.row]),
       ]}
+      checksPending={p === null}
       pages={tiles}
       action={{
         label: heading,

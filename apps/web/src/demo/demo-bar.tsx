@@ -1,5 +1,5 @@
 // The demo bar: a colour scope of its own above everything, with the controls that prove the product's claims.
-import { DEMO_WORDS, SurfaceBoundary } from "@manent/ui";
+import { DEMO_WORDS, Skeleton, SurfaceBoundary } from "@manent/ui";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { loadApart } from "../load-apart.ts";
@@ -42,7 +42,14 @@ export function DemoBar(props: {
       </span>
       {/* controls whose code cannot load leave the bar, and the tab, as they are */}
       <SurfaceBoundary fallback={() => null}>
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div aria-busy="true" className="flex flex-1 items-center gap-2">
+              <Skeleton aria-hidden="true" className="h-control-sm w-28" />
+              <Skeleton aria-hidden="true" className="h-control-sm w-20" />
+            </div>
+          }
+        >
           <DemoBarControls {...props} />
         </Suspense>
       </SurfaceBoundary>

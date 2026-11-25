@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { checksRow } from "../checks/send-row.tsx";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
-import { SendFrame } from "../screens/send/send-frame.tsx";
+import { SendFormSkeleton, SendFrame } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { outsideFontRow } from "../send/output-checks.tsx";
 import { useDraftSendAccess } from "./access.ts";
@@ -25,8 +25,9 @@ function SendDraftForm(props: {
   const draft = useSendDraft(docId, access);
   const { p } = draft;
 
-  const checks: SendRow = useMemo(() => {
-    const fontWarning = p === null ? null : outsideFontRow(p);
+  const checks: SendRow | null = useMemo(() => {
+    if (p === null) return null;
+    const fontWarning = outsideFontRow(p);
     const scriptChecks = checksRow(docId);
     if (fontWarning === null) return scriptChecks;
     return {
@@ -41,7 +42,7 @@ function SendDraftForm(props: {
   }, [docId, p]);
 
   const rows: SendRow[] = [
-    checks,
+    ...(checks === null ? [] : [checks]),
     {
       id: "name",
       content: <NameRowContent name={draft.name} onChange={draft.setName} />,
@@ -110,6 +111,7 @@ function SendDraftForm(props: {
       title={draft.actionLabel}
       aside={null}
       rows={rows}
+      checksPending={p === null}
       pages={
         <DraftPreviewTiles
           p={p}
@@ -138,6 +140,7 @@ function SendDraftForm(props: {
 
 function SendDraftBody(props: SendFormProps): ReactNode {
   const access = useDraftSendAccess(props.docId);
+  if (access.pending) return <SendFormSkeleton rows={5} />;
   if (!access.ready) return null;
   return <SendDraftForm docId={props.docId} access={access} />;
 }

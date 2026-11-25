@@ -170,13 +170,19 @@ function RadioControl({
       disabled={disabled}
     >
       {choices.map((choice) => (
-        <span key={choice.value} className="flex items-center gap-2 text-ui">
+        <label
+          key={choice.value}
+          className={cn(
+            "flex items-center gap-2 text-ui",
+            disabled ? "cursor-not-allowed text-fg-disabled" : "cursor-pointer",
+          )}
+        >
           <RadioGroupItem
             value={choice.value}
             aria-labelledby={`${id}-${choice.value}`}
           />
           <span id={`${id}-${choice.value}`}>{textOf(choice)}</span>
-        </span>
+        </label>
       ))}
     </RadioGroup>
   );
@@ -212,7 +218,11 @@ function SelectControl({
   );
 }
 
-function SegmentedControl({ settingKey, value }: ControlProps): ReactNode {
+function SegmentedControl({
+  settingKey,
+  value,
+  disabled,
+}: ControlProps): ReactNode {
   const store = useSettingsStore();
   const def = SETTINGS.get(settingKey);
   return (
@@ -220,6 +230,7 @@ function SegmentedControl({ settingKey, value }: ControlProps): ReactNode {
       label={def.label}
       value={String(value)}
       options={def.type.choices ?? []}
+      disabled={disabled}
       onChange={(chosen) => setFrom(store, settingKey, chosen)}
     />
   );
@@ -236,7 +247,7 @@ interface Field {
 const TEXT_FIELD: Field = Object.freeze({
   type: "text",
   inputMode: "text",
-  className: "w-48",
+  className: "w-full max-w-48",
   read: (typed: string) => typed,
 });
 
@@ -358,6 +369,7 @@ export function SettingRow(props: {
             <Button
               variant="link"
               className="h-auto p-0 text-meta"
+              disabled={!explained.writable}
               onClick={() => store.reset(settingKey)}
             >
               {PREFERENCES_WORDS.reset}

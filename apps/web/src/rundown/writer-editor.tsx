@@ -1,7 +1,7 @@
 // Inline typed Writer cell editor offering the project's people matched by first name or full name.
 import { RUNDOWN_WORDS } from "@manent/ui";
 import type { GridEditorContext } from "@manent/ui";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import type { RundownPerson } from "./rundown-access.ts";
 
@@ -25,6 +25,7 @@ export function WriterEditor(props: {
   readonly people: readonly RundownPerson[];
 }): ReactNode {
   const { context, people } = props;
+  const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const settled = useRef(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -115,6 +116,12 @@ export function WriterEditor(props: {
         type="text"
         role="combobox"
         aria-expanded={matches.length > 0}
+        aria-controls={matches.length > 0 ? listboxId : undefined}
+        aria-activedescendant={
+          highlighted >= 0 && matches[highlighted] !== undefined
+            ? `${listboxId}-${highlighted}`
+            : undefined
+        }
         aria-autocomplete="list"
         aria-label={RUNDOWN_WORDS.columns.writer}
         value={context.value}
@@ -134,6 +141,7 @@ export function WriterEditor(props: {
       />
       {matches.length === 0 ? null : (
         <ul
+          id={listboxId}
           role="listbox"
           aria-label={RUNDOWN_WORDS.columns.writer}
           className="absolute start-0 top-full z-30 mt-1 max-h-48 min-w-full overflow-auto rounded-surface border border-line bg-overlay p-1 shadow-overlay"
@@ -141,11 +149,13 @@ export function WriterEditor(props: {
           {matches.map((person, index) => (
             <li
               key={person.userId}
+              id={`${listboxId}-${index}`}
               role="option"
               aria-selected={index === highlighted}
+              data-highlighted={index === highlighted ? "" : undefined}
               className={
                 index === highlighted
-                  ? "flex min-h-row cursor-pointer items-center rounded-control bg-control px-2 text-ui whitespace-nowrap text-fg outline-2 -outline-offset-2 outline-focus"
+                  ? "flex min-h-row cursor-pointer items-center rounded-control bg-control px-2 text-ui whitespace-nowrap text-fg"
                   : "flex min-h-row cursor-pointer items-center rounded-control px-2 text-ui whitespace-nowrap text-fg hover:bg-subtle"
               }
               onMouseDown={(event) => {

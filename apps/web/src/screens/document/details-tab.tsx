@@ -7,6 +7,7 @@ import type { PanelTab } from "../../shell/panel-tab.ts";
 import { panelsActions } from "../../state/panels.store.ts";
 import { DETAILS_SECTIONS } from "./details-sections.ts";
 import type { DetailsScope } from "./details-sections.ts";
+import { PanelListSkeleton } from "./panel-surface.tsx";
 
 // its controls would push the document screen's chunk over its size budget
 const loadScriptSettings = () => import("./script-settings.tsx");
@@ -42,7 +43,7 @@ function DetailsPanel(props: { docId: string }): ReactNode {
         <h2 className="mn-group-label">{heading}</h2>
         <div className="flex flex-col gap-2 px-3">
           {scope === "script" ? (
-            <Suspense fallback={null}>
+            <Suspense fallback={<PanelListSkeleton />}>
               <ScriptSettings docId={docId} />
             </Suspense>
           ) : null}
