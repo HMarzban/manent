@@ -33,7 +33,8 @@ import {
 } from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
 import { createWakeWatch } from "../relay/wake.ts";
-import type { NodeCoreOptions, UpstreamFactory } from "./ports.ts";
+import type { NodeCoreOptions } from "./ports.ts";
+import { createReseed, watchUpstream } from "./reseed.ts";
 import { composeNodeServices } from "./services.ts";
 
 const SSE_HEARTBEAT_MS = 30_000;
@@ -102,20 +103,12 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   const sendStatus = (docId: string, status: UpstreamStatus): void =>
     control(docId, "upstream_status", encodeUpstreamStatus(status), null);
 
-  /** Each person's upstream client, watched for each connection to the cloud. */
-  const upstream: UpstreamFactory = {
-    create(userId, token) {
-      const client = options.upstream.create(userId, token);
-      let online = false;
-      client.link.subscribe((facts) => {
-        const now = facts.state === "online";
-        if (now && !online) connected(userId);
-        online = now;
-      });
-      return client;
-    },
-    store: (userId) => options.upstream.store(userId),
-  };
+  const upstream = watchUpstream({
+    upstream: options.upstream,
+    records,
+    reauthenticate: cloudSessions.reauthenticate,
+    onConnected: connected,
+  });
 
   const relay = createRelayBridge({
     storage,
@@ -136,12 +129,16 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       ),
   });
   relay.onStatus(sendStatus);
+  const shell = createShellChannel({ clock, heartbeatMs: SSE_HEARTBEAT_MS });
+  const clientOf = (userId: string) => relay.clientOf(userId);
   const ids = (): string => random.bytes(16).toHex();
   const composed = composeNodeServices({
     ...options,
     sessions,
     ids,
     sync: () => serviceOf(server),
+    shell: shell.shell,
+    clientOf,
     reserveClientId: (userId, docId) => relay.reserveClientId(userId, docId),
   });
 
@@ -198,7 +195,25 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   const service = serviceOf(server);
   relay.attach(service);
 
-  const mirror = createMirror({ storage, records, cloud, tokenOf });
+  const reseed = createReseed({
+    storage,
+    records,
+    cloud,
+    relay,
+    service,
+    sessions: cloudSessions,
+    wipe: options.wipe,
+    onWiped: () => composed.config.search?.catchUpNow(),
+  });
+
+  const mirror = createMirror({
+    storage,
+    records,
+    cloud,
+    tokenOf,
+    reauthenticate: reseed.reauthenticate,
+    waitReseed: reseed.wait,
+  });
   const handover = createHandover({
     storage,
     records,
@@ -217,21 +232,20 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       const state = doc.encodeState();
       doc.destroy();
       const home = `${place.home.kind}:${place.home.id}`;
-      return {
-        state,
-        kind: place.kind,
-        home,
-        workspaceId: records.workspaceOf(docId),
-      };
+      const workspaceId = records.workspaceOf(docId);
+      return { state, kind: place.kind, home, workspaceId };
     },
   });
 
   const guarded = guardSubscribe({
     inner: server.connections,
     storage,
+    records,
     mirror,
     tokenOf,
     waitToken: cloudSessions.waitToken,
+    isReseeding: () => reseed.active,
+    waitReseed: reseed.wait,
     clock,
     subscribed(editor, docId) {
       editor.control(
@@ -262,42 +276,22 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     });
   }
 
-  /** The demo's cloud was reset: the node empties its store and keeps who was here. */
-  async function reseeded(seedId: string): Promise<void> {
-    const { directory } = storage;
-    for (const home of directory.homes())
-      for (const docId of directory.documentsIn(home)) service.removed(docId);
-    await relay.close();
-    await options.wipe();
-    records.setSeedId(seedId);
-  }
-
   /** On each connection of a person's upstream: their hand-off, and the demo's seed checked. */
   function connected(userId: string): void {
     handOver(userId);
-    cloud
-      .demo()
-      .then(
-        ({ seedId }) => {
-          const stored = records.seedId();
-          if (seedId === null || seedId === stored) return;
-          if (stored === null) return records.setSeedId(seedId);
-          return reseeded(seedId);
-        },
-        () => {
-          // the cloud went away again: its seed is read at the next connection
-        },
-      )
-      .catch(() => {
-        // a reset that could not finish stored no new seed: the next connection runs it again
-      });
+    reseed.check().catch(() => {
+      // a reset that could not finish stored no new seed: the next connection runs it again
+    });
   }
 
-  const shell = createShellChannel({ clock, heartbeatMs: SSE_HEARTBEAT_MS });
+  const closeCallbacks: (() => void)[] = [];
   const routes = localRoutes({
     records,
     shell,
     sessions,
+    clock,
+    clientOf,
+    onClose: (fn) => void closeCallbacks.push(fn),
     async signInToSync(userId) {
       const person = records.person(userId);
       const token = person === null ? null : await cloudSessions.signIn(person);
@@ -325,6 +319,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         mirror,
         resolveUser: (t) => sessions.resolve(t)?.userId ?? null,
         ensureCloudToken: cloudSessions.waitToken,
+        waitReseed: reseed.wait,
       });
       const named = await workspaceNamed(request);
       const answer = await server.fetch(request, context);
@@ -339,11 +334,8 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     const current = records.current();
     const person = current === null ? null : records.person(current.userId);
     if (current === null || person === null) return null;
-    return JSON.stringify({
-      token: current.nodeToken,
-      userId: person.userId,
-      name: person.name,
-    });
+    const { userId, name } = person;
+    return JSON.stringify({ token: current.nodeToken, userId, name });
   };
   // a hand-off a stopped process left goes on at launch: no upstream connects for a script the node still holds as its own
   for (const { userId } of records.people()) handOver(userId);
@@ -372,6 +364,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     },
     async close() {
       stopWake();
+      for (const fn of closeCallbacks.splice(0)) fn();
+      composed.stop();
+      composed.config.search?.stop();
       composed.config.prompter?.stop();
       await service.shutdown();
       await relay.close();

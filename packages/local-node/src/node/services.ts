@@ -11,6 +11,8 @@ import type {
   SyncSettings,
 } from "@manent/server-core";
 import { createSuggestionHooks } from "@manent/server-core";
+import type { SyncClient } from "@manent/sync-client";
+import type { ShellEnd } from "../http/shell-channel.ts";
 import type { RelayBridge } from "../relay/bridge.ts";
 import type { NodeCoreOptions } from "./ports.ts";
 import { workflowService } from "./services/workflow.ts";
@@ -27,6 +29,8 @@ export interface NodeServiceDeps extends NodeCoreOptions {
   sessions: SessionStore;
   ids(): string;
   sync: () => SyncService;
+  shell: ShellEnd;
+  clientOf: (userId: string) => SyncClient | null;
   reserveClientId: RelayBridge["reserveClientId"];
   /** History service from an earlier entry in the list, for services that keep versions inside a commit. */
   history?: Pick<HistoryService, "keep">;
@@ -38,8 +42,10 @@ export interface NodeServiceDeps extends NodeCoreOptions {
 export interface ComposedNodeService {
   /** Told and asked by the sync service after the hooks of the services before it in the list. */
   readonly hooks: readonly SyncHooks[];
+  /** Sync hooks invoked on both authority and relayed rooms (for example, offline search indexing). */
+  readonly allRoomHooks?: readonly SyncHooks[];
   readonly config: Partial<
-    Pick<ServerConfig, "history" | "production" | "prompter">
+    Pick<ServerConfig, "history" | "production" | "prompter" | "search">
   >;
   /** Whether a document is on air now; the first given is the sync service's, which is never on air without one. */
   readonly airWindow?: (docId: string, now: number) => boolean;
@@ -51,6 +57,8 @@ export interface ComposedNodeService {
   readonly prompterSubscribe?: PrompterService["subscribePrompter"];
   /** A request it answers before server-core does; null for any other. */
   readonly forward?: (request: Request) => Promise<Response | null>;
+  /** Releases timers or open handles when the node closes. */
+  readonly stop?: () => void;
 }
 
 export interface NodeService {
@@ -107,6 +115,7 @@ export function composeNodeServices(deps: NodeServiceDeps): {
   >;
   config: ComposedNodeService["config"];
   forward(request: Request): Promise<Response | null>;
+  stop(): void;
 } {
   const composed: ComposedNodeService[] = [];
   let history: Pick<HistoryService, "keep"> | undefined = deps.history;
@@ -130,9 +139,12 @@ export function composeNodeServices(deps: NodeServiceDeps): {
   }
   const isAuthority = (docId: string): boolean =>
     deps.records.docState(docId) === null;
-  const hooks = composed.flatMap((c) =>
-    c.hooks.map((hook) => authorityOnly(hook, isAuthority)),
-  );
+  const hooks = [
+    ...composed.flatMap((c) =>
+      c.hooks.map((hook) => authorityOnly(hook, isAuthority)),
+    ),
+    ...composed.flatMap((c) => c.allRoomHooks ?? []),
+  ];
   const prompterSubscribe =
     composed.find((c) => c.prompterSubscribe !== undefined)
       ?.prompterSubscribe ?? null;
@@ -157,6 +169,9 @@ export function composeNodeServices(deps: NodeServiceDeps): {
         if (answered !== null) return answered;
       }
       return null;
+    },
+    stop() {
+      for (const c of composed) c.stop?.();
     },
   };
 }

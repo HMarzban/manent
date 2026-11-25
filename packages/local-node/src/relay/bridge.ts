@@ -305,6 +305,11 @@ export function createRelayBridge(options: RelayBridgeOptions): RelayBridge {
       changed(docId);
     },
     people: () => [...persons.keys()],
+    clientOf(userId) {
+      const person = records.person(userId);
+      if (person === null || person.cloudToken === null) return null;
+      return personOf(userId).client;
+    },
     setOnline,
     reconnect() {
       for (const { client } of persons.values()) client.retryNow();
@@ -340,6 +345,7 @@ export function createRelayBridge(options: RelayBridgeOptions): RelayBridge {
         await client.close();
       }
       persons.clear();
+      relayed.clear();
     },
   };
 }

@@ -53,11 +53,16 @@ export function createCloudSessions(options: {
 }): {
   signIn(person: Person): Promise<string | null>;
   chosen(person: Person): void;
+  reauthenticate(userId: string): Promise<string | null>;
+  invalidate(): void;
   waitToken(userId: string): Promise<string | null>;
 } {
   const { cloud, records, tokenOf, onSignedIn } = options;
   const pending = new Map<string, Promise<string | null>>();
+  let epoch = 0;
+
   async function signIn(person: Person): Promise<string | null> {
+    const started = epoch;
     let signed;
     try {
       signed = await cloud.signIn(person.userId);
@@ -65,32 +70,65 @@ export function createCloudSessions(options: {
       if (!(error instanceof ConnectError)) throw error;
       return null;
     }
-    if (!signed.ok) return null;
+    if (!signed.ok || started !== epoch) return null;
+    const latest = records.person(person.userId) ?? person;
     records.savePerson({
-      ...person,
+      ...latest,
       wantsCloud: true,
       cloudToken: signed.token,
     });
     return signed.token;
   }
+
+  function start(person: Person): Promise<string | null> {
+    const running = pending.get(person.userId);
+    if (running !== undefined) return running;
+    const run = signIn(person).then(
+      (token) => {
+        if (token !== null) onSignedIn(person.userId);
+        return token;
+      },
+      () => null,
+    );
+    pending.set(person.userId, run);
+    void run.finally(() => {
+      if (pending.get(person.userId) === run) pending.delete(person.userId);
+    });
+    return run;
+  }
+
   return {
     signIn,
     chosen(person) {
       if (!person.wantsCloud) return;
       if (person.cloudToken !== null) return onSignedIn(person.userId);
-      const run = signIn(person).then(
-        (token) => {
-          if (token !== null) onSignedIn(person.userId);
-          return token;
-        },
-        () => null,
-      );
-      pending.set(person.userId, run);
-      void run.finally(() => {
-        if (pending.get(person.userId) === run) pending.delete(person.userId);
-      });
+      void start(person);
     },
-    waitToken: async (userId) =>
-      tokenOf(userId) ?? (await pending.get(userId)) ?? null,
+    async reauthenticate(userId) {
+      const running = pending.get(userId);
+      if (running !== undefined) return running;
+      const person = records.person(userId);
+      if (person === null || !person.wantsCloud) return null;
+      const cleared: Person = { ...person, cloudToken: null };
+      records.savePerson(cleared);
+      return start(cleared);
+    },
+    invalidate() {
+      epoch += 1;
+      pending.clear();
+      for (const person of records.people()) {
+        if (person.cloudToken !== null)
+          records.savePerson({ ...person, cloudToken: null });
+      }
+    },
+    async waitToken(userId) {
+      const existing = tokenOf(userId);
+      if (existing !== null) return existing;
+      const running = pending.get(userId);
+      if (running !== undefined) return running;
+      const person = records.person(userId);
+      if (person === null || !person.wantsCloud) return null;
+      return start(person);
+    },
   };
 }

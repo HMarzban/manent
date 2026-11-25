@@ -110,12 +110,19 @@ function deviceIdOf(secret: Uint8Array): string {
 function emptyFile(path: string, kept: ReadonlySet<string>): void {
   const db = new Database(path);
   try {
-    const tables = db
-      .query<{ name: string }, []>(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    const rows = db
+      .query<{ name: string; sql: string | null }, []>(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
       )
-      .all()
-      .filter(({ name }) => !kept.has(name));
+      .all();
+    const virtualPrefixes = rows
+      .filter((row) => row.sql?.startsWith("CREATE VIRTUAL TABLE") === true)
+      .map((row) => `${row.name}_`);
+    const tables = rows.filter(
+      ({ name }) =>
+        !kept.has(name) &&
+        !virtualPrefixes.some((prefix) => name.startsWith(prefix)),
+    );
     db.transaction(() => {
       for (const { name } of tables) db.run(`DELETE FROM "${name}"`);
     }).immediate();
@@ -261,6 +268,7 @@ export async function createDesktopNode(
           boot: options.boot,
           storeUsage: () => readStoreUsage(storeDir),
           nodeUrl,
+          searchDir: join(storeDir, "node"),
           async wipe() {
             for (const path of sqliteFiles(join(storeDir, "node")))
               emptyFile(path, new Set());
