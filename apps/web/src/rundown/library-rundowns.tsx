@@ -15,9 +15,15 @@ import {
   formatWhen,
   useCommandState,
 } from "@manent/ui";
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ListOrderedIcon,
+  PlusIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { KindIcon } from "../screens/library/project-kind.tsx";
 import { PROJECT_ROW_ITEMS } from "../screens/library/project-row-items.ts";
 import type { ProjectViewProps } from "../screens/library/project-views.ts";
@@ -305,6 +311,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   };
 
   const loading = data.rundowns.length === 0 && !data.loaded;
+  const empty = !loading && data.rundowns.length === 0;
   const newButton = (
     <NewRundownButton
       disabled={disabled}
@@ -340,17 +347,17 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
             ))}
           </RowMenu>
         ) : null}
-        {newButton}
+        {empty ? null : newButton}
       </div>
       {loading ? (
         <RundownsSkeleton />
-      ) : data.rundowns.length === 0 ? (
-        <div
-          data-tour="library:rundowns"
-          className="flex flex-col items-start gap-2 py-3"
-        >
-          <p className="text-ui text-fg-muted">{RUNDOWN_WORDS.noRundownsYet}</p>
-          {newButton}
+      ) : empty ? (
+        <div data-tour="library:rundowns" className="py-3">
+          <EmptyHeroCard
+            icon={<ListOrderedIcon aria-hidden="true" className="size-5" />}
+            title={RUNDOWN_WORDS.noRundownsYet}
+            actions={newButton}
+          />
         </div>
       ) : (
         <div

@@ -24,6 +24,7 @@ import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { tourTab } from "../../demo/tour-tab.tsx";
 import { browserPagePorts } from "../../editor-host/page-ports.ts";
+import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { focusHeading } from "../../focus.ts";
 import { createReaderCommentsSession } from "../../reader/reader-comments.ts";
 import type { ReaderCommentsSession } from "../../reader/reader-comments.ts";
@@ -271,29 +272,7 @@ export function ReaderScreen(props: {
           <Skeleton className="h-3.5 w-44" />
           <Skeleton className="h-3.5 w-28" />
         </div>
-        <div
-          aria-hidden="true"
-          className="flex min-h-0 flex-1 justify-center overflow-hidden p-8"
-        >
-          <div className="flex w-full max-w-content flex-col gap-5 border border-line bg-raised p-12">
-            <Skeleton className="h-4 w-56" />
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3.5 w-full" />
-              <Skeleton className="h-3.5 w-11/12" />
-              <Skeleton className="h-3.5 w-4/5" />
-            </div>
-            <div className="mx-auto flex w-3/5 flex-col gap-2 pt-2">
-              <Skeleton className="mx-auto h-3.5 w-24" />
-              <Skeleton className="h-3.5 w-full" />
-              <Skeleton className="h-3.5 w-5/6" />
-            </div>
-            <Skeleton className="mt-2 h-4 w-48" />
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3.5 w-full" />
-              <Skeleton className="h-3.5 w-3/4" />
-            </div>
-          </div>
-        </div>
+        <ScriptPageSkeleton />
       </div>
     );
   }

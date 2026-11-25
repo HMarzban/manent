@@ -6,7 +6,7 @@ import type {
   ScriptEditorOptions,
   Timers,
 } from "@manent/editor";
-import { ENGINE_VERSION, engineFor } from "@manent/pagination";
+import { engineFor } from "@manent/pagination";
 import type { IdSource } from "@manent/schema";
 import type { Platform } from "@manent/settings";
 import { LIBRARY_WORDS } from "@manent/ui";
@@ -51,14 +51,20 @@ export function editorOptions(
   const { element, docId, facts, outline, settings, guard } = open.ports;
   const { services } = options;
   const title = services().library.documentTitle(docId);
+  const storedEngine = open.script.get("script.engineVersion");
+  const engineVersion =
+    typeof storedEngine === "number" &&
+    Number.isInteger(storedEngine) &&
+    storedEngine >= 1
+      ? storedEngine
+      : 1;
   return {
     place: element,
     binding: bound.binding,
     editable: bound.editable,
     personal: settings,
     script: open.script,
-    // every script is laid out by the first engine until a script stores its own
-    layoutEngine: engineFor(ENGINE_VERSION)!,
+    layoutEngine: engineFor(engineVersion) ?? engineFor(1)!,
     facts,
     outline,
     guard,

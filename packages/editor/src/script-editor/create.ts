@@ -1,6 +1,7 @@
 // One script editor over one place: the binding, the keys, the popovers, the pages, the scroll rules and the bridge.
 import {
   LAYOUT_SETTING_KEYS,
+  engineFor,
   profileFromSettings,
   readLayoutSettings,
 } from "@manent/pagination";
@@ -232,6 +233,7 @@ function subscribe(
     ...LAYOUT_SETTING_KEYS.map((key) =>
       options.script.subscribe(key, relayout),
     ),
+    options.script.subscribe("script.engineVersion", relayout),
     options.script.subscribe("script.header", onFurniture),
     options.script.subscribe("script.footer", onFurniture),
     options.script.subscribe("script.dateFormat", onFurniture),
@@ -253,8 +255,15 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   let scenesNumbered = false;
   let pages: PageControls | null = null;
   const format = (): FormatId => formatOf(layout.format);
+  const currentEngine = (): Engine => {
+    const raw = script.get("script.engineVersion");
+    if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1) {
+      return engineFor(raw) ?? engineFor(1)!;
+    }
+    return options.layoutEngine;
+  };
   const profile = (): PageProfile | null =>
-    profileFromSettings(options.layoutEngine, { ...layout, scenesNumbered });
+    profileFromSettings(currentEngine(), { ...layout, scenesNumbered });
   const factor = (): number => (pages?.percent ?? 100) / 100;
   const layer = createLayer(place.ownerDocument);
   const ports = createScrollPorts(place, factor);
@@ -275,7 +284,8 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     format,
     scaffold: () => activeScaffold,
   });
-  const first = profile();
+  const firstEngine = currentEngine();
+  const first = profileFromSettings(firstEngine, { ...layout, scenesNumbered });
   const context = elementContext(options, format);
   const plugins = editorPlugins(options, {
     layer,
@@ -287,12 +297,15 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     isEditable: () => editableNow,
   });
   plugins.after.unshift(furnitureSync.plugin());
-  const mounted = mountEditor(options, {
-    profile: first,
-    context,
-    plugins,
-    ports,
-  });
+  const mounted = mountEditor(
+    { ...options, layoutEngine: firstEngine },
+    {
+      profile: first,
+      context,
+      plugins,
+      ports,
+    },
+  );
   const { view, scaffold } = mounted;
   activeScaffold = scaffold;
   if (!editableNow) view.setProps({ editable: () => false });
@@ -305,6 +318,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
       desk,
       zoom,
       layoutView: options.view,
+      engine: currentEngine,
       profile,
     });
   furnitureSync.sync(view.state);

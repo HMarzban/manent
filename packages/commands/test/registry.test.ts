@@ -935,6 +935,7 @@ test("the handler table names every command but the generated ones", () => {
     "name.useListed": noop,
     "name.addToProject": noop,
     "project.openSettings": noop,
+    "workspace.settings": noop,
     "scene.moveUp": noop,
     "scene.moveDown": noop,
     "comment.add": noop,
@@ -979,6 +980,7 @@ test("the handler table names every command but the generated ones", () => {
     "library.renameFolder": noop,
     "library.moveToFolder": noop,
     "library.favourite": noop,
+    "script.renameCharacter": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

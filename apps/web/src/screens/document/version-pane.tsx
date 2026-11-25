@@ -5,7 +5,7 @@ import { compareModeOf } from "@manent/revisions";
 import type { CompareNote, Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
-import { EDITOR_WORDS, HISTORY_WORDS, Skeleton } from "@manent/ui";
+import { EDITOR_WORDS, HISTORY_WORDS } from "@manent/ui";
 import {
   useEffect,
   useLayoutEffect,
@@ -21,6 +21,7 @@ import {
   livePagination,
   subscribeLiveEditors,
 } from "../../editor-host/live-editor.ts";
+import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { mountVersionView } from "../../editor-host/version-view.ts";
 import type { VersionView } from "../../editor-host/version-view.ts";
 import { baselineAt } from "../../history/baseline.ts";
@@ -244,23 +245,7 @@ export function VersionPane(props: {
   const loading =
     (content === null && baselineState.kind === "loading") || comparing;
   const body = loading ? (
-    <div
-      aria-busy="true"
-      className="flex min-h-0 flex-1 justify-center overflow-auto bg-desk p-8"
-    >
-      <div
-        aria-hidden="true"
-        className="flex w-full max-w-content flex-col gap-3 rounded-surface border border-line bg-raised p-8"
-      >
-        <Skeleton className="h-4 w-2/5" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-11/12" />
-        <Skeleton className="h-3 w-4/5" />
-        <Skeleton className="mt-4 h-4 w-1/3" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-3/4" />
-      </div>
-    </div>
+    <ScriptPageSkeleton />
   ) : (
     <div
       ref={place}

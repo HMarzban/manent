@@ -13,8 +13,10 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { SurfaceStateValue } from "@manent/ui";
+import { HistoryIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { baselineOfRow } from "../../history/baseline.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { historyView, selectRow } from "../../history/history-view.ts";
@@ -67,11 +69,15 @@ function EmptyLine(): ReactNode {
   const { platform } = useCommands();
   const [chord] = useCommandState("history.nameDraft").keys;
   return (
-    <p className="px-2 py-2 text-ui text-fg-muted">
-      {HISTORY_WORDS.empty(
-        chord === undefined ? "" : keyLabel(chord, platform),
-      )}
-    </p>
+    <div className="px-2 py-3">
+      <EmptyHeroCard
+        compact
+        icon={<HistoryIcon aria-hidden="true" className="size-4" />}
+        description={HISTORY_WORDS.empty(
+          chord === undefined ? "" : keyLabel(chord, platform),
+        )}
+      />
+    </div>
   );
 }
 

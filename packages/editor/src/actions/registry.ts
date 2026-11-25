@@ -16,6 +16,10 @@ import {
   synopsisEntry,
 } from "./loaded-apart.ts";
 import { pageBreakEntry } from "./page-break.ts";
+import {
+  renameCharacterEntry,
+  renameLocationEntry,
+} from "./rename-character.ts";
 import { colourEntry, highlightEntry, styleEntry } from "./styles.ts";
 import { redoEntry, undoEntry } from "./undo.ts";
 
@@ -41,6 +45,8 @@ export const EDITOR_ACTIONS = Object.freeze({
   go_to: goToEntry,
   step_scene: stepSceneEntry,
   go_to_person: goToPersonEntry,
+  rename_character: renameCharacterEntry,
+  rename_location: renameLocationEntry,
 });
 
 type ActionOf<E> = E extends ActionEntry<infer A> ? A : never;

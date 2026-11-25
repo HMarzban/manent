@@ -274,11 +274,11 @@ html[data-white-page] .mn-pages {
   --avatar-motif-lo: light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.2));
   --avatar-neutral-motif-hi: light-dark(
     rgb(255 255 255 / 0.7),
-    rgb(255 255 255 / 0.07)
+    rgb(255 255 255 / 0.12)
   );
   --avatar-neutral-motif-lo: light-dark(
     rgb(31 29 26 / 0.07),
-    rgb(0 0 0 / 0.26)
+    rgb(0 0 0 / 0.30)
   );
 }
 
@@ -309,6 +309,7 @@ html[data-white-page] .mn-pages {
   --page-removed-bg: light-dark(rgb(168 34 27 / 0.13), rgb(255 161 153 / 0.14));
   --page-review: light-dark(var(--p-amber-700), var(--p-amber-300));
   --page-note-bg: light-dark(rgb(74 70 64 / 0.10), rgb(169 164 155 / 0.08));
+  --page-skeleton: light-dark(rgb(31 29 26 / 0.11), rgb(239 236 230 / 0.11));
   --page-link: light-dark(var(--p-blue-700), var(--p-blue-300));
   /* a suggestion is drawn as a change, a comment's marker as its line, an
      Ink problem as a warning */
@@ -464,6 +465,9 @@ html[data-white-page] .mn-pages {
   }
   [data-slot="skeleton"] {
     border: 1px solid var(--line);
+  }
+  .mn-pages [data-slot="skeleton"] {
+    border: 1px solid var(--page-edge);
   }
 }
 
@@ -1039,9 +1043,13 @@ html[data-white-page] .mn-pages {
 }
 
 /* 7. Loading placeholders use the control fill so they read on chrome and
-      raised surfaces; reduced motion stops their pulse below. */
+      raised surfaces; on the page they use the page skeleton fill; reduced
+      motion stops their pulse below. */
 [data-slot="skeleton"] {
   background-color: var(--bg-control);
+}
+.mn-pages [data-slot="skeleton"] {
+  background-color: var(--page-skeleton);
 }
 
 /* 8. A toggle that is on, or a button pressed as one, takes the selected role
@@ -1679,6 +1687,10 @@ button.mn-card:not(:disabled):active {
     calc(var(--desk-pad) * var(--page-zoom))
   );
 }
+.mn-desk > .mn-pages {
+  width: fit-content;
+  margin-inline: auto;
+}
 .mn-pages {
   isolation: isolate;
   color: var(--page-ink);
@@ -2165,7 +2177,8 @@ html[data-switching] *::after {
     color: CanvasText;
     outline: 1px solid CanvasText;
   }
-  [data-slot="skeleton"] {
+  [data-slot="skeleton"],
+  .mn-pages [data-slot="skeleton"] {
     border: 1px solid CanvasText;
     background-color: Canvas;
   }

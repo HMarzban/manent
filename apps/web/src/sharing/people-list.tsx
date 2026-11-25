@@ -63,9 +63,18 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         ];
   const role =
     shareRole === null ? (
-      <span key="role" className="text-meta text-fg-muted">
-        {WORDS.roles[person.role]}
-      </span>
+      person.role === "owner" ? (
+        <span
+          key="role"
+          className="inline-flex items-center rounded-full border border-line bg-subtle px-2.5 py-0.5 text-micro font-medium text-fg-muted"
+        >
+          {WORDS.roles[person.role]}
+        </span>
+      ) : (
+        <span key="role" className="text-meta text-fg-muted">
+          {WORDS.roles[person.role]}
+        </span>
+      )
     ) : (
       <RoleSelect
         key="role"
@@ -82,6 +91,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
             key="remove"
             variant="ghost"
             size="sm"
+            className="text-fg-muted hover:text-danger"
             aria-label={WORDS.removeName(person.name)}
             onClick={() => void actions.removePerson(person)}
           >
@@ -95,14 +105,14 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
           name={person.name}
           initials={initialsOf(person.name)}
           colour={null}
-          size="sm"
+          size="md"
           decorative
         />
       }
       meta={meta}
       trailing={[...slots, role, ...remove]}
     >
-      <span id={nameId} className="truncate">
+      <span id={nameId} className="truncate font-medium text-fg">
         {person.name}
       </span>
     </Row>
@@ -118,7 +128,14 @@ function GroupRow(props: ListProps & { group: ShareGroup }): ReactNode {
   const refusal = props.refusals.get(`group:${group.groupId}`) ?? null;
   return (
     <Row
-      leading={<UsersIcon aria-hidden="true" className="size-icon" />}
+      leading={
+        <span
+          aria-hidden="true"
+          className="flex size-avatar shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
+        >
+          <UsersIcon className="size-3.5" />
+        </span>
+      }
       meta={refusal === null ? undefined : <RowRefusal sentence={refusal} />}
       trailing={
         editing
@@ -127,6 +144,7 @@ function GroupRow(props: ListProps & { group: ShareGroup }): ReactNode {
                 key="remove"
                 variant="ghost"
                 size="sm"
+                className="text-fg-muted hover:text-danger"
                 aria-label={WORDS.removeName(name)}
                 onClick={() => void actions.removeGroup(group, name)}
               >
@@ -136,7 +154,7 @@ function GroupRow(props: ListProps & { group: ShareGroup }): ReactNode {
           : []
       }
     >
-      <span className="truncate">
+      <span className="truncate font-medium text-fg">
         {WORDS.groupRow(name, WORDS.roles[group.role], members)}
       </span>
     </Row>
@@ -150,15 +168,30 @@ const byOwnerThenName = (a: SharePerson, b: SharePerson): number =>
 
 export function PeopleList(props: ListProps): ReactNode {
   const { access } = props;
+  const people = access.people.toSorted(byOwnerThenName);
+  const total = people.length + access.groups.length;
   return (
-    <div role="list" className="-mx-3 flex flex-col">
-      {access.people.toSorted(byOwnerThenName).map((person) => (
-        <div role="listitem" key={person.userId}>
+    <div
+      role="list"
+      className="mn-table flex flex-col [&_.mn-row]:gap-2.5 [&_.mn-row]:py-1.5"
+    >
+      {people.map((person, index) => (
+        <div
+          role="listitem"
+          aria-posinset={index + 1}
+          aria-setsize={total}
+          key={person.userId}
+        >
           <PersonRow {...props} person={person} />
         </div>
       ))}
-      {access.groups.map((group) => (
-        <div role="listitem" key={group.groupId}>
+      {access.groups.map((group, index) => (
+        <div
+          role="listitem"
+          aria-posinset={people.length + index + 1}
+          aria-setsize={total}
+          key={group.groupId}
+        >
           <GroupRow {...props} group={group} />
         </div>
       ))}

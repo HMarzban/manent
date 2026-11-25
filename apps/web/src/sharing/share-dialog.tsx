@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { LogInIcon, SendIcon, WifiOffIcon, XIcon } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { sendPath } from "../screens/send/form-ids.ts";
@@ -29,52 +30,110 @@ const WORDS = SHARING_WORDS;
 const SHARE = "share";
 const PLACEHOLDER_PEOPLE = 3;
 
-function PeopleListSkeleton(): ReactNode {
+function ShareSkeleton(): ReactNode {
   return (
-    <div aria-busy="true" className="-mx-3 flex flex-col">
-      {Array.from({ length: PLACEHOLDER_PEOPLE }, (_, index) => (
-        <div
-          key={index}
-          aria-hidden="true"
-          className="flex min-h-row-2 items-center gap-2 px-3"
-        >
-          <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Skeleton className="h-3.5 w-32" />
-            <Skeleton className="h-3 w-24" />
+    <div aria-busy="true" className="flex flex-col gap-4">
+      <div
+        aria-hidden="true"
+        className="flex items-center gap-2 rounded-surface border border-line bg-subtle p-2.5"
+      >
+        <Skeleton className="h-control min-w-0 flex-1" />
+        <Skeleton className="h-control w-28 shrink-0" />
+        <Skeleton className="h-control w-14 shrink-0" />
+      </div>
+      <div aria-hidden="true" className="mn-table flex flex-col">
+        {Array.from({ length: PLACEHOLDER_PEOPLE }, (_, index) => (
+          <div
+            key={index}
+            className={
+              index > 0
+                ? "flex min-h-row-2 items-center gap-2.5 border-t border-line px-3 py-1.5"
+                : "flex min-h-row-2 items-center gap-2.5 px-3 py-1.5"
+            }
+          >
+            <Skeleton className="size-avatar shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-control w-24 shrink-0" />
           </div>
-          <Skeleton className="h-control w-24 shrink-0" />
+        ))}
+      </div>
+      <div
+        aria-hidden="true"
+        className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-3.5"
+      >
+        <Skeleton className="h-3 w-12" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="size-avatar shrink-0 rounded-full" />
+            <Skeleton className="h-3.5 w-36" />
+          </div>
+          <Skeleton className="h-4 w-7 shrink-0 rounded-full" />
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
-/** "Send a draft to read…", with the line saying how sending differs from sharing; it needs a connection. */
-function SendDraft(props: { docId: string; offline: boolean }): ReactNode {
-  const { docId, offline } = props;
+function NoticeBanner(props: { icon: ReactNode; text: string }): ReactNode {
+  return (
+    <div className="flex items-center gap-2.5 rounded-surface border border-line bg-subtle px-3.5 py-2.5 text-ui text-fg">
+      <span aria-hidden="true" className="flex shrink-0 text-fg-muted">
+        {props.icon}
+      </span>
+      <p className="min-w-0">{props.text}</p>
+    </div>
+  );
+}
+
+/** Footer bar: for the owner, "Send a draft to read…" beside Close with its explanation below; otherwise Close alone. */
+function ShareFooter(props: {
+  docId: string;
+  showSendDraft: boolean;
+  offline: boolean;
+}): ReactNode {
+  const { docId, showSendDraft, offline } = props;
   const navigate = useNavigate();
   const reasonId = useId();
+  if (!showSendDraft) {
+    return (
+      <div className="flex justify-end border-t border-line pt-3.5">
+        <DialogClose render={<Button variant="outline" />}>
+          {WORDS.close}
+        </DialogClose>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        variant="outline"
-        aria-disabled={offline ? true : undefined}
-        aria-describedby={offline ? reasonId : undefined}
-        onClick={() => {
-          if (offline) return;
-          dialogActions.close();
-          void navigate({ href: sendPath(docId, "send_draft") });
-        }}
-      >
-        {WORDS.sendDraft}
-      </Button>
-      <p className="text-meta text-fg-muted">{WORDS.sendDifference}</p>
-      {offline ? (
-        <p id={reasonId} className="text-meta text-fg-muted">
-          {WORDS.sendDraftNeedsConnection}
-        </p>
-      ) : null}
+    <div className="flex flex-col gap-2 border-t border-line pt-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button
+          variant="outline"
+          aria-disabled={offline ? true : undefined}
+          aria-describedby={offline ? reasonId : undefined}
+          onClick={() => {
+            if (offline) return;
+            dialogActions.close();
+            void navigate({ href: sendPath(docId, "send_draft") });
+          }}
+        >
+          <SendIcon aria-hidden="true" className="size-icon text-fg-muted" />
+          {WORDS.sendDraft}
+        </Button>
+        <DialogClose render={<Button variant="outline" />}>
+          {WORDS.close}
+        </DialogClose>
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-meta text-fg-muted">{WORDS.sendDifference}</p>
+        {offline ? (
+          <p id={reasonId} className="text-meta text-fg-muted">
+            {WORDS.sendDraftNeedsConnection}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -84,17 +143,20 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
   const { docId, view } = props;
   const { access, owner, refusals, actions } = view;
   if (view.state === "sign_in")
-    return <p className="text-ui text-fg">{WORDS.signIn}</p>;
+    return (
+      <NoticeBanner
+        icon={<LogInIcon className="size-icon" />}
+        text={WORDS.signIn}
+      />
+    );
   const editing = owner && view.state === "ready";
   return (
     <>
       {view.state === "offline" ? (
-        <p className="text-ui text-fg">{WORDS.needsConnection}</p>
-      ) : null}
-      {editing && access !== null ? (
-        <DialogDescription className="text-ui text-fg-muted">
-          {WORDS.summary(access.people.length, access.links.length > 0)}
-        </DialogDescription>
+        <NoticeBanner
+          icon={<WifiOffIcon className="size-icon" />}
+          text={WORDS.needsConnection}
+        />
       ) : null}
       {editing && access !== null ? (
         <AddRow
@@ -106,7 +168,7 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
       ) : null}
       {access === null ? (
         view.state === "ready" && view.loading ? (
-          <PeopleListSkeleton />
+          <ShareSkeleton />
         ) : null
       ) : (
         <PeopleList
@@ -127,9 +189,6 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
       {!owner && access !== null ? (
         <p className="text-ui text-fg-muted">{WORDS.ownerOnly}</p>
       ) : null}
-      {owner ? (
-        <SendDraft docId={docId} offline={view.state === "offline"} />
-      ) : null}
     </>
   );
 }
@@ -142,6 +201,7 @@ export function ShareDialog(props: {
   const { dom } = useEnvironment();
   const open = useOpenDialog() === SHARE;
   const view = useShare(props.docId, props.doc, open);
+  const editing = view.owner && view.state === "ready";
   const onOpenChange = (next: boolean): void => {
     if (next) return;
     dialogActions.close();
@@ -152,18 +212,43 @@ export function ShareDialog(props: {
       <DialogContent
         showCloseButton={false}
         finalFocus={false}
-        className="max-h-[calc(100dvh-4rem)] overflow-y-auto"
+        className="max-h-[calc(100dvh-4rem)] gap-4 overflow-y-auto p-5"
         style={{ maxWidth: "var(--dialog-w-wide)" }}
       >
-        <DialogTitle className="text-title">
-          {SELECTION_WORDS.share}
-        </DialogTitle>
-        <ShareBody docId={props.docId} view={view} />
-        <div className="flex justify-end">
-          <DialogClose render={<Button variant="outline" />}>
-            {WORDS.close}
-          </DialogClose>
+        <div className="flex flex-col gap-1 pe-8">
+          <DialogTitle className="text-title font-semibold">
+            {SELECTION_WORDS.share}
+          </DialogTitle>
+          {editing && view.access !== null ? (
+            <DialogDescription className="text-ui text-fg-muted">
+              {WORDS.summary(
+                view.access.people.length,
+                view.access.links.length > 0,
+              )}
+            </DialogDescription>
+          ) : null}
         </div>
+        <ShareBody docId={props.docId} view={view} />
+        <ShareFooter
+          docId={props.docId}
+          showSendDraft={view.owner && view.state !== "sign_in"}
+          offline={view.state === "offline"}
+        />
+        <DialogClose
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-4 right-4"
+              aria-label={WORDS.close}
+            />
+          }
+        >
+          <XIcon
+            aria-hidden="true"
+            className="size-icon text-fg-muted group-hover/button:text-fg"
+          />
+        </DialogClose>
       </DialogContent>
     </Dialog>
   );

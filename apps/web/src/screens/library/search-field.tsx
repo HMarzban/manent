@@ -1,7 +1,7 @@
 // The Library's search field, in its title bar between the workspace switcher and Import….
-import { Button, Input, SEARCH_WORDS } from "@manent/ui";
+import { Button, Input, SEARCH_WORDS, cn } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { XIcon } from "lucide-react";
+import { SearchIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { registerSearchFieldFocus } from "../../search/search-focus.ts";
@@ -73,6 +73,10 @@ export function SearchField(): ReactNode {
 
   return (
     <div className="relative flex w-popover min-w-0 shrink-4 items-center">
+      <SearchIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute start-2.5 size-icon text-fg-muted"
+      />
       <Input
         ref={inputRef}
         type="search"
@@ -98,7 +102,10 @@ export function SearchField(): ReactNode {
             }
           }
         }}
-        className="h-control w-full min-w-0 pe-7 text-ui [&::-webkit-search-cancel-button]:hidden"
+        className={cn(
+          "h-control w-full min-w-0 ps-8 text-ui [&::-webkit-search-cancel-button]:hidden",
+          value === "" ? undefined : "pe-7",
+        )}
       />
       {value === "" ? null : (
         <Button
@@ -111,9 +118,12 @@ export function SearchField(): ReactNode {
             commitQuery("");
             inputRef.current?.focus();
           }}
-          className="absolute end-1 cursor-pointer text-fg-muted hover:text-fg"
+          className="absolute end-1 cursor-pointer"
         >
-          <XIcon aria-hidden="true" className="size-icon" />
+          <XIcon
+            aria-hidden="true"
+            className="size-3.5 text-fg-muted group-hover/button:text-fg"
+          />
         </Button>
       )}
     </div>

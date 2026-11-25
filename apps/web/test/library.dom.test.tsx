@@ -383,6 +383,7 @@ test("the switcher lists the person's workspaces and says which is getting ready
   ).toEqual([
     [["Writers' room", "2 projects · The Long Night"], "true"],
     [["Lanternfield Studios", "getting ready, 12 of 40 projects"], null],
+    [["Workspace settings"], null],
   ]);
   await act(async () => items[1]?.click());
   expect([

@@ -1,7 +1,7 @@
 // A headless prompter receiver: one dedicated prompter-mode subscription over a real socket.
 import { browserClock, browserRandom, webTransport } from "@manent/client-web";
 import type { SocketLike } from "@manent/client-web";
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import { ENGINE_VERSIONS, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   createMemoryStore,
@@ -21,7 +21,7 @@ export interface PrompterBot {
 const VERSIONS = {
   protocol: PROTOCOL_VERSION,
   schema: SCHEMA_VERSION,
-  engine: ENGINE_VERSION,
+  engine: ENGINE_VERSIONS.at(-1)!,
   table: TABLE_VERSION,
 };
 

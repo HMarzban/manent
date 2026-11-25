@@ -21,6 +21,7 @@ export function RoleSelect(props: {
   value: ShareRole | null;
   onChange(role: ShareRole): void;
   labelledBy?: string;
+  className?: string;
 }): ReactNode {
   const { onChange } = props;
   return (
@@ -37,6 +38,7 @@ export function RoleSelect(props: {
         aria-label={
           props.labelledBy === undefined ? SHARING_WORDS.chooseRole : undefined
         }
+        className={props.className}
       >
         <SelectValue placeholder={SHARING_WORDS.chooseRole} />
       </SelectTrigger>
