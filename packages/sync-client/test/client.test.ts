@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isDocId } from "@manent/sync-protocol";
+import { indexDocId, isDocId, workspaceHome } from "@manent/sync-protocol";
 import { DOC, setup, textOf, type } from "./scripted-server.ts";
 
 test("closing a client with edits waiting sends nothing more, and a client for another user opens none of them", async () => {
@@ -119,4 +119,38 @@ test("one client ID per session, never reused, all of them listed at subscribe",
     [once],
     ids,
   ]);
+});
+
+test("reopening a never-synced document with create upgrades stored meta and creates it on the server", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  const wsIndex = indexDocId("workspace", "dana");
+  const client = w.makeClient();
+  client.setOnline(false);
+  const probed = await client.open(wsIndex);
+  await w.settle();
+  await probed.close();
+  expect((await store.load(wsIndex))!.meta).toMatchObject({
+    neverSynced: true,
+    create: null,
+  });
+
+  const create = {
+    kind: "index" as const,
+    home: workspaceHome("dana"),
+    workspaceId: null,
+  };
+  const opened = await client.open(wsIndex, { create });
+  client.setOnline(true);
+  await w.online();
+  expect(server.created).toEqual([
+    { userId: "dana", docId: wsIndex, kind: "index", home: create.home },
+  ]);
+  expect((await store.load(wsIndex))!.meta).toMatchObject({
+    neverSynced: false,
+    generation: 1,
+    create,
+  });
+  expect(opened.status.get().synced).toBe(true);
+  await opened.close();
 });

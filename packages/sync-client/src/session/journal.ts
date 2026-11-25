@@ -19,6 +19,7 @@ import type {
 } from "../ports/ports.ts";
 import { offerVersions } from "../recovery/versions.ts";
 import type { UnsavedEdit } from "./edits.ts";
+import { freshMeta, serverEntry } from "./journal-meta.ts";
 
 /**
  * `entries` holds every entry not yet both acknowledged and applied, by
@@ -94,39 +95,6 @@ interface JournalOptions {
   append(entry: StoredEntry): Promise<void>;
 }
 
-function freshMeta(docId: string, create: DocMeta["create"]): DocMeta {
-  return {
-    docId,
-    generation: 0,
-    lastServerSeq: 0,
-    clientIds: [],
-    ackedClocks: {},
-    neverSynced: true,
-    create,
-    parked: null,
-    recovering: null,
-    lastDeviceVersionAt: 0,
-    lastSyncedAt: null,
-    moving: null,
-  };
-}
-
-function serverEntry(
-  localSeq: number,
-  update: Uint8Array,
-  applied: boolean,
-): StoredEntry {
-  return {
-    kind: "update",
-    localSeq,
-    update,
-    own: false,
-    acked: true,
-    applied,
-    elements: [],
-  };
-}
-
 class StoreJournal implements Journal {
   meta: DocMeta;
   entries: StoredEntry[];
@@ -147,7 +115,11 @@ class StoreJournal implements Journal {
     this.options = options;
     this.docId = docId;
     this.store = options.store;
-    this.meta = loaded?.meta ?? freshMeta(docId, options.create);
+    const meta = loaded?.meta ?? freshMeta(docId, options.create);
+    this.meta =
+      meta.neverSynced && meta.create === null && options.create !== null
+        ? { ...meta, create: options.create }
+        : meta;
     this.entries = loaded?.entries ?? [];
     const seqs = this.entries.map((e) => e.localSeq);
     const through = loaded?.checkpoint?.throughLocalSeq ?? 0;
@@ -158,6 +130,13 @@ class StoreJournal implements Journal {
     if (loaded instanceof StoreError) this.failed(loaded);
     this.memoryOnly = this.storeRefusing;
     if (loaded === null) await this.persist(() => this.store.create(this.meta));
+    else if (
+      !(loaded instanceof StoreError) &&
+      loaded.meta.create !== this.meta.create
+    )
+      await this.persist(() =>
+        this.store.patchMeta(this.docId, { create: this.meta.create }),
+      );
     // a document the store could not create takes no writes: it lives in memory
     this.memoryOnly = this.storeRefusing;
   }
