@@ -2,12 +2,7 @@
 import type { TimingFacts } from "@manent/editor";
 import { DEFAULT_READ_RATE, durationMs } from "@manent/pagination";
 import type { RundownRowJSON } from "@manent/schema";
-import {
-  StateBar,
-  createValue,
-  stateBarLines,
-  useSubscribable,
-} from "@manent/ui";
+import { createValue, useSubscribable } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import {
   Fragment,
@@ -23,6 +18,7 @@ import type { BesideKind } from "../beside/kinds.ts";
 import { openBeside, useBeside } from "../beside/open-beside.ts";
 import type { BesideOpen } from "../beside/open-beside.ts";
 import { ScriptBeside } from "../beside/script-beside.tsx";
+import { StoryPrompterStateBar } from "../prompter/story-state-bar.tsx";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { usePanel } from "../state/panels.store.ts";
@@ -40,13 +36,10 @@ import {
 import type { UndoGroupTracker } from "./rows-from-script.ts";
 import { getRundownView, useRundownView } from "./rundown-view-store.ts";
 import type { RundownViewState } from "./rundown-view-store.ts";
-import { useRundownFacts } from "./state-facts.ts";
 
 const NO_TIMING: Subscribable<TimingFacts | null> = createValue(null);
 const DEFAULT_RATE_SOURCE: Subscribable<number> =
   createValue(DEFAULT_READ_RATE);
-const NO_ACTION = (): boolean => false;
-const NO_RUN = (): void => {};
 
 interface RowFocusTarget {
   readonly rowId: string;
@@ -147,11 +140,6 @@ function StoryBeside(props: {
 }): ReactNode {
   const { shellState } = useEnvironment();
   const mainDocId = useSubscribable(shellState).docId;
-  const rundownFacts = useRundownFacts(mainDocId ?? "");
-  const inAirWindow = rundownFacts.some((fact) => fact.kind === "air_window");
-  const { left, right } = stateBarLines(
-    inAirWindow ? [{ kind: "air_window" }] : [],
-  );
 
   // Move the rundown grid aside (matching BesideFrame's 50% right padding on [data-region="page"])
   useLayoutEffect(() => {
@@ -166,18 +154,10 @@ function StoryBeside(props: {
   return createElement(
     Fragment,
     null,
-    left !== null || right !== null
-      ? createElement(
-          "div",
-          { className: "shrink-0 border-t border-line" },
-          createElement(StateBar, {
-            left,
-            right,
-            run: NO_RUN,
-            registered: NO_ACTION,
-          }),
-        )
-      : null,
+    createElement(StoryPrompterStateBar, {
+      rundownId: mainDocId,
+      storyDocId: props.docId,
+    }),
     createElement(ScriptBeside, { docId: props.docId, at: props.at }),
   );
 }
