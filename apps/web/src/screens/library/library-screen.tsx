@@ -14,12 +14,14 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { focusHeading } from "../../focus.ts";
+import { storageOfServices } from "../../services/api-cache.ts";
 import { useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
+import { createDeviceMemory } from "../../services/sync/device-memory.ts";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
@@ -57,10 +59,23 @@ function useShownWorkspace(
   workspaces: readonly WorkspaceRef[] | null;
   serverProblem: boolean;
 } {
+  const services = useServices();
   const w = useLibraryAddress().workspaceId;
   const signedIn = person.token !== null;
+  const memory = useMemo(
+    () =>
+      createDeviceMemory({ local: storageOfServices(services), session: null }),
+    [services],
+  );
+  const cached = useMemo(
+    () => (signedIn ? memory.workspaces(person.userId) : null),
+    [memory, person.userId, signedIn],
+  );
   // a person with no session has no workspaces to ask the server about
-  const me = useWorkspaces(api, person.userId, signedIn);
+  const me = useWorkspaces(api, person.userId, signedIn, {
+    cached,
+    onListed: (list) => memory.setWorkspaces(person.userId, list),
+  });
   const known = signedIn ? (me.data ?? null) : null;
   const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
@@ -198,7 +213,8 @@ function GettingReady(props: {
 }
 
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
-  const { api, person } = props;
+  const { person } = props;
+  const { api } = useServices();
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
     api,
     person,

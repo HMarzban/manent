@@ -8,7 +8,7 @@ import latinExt400Italic from "@fontsource/courier-prime/files/courier-prime-lat
 import latinExt400Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-400-normal.woff2";
 import latinExt700Italic from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-italic.woff2";
 import latinExt700Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-normal.woff2";
-import { FONT_FACE_KEYS } from "@manent/pagination";
+import { FONT_FACE_KEYS, fontRanges } from "@manent/pagination";
 import type { FontFaceKey } from "@manent/pagination";
 import { FONT_WAIT_MS } from "./config.ts";
 
@@ -87,9 +87,37 @@ function fallback(): "fallback" {
   return "fallback";
 }
 
+interface CachedFace {
+  readonly face: LoadableFace;
+  load: Promise<unknown> | null;
+  state: "pending" | "ready";
+}
+
+// per-FontSet cache so repeated opens and rebuilds never append duplicate FontFace objects to document.fonts
+const faceCache = new WeakMap<FontSet, Map<FontFaceKey, CachedFace>>();
+
+const LATIN_KEYS: readonly FontFaceKey[] = FONT_FACE_KEYS.filter(
+  (key) => !isExtended(key),
+);
+
+let defaultFaces: readonly FaceDescriptor[] | null = null;
+function scriptFaces(): readonly FaceDescriptor[] {
+  return (defaultFaces ??= faceDescriptors(
+    fontRanges("latin"),
+    fontRanges("latin-ext"),
+  ));
+}
+
+/** True once every `latin` Courier Prime face has loaded into `fonts`. */
+export function scriptFontsReady(fonts: FontSet): boolean {
+  const cached = faceCache.get(fonts);
+  if (cached === undefined) return false;
+  return LATIN_KEYS.every((key) => cached.get(key)?.state === "ready");
+}
+
 /**
- * Adds every face and loads the four `latin` ones. "ready" when all four have loaded; "fallback" when one
- * fails or the wait ends first, so the page is drawn in a fallback face. Never rejects.
+ * Adds every face once per `fonts` set and loads the four `latin` ones. "ready" when all four have loaded;
+ * "fallback" when one fails or the wait ends first, so the page is drawn in a fallback face. Never rejects.
  */
 export function loadScriptFonts(options: {
   fonts: FontSet;
@@ -98,15 +126,61 @@ export function loadScriptFonts(options: {
   wait: (ms: number) => Promise<void>;
   waitMs?: number;
 }): Promise<"ready" | "fallback"> {
+  let cached = faceCache.get(options.fonts);
+  if (cached === undefined) {
+    cached = new Map();
+    faceCache.set(options.fonts, cached);
+  }
   const loads: Promise<unknown>[] = [];
   for (const descriptor of options.faces) {
-    const face = options.makeFace(descriptor);
-    options.fonts.add(face);
-    if (!isExtended(descriptor.key)) loads.push(face.load());
+    let entry = cached.get(descriptor.key);
+    if (entry === undefined) {
+      const face = options.makeFace(descriptor);
+      options.fonts.add(face);
+      entry = { face, load: null, state: "pending" };
+      cached.set(descriptor.key, entry);
+    }
+    if (isExtended(descriptor.key) || entry.state === "ready") continue;
+    let load = entry.load;
+    if (load === null) {
+      const target = entry;
+      const key = descriptor.key;
+      const cache = cached;
+      load = target.face.load().then(
+        (value) => {
+          target.state = "ready";
+          return value;
+        },
+        (cause: unknown) => {
+          if (cache.get(key) === target) cache.delete(key);
+          throw cause;
+        },
+      );
+      // prevent unhandled rejection if a race times out before load rejects
+      void load.catch(() => {});
+      target.load = load;
+    }
+    loads.push(load);
   }
+  if (loads.length === 0) return Promise.resolve("ready");
   const loaded = Promise.all(loads).then((): "ready" => "ready", fallback);
   const waited = options
     .wait(options.waitMs ?? FONT_WAIT_MS)
     .then(fallback, fallback);
   return Promise.race([loaded, waited]);
+}
+
+/** Starts loading Courier Prime into `ports.fonts` early so the first page opens without waiting on font fetch. */
+export function preloadScriptFonts(ports: {
+  readonly fonts: FontSet;
+  readonly makeFace: (d: FaceDescriptor) => LoadableFace;
+  readonly wait: (ms: number) => Promise<void>;
+}): Promise<"ready" | "fallback"> {
+  if (scriptFontsReady(ports.fonts)) return Promise.resolve("ready");
+  return loadScriptFonts({
+    fonts: ports.fonts,
+    makeFace: ports.makeFace,
+    faces: scriptFaces(),
+    wait: ports.wait,
+  });
 }

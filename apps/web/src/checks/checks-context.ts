@@ -145,11 +145,14 @@ function loadProjectNames(
 ): void {
   if (entry.namesLoadedFor === projectId && onMap === undefined) return;
   entry.namesLoadedFor = projectId;
-  void services
-    .projectIndex(projectId)
+  const projectIndex = services.projectIndex(projectId);
+  void projectIndex
     .handle()
     .then((handle) => {
-      if (entry.projectId !== projectId) return;
+      if (entry.projectId !== projectId) {
+        void projectIndex.close();
+        return;
+      }
       const map = jsonMap(handle.doc(), "names");
       const update = (): void => {
         const next = readNames(map).map((item) => item.name);
@@ -159,9 +162,19 @@ function loadProjectNames(
         }
       };
       update();
-      if (onMap !== undefined) onMap(map.subscribe(update));
+      if (onMap !== undefined) {
+        const unsub = map.subscribe(update);
+        onMap(() => {
+          unsub();
+          void projectIndex.close();
+        });
+      } else {
+        void projectIndex.close();
+      }
     })
     .catch(() => {
+      if (entry.namesLoadedFor === projectId) entry.namesLoadedFor = null;
+      void projectIndex.close();
       // the project index could not open: leave names empty until it can
     });
 }

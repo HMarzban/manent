@@ -149,9 +149,10 @@ export function registerEditor(
   userId: string,
   clientIds: readonly number[],
 ): void {
-  room.file.log.registerClients(room.docId, userId, clientIds);
-  for (const id of clientIds)
-    if (!room.owners.has(id)) room.owners.set(id, userId);
+  const missing = clientIds.filter((id) => !room.owners.has(id));
+  if (missing.length === 0) return;
+  room.file.log.registerClients(room.docId, userId, missing);
+  for (const id of missing) room.owners.set(id, userId);
   for (const [user, color] of room.file.log.colors(room.docId))
     room.colors.set(user, color);
 }

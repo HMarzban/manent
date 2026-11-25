@@ -149,6 +149,16 @@ export function createMemoryProduction(options: {
         );
       }),
     setBlocks: (setId) => structuredClone(read().setBlocks.get(setId) ?? []),
+    setBlocksFor(setIds) {
+      const result = new Map<string, SetBlockRow[]>();
+      const stored = read().setBlocks;
+      for (const setId of setIds) {
+        const blocks = stored.get(setId);
+        if (blocks !== undefined && blocks.length > 0)
+          result.set(setId, structuredClone(blocks));
+      }
+      return result;
+    },
     putSetBlocks: (setId, rows) =>
       write((t) => {
         const stored = rows.map((r) => ({ ...structuredClone(r), setId }));

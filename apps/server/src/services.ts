@@ -52,6 +52,8 @@ export interface ServiceDeps {
   airWindows?: Pick<AirWindows, "windowOf" | "isInside">;
   /** Data directory for auxiliary server files (such as search indexes); absent in tests that need none. */
   dataDir?: string;
+  /** Enables the derived full-text search index; defaults to true. Disabled for staging seed servers. */
+  searchEnabled?: boolean;
   /** Base address people open Manent at, for links sent outside the app; absent when none. */
   openUrl?: string;
   /** API key for outbound email delivery; null or absent keeps email off. */

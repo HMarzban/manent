@@ -4,7 +4,11 @@
 import type { DocHandle } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
-import { followDemoSeed, reloadAtHome } from "../../demo/use-demo.ts";
+import {
+  followDemoSeed,
+  readDemoCached,
+  reloadAtHome,
+} from "../../demo/use-demo.ts";
 import type { Where } from "../../platform.ts";
 import type { CommandsOptions } from "../person-commands.ts";
 import type { PersonSync } from "./create-sync.ts";
@@ -131,21 +135,24 @@ export function tellCleared<T extends ClearedIndexes>(
   };
 }
 
-/** Settles once the demo's seed has been followed: never when this device's data is cleared and the page reloaded. */
+/** Checks the demo's seed; when it differs from the remembered seed, runs `beforeClear`, clears this browser's data and reloads. */
 export async function followSeed(
   options: Pick<CommandsOptions, "api" | "storage">,
+  beforeClear?: () => Promise<void>,
 ): Promise<void> {
   const device = await import("./device-memory.ts");
   await followDemoSeed({
-    demo: () => options.api.demo(),
+    demo: () => readDemoCached(options.api),
     memory: device.createDeviceMemory({
       local: options.storage,
       session: null,
     }),
-    clear: async () =>
-      (await import("@manent/client-web")).clearManentData(
-        device.browserStores(),
-      ),
+    clear: async () => {
+      await beforeClear?.();
+      await (
+        await import("@manent/client-web")
+      ).clearManentData(device.browserStores());
+    },
     reload: () => reloadAtHome(location),
   });
 }

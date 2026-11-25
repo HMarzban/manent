@@ -5,6 +5,7 @@ import { StoreError } from "../ports/ports.ts";
 import type {
   DeviceVersion,
   DocMeta,
+  DocSummary,
   LoadedDocument,
   LocalStore,
   RecoveredItem,
@@ -151,6 +152,10 @@ class FaultyMemoryStore implements FaultyStore {
 
   documents(): Promise<DocMeta[]> {
     return this.inner.documents();
+  }
+
+  summaries(): Promise<readonly DocSummary[]> {
+    return this.inner.summaries!();
   }
 
   close(): Promise<void> {

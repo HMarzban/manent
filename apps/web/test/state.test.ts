@@ -22,6 +22,7 @@ import { paletteActions, usePaletteOpen } from "../src/state/palette.store.ts";
 import { panelsActions, usePanel } from "../src/state/panels.store.ts";
 import { createPeopleStore, usePeople } from "../src/state/people.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
+import { createProductionPagesStore } from "../src/state/production-pages.store.ts";
 import { renameActions, useRenaming } from "../src/state/rename.store.ts";
 
 const testGuard = () => createGuard({ flavour: "test" });
@@ -457,4 +458,35 @@ test("the current outline heading updates immediately without triggering the row
     [2, "EXT. HARBOUR", "b"],
     [true, false],
   ]);
+});
+
+test("production pages publish immediately without a stacked throttle and preserve unchanged row references", () => {
+  const clock = fakeClock();
+  const store = createProductionPagesStore({
+    guard: testGuard(),
+    schedule: clock.schedule,
+    composing: () => false,
+  });
+  let rowPublishes = 0;
+  let scenePublishes = 0;
+  store.selectors.subscribe(() => rowPublishes++);
+  store.selectors.revisedScenes.subscribe(() => scenePublishes++);
+  const p1 = {
+    index: 0,
+    label: "1",
+    locked: true,
+    level: 1,
+    revision: null,
+    revisionName: null,
+  };
+  store.sink.publish([p1], ["s1"]);
+  const firstRow = store.selectors.row(0);
+  // identical publish is a no-op and preserves reference
+  store.sink.publish([{ ...p1 }], ["s1"]);
+  expect([
+    rowPublishes,
+    scenePublishes,
+    store.selectors.row(0) === firstRow,
+    [...store.selectors.revisedScenes.get()],
+  ]).toEqual([1, 1, true, ["s1"]]);
 });

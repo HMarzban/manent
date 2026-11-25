@@ -201,6 +201,14 @@ function namesView(
 ): PluginView {
   let layer: HTMLElement | null = null;
   let shown: Offer | null = null;
+  let visible = false;
+  let placeFrame: number | null = null;
+  const win = view.dom.ownerDocument.defaultView;
+  const cancelPlace = (): void => {
+    if (placeFrame === null) return;
+    win?.cancelAnimationFrame(placeFrame);
+    placeFrame = null;
+  };
   const press = (event: MouseEvent) => {
     const index = optionPressed(event);
     if (shown === null || index === null) return;
@@ -217,19 +225,40 @@ function namesView(
     shared.popover = createCompletePopover({ layer });
     return shared.popover;
   };
-  const draw = () => {
-    shared.editable = view.editable;
-    shown = offerOf(view.state, view.editable);
-    const popover = popoverOf();
-    if (popover === null || layer === null) return;
-    if (shown === null || view.composing) {
-      popover.hide();
-      return;
-    }
-    popover.show(shown.items, stateOf(view.state).active);
+  const placeNow = (): void => {
+    placeFrame = null;
+    if (!visible || view.isDestroyed || layer === null) return;
+    const popover = shared.popover;
+    if (popover === null) return;
     const caret = view.coordsAtPos(view.state.selection.head);
     const box = layer.getBoundingClientRect();
     popover.place(caret.left - box.left, caret.bottom - box.top);
+  };
+  const draw = () => {
+    shared.editable = view.editable;
+    shown = offerOf(view.state, view.editable);
+    if (shown === null || view.composing) {
+      cancelPlace();
+      if (!visible) return;
+      visible = false;
+      shared.popover?.hide();
+      return;
+    }
+    const popover = popoverOf();
+    if (popover === null || layer === null) return;
+    const wasVisible = visible;
+    visible = true;
+    popover.show(shown.items, stateOf(view.state).active);
+    if (
+      !wasVisible ||
+      win === null ||
+      typeof win.requestAnimationFrame !== "function"
+    ) {
+      cancelPlace();
+      placeNow();
+    } else if (placeFrame === null) {
+      placeFrame = win.requestAnimationFrame(placeNow);
+    }
   };
   const stop = options.subscribe(() =>
     view.dispatch(view.state.tr.setMeta(namesKey, READ)),
@@ -238,6 +267,8 @@ function namesView(
   return {
     update: draw,
     destroy() {
+      cancelPlace();
+      visible = false;
       stop();
       layer?.removeEventListener("mousedown", press);
       shared.popover?.hide();

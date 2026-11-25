@@ -3,8 +3,11 @@ import { createSearchService } from "@manent/server-core";
 import { openSqliteSearchIndex } from "@manent/storage";
 import type { ServerService } from "./services.ts";
 
+const CATCH_UP_DEBOUNCE_MS = 2_000;
+
 export const searchService: ServerService = {
-  create({ storage, sync, clock, dataDir }) {
+  create({ storage, sync, clock, dataDir, searchEnabled }) {
+    if (searchEnabled === false) return { hooks: [], config: {} };
     const searchIndex = openSqliteSearchIndex(
       dataDir === undefined ? { path: ":memory:" } : { dir: dataDir },
     );
@@ -14,6 +17,7 @@ export const searchService: ServerService = {
       clock,
       searchIndex,
       scheduleCatchUp: true,
+      catchUpDebounceMs: CATCH_UP_DEBOUNCE_MS,
     });
     return {
       hooks: [search.hooks],

@@ -143,7 +143,10 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
     get: () => value.get(),
     subscribe(listener) {
       refCount += 1;
-      if (refCount === 1 && active) startControls();
+      if (refCount === 1 && active) {
+        startControls();
+        if (!inFlight) void refresh();
+      }
       const unsub = value.subscribe(listener);
       return () => {
         unsub();
@@ -243,7 +246,6 @@ export function useDraftSends(docId: string, enabled = true): ScriptSendsState {
   const entry = useMemo(() => entryOf(services, docId), [services, docId]);
   useEffect(() => {
     entry.setActive(enabled);
-    if (enabled) void entry.store.refresh();
   }, [entry, enabled]);
   return useSubscribable(entry.store);
 }

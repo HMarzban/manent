@@ -12,6 +12,8 @@ import type { StatusFacts, Subscribable } from "@manent/ui";
 import { getRouteApi } from "@tanstack/react-router";
 import { LockIcon } from "lucide-react";
 import {
+  Suspense,
+  lazy,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -40,7 +42,10 @@ import { SidePanel } from "./side-panel.tsx";
 import { CommandAction, StatusBar } from "./status-bar.tsx";
 import { STATUS_READOUTS } from "./status-readouts.ts";
 import { TitleBar, useDocumentTitle } from "./title-bar.tsx";
-import { RundownScreen } from "../../rundown/screen.tsx";
+
+const RundownScreen = lazy(async () => ({
+  default: (await import("../../rundown/screen.tsx")).RundownScreen,
+}));
 
 const route = getRouteApi("/s/$docId");
 
@@ -252,7 +257,7 @@ function Frame(props: {
 }): ReactNode {
   const { docId } = props;
   const status = useTestStatus(props.doc.status);
-  const doc = { ...props.doc, status };
+  const doc = useMemo(() => ({ ...props.doc, status }), [props.doc, status]);
   const overPage = usePanelsOverPage();
   useRemoteSettingMessages(props.doc);
   useTabTitle(docId);
@@ -301,7 +306,9 @@ export function DocumentFrame(props: { docId: string }): ReactNode {
   const { Body } =
     DOCUMENT_BODIES.find((body) => body.kind === kind) ?? SCRIPT_BODY;
   return doc === null ? null : (
-    <Body docId={props.docId} kind={kind} doc={doc} />
+    <Suspense fallback={null}>
+      <Body docId={props.docId} kind={kind} doc={doc} />
+    </Suspense>
   );
 }
 

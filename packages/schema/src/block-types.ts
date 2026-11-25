@@ -113,3 +113,25 @@ export const FORMAT_ELEMENTS: Readonly<Record<FormatId, readonly BlockType[]>> =
 export function renderedType(type: string): BlockType {
   return isBlockType(type) ? type : "general";
 }
+
+/** An element as a block holds it: `kind` is set on an act break only. */
+export interface ElementRef {
+  readonly type: BlockType;
+  readonly kind: ActBreakKind | null;
+}
+
+const FIRST_ELEMENTS: Readonly<Record<FormatId, ElementRef>> = Object.freeze({
+  screenplay: Object.freeze({ type: "scene_heading", kind: null }),
+  multicam: Object.freeze({ type: "scene_heading", kind: null }),
+  animation: Object.freeze({ type: "scene_heading", kind: null }),
+  variety: Object.freeze({ type: "slug", kind: null }),
+  game: Object.freeze({ type: "scene_heading", kind: null }),
+  ink: Object.freeze({ type: "ink_line", kind: null }),
+  manuscript: Object.freeze({ type: "chapter", kind: null }),
+  stage_play: Object.freeze({ type: "scene_heading", kind: null }),
+});
+
+/** A new script's first block: slot 1, or in Ink, which has none, its one element. */
+export function firstElement(format: FormatId): ElementRef {
+  return FIRST_ELEMENTS[format];
+}

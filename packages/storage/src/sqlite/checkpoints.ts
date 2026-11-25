@@ -4,6 +4,7 @@ import { sha256 } from "../checksum.ts";
 import type { Checkpoints, Measures } from "../ports/index.ts";
 import { CHECKPOINTS_KEPT } from "../ports/index.ts";
 import { migrate, openDatabase, transact } from "./files.ts";
+import type { SqliteDurability } from "./files.ts";
 import { createSqliteMeasures } from "./measures.ts";
 
 /** The checkpoints file's repositories, which the storage closes when it closes. */
@@ -49,8 +50,8 @@ function prepare(db: Database) {
     purgePins: db.query<never, [string, number]>(
       "DELETE FROM checkpoint_pins WHERE doc_id = ?1 AND generation = ?2",
     ),
-    newestFirst: db.query<StoredCheckpoint, [string, number, number]>(
-      "SELECT seq, state, sha256 AS sha FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq <= ?3 ORDER BY seq DESC",
+    newestOne: db.query<StoredCheckpoint, [string, number, number]>(
+      "SELECT seq, state, sha256 AS sha FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq <= ?3 ORDER BY seq DESC LIMIT 1",
     ),
     drop: db.query<never, [string, number, number]>(
       "DELETE FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq = ?3",
@@ -74,15 +75,15 @@ function createCheckpoints(
     newest: (docId, generation) =>
       checkpoints.atOrBefore(docId, generation, Number.MAX_SAFE_INTEGER),
     atOrBefore(docId, generation, atMost) {
-      for (const { seq, state, sha } of sql().newestFirst.all(
-        docId,
-        generation,
-        atMost,
-      )) {
-        if (sha256(state).toHex() === sha.toHex()) return { seq, state };
-        transact(open(), () => sql().drop.run(docId, generation, seq));
+      let bound = atMost;
+      for (;;) {
+        const row = sql().newestOne.get(docId, generation, bound);
+        if (row === null) return null;
+        if (sha256(row.state).toHex() === row.sha.toHex())
+          return { seq: row.seq, state: row.state };
+        transact(open(), () => sql().drop.run(docId, generation, row.seq));
+        bound = row.seq - 1;
       }
-      return null;
     },
     pin(versionId, docId, generation, seq) {
       transact(open(), () => sql().pin.run(versionId, docId, generation, seq));
@@ -109,11 +110,15 @@ function createCheckpoints(
 export function createCheckpointsFile(options: {
   path: string;
   now: () => number;
+  durability?: SqliteDurability;
 }): CheckpointsFile {
   let opened: Database | null = null;
+  // Checkpoints are rebuildable caches, so they never force fullfsync.
+  const durability: SqliteDurability =
+    options.durability === "off" ? "off" : "normal";
   const open = (): Database => {
     if (opened !== null) return opened;
-    const db = openDatabase(options.path);
+    const db = openDatabase(options.path, { durability });
     try {
       migrate(db, "checkpoints");
     } catch (error) {

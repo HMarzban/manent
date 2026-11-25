@@ -7,6 +7,7 @@ import {
   STRUCTURAL_KEYS,
   createScriptEditor,
   outlineOf,
+  preloadScriptFonts,
   staticBinding,
 } from "@manent/editor";
 import type {
@@ -32,7 +33,7 @@ import { editorWords } from "./editor-words.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
-import { placeholderMount } from "./placeholder-mount.ts";
+import { clearPlaceholder, placeholderMount } from "./placeholder-mount.ts";
 import { takeFocus } from "./take-focus.ts";
 import { titlePageSource } from "./title-page-port.ts";
 import { trackHolds } from "./track-holds.ts";
@@ -275,13 +276,25 @@ function openDocument(
     ports.restorePlace !== false,
   );
   let pending = noop;
+  let disposed = false;
+  let queued = false;
   const rebuild = (): void => {
     pending();
     pending = noop;
+    queued = false;
+    if (disposed) return;
     const place = kept.save();
     built.destroy();
     built = buildEditor(options, { ...opened, shown: shownNow() }, place);
     showScenes();
+  };
+  const scheduleRebuild = (): void => {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      if (!queued || disposed) return;
+      rebuild();
+    });
   };
   const follow = (): void => {
     if (differs(shownNow(), built.shown)) rebuild();
@@ -291,17 +304,31 @@ function openDocument(
     status.subscribe(follow),
     layoutViewActions.subscribe(follow),
     session.readOnly.subscribe((content) => {
-      if (content === null || !built.shown.readOnly) follow();
-      else if (pending === noop)
+      if (content !== null && !built.shown.readOnly) {
+        // stop input immediately while coalescing the read-only rebuild with any same-turn replacement
+        built.editor.view.setProps({ editable: () => false });
+        scheduleRebuild();
+      } else if (content === null && built.shown.readOnly) {
+        scheduleRebuild();
+      } else if (content !== null && pending === noop && !queued) {
         pending = options.timers.schedule(rebuild, READ_ONLY_REBUILD_MS);
+      }
     }),
     session.onReplaced(() => {
       built.editor.view.setProps({ editable: () => false });
       pending();
-      pending = holds.whenReleased(rebuild);
+      queued = false;
+      let inCall = true;
+      pending = holds.whenReleased(() => {
+        if (inCall) scheduleRebuild();
+        else rebuild();
+      });
+      inCall = false;
     }),
   ];
   return () => {
+    disposed = true;
+    queued = false;
     pending();
     for (const stop of stops) stop();
     kept.stop();
@@ -320,7 +347,10 @@ function openWhenKept(options: MountOptions, ports: MountPorts): () => void {
   const { docId } = ports;
   const script = options.services().openScriptStore(docId);
   const session = options.sessions.open(docId, script.get("script.format"));
-  if (session.kept.get()) return openDocument(options, ports, session);
+  if (session.kept.get()) {
+    clearPlaceholder(ports.element);
+    return openDocument(options, ports, session);
+  }
   const placeholder = placeholderMount.mount(ports);
   let dispose = (): void => {
     placeholder();
@@ -340,5 +370,6 @@ function openWhenKept(options: MountOptions, ports: MountPorts): () => void {
 
 /** The mount of the page's editor; `services` is read at each mount, so the person's services are always the current ones. */
 export function createEditorMount(options: MountOptions): EditorMount {
+  void preloadScriptFonts(options.ports);
   return { mount: (ports) => openWhenKept(options, ports) };
 }

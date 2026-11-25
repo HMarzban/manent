@@ -180,12 +180,72 @@ test("outbox writes ask for strict durability and resolve on completion", async 
   expect(seen).toEqual([
     { stores: ["meta"], mode: "readwrite", options: { durability: "strict" } },
     {
-      stores: ["entries"],
+      stores: ["meta", "entries"],
       mode: "readwrite",
       options: { durability: "strict" },
     },
   ]);
   expect((await store.load(DOC))!.entries).toEqual([own(1)]);
+});
+
+test("metadata, remote and checkpoint writes use relaxed durability and summaries never read blobs", async () => {
+  const seen: {
+    stores: string | string[];
+    mode?: string;
+    options?: { durability?: string };
+  }[] = [];
+  const store = await openIdbStore({
+    userId: "dana",
+    indexedDb: recordingFactory(seen),
+  });
+  await store.create(blankMeta(DOC));
+  await store.append(DOC, own(1));
+  await store.append(DOC, {
+    kind: "update",
+    localSeq: 2,
+    update: new Uint8Array([4, 5]),
+    own: false,
+    acked: true,
+    applied: false,
+    elements: [],
+  });
+  await store.markApplied(DOC, 2, []);
+  await store.patchMeta(DOC, { generation: 1 });
+  await store.checkpoint(DOC, new Uint8Array([9, 9]), 2, true);
+  seen.length = 0;
+  expect(await store.summaries?.()).toEqual([
+    { docId: DOC, neverSynced: true, waiting: 1, parked: null, recovered: 0 },
+  ]);
+  expect(
+    seen.every((t) => {
+      const list = Array.isArray(t.stores) ? t.stores : [t.stores];
+      return !list.includes("checkpoints") && !list.includes("bases");
+    }),
+  ).toBe(true);
+  seen.length = 0;
+  await store.acknowledge(DOC, 1, { neverSynced: false });
+  await store.patchMeta(DOC, { lastServerSeq: 5 });
+  await store.checkpoint(DOC, new Uint8Array([8]), 2, true);
+  expect(seen.every((t) => t.options?.durability === "relaxed")).toBe(true);
+  seen.length = 0;
+  await store.markApplied(DOC, 2, [
+    {
+      id: "rec-1",
+      docId: DOC,
+      blockId: "b1",
+      nearBlockId: null,
+      text: "recovered line",
+      recoveredAt: 10,
+      cause: "merge",
+      mine: null,
+      theirs: null,
+      otherClientIds: [],
+    },
+  ]);
+  expect(seen.map((t) => t.options?.durability)).toEqual(["strict"]);
+  expect(await store.summaries?.()).toEqual([
+    { docId: DOC, neverSynced: false, waiting: 0, parked: null, recovered: 1 },
+  ]);
 });
 
 test("a store that cannot be opened is its own outcome", async () => {

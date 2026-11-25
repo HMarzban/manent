@@ -178,6 +178,7 @@ function editor(
     editable?: boolean;
     zoom?: ScriptEditorOptions["zoom"];
     host?: (host: EditorPluginHost) => void;
+    defer?: (work: () => void) => void;
   } = {},
 ): Made {
   const doc = options.doc ?? docOf([["one", "two", "three"]]);
@@ -243,7 +244,7 @@ function editor(
       fonts: { add: () => {} },
       makeFace: () => ({ load: () => new Promise(() => {}) }),
       wait: () => new Promise(() => {}),
-      defer: (work) => work(),
+      defer: options.defer ?? ((work) => work()),
       whenIdle: () => {},
       userAgent: "test",
     },
@@ -615,4 +616,19 @@ test("going to a block moves the caret synchronously", () => {
     2,
     { ok: false, reason: "nothing_to_do" },
   ]);
+});
+
+test("multiple layout setting changes in one turn coalesce into a single repagination", async () => {
+  const { e, fakes } = editor({ defer: (work) => queueMicrotask(work) });
+  fakes.transactions.length = 0;
+  fakes.script.set("script.paper", "a4");
+  fakes.script.set("script.sceneNumbers", "both");
+  fakes.script.set("script.contd", false);
+  await Promise.resolve();
+  expect([
+    paginationMetas(fakes.transactions).length,
+    paginationKey.getState(e.view.state)!.settings.profile.paper,
+    paginationKey.getState(e.view.state)!.settings.profile.furniture
+      .scenesNumbered,
+  ]).toEqual([1, "a4", true]);
 });

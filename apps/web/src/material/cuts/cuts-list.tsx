@@ -1,5 +1,4 @@
 // The left panel's Cuts list: newest cuts first, filterable by text or scene heading, with Restore on each row.
-import { scriptBody } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
 import {
   Button,
@@ -22,7 +21,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { liveEditor } from "../../editor-host/live-editor.ts";
+import { liveEditor, livePagination } from "../../editor-host/live-editor.ts";
 import { panelRenderers } from "../../screens/document/panel-surface.tsx";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
 import { useMaterialCuts } from "../../state/material.store.ts";
@@ -43,6 +42,43 @@ const READY = Object.freeze({ kind: "ready" });
 const EMPTY = Object.freeze({ kind: "empty" });
 const NO_BLOCKS: readonly BlockJSON[] = Object.freeze([]);
 const NO_ROWS: readonly SceneHeadingRow[] = Object.freeze([]);
+const SCENE_HEADINGS: ReadonlySet<string> = new Set([
+  "scene_heading",
+  "slug",
+  "chapter",
+]);
+
+function sceneHeadingBlock(id: string, kind: string, text: string): BlockJSON {
+  return {
+    type: "block",
+    attrs: { id, type: kind },
+    content: text === "" ? [] : [{ type: "text", text }],
+  };
+}
+
+function readLiveSceneBlocks(docId: string): readonly BlockJSON[] {
+  const pmDoc = liveEditor(docId)?.view.state.doc;
+  if (pmDoc !== undefined) {
+    const blocks: BlockJSON[] = [];
+    pmDoc.descendants((node) => {
+      if (node.type.name !== "block") return true;
+      const id = typeof node.attrs.id === "string" ? node.attrs.id : "";
+      const kind = typeof node.attrs.type === "string" ? node.attrs.type : "";
+      if (id !== "" && SCENE_HEADINGS.has(kind))
+        blocks.push(sceneHeadingBlock(id, kind, node.textContent));
+      return false;
+    });
+    return blocks;
+  }
+  const pagination = livePagination(docId);
+  if (pagination === null) return NO_BLOCKS;
+  const blocks: BlockJSON[] = [];
+  for (const block of pagination.blocks) {
+    if (!SCENE_HEADINGS.has(block.type)) continue;
+    blocks.push(sceneHeadingBlock(block.id, block.type, block.text));
+  }
+  return blocks;
+}
 
 function useOutlineRows(): readonly SceneHeadingRow[] {
   const outline = useContext(OutlineContext);
@@ -91,16 +127,10 @@ export function CutsList(props: { docId: string }): ReactNode {
   const outlineRows = useOutlineRows();
   const [filter, setFilter] = useState("");
 
-  const liveDoc = liveEditor(docId)?.doc ?? null;
   const liveBlocks = useMemo(
-    () =>
-      liveDoc === null
-        ? NO_BLOCKS
-        : (scriptBody(liveDoc).materialize().content ?? []).flatMap(
-            (section) => section.content ?? [],
-          ),
+    () => readLiveSceneBlocks(docId),
     // re-read live blocks whenever cuts or outline change
-    [liveDoc, cuts, outlineRows],
+    [docId, cuts, outlineRows],
   );
 
   const headings = useMemo(

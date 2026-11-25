@@ -60,12 +60,12 @@ export interface DocLog {
   append(item: AppendItem): number;
   /** Never lowers the document's schema version. */
   raiseSchema(docId: string, toVersion: number): void;
-  /** `quarantine` defaults to true; `corrupt` lists the sequences whose checksum fails. */
+  /** `quarantine` defaults to true; `throughSeq` bounds the upper sequence inclusive; `corrupt` lists the sequences whose checksum fails. */
   tail(
     docId: string,
     generation: number,
     afterSeq: number,
-    options?: { quarantine?: boolean },
+    options?: { quarantine?: boolean; throughSeq?: number },
   ): { rows: UpdateRow[]; corrupt: number[] };
   /**
    * Registers the unclaimed ids and returns those another user owns. A user's

@@ -1,12 +1,18 @@
 // Live state hook for the Library's series view: seasons, episodes, target length, people, last edited and place.
 import { readEpisodes, readSeasons } from "@manent/crdt";
 import type { CrdtDoc, EpisodeEntry, SeasonEntry } from "@manent/crdt";
-import type { DocHandle } from "@manent/sync-client";
+import type { DocHandle, DocSummary } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import { useEffect, useMemo, useState } from "react";
 import type { ProjectIndex } from "../../../project/project-index.ts";
+import {
+  createDocRequestDeduper,
+  storageOfServices,
+  summariesOfServices,
+} from "../../../services/api-cache.ts";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import type { RowPlace } from "../../../services/ports.ts";
+import { createDeviceMemory } from "../../../services/sync/device-memory.ts";
 import {
   fullNameOf,
   readContinueMap,
@@ -17,13 +23,12 @@ import type {
   DocumentEntry,
 } from "../../../services/sync/index-entries.ts";
 import { liveMap } from "../../../services/sync/private-index.ts";
+import { useWorkspaces } from "../../../services/use-workspaces.ts";
 import { readPerson } from "../../../session.ts";
 import { useLibraryAddress } from "../library-address.ts";
 import {
   askProjectApi,
   computeLastEdited,
-  placeFromStatus,
-  readCanEdit,
   readPeopleList,
   readTargetPages,
 } from "./series-facts.ts";
@@ -41,40 +46,74 @@ export interface SeriesState {
   readonly placeByDoc: ReadonlyMap<string, RowPlace>;
 }
 
+const dedupePeople = createDocRequestDeduper<unknown>();
+
+function placeFromSummary(
+  summary: DocSummary | undefined,
+  signedIn: boolean,
+  isOnline: boolean,
+): RowPlace {
+  if (summary === undefined)
+    return isOnline ? { kind: "on_server" } : { kind: "not_on_device" };
+  if (summary.parked !== null) return { kind: "not_on_device" };
+  if (summary.neverSynced && summary.waiting === 0) {
+    if (!signedIn) return { kind: "never_synced" };
+    return isOnline ? { kind: "on_server" } : { kind: "not_on_device" };
+  }
+  if (summary.waiting > 0) return { kind: "waiting", count: summary.waiting };
+  return { kind: "synced" };
+}
+
 function useProjectWorkspace(projectId: string): string | null {
-  const { api, library, userId } = useServices();
+  const services = useServices();
+  const { api, library, userId } = services;
+  const { tabStorage } = useEnvironment();
   const address = useLibraryAddress();
+  const person = readPerson(tabStorage);
+  const signedIn = person?.userId === userId && person.token !== null;
+  const cached = useMemo(
+    () =>
+      signedIn
+        ? createDeviceMemory({
+            local: storageOfServices(services),
+            session: null,
+          }).workspaces(userId)
+        : null,
+    [services, userId, signedIn],
+  );
+  const me = useWorkspaces(api, userId, signedIn, { cached });
+  const candidateKey = useMemo(() => {
+    const ids = (me.data ?? []).map((w) => w.id);
+    const list =
+      address.workspaceId === null
+        ? [...ids, userId]
+        : [address.workspaceId, ...ids, userId];
+    return [...new Set(list)].join(",");
+  }, [me.data, address.workspaceId, userId]);
   const [workspaceId, setWorkspaceId] = useState<string | null>(
     address.workspaceId,
   );
   useEffect(() => {
     let shown = true;
     const stops: (() => void)[] = [];
-    const check = (candidates: readonly string[]): void => {
-      for (const id of candidates) {
-        const listed = library.projects(id);
-        const look = (): void => {
-          if (
-            shown &&
-            listed.get().some((project) => project.projectId === projectId)
-          )
-            setWorkspaceId(id);
-        };
-        stops.push(listed.subscribe(look));
-        look();
-      }
-    };
-    if (address.workspaceId !== null) check([address.workspaceId]);
-    void api.me().then((me) => {
-      if (!shown) return;
-      const ids = me.ok ? me.me.workspaces.map((w) => w.id) : [];
-      check([...ids, userId]);
-    });
+    const candidates = candidateKey === "" ? [] : candidateKey.split(",");
+    for (const id of candidates) {
+      const listed = library.projects(id);
+      const look = (): void => {
+        if (
+          shown &&
+          listed.get().some((project) => project.projectId === projectId)
+        )
+          setWorkspaceId(id);
+      };
+      stops.push(listed.subscribe(look));
+      look();
+    }
     return () => {
       shown = false;
       for (const stop of stops) stop();
     };
-  }, [api, library, userId, projectId, address.workspaceId]);
+  }, [library, projectId, candidateKey]);
   return workspaceId ?? address.workspaceId;
 }
 
@@ -82,7 +121,9 @@ export function useSeriesData(
   projectId: string,
   firstDocId: string | null,
 ): SeriesState {
-  const { projectIndex, openHandle, onDevice, userId } = useServices();
+  const services = useServices();
+  const { api, projectIndex, openHandle, onDevice, waitingDocuments, userId } =
+    services;
   const { tabStorage, online } = useEnvironment();
   const workspaceId = useProjectWorkspace(projectId);
   const index = useMemo(
@@ -154,17 +195,24 @@ export function useSeriesData(
     const token = person?.userId === userId ? person.token : null;
     const docId = indexDocId("project", projectId);
     void Promise.all([
-      askProjectApi("/api/docs/describe", docId, token),
-      askProjectApi("/api/docs/people", docId, token),
-    ]).then(([described, listed]) => {
+      api.role(docId),
+      dedupePeople(
+        `people:${docId}`,
+        token,
+        () => askProjectApi("/api/docs/people", docId, token),
+        (body) => body !== null,
+      ),
+    ]).then(([role, listed]) => {
       if (!shown) return;
-      setServerAccess(readCanEdit(described));
+      setServerAccess(
+        role === null ? null : role === "owner" || role === "edit",
+      );
       setPeople(readPeopleList(listed));
     });
     return () => {
       shown = false;
     };
-  }, [tabStorage, userId, projectId]);
+  }, [api, tabStorage, userId, projectId]);
 
   useEffect(() => {
     if (workspaceId === null) return;
@@ -218,14 +266,34 @@ export function useSeriesData(
       return;
     }
     let shown = true;
-    const stops: (() => void)[] = [];
-    const opened: DocHandle[] = [];
-    const isOnline = online();
+    let loadSeq = 0;
+    let connOffline = false;
     const person = readPerson(tabStorage);
     const signedIn = person?.userId === userId && person.token !== null;
-    void onDevice(docIds)
-      .then(async (held) => {
-        if (!shown) return;
+    const reload = (): void => {
+      const seq = ++loadSeq;
+      const isOnline = online() && !connOffline;
+      void (async () => {
+        const summaries = await summariesOfServices(services);
+        if (!shown || seq !== loadSeq) return;
+        if (summaries !== null) {
+          const byId = new Map(summaries.map((s) => [s.docId, s]));
+          const map = new Map<string, RowPlace>();
+          for (const docId of docIds)
+            map.set(
+              docId,
+              placeFromSummary(byId.get(docId), signedIn, isOnline),
+            );
+          setPlaceByDoc(map);
+          return;
+        }
+        // fallback for synthetic test services without an underlying sync client
+        const [held, waiting] = await Promise.all([
+          onDevice(docIds),
+          waitingDocuments().catch(() => []),
+        ]);
+        if (!shown || seq !== loadSeq) return;
+        const waitingMap = new Map(waiting.map((w) => [w.docId, w.waiting]));
         const map = new Map<string, RowPlace>();
         for (const docId of docIds) {
           if (!held.has(docId)) {
@@ -233,38 +301,59 @@ export function useSeriesData(
               docId,
               isOnline ? { kind: "on_server" } : { kind: "not_on_device" },
             );
+          } else {
+            const count = waitingMap.get(docId) ?? 0;
+            map.set(
+              docId,
+              count > 0 ? { kind: "waiting", count } : { kind: "synced" },
+            );
           }
         }
-        setPlaceByDoc(new Map(map));
-        await Promise.all(
-          [...held].map(async (docId) => {
-            try {
-              const handle = await openHandle(docId);
-              if (!shown) return void handle.close();
-              opened.push(handle);
-              const syncPlace = (): void => {
-                if (!shown) return;
-                map.set(
-                  docId,
-                  placeFromStatus(handle.status.get(), signedIn, online()),
-                );
-                setPlaceByDoc(new Map(map));
-              };
-              syncPlace();
-              stops.push(handle.status.subscribe(syncPlace));
-            } catch {
-              // leave unavailable if handle cannot open
-            }
-          }),
-        );
+        setPlaceByDoc(map);
+      })().catch(() => {});
+    };
+    const stops: (() => void)[] = [];
+    void services.connection
+      .then((conn) => {
+        if (!shown) return;
+        const onMode = (): void => {
+          connOffline = conn.mode.get() === "offline";
+          reload();
+        };
+        onMode();
+        stops.push(conn.mode.subscribe(onMode));
       })
       .catch(() => {});
+    if (workspaceId !== null) {
+      stops.push(
+        services.library.projects(workspaceId).subscribe(reload),
+        services.library.continueList(workspaceId).subscribe(reload),
+      );
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", reload);
+      window.addEventListener("offline", reload);
+      stops.push(() => {
+        window.removeEventListener("online", reload);
+        window.removeEventListener("offline", reload);
+      });
+    }
+    reload();
     return () => {
       shown = false;
       for (const stop of stops) stop();
-      for (const handle of opened) void handle.close();
     };
-  }, [docIdsKey, firstDocId, onDevice, openHandle, online, tabStorage, userId]);
+  }, [
+    docIdsKey,
+    firstDocId,
+    workspaceId,
+    services,
+    onDevice,
+    waitingDocuments,
+    online,
+    tabStorage,
+    userId,
+  ]);
 
   const lastEditedByDoc = useMemo(() => {
     const map = new Map<string, EpisodeLastEdited>();

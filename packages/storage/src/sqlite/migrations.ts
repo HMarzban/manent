@@ -34,6 +34,12 @@ export const MIGRATIONS: {
     [...PRIVATE_COPY_MIGRATION.control],
     [...PROMPTER_MIGRATION.control],
     [...ADMIN_MIGRATION.control],
+    [
+      `CREATE INDEX IF NOT EXISTS share_links_by_doc ON share_links (doc_id, created_at, id)`,
+      `CREATE INDEX IF NOT EXISTS share_links_by_token ON share_links (token_hash)`,
+      `CREATE INDEX IF NOT EXISTS draft_links_by_send ON draft_links (send_id)`,
+      `CREATE INDEX IF NOT EXISTS draft_links_by_token ON draft_links (token_hash)`,
+    ],
   ],
   documents: [
     [
@@ -107,6 +113,11 @@ export const MIGRATIONS: {
     [...PRIVATE_COPY_MIGRATION.documents],
     [...PROMPTER_MIGRATION.documents],
     [...ADMIN_MIGRATION.documents],
+    [
+      `CREATE INDEX IF NOT EXISTS revision_issues_by_doc ON revision_issues (doc_id, issued_at DESC)`,
+      `CREATE INDEX IF NOT EXISTS draft_sends_by_doc ON draft_sends (doc_id, sent_at DESC, id DESC)`,
+      `CREATE INDEX IF NOT EXISTS draft_opens_by_send_user ON draft_opens (send_id, user_id)`,
+    ],
   ],
   checkpoints: [
     [
@@ -132,5 +143,8 @@ export const MIGRATIONS: {
     [...PRIVATE_COPY_MIGRATION.checkpoints],
     [...PROMPTER_MIGRATION.checkpoints],
     [...ADMIN_MIGRATION.checkpoints],
+    [
+      `CREATE INDEX IF NOT EXISTS checkpoint_pins_by_doc ON checkpoint_pins (doc_id, generation)`,
+    ],
   ],
 });

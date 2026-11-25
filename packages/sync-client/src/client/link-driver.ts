@@ -31,8 +31,6 @@ import type { SessionLink } from "../session/session.ts";
 
 /** What the driver tells its client. */
 export interface LinkDriverHost {
-  /** The documents being opened: the socket opens once each has settled. */
-  opening(): Promise<unknown>[];
   /** The link is online: every document subscribes. */
   online(): void;
   /** The connection was lost or closed. */
@@ -204,36 +202,30 @@ class Driver implements LinkDriver {
     }
   }
 
-  /** Waits for the documents being opened, so that each is loaded before the socket opens. */
+  /** Opens the socket at once in parallel with documents loading from the store; each subscribes once loaded. */
   private connect(): void {
     const attempt: Attempt = {
       connection: null,
       decoder: createFrameDecoder({ from: "server" }),
     };
     this.current = attempt;
-    const go = (): void => {
-      if (this.current !== attempt) return;
-      this.options.ports.transport
-        .connect({
-          onFrame: (frame) => {
-            if (this.current === attempt) this.frame(attempt, frame);
-          },
-          onClose: (code) => {
-            if (this.current !== attempt) return;
-            // heard before connect() resolved: a connection that never opened
-            if (attempt.connection === null)
-              this.failed(attempt, new ConnectError("unreachable"));
-            else this.closed(code);
-          },
-        })
-        .then(
-          (connection) => this.opened(attempt, connection),
-          (error: unknown) => this.failed(attempt, error),
-        );
-    };
-    const opening = this.options.host.opening();
-    if (opening.length === 0) go();
-    else void Promise.allSettled(opening).then(go);
+    this.options.ports.transport
+      .connect({
+        onFrame: (frame) => {
+          if (this.current === attempt) this.frame(attempt, frame);
+        },
+        onClose: (code) => {
+          if (this.current !== attempt) return;
+          // heard before connect() resolved: a connection that never opened
+          if (attempt.connection === null)
+            this.failed(attempt, new ConnectError("unreachable"));
+          else this.closed(code);
+        },
+      })
+      .then(
+        (connection) => this.opened(attempt, connection),
+        (error: unknown) => this.failed(attempt, error),
+      );
   }
 
   private opened(attempt: Attempt, connection: Connection): void {

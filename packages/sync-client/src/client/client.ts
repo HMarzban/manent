@@ -141,6 +141,7 @@ class Client implements SyncClient, LinkDriverHost {
 
   async documents(): Promise<readonly DocSummary[]> {
     const { store } = this.options.ports;
+    if (store.summaries !== undefined) return store.summaries();
     const metas = await store.documents();
     return Promise.all(
       metas.map(async ({ docId, neverSynced, parked }) => {
@@ -219,10 +220,6 @@ class Client implements SyncClient, LinkDriverHost {
     this.resign();
     this.unlisten();
     this.linkDriver.close();
-  }
-
-  opening(): Promise<unknown>[] {
-    return [...this.replicas.opening.values()];
   }
 
   online(): void {

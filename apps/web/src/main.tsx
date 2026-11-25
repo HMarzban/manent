@@ -39,15 +39,34 @@ const startedAt = markStart();
 const root = document.getElementById("root");
 if (root === null) throw new Error("the page has no #root element");
 
+function registerCurrentServiceWorker(): void {
+  registerServiceWorker({
+    container: "serviceWorker" in navigator ? navigator.serviceWorker : null,
+  });
+}
+
+function registerServiceWorkerWhenIdle(): void {
+  if (typeof requestIdleCallback === "function")
+    requestIdleCallback(registerCurrentServiceWorker, { timeout: 3000 });
+  else setTimeout(registerCurrentServiceWorker, 0);
+}
+
+/** Registers the service worker once the page has finished loading and is idle, so precaching never races hydration. */
+function scheduleServiceWorker(): void {
+  if (document.readyState === "complete") registerServiceWorkerWhenIdle();
+  else
+    window.addEventListener("load", registerServiceWorkerWhenIdle, {
+      once: true,
+    });
+}
+
 // the real frame has replaced the static one once the first render has taken it out of #root;
-// the service worker registers only then, so its precaching never delays the first frame
+// the service worker registers only once the page is idle, so its precaching never delays hydration
 const staticFrame = new MutationObserver(() => {
   if (root.querySelector(":scope > .mn-static-frame") !== null) return;
   markEnd("app.frame", startedAt);
   staticFrame.disconnect();
-  registerServiceWorker({
-    container: "serviceWorker" in navigator ? navigator.serviceWorker : null,
-  });
+  scheduleServiceWorker();
 });
 staticFrame.observe(root, { childList: true });
 

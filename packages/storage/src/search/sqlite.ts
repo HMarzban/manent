@@ -146,7 +146,7 @@ export function openSqliteSearchIndex(
 ): SearchIndex {
   const path =
     "dir" in options ? join(options.dir, SEARCH_INDEX_FILE) : options.path;
-  const db = openDatabase(path);
+  const db = openDatabase(path, { durability: "normal" });
   if (readUserVersion(db) !== SEARCH_INDEX_VERSION) resetSchema(db);
   const stmts = prepareStatements(db);
 

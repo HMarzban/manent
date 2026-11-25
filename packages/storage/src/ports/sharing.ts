@@ -68,6 +68,12 @@ export interface ReaderReadRow {
   readAt: number;
 }
 
+/** Distinct signed-in openers (ascending) and total open count for one draft send. */
+export interface DraftOpenStats {
+  openers: string[];
+  totalOpens: number;
+}
+
 /** The sent drafts, their opens and each reader's last read, in a document file; every write joins its `transaction`. */
 export interface SharingStore {
   addSend(send: DraftSendRow): void;
@@ -81,6 +87,8 @@ export interface SharingStore {
   openersOf(sendId: string): string[];
   /** Every open of the send, anonymous ones included. */
   openCount(sendId: string): number;
+  /** Batched openers and total opens for each listed `sendId` that has at least one open. */
+  openStatsOf(sendIds: readonly string[]): Map<string, DraftOpenStats>;
   /** Replaces the reader's last read of the document. */
   putRead(read: ReaderReadRow): void;
   readOf(

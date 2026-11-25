@@ -159,7 +159,11 @@ export async function createSeedServer(options: {
 }): Promise<SeedServer> {
   const { rng } = options;
   const clock = createSeedClock(options.seedAt);
-  const storage = openSqliteStorage({ dir: options.dataDir, now: clock.now });
+  const storage = openSqliteStorage({
+    dir: options.dataDir,
+    now: clock.now,
+    durability: "off",
+  });
   const ids = () => docIdV7(clock.now(), rngBytes(rng, V7_RANDOM_BYTES));
   const sessions = createSignedSessionStore({
     secret: rngBytes(rng, SESSION_KEY_BYTES),
@@ -177,6 +181,7 @@ export async function createSeedServer(options: {
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
     dataDir: options.dataDir,
+    searchEnabled: false,
     openUrl: SEED_ORIGIN,
   });
   const server = createServer({

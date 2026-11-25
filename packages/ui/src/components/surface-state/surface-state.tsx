@@ -9,11 +9,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import {
-  LOADING_MIN_MS,
-  LOADING_QUIET_MS,
-  useTiming,
-} from "../../surfaces/timing.ts";
+import { LOADING_QUIET_MS, useTiming } from "../../surfaces/timing.ts";
 import { SurfaceBoundary } from "./surface-boundary.tsx";
 
 /** `sinceMs` is the instant loading began, on the clock of the nearest `TimingProvider`. */
@@ -33,44 +29,27 @@ export type SurfaceRenderers = {
   ) => ReactNode;
 };
 
-type Loading = Extract<SurfaceStateValue, { kind: "loading" }>;
-
 interface SurfaceStateProps {
   surface: SurfaceId;
   state: SurfaceStateValue;
   render: SurfaceRenderers;
 }
 
-// nothing for LOADING_QUIET_MS, then the placeholder for at least LOADING_MIN_MS; null draws nothing
+// nothing for LOADING_QUIET_MS, then the placeholder until data arrives; null draws nothing
 function useLoadingRule(state: SurfaceStateValue): SurfaceStateValue | null {
   const { now, schedule } = useTiming();
   const [wakes, refresh] = useReducer((n: number) => n + 1, 0);
-  const placeholder = useRef<{ state: Loading; shownAt: number } | null>(null);
+  const shown = useRef(false);
   const at = now();
-  const shown = placeholder.current;
-  let view: SurfaceStateValue | null = state;
-  let wakeAt: number | null = null;
-  if (
+  const quiet =
     state.kind === "loading" &&
-    shown === null &&
-    at < state.sinceMs + LOADING_QUIET_MS
-  ) {
-    view = null;
-    wakeAt = state.sinceMs + LOADING_QUIET_MS;
-  } else if (
-    state.kind !== "loading" &&
-    shown !== null &&
-    at < shown.shownAt + LOADING_MIN_MS
-  ) {
-    view = shown.state;
-    wakeAt = shown.shownAt + LOADING_MIN_MS;
-  }
+    !shown.current &&
+    at < state.sinceMs + LOADING_QUIET_MS;
+  const view = quiet ? null : state;
+  const wakeAt = quiet ? state.sinceMs + LOADING_QUIET_MS : null;
 
   useLayoutEffect(() => {
-    placeholder.current =
-      view?.kind === "loading"
-        ? { state: view, shownAt: placeholder.current?.shownAt ?? at }
-        : null;
+    shown.current = view?.kind === "loading";
   });
   // a timer may fire a moment before its time (Firefox's, against Date.now), so every wake schedules again
   useEffect(

@@ -64,7 +64,7 @@ function createIndex(
 ): BlockIndex {
   return Object.freeze({
     doc,
-    blocks: Object.freeze([...blocks]),
+    blocks,
     layoutKey: layout?.key ?? null,
     ...sectionsOf(doc),
   });
@@ -238,11 +238,17 @@ export function updateIndex(
     (node) =>
       (sameKey ? reused.get(node) : undefined) ?? buildBlock(node, layout),
   );
-  const blocks = [
-    ...prev.blocks.slice(0, change.first),
-    ...middle,
-    ...prev.blocks.slice(change.oldEnd),
-  ];
+  let blocks: LayoutBlock[];
+  if (change.oldEnd === change.newEnd) {
+    blocks = prev.blocks.slice();
+    for (let i = 0; i < middle.length; i++)
+      blocks[change.first + i] = middle[i]!;
+  } else {
+    blocks = prev.blocks.slice(0, change.first);
+    for (let i = 0; i < middle.length; i++) blocks.push(middle[i]!);
+    for (let i = change.oldEnd; i < prev.blocks.length; i++)
+      blocks.push(prev.blocks[i]!);
+  }
   const moved = change.first < change.oldEnd || change.first < change.newEnd;
   if (sameKey) {
     const index = createIndex(doc, blocks, layout);
