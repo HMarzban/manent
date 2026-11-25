@@ -1,4 +1,5 @@
 import { DEMO_WORKSPACES } from "@manent/demo";
+import { WORKSPACE_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { pressKeyOf } from "../support/interface.ts";
@@ -35,10 +36,11 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
     .getByRole("button", { name: "Writers' room", exact: true })
     .click();
   const items = page.getByRole("menuitem");
-  await expect(items).toHaveCount(2);
+  await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText("Writers' room");
   await expect(items.nth(0)).toHaveAttribute("aria-current", "true");
   await expect(items.nth(1)).toContainText(second);
+  await expect(items.nth(2)).toContainText(WORKSPACE_WORDS.title);
   await page.keyboard.press("Escape");
   await page
     .locator('[data-region="title_bar"]')
@@ -65,7 +67,7 @@ test("focus moved elsewhere as the switcher closes stays there, and the field ta
     exact: true,
   });
   await switcher.click();
-  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  await expect(page.getByRole("menuitem")).toHaveCount(3);
   // a press outside closes the menu, and the palette opens while the menu is still fading out
   await page.mouse.click(8, 400);
   await pressKeyOf(page, "app.palette");
@@ -109,14 +111,17 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
-  // the side list: Continue, Favourites and Private, then its projects, a list that is one stop, entered at its first
-  // project, then Trash
+  // the title bar, then the side rail: Continue, Favourites, Private, the project list (with each row's menu),
+  // New folder, Trash, and then the first Continue row
   const order: string[] = [];
-  for (let press = 0; press < 12; press++) {
+  const continueRow = /^Untitled scriptUntitled film( \d+)? · Film/;
+  for (let press = 0; press < 40; press++) {
     await page.keyboard.press(tab);
-    order.push(await focusedText(page));
+    const label = await focusedText(page);
+    order.push(label);
+    if (continueRow.test(label)) break;
   }
-  expect(order).toEqual([
+  expect(order.slice(0, 11)).toEqual([
     "Writers' room",
     "Search this workspace",
     "Import…",
@@ -128,8 +133,12 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
     "Private",
     // the project is numbered after the film projects the workspace holds already
     expect.stringMatching(/^Untitled film( \d+)?$/),
+    "⋯",
+  ]);
+  expect(order.slice(-3)).toEqual([
+    "New folder",
     "Trash",
     // the row ends with where the script is, which changes as it syncs
-    expect.stringMatching(/^Untitled scriptUntitled film( \d+)? · Film/),
+    expect.stringMatching(continueRow),
   ]);
 });

@@ -66,6 +66,7 @@ test("Dana shares 205 with the Room group and sends 204 to Network with asterisk
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: SHARING_WORDS.close, exact: true })
+    .filter({ hasText: SHARING_WORDS.close })
     .click();
   await expect(dialog).toBeHidden();
 
@@ -104,10 +105,10 @@ test("Dana shares 205 with the Room group and sends 204 to Network with asterisk
 
   const toRow = page.locator("[data-tour='send:to']");
   await toRow
-    .getByRole("textbox", { name: DRAFTS_WORDS.addPlaceholder })
+    .getByRole("combobox", { name: DRAFTS_WORDS.addPlaceholder })
     .click();
   await toRow
-    .getByRole("button", { name: DRAFTS_WORDS.groupCount("Network", 4) })
+    .getByRole("option", { name: DRAFTS_WORDS.groupCount("Network", 4) })
     .click();
 
   const sendButton = page.locator("[data-tour='send:confirm']");

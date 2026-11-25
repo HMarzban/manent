@@ -202,13 +202,24 @@ async function openGallery(page: Page, gallery: Gallery): Promise<void> {
   if (surface === "consequence_dialog") {
     const open = page.locator("[role='alertdialog']");
     await expect(open).toBeVisible();
-    // its opening fade has ended, so its colours are its own
-    await open.evaluate((element) =>
-      Promise.all(
-        element.getAnimations({ subtree: true }).map((a) => a.finished),
-      ),
-    );
   }
+  // wait for any opening fade (panels, dialogs) to settle so axe reads final colours, skipping infinite skeletons
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => {
+          void Promise.all(
+            document
+              .getAnimations()
+              .filter(
+                (animation) =>
+                  animation.effect?.getComputedTiming().iterations !== Infinity,
+              )
+              .map((animation) => animation.finished.catch(() => undefined)),
+          ).then(() => resolve());
+        }),
+      ),
+  );
 }
 
 async function violationsOf(
