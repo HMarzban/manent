@@ -15,6 +15,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import {
+  memo,
   useCallback,
   useContext,
   useMemo,
@@ -43,7 +44,10 @@ import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
-import { useOutlineCount } from "../../state/outline.store.ts";
+import {
+  useIsCurrentOutline,
+  useOutlineCount,
+} from "../../state/outline.store.ts";
 import type {
   OutlineRow,
   OutlineSelectors,
@@ -76,12 +80,13 @@ function useFormat(docId: string | null): string {
 function SceneLine(props: {
   row: OutlineRow;
   parts: SceneParts;
+  current: boolean;
   goTo: () => void;
 }): ReactNode {
-  const { row, parts, goTo } = props;
+  const { row, parts, current, goTo } = props;
   if (row.omitted)
     return (
-      <Row current={row.current} onActivate={goTo}>
+      <Row current={current} onActivate={goTo}>
         <span className="whitespace-pre text-fg-muted">
           {row.number === null
             ? DOCUMENT_WORDS.omitted
@@ -120,7 +125,7 @@ function SceneLine(props: {
     >
       {(handle) => (
         <Row
-          current={row.current}
+          current={current}
           onActivate={goTo}
           leading={
             row.number === null ? undefined : (
@@ -139,13 +144,17 @@ function SceneLine(props: {
 }
 
 /** An act or knot heads the entries after it; a stitch indents under its knot; a section groups scenes. */
-function OutlineLine(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
-  const { row } = props;
+const OutlineLine = memo(function OutlineLine(props: {
+  row: OutlineRow;
+  parts: SceneParts;
+}): ReactNode {
+  const { row, parts } = props;
   const { editor } = useServices();
+  const current = useIsCurrentOutline(row.blockId);
   const goTo = () =>
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   if (row.kind === "scene")
-    return <SceneLine row={row} parts={props.parts} goTo={goTo} />;
+    return <SceneLine row={row} parts={parts} current={current} goTo={goTo} />;
   const textClass =
     row.kind === "act" || row.kind === "knot"
       ? "font-semibold"
@@ -153,11 +162,11 @@ function OutlineLine(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
         ? "pl-4"
         : "text-fg-muted italic";
   return (
-    <Row current={row.current} onActivate={goTo}>
+    <Row current={current} onActivate={goTo}>
       <span className={textClass}>{row.heading}</span>
     </Row>
   );
-}
+});
 
 const isFilterableKind = (kind: OutlineRow["kind"]): boolean =>
   kind === "scene" || kind === "knot" || kind === "stitch";
@@ -209,16 +218,21 @@ function MovableRows(props: {
   rows: readonly OutlineRow[];
   renderRow(row: OutlineRow): ReactNode;
 }): ReactNode {
-  const moves = useSceneMoves({ docId: props.docId, rows: props.rows });
+  const { docId, rows, renderRow } = props;
+  const { area, sortable, rowOf } = useSceneMoves({ docId, rows });
+  const renderItem = useCallback(
+    (id: string): ReactNode => {
+      const row = rowOf(id);
+      return row === null ? null : renderRow(row);
+    },
+    [rowOf, renderRow],
+  );
   return (
-    <div {...moves.area} className="min-h-0 flex-1">
+    <div {...area} className="min-h-0 flex-1">
       <SortableList
-        {...moves.sortable}
+        {...sortable}
         orientation="vertical"
-        renderItem={(id) => {
-          const row = moves.rowOf(id);
-          return row === null ? null : props.renderRow(row);
-        }}
+        renderItem={renderItem}
       />
     </div>
   );
@@ -233,16 +247,16 @@ function OutlineRows(props: {
   movable: boolean;
   parts: SceneParts;
 }): ReactNode {
+  const { parts } = props;
   const rows = useListedRows(props.filter);
-  if (props.view === "cards")
-    return (
-      <SceneCards rows={rows} canEdit={props.canEdit} parts={props.parts} />
-    );
-  const renderRow = (row: OutlineRow): ReactNode => (
-    <OutlineLine row={row} parts={props.parts} />
+  const renderRow = useCallback(
+    (row: OutlineRow): ReactNode => <OutlineLine row={row} parts={parts} />,
+    [parts],
   );
+  if (props.view === "cards")
+    return <SceneCards rows={rows} canEdit={props.canEdit} parts={parts} />;
   return props.movable ? (
-    <MovableRows docId={props.parts.docId} rows={rows} renderRow={renderRow} />
+    <MovableRows docId={parts.docId} rows={rows} renderRow={renderRow} />
   ) : (
     <div className="min-h-0 flex-1">
       <VirtualRows
@@ -273,7 +287,10 @@ function ScenesList(props: { docId: string }): ReactNode {
   const extras = useSceneExtras(docId);
   const canEdit = useCanEdit(docId);
   const items = useMemo(() => rowItemsFor(SCENE_ROW_ITEMS, canEdit), [canEdit]);
-  const parts: SceneParts = { docId, extras, items };
+  const parts = useMemo<SceneParts>(
+    () => ({ docId, extras, items }),
+    [docId, extras, items],
+  );
   const [filter, setFilter] = useState("");
   const { view, setView } = useScenesView();
   const activeView: ScenesView = isInk ? "list" : view;

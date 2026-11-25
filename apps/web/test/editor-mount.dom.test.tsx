@@ -167,7 +167,7 @@ function rig(
     element,
     docId: DOC,
     facts: { publish: (changed) => facts.push(changed) },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: services.openScriptStore(DOC),
     guard: { enter: noop, leave: noop },
     bare: options.bare,
@@ -512,7 +512,7 @@ test("the placeholder stands in until the editor has loaded, and a mount gone fi
     element,
     docId: DOC,
     facts: { publish: noop },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: { get: () => null, subscribe: () => noop },
     guard: { enter: noop, leave: noop },
   });
@@ -566,7 +566,7 @@ test("a person's page draws the editor their environment loads, built for that p
     element,
     docId: DOC,
     facts: { publish: noop },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: { get: () => null, subscribe: () => noop },
     guard: { enter: noop, leave: noop },
   });

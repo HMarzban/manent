@@ -2,7 +2,7 @@
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "cn";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { memo, useCallback, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { handleOf } from "./follow-focus.ts";
 import { useDropMark } from "./sortable-area.tsx";
@@ -60,7 +60,14 @@ interface SortableItemProps {
   children: ReactNode;
 }
 
-export function SortableItem({
+interface BoundHandle {
+  id: string;
+  box: HTMLDivElement;
+  handle: HTMLElement;
+  handleRef: (element: Element | null) => void;
+}
+
+export const SortableItem = memo(function SortableItem({
   id,
   index,
   group,
@@ -68,6 +75,7 @@ export function SortableItem({
   children,
 }: SortableItemProps): ReactNode {
   const box = useRef<HTMLDivElement | null>(null);
+  const bound = useRef<BoundHandle | null>(null);
   const { ref, handleRef, isDragging } = useSortable({
     id,
     index,
@@ -77,18 +85,32 @@ export function SortableItem({
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
       box.current = node;
+      if (node === null) bound.current = null;
       ref(node);
     },
     [ref],
   );
   useLayoutEffect(() => {
-    if (box.current === null) return;
-    const handle = handleOf(box.current);
+    const node = box.current;
+    if (node === null) return;
+    const prev = bound.current;
+    if (
+      prev !== null &&
+      prev.id === id &&
+      prev.box === node &&
+      prev.handleRef === handleRef &&
+      prev.handle !== node &&
+      prev.handle.isConnected &&
+      prev.handle.hasAttribute("tabindex")
+    )
+      return;
+    const handle = handleOf(node);
     // the library would describe the item as "draggable"; an empty description leaves its own role to be read
     if (!handle.hasAttribute("aria-roledescription"))
       handle.setAttribute("aria-roledescription", "");
+    bound.current = { id, box: node, handle, handleRef };
     handleRef(handle);
-  });
+  }, [handleRef, id, children]);
   return (
     <div
       ref={attach}
@@ -103,4 +125,4 @@ export function SortableItem({
       <DropIndicator id={id} layout={orientation} />
     </div>
   );
-}
+});

@@ -1184,7 +1184,8 @@ html[data-white-page] .mn-pages {
   [role="checkbox"],
   [role="switch"],
   [data-slot="select-trigger"],
-  .mn-row[tabindex]
+  .mn-row[tabindex],
+  .mn-card[tabindex]
 ) {
   cursor: pointer;
 }
@@ -1198,7 +1199,8 @@ html[data-white-page] .mn-pages {
   [role="checkbox"],
   [role="switch"],
   [data-slot="select-trigger"],
-  .mn-row[tabindex]
+  .mn-row[tabindex],
+  .mn-card[tabindex]
 ):is(:disabled, [aria-disabled="true"], [data-disabled]) {
   cursor: not-allowed;
   pointer-events: auto;
@@ -1657,13 +1659,14 @@ button:not(:disabled, [aria-disabled="true"]):active
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
 }
-button.mn-card:not(:disabled):active {
+.mn-card:is(button, [tabindex]):not(:disabled, [aria-disabled="true"]):active {
   background-color: var(--bg-subtle);
   transform: translateY(1px);
 }
 .mn-card[aria-current]:not([aria-current="false"]) {
   background-color: var(--bg-selected);
   border-color: var(--focus);
+  transition: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -2225,7 +2228,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
     transition: none !important;
   }
   [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
-  button.mn-card:active,
+  .mn-card:is(button, [tabindex]):active,
   [data-slot="switch"]:active [data-slot="switch-thumb"],
   [data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
     > svg:last-child,

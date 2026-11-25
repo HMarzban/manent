@@ -96,7 +96,7 @@ function openPage(
       element,
       docId: DOC,
       facts: { publish: noop },
-      outline: { publish: noop },
+      outline: { publish: noop, publishCurrent: noop },
       settings: services.openScriptStore(DOC),
       guard: { enter: noop, leave: noop },
     }),

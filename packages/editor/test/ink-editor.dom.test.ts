@@ -198,9 +198,16 @@ test("bridgePlugin publishes Ink outline without pages and throttles updates", (
   ]);
   setCaretEnd(view, 9);
   expect(outlines.length).toBe(1);
-  timers.advance(250);
+  frames.fire();
   expect(outlines.length).toBe(2);
   expect(outlines[1]!.find((r) => r.current)?.heading).toBe("quiz › entry");
+
+  typeAt(view, 3, "!");
+  frames.fire();
+  expect(outlines.length).toBe(2);
+  timers.advance(250);
+  expect(outlines.length).toBe(3);
+  expect(outlines[2]![0]!.heading).toBe("stairs ===!");
 });
 
 test("Ink autocomplete offers diverts (knots, bare stitches in current knot, knot.stitch) and variables/functions inside braces", () => {

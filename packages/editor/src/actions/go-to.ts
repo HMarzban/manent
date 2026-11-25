@@ -1,19 +1,17 @@
-// Moving the caret to a place in the script: a block a place names, the next or previous scene, and where a person
-// present is; loaded apart from the editor, the first time one is asked for.
+// Moving the caret to a place in the script: a block a place names (synchronous), the next or previous scene, and
+// where a person present is (the latter two loaded apart from the editor).
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { headingAt, outlineOf } from "../bridge/outline.ts";
 import { cursorsKey } from "../cursors/cursor-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
-import type { ActionResult } from "./action-types.ts";
-import type { EditorAction } from "./registry.ts";
+import type { ActionEntry, ActionResult } from "./action-types.ts";
 
-/** The actions this module runs. */
-export type GoToAction = Extract<
-  EditorAction,
-  { kind: "go_to" | "step_scene" | "go_to_person" }
->;
+/** The actions this module runs when loaded apart from the editor. */
+export type GoToAction =
+  | { kind: "step_scene"; direction: 1 | -1 }
+  | { kind: "go_to_person"; userId: string };
 
 /** The heading after the caret's scene (1) or before it (-1), as the outline lists scenes; null past either end or without pages. */
 function sceneFrom(state: EditorState, direction: 1 | -1): string | null {
@@ -68,6 +66,16 @@ function goToBlock(
   return { ok: true };
 }
 
+/** Moves the caret synchronously to `offset` in `blockId` and focuses the page. */
+export const goToEntry: ActionEntry<{
+  kind: "go_to";
+  blockId: string;
+  offset: number;
+}> = {
+  readOnly: true,
+  run: (view, action, context) => goToBlock(view.state, action, context.goTo),
+};
+
 /** Runs a move of the caret on the view as it is now; `go` puts the caret in a block and focuses the page. */
 export function runGoTo(
   view: EditorView,
@@ -76,8 +84,6 @@ export function runGoTo(
 ): ActionResult {
   const { state } = view;
   switch (action.kind) {
-    case "go_to":
-      return goToBlock(state, action, go);
     case "step_scene": {
       const blockId = sceneFrom(state, action.direction);
       return goToBlock(
