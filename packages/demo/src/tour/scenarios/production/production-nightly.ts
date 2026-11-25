@@ -13,16 +13,16 @@ export const PRODUCTION_NIGHTLY: TourScenario = {
     shell: "any",
   },
   steps: [
-    { text: "Choose Send draft… in the title menu.", highlight: "page" },
+    { text: "Choose Send draft… in the title menu.", highlight: "draft.send" },
     {
-      text: 'Mark it against "Network run-through draft".',
-      highlight: "page",
+      text: "What has Full draft chosen, marked against the last draft sent.",
+      highlight: "send:what",
     },
   ],
   check:
-    'The draft goes out with asterisks against "Network run-through draft".',
-  evidence: ["Network run-through draft"],
+    'What reads "Full draft", with "Marked with asterisks against \'Network run-through draft\', the last draft sent."',
+  evidence: ["Full draft", "Network run-through draft"],
   fresh: false,
-  waitsFor: "send_draft",
+  waitsFor: null,
   hidden: null,
 };

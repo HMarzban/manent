@@ -6,7 +6,7 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-test("the History group holds its scenarios in order, and the one still to come names what it waits for", () => {
+test("the History group holds its scenarios in order, each ready for its feature", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "History")
@@ -20,7 +20,8 @@ test("the History group holds its scenarios in order, and the one still to come 
     ["history-who-wrote", null],
     ["history-view-version", null],
     ["history-restore-reverse", null],
-    ["history-send-draft", "send_draft"],
+    ["history-send-draft", null],
+    ["history-version-link", null],
   ]);
 });
 
@@ -39,6 +40,8 @@ test("every History scenario that is built is hidden until its end-to-end test p
       "history-who-wrote",
       "history-view-version",
       "history-restore-reverse",
+      "history-send-draft",
+      "history-version-link",
     ].map((id) => [id, "its end-to-end test does not pass yet"]),
   );
 });

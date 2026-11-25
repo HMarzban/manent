@@ -6,7 +6,7 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-test("the Production group shows six scenarios and keeps three waiting for their features", () => {
+test("the Production group lists its scenarios, each waiting one with the feature it waits for", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "Production")
@@ -18,9 +18,9 @@ test("the Production group shows six scenarios and keeps three waiting for their
     ["production-recall", null],
     ["production-issue-next", null],
     ["production-omit", null],
-    ["production-lock-copy", "copy_script"],
+    ["production-lock-copy", null],
     ["production-sides", "sides"],
-    ["production-nightly", "send_draft"],
+    ["production-nightly", null],
   ]);
 });
 
