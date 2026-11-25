@@ -22,7 +22,11 @@ import {
   OutlineContext,
   PeopleContext,
 } from "../state/bridge-contexts.ts";
-import { usePaletteOpen } from "../state/palette.store.ts";
+import {
+  selectors as paletteSelectors,
+  usePaletteAsk,
+  usePaletteOpen,
+} from "../state/palette.store.ts";
 import {
   createDocumentSource,
   createPersonSource,
@@ -67,6 +71,7 @@ export function ShellPalette(props: {
   const facts = useContext(FactsContext);
   const workspaces = useWorkspaceIds(services.userId);
   const filter = usePaletteOpen();
+  const ask = usePaletteAsk();
   const [recent, setRecent] = useState<readonly string[]>([]);
   // before the editor's code arrives no editor is open, and there are no pages
   const pagination = () => (docId === null ? null : livePagination(docId));
@@ -137,12 +142,15 @@ export function ShellPalette(props: {
   };
   return (
     <CommandPalette
-      open={filter !== null}
+      open={filter !== null || ask !== null}
       filter={filter ?? "all"}
       sources={sources}
       placeholder={PLACEHOLDERS[filter ?? "all"]}
+      ask={ask}
       onRun={run}
-      onClose={close}
+      onClose={() => {
+        if (paletteSelectors.isOpen()) close();
+      }}
       recent={recent}
     />
   );

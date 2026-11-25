@@ -131,6 +131,8 @@ test("Script settings shows its scope line and its rows, named by their labels",
       "Header and footer",
       "A thin line under the header.",
       "A thin line over the footer.",
+      "Layout engine",
+      "Default: 1",
     ],
     [
       "Format",

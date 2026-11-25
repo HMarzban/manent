@@ -36,7 +36,12 @@ import {
 } from "./freeze.ts";
 import type { LockCommit } from "./freeze.ts";
 import type { Mutation, ProductionOptions, Requests } from "./requests.ts";
-import { documentOf, layoutUnder, scriptPages, stateAnswer } from "./state.ts";
+import {
+  engineVersionOf,
+  layoutUnder,
+  scriptPages,
+  stateAnswer,
+} from "./state.ts";
 
 /** An imported set as its commit writes it: its colour checked, its blocks placed on their pages. */
 interface ImportedSet {
@@ -240,9 +245,9 @@ export function importLockMutation(
     need: "lock_page_numbers",
     tells: ["lock_anchors_changed", "layout_changed"],
     check: (file) => lockRefusal(file, request),
-    edit(doc, file) {
-      const { engineVersion } = documentOf(file, docId);
-      const under = layoutUnder(scriptSettings(doc).entries(), engineVersion);
+    edit(doc) {
+      const stored = scriptSettings(doc).entries();
+      const under = layoutUnder(stored, engineVersionOf(stored));
       if (!under.ok) return under;
       const { engine, profile } = under;
       const content = scriptBody(doc).materialize();
