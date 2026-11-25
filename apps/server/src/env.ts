@@ -9,6 +9,10 @@ export interface ServerEnv {
   dataDir: string;
   webDir: string;
   control: { url: string; token: string } | null;
+  /** Resend API key for outbound email notifications; null keeps email off. */
+  resendApiKey: string | null;
+  /** Resend sender address for outbound email notifications; null keeps email off. */
+  resendFrom: string | null;
 }
 
 const PORT = /^[1-9]\d{0,4}$/;
@@ -60,11 +64,16 @@ export function readServerEnv(
     );
   }
 
+  const resendApiKey = env.MANENT_RESEND_API_KEY?.trim() || null;
+  const resendFrom = env.MANENT_RESEND_FROM?.trim() || null;
+
   return {
     port,
     lanHost,
     dataDir: env.MANENT_DATA_DIR || ".manent-demo",
     webDir: env.MANENT_WEB_DIR || "apps/web/dist",
     control: url !== null && token !== null ? { url, token } : null,
+    resendApiKey,
+    resendFrom,
   };
 }

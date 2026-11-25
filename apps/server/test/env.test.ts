@@ -8,6 +8,8 @@ test("the defaults are loopback and port 4747", () => {
     dataDir: ".manent-demo",
     webDir: "apps/web/dist",
     control: null,
+    resendApiKey: null,
+    resendFrom: null,
   });
 });
 
@@ -20,6 +22,8 @@ test("every setting is read from its variable", () => {
       MANENT_WEB_DIR: "/tmp/w",
       MANENT_CONTROL_URL: "http://127.0.0.1:4748",
       MANENT_CONTROL_TOKEN: "abc",
+      MANENT_RESEND_API_KEY: "re_test_123",
+      MANENT_RESEND_FROM: "Manent <notify@example.com>",
     }),
   ).toEqual({
     port: 4800,
@@ -27,6 +31,8 @@ test("every setting is read from its variable", () => {
     dataDir: "/tmp/d",
     webDir: "/tmp/w",
     control: { url: "http://127.0.0.1:4748", token: "abc" },
+    resendApiKey: "re_test_123",
+    resendFrom: "Manent <notify@example.com>",
   });
 });
 
