@@ -1,18 +1,33 @@
 // A script's layout settings and the page profile they give, so the server and the formats lay a script out exactly as the editor does.
+import { profileFor } from "./engines/v1/profile.ts";
 import type { Engine, ProfileOptions } from "./engines/index.ts";
-import type { ElementSpec, PageProfile, SpecKey } from "./page-profile.ts";
+import { SCENE_NUMBER_SIDES } from "./page-profile.ts";
+import type {
+  ElementSpec,
+  PageProfile,
+  Paper,
+  SceneNumberSides,
+  SpecKey,
+} from "./page-profile.ts";
 
 /** Ten cells per inch on the fixed screenplay grid. */
 export const CELLS_PER_INCH = 10;
 
+const MIN_LINES_SETTING = 10;
+const MAX_LINES_SETTING = 70;
+
 export interface ScriptLayoutSettings {
   readonly format: string;
   readonly paper: string;
+  /** Whole number in 10..70, or null to use the format's figure for its paper. */
+  readonly linesPerPage: number | null;
   readonly moresAtBreaks: boolean;
   readonly sameSpeakerContd: boolean;
   readonly sceneContinued: boolean;
   /** Never a setting: true while the script is in production. False leaves the format's own default, so a multi-camera script letters its scenes before production. */
   readonly scenesNumbered: boolean;
+  /** Explicit `script.sceneNumbers` value, or null when unset so multi-camera keeps its default `"both"`. */
+  readonly sceneNumberSides: SceneNumberSides | null;
   /** Per-element style overrides from `script.style`, in layout units. */
   readonly elements?: ProfileOptions["elements"];
 }
@@ -25,16 +40,20 @@ export const LAYOUT_SETTING_KEYS: readonly string[] = Object.freeze([
   "script.sameSpeakerContd",
   "script.sceneContinued",
   "script.style",
+  "script.linesPerPage",
+  "script.sceneNumbers",
 ]);
 
-/** The defaults of the five `script.*` layout settings, and scenes not numbered. */
+/** The defaults of the `script.*` layout settings, and scenes not numbered. */
 export const DEFAULT_LAYOUT_SETTINGS: ScriptLayoutSettings = Object.freeze({
   format: "screenplay",
   paper: "letter",
+  linesPerPage: null,
   moresAtBreaks: true,
   sameSpeakerContd: true,
   sceneContinued: false,
   scenesNumbered: false,
+  sceneNumberSides: null,
 });
 
 const stringOr = (value: unknown, fallback: string): string =>
@@ -119,6 +138,39 @@ function readElementStyle(
   return any ? changes : undefined;
 }
 
+function readLinesPerPage(value: unknown): number | null {
+  if (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= MIN_LINES_SETTING &&
+    value <= MAX_LINES_SETTING
+  )
+    return value;
+  return null;
+}
+
+function readSceneNumberSides(value: unknown): SceneNumberSides | null {
+  return typeof value === "string" &&
+    SCENE_NUMBER_SIDES.some((side) => side === value)
+    ? (value as SceneNumberSides)
+    : null;
+}
+
+/** The most lines `paper` holds for `format`, using the engine's exact page geometry. */
+export function maxLinesPerPage(format: string, paper: Paper): number {
+  const profile =
+    profileFor(format, { paper, linesPerPage: MAX_LINES_SETTING }) ??
+    profileFor("screenplay", { paper, linesPerPage: MAX_LINES_SETTING })!;
+  return profile.linesPerPage;
+}
+
+/** The format's default lines per page on `paper`. */
+export function defaultLinesPerPage(format: string, paper: Paper): number {
+  const profile =
+    profileFor(format, { paper }) ?? profileFor("screenplay", { paper })!;
+  return profile.linesPerPage;
+}
+
 /** The `script.*` layout settings as `read` gives them; a missing or ill-typed value takes its default. Scenes are not numbered. */
 export function readLayoutSettings(
   read: (key: string) => unknown,
@@ -128,6 +180,7 @@ export function readLayoutSettings(
   return {
     format: stringOr(read("script.format"), d.format),
     paper: stringOr(read("script.paper"), d.paper),
+    linesPerPage: readLinesPerPage(read("script.linesPerPage")),
     moresAtBreaks: booleanOr(read("script.moresAtBreaks"), d.moresAtBreaks),
     sameSpeakerContd: booleanOr(
       read("script.sameSpeakerContd"),
@@ -135,6 +188,7 @@ export function readLayoutSettings(
     ),
     sceneContinued: booleanOr(read("script.sceneContinued"), d.sceneContinued),
     scenesNumbered: false,
+    sceneNumberSides: readSceneNumberSides(read("script.sceneNumbers")),
     ...(elements === undefined ? {} : { elements }),
   };
 }
@@ -146,10 +200,14 @@ export function profileFromSettings(
 ): PageProfile | null {
   return engine.profileFor(s.format, {
     paper: s.paper === "a4" ? "a4" : "letter",
+    ...(s.linesPerPage === null ? {} : { linesPerPage: s.linesPerPage }),
     speechContinued: s.moresAtBreaks,
     speakerContinued: s.sameSpeakerContd,
     sceneContinued: s.sceneContinued,
     scenesNumbered: s.scenesNumbered ? true : undefined,
+    ...(s.sceneNumberSides === null
+      ? {}
+      : { sceneNumberSides: s.sceneNumberSides }),
     ...(s.elements === undefined ? {} : { elements: s.elements }),
   });
 }
