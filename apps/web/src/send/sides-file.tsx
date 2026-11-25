@@ -277,6 +277,7 @@ export function SidesSceneItem(props: {
   if (!locked) return null;
   return (
     <DropdownMenuItem
+      data-tour="production.includeInSides"
       onClick={() => {
         setSidesRange(docId, headingId, headingId);
         void navigate({ href: sidesExportHref(docId) });

@@ -19,7 +19,7 @@ test("the Production group lists its scenarios, each waiting one with the featur
     ["production-issue-next", null],
     ["production-omit", null],
     ["production-lock-copy", null],
-    ["production-sides", "sides"],
+    ["production-sides", null],
     ["production-nightly", null],
   ]);
 });
