@@ -257,6 +257,29 @@ html[data-white-page] .mn-pages {
   --collab-9: light-dark(var(--p-qual-9-deep), var(--p-qual-9-bright));
   --collab-10: light-dark(var(--p-qual-10-deep), var(--p-qual-10-bright));
   --collab-on: light-dark(var(--p-warm-0), var(--p-warm-950));
+  --avatar-neutral-bg: light-dark(var(--p-warm-100), var(--p-warm-850));
+  --avatar-neutral-edge: light-dark(var(--p-warm-300), var(--p-warm-700));
+  --avatar-inner-ring: light-dark(
+    inset 0 0 0 1px rgb(0 0 0 / 0.12),
+    inset 0 0 0 1px rgb(255 255 255 / 0.16)
+  );
+  --avatar-sheen: light-dark(
+    linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(0 0 0 / 0.08)),
+    linear-gradient(180deg, rgb(255 255 255 / 0.18), rgb(0 0 0 / 0.12))
+  );
+  --avatar-motif-hi: light-dark(
+    rgb(255 255 255 / 0.22),
+    rgb(255 255 255 / 0.2)
+  );
+  --avatar-motif-lo: light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.2));
+  --avatar-neutral-motif-hi: light-dark(
+    rgb(255 255 255 / 0.7),
+    rgb(255 255 255 / 0.07)
+  );
+  --avatar-neutral-motif-lo: light-dark(
+    rgb(31 29 26 / 0.07),
+    rgb(0 0 0 / 0.26)
+  );
 }
 
 /* --------------------------------------------------------------------------
@@ -1334,32 +1357,104 @@ button:not(:disabled, [aria-disabled="true"]):hover
   outline: 1px solid var(--chip-line);
 }
 
-/* A person: coloured only where they have a colour (inside a script, by its
-   index); elsewhere a ring round their initials. */
+/* A person: coloured inside a script (by its index), warm archival surface elsewhere,
+   with a subtle deterministic geometric motif behind crisp tabular initials. */
 .mn-avatar {
-  border: 1px solid var(--line-strong);
-  color: var(--fg-muted);
+  background-color: var(--avatar-neutral-bg);
+  border: 1px solid var(--avatar-neutral-edge);
+  color: var(--fg);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  line-height: 1;
+  letter-spacing: 0.025em;
   font-variant-numeric: tabular-nums;
+}
+.mn-avatar[data-new] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--fg-muted);
+}
+.mn-avatar-art-hi {
+  fill: var(--avatar-neutral-motif-hi);
+}
+.mn-avatar-art-lo {
+  fill: var(--avatar-neutral-motif-lo);
+}
+.mn-avatar-art-ring {
+  stroke: var(--avatar-neutral-motif-lo);
 }
 .mn-avatar[data-who] {
   background-color: var(--who);
-  border-color: var(--who);
+  background-image: var(--avatar-sheen);
+  border-color: transparent;
+  box-shadow: var(--avatar-inner-ring);
   color: var(--collab-on);
 }
-.mn-avatar[data-more] {
-  border-color: var(--line);
+.mn-avatar[data-who] .mn-avatar-art-hi {
+  fill: var(--avatar-motif-hi);
 }
-/* A stack where room is short: each avatar tucks under the edge of the one
-   before, which a ring of the panel's colour cuts out of it, so the first
-   is whole and no initials are hidden. */
+.mn-avatar[data-who] .mn-avatar-art-lo {
+  fill: var(--avatar-motif-lo);
+}
+.mn-avatar[data-who] .mn-avatar-art-ring {
+  stroke: var(--avatar-motif-hi);
+}
+.mn-avatar[data-more] {
+  width: auto;
+  background-color: var(--bg-raised);
+  border-color: var(--line-strong);
+  color: var(--fg);
+  letter-spacing: 0;
+}
+/* Title-bar presence stack: up to three overlapping avatars plus a count pill,
+   carved cleanly apart with chrome cutout rings and a gentle hover lift. */
+.mn-avatar-stack {
+  isolation: isolate;
+}
+.mn-avatar-stack > .mn-avatar {
+  position: relative;
+  box-shadow:
+    0 0 0 2px var(--bg-chrome),
+    var(--avatar-inner-ring);
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+.mn-avatar-stack > .mn-avatar[data-more] {
+  box-shadow: 0 0 0 2px var(--bg-chrome);
+}
+.mn-avatar-stack > .mn-avatar + .mn-avatar {
+  margin-inline-start: -0.375rem;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(1) {
+  z-index: 4;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(2) {
+  z-index: 3;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(3) {
+  z-index: 2;
+}
+.mn-avatar-stack > .mn-avatar[data-more] {
+  z-index: 1;
+}
+.mn-avatar-stack:hover > .mn-avatar:nth-child(1) {
+  transform: translateX(-0.125rem);
+}
+.mn-avatar-stack:hover > .mn-avatar:nth-child(3) {
+  transform: translateX(0.125rem);
+}
+.mn-avatar-stack:hover > .mn-avatar[data-more] {
+  transform: translateX(0.25rem);
+}
+/* A compact stack where room is short (Scenes panel): each avatar tucks under the edge
+   of the one before, cut out by a ring of the panel's colour. */
 .mn-avatar-overlap {
   isolation: isolate;
 }
 .mn-avatar-overlap > .mn-avatar {
   position: relative;
-  box-shadow: 0 0 0 1.5px var(--bg-chrome);
+  box-shadow:
+    0 0 0 1.5px var(--bg-chrome),
+    var(--avatar-inner-ring);
 }
 .mn-avatar-overlap > .mn-avatar + .mn-avatar {
   margin-inline-start: -0.25rem;
@@ -1371,7 +1466,21 @@ button:not(:disabled, [aria-disabled="true"]):hover
   z-index: 1;
 }
 .mn-avatar-overlap > .mn-avatar[data-more] {
-  background-color: var(--bg-chrome);
+  background-color: var(--bg-raised);
+  box-shadow: 0 0 0 1.5px var(--bg-chrome);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-avatar-stack > .mn-avatar {
+    transition: none;
+  }
+  .mn-avatar-stack:hover > .mn-avatar {
+    transform: none;
+  }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .mn-avatar-art {
+    display: none;
+  }
 }
 
 /* A card to choose (a person, a kind of project): raised, its edge strong

@@ -192,8 +192,11 @@ function markerOf(
     marker.textContent = only.initials;
     marker.style.borderRadius = "50%";
   } else {
-    marker.className = "mn-marker";
+    marker.className = "mn-marker mn-avatar";
+    marker.dataset["more"] = "";
     marker.textContent = String(people.length);
+    marker.style.borderRadius = "9999px";
+    marker.style.paddingInline = "4px";
   }
   Object.assign(marker.style, {
     position: "absolute",
