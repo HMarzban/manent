@@ -36,6 +36,23 @@ async function insertBootScript(outDir: string): Promise<void> {
   );
 }
 
+/** Bundles the Ink compile and live-story worker to `<outDir>/ink-compile.worker.js`. */
+async function buildInkWorker(outDir: string): Promise<Bun.BuildOutput> {
+  return Bun.build({
+    entrypoints: [join(import.meta.dir, "src/ink/compile.worker.ts")],
+    outdir: outDir,
+    naming: "ink-compile.worker.js",
+    format: "iife",
+    minify: true,
+    target: "browser",
+    sourcemap: "none",
+    define: {
+      "process.env.NODE_ENV": '"production"',
+      "import.meta.url": "self.location.href",
+    },
+  });
+}
+
 /** Bundles the service worker to `<outDir>/sw.js` with the precache list and its hash compiled in. */
 async function buildWorker(
   outDir: string,
@@ -93,9 +110,12 @@ export async function buildWeb(options: {
   if (result.metafile === undefined)
     return { ok: false, logs: ["the build wrote no metafile"] };
   await insertBootScript(outDir);
+  const inkWorker = await buildInkWorker(outDir);
+  if (!inkWorker.success)
+    return { ok: false, logs: inkWorker.logs.map((log) => log.message) };
   // read back from disk: the page has changed since the build wrote it
   const written = await Promise.all(
-    result.outputs.map(async (output) => ({
+    [...result.outputs, ...inkWorker.outputs].map(async (output) => ({
       path: output.path,
       bytes: await Bun.file(output.path).bytes(),
     })),
@@ -116,8 +136,8 @@ export async function buildWeb(options: {
     return { ok: false, logs: [notices.stderr.toString()] };
   return {
     ok: true,
-    files: [...result.outputs, ...worker.outputs].map((output) =>
-      relative(outDir, output.path),
+    files: [...result.outputs, ...inkWorker.outputs, ...worker.outputs].map(
+      (output) => relative(outDir, output.path),
     ),
     metafile: result.metafile,
   };
