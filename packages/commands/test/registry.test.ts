@@ -976,6 +976,7 @@ test("the handler table names every command but the generated ones", () => {
     "prompter.files": noop,
     "prompter.stopFiles": noop,
     "script.renameCharacter": noop,
+    "view.focusMode": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))
