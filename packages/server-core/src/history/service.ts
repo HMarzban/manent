@@ -125,9 +125,12 @@ export function createHistoryService(options: {
     if (place === null) return failed("not_found");
     const resolved = options.sync().access.resolve(userId, docId);
     if (!resolved.ok) return failed(resolved.code);
-    const { role } = resolved.access;
-    if (need === "edit" && role !== "owner" && role !== "edit")
-      return failed("forbidden");
+    const { role, capabilities } = resolved.access;
+    if (need === "edit") {
+      if (role !== "owner" && role !== "edit") return failed("forbidden");
+      if (place.kind === "rundown" && !capabilities.includes("edit_rundowns"))
+        return failed("forbidden");
+    }
     return { ok: true, file: storage.open(place.home) };
   }
 
@@ -252,17 +255,21 @@ export function createHistoryService(options: {
       const request = { docId, key, tells: "version_created" } as const;
       const made = { docId, kind, name: null, createdByUserId: userId };
       const how = { carry: true, snapshot: false, key, onlyWhenNew: false };
-      return requested(file, userId, request, () =>
-        recorder.atHead(file, made, how),
-      );
+      return requested(file, userId, request, () => {
+        const fresh = authorize(userId, docId, "edit");
+        if (!fresh.ok) return fresh;
+        return recorder.atHead(fresh.file, made, how);
+      });
     },
     async upload(userId, body) {
       const { docId, version } = body;
       const access = authorize(userId, docId, "edit");
       if (!access.ok) return access;
       if (!VERSION_ID.test(version.id)) return failed("bad_request");
-      const { file } = access;
       return inChain(docId, async () => {
+        const fresh = authorize(userId, docId, "edit");
+        if (!fresh.ok) return fresh;
+        const { file } = fresh;
         const existing = file.history.get(version.id);
         if (existing !== null)
           return existing.docId === docId
@@ -281,8 +288,11 @@ export function createHistoryService(options: {
       const access = authorize(userId, body.docId, "edit");
       if (!access.ok) return access;
       if (!isReplayKey(body.key)) return failed("bad_request");
-      const restore = () => restorer.restore(access.file, userId, body);
-      return inChain(body.docId, restore);
+      return inChain(body.docId, async () => {
+        const fresh = authorize(userId, body.docId, "edit");
+        if (!fresh.ok) return fresh;
+        return restorer.restore(fresh.file, userId, body);
+      });
     },
     keep: createKeep({ recorder, locksAt, extras }),
     ...createAttribution({ authorize }),

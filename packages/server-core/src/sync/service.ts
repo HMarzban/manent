@@ -145,7 +145,7 @@ export function createSyncService(
 
   const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
     const room = rooms.find(docId);
-    if (room === null || room.doc === null) return;
+    if (room === null || (room.doc === null && room.viewers.size === 0)) return;
     deliverControl(room, { kind, data }, () => true);
   };
 
@@ -179,10 +179,12 @@ export function createSyncService(
       for (const peer of room.editors.keys())
         if (peer !== sender || echo) peer.send(prepared);
       rebuilder.touched(room);
-      const patch = viewPatchOf(committed);
-      if (patch !== null) {
-        const viewed = prepareMessage(patch);
-        for (const peer of room.viewers.keys()) peer.send(viewed);
+      if (room.viewers.size > 0) {
+        const patch = viewPatchOf(committed);
+        if (patch !== null) {
+          const viewed = prepareMessage(patch);
+          for (const peer of room.viewers.keys()) peer.send(viewed);
+        }
       }
       hooks.committed(committed);
     },
