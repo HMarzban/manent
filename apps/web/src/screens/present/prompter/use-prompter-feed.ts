@@ -9,6 +9,7 @@ import type { PrompterReadingStory } from "./prompter-blocks.ts";
 import {
   mapToStories,
   readCachedFeed,
+  removeCachedFeed,
   storiesToMap,
   writeCachedFeed,
 } from "./prompter-storage.ts";
@@ -112,10 +113,15 @@ export function usePrompterFeed(rundownId: string): PrompterFeedView {
       if (closed) return;
       const status = current.status.get();
       if (status.feed === "refused") {
+        receivedLive = false;
+        savedRunOrder = null;
+        savedStories = null;
+        removeCachedFeed(storage, rundownId);
         setSnapshot((prev) => ({
           ...prev,
           feed: "refused",
           hasFeed: false,
+          lastReceivedAt: null,
           runOrder: [],
           stories: EMPTY_STORIES,
         }));

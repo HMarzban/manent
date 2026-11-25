@@ -43,11 +43,14 @@ function isTextSize(value: unknown): value is PrompterTextSize {
   );
 }
 
-function readNullableNumber(value: unknown): number | null | undefined {
-  if (value === null) return null;
+type NullableNumberResult =
+  { readonly ok: true; readonly value: number | null } | { readonly ok: false };
+
+function readNullableNumber(value: unknown): NullableNumberResult {
+  if (value === null) return { ok: true, value: null };
   return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+    ? { ok: true, value }
+    : { ok: false };
 }
 
 function readJson(storage: Storage | null, key: string): unknown {
@@ -109,8 +112,15 @@ function readRow(value: unknown): PrompterRow | null {
   if (storyId !== null && typeof storyId !== "string") return null;
   const rowNumber = readNullableNumber(value.number);
   const durationMs = readNullableNumber(value.durationMs);
-  if (rowNumber === undefined || durationMs === undefined) return null;
-  return { rowId, kind, number: rowNumber, title, storyId, durationMs };
+  if (!rowNumber.ok || !durationMs.ok) return null;
+  return {
+    rowId,
+    kind,
+    number: rowNumber.value,
+    title,
+    storyId,
+    durationMs: durationMs.value,
+  };
 }
 
 function readStory(value: unknown): PrompterStory | null {
@@ -165,7 +175,7 @@ export function readCachedFeed(
   if (!Array.isArray(value.runOrder) || !Array.isArray(value.stories))
     return null;
   const lastReceivedAt = readNullableNumber(value.lastReceivedAt);
-  if (lastReceivedAt === undefined) return null;
+  if (!lastReceivedAt.ok) return null;
   const runOrder: PrompterRow[] = [];
   for (const item of value.runOrder) {
     const row = readRow(item);
@@ -178,7 +188,7 @@ export function readCachedFeed(
     if (story === null) return null;
     stories.push(story);
   }
-  return { v: 1, runOrder, stories, lastReceivedAt };
+  return { v: 1, runOrder, stories, lastReceivedAt: lastReceivedAt.value };
 }
 
 /** Writes the last received prompter feed for `rundownId` under `manent.prompter.feed.<rundownId>`. */
@@ -188,6 +198,19 @@ export function writeCachedFeed(
   feed: CachedPrompterFeed,
 ): void {
   writeJson(storage, feedKey(rundownId), feed);
+}
+
+/** Removes the cached prompter feed for `rundownId`; ignores storage failures. */
+export function removeCachedFeed(
+  storage: Storage | null,
+  rundownId: string,
+): void {
+  if (storage === null) return;
+  try {
+    storage.removeItem(feedKey(rundownId));
+  } catch {
+    // storage unavailable: nothing cached to remove
+  }
 }
 
 /** Converts cached story entries into the map shape the reading view consumes. */

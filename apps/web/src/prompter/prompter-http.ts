@@ -49,8 +49,9 @@ function refusalFromError(body: unknown, status: number): PrompterSendRefusal {
 export async function fetchCanSendPrompter(
   docId: string,
   token: string | null,
+  fetchFn: typeof fetch = fetch,
 ): Promise<boolean | null> {
-  const answer = await fetch("/api/docs/describe", {
+  const answer = await fetchFn("/api/docs/describe", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify({ docId }),
@@ -66,10 +67,11 @@ export async function postPrompterSend(
   kind: PrompterSendKind,
   request: PrompterSendRequest,
   token: string | null,
+  fetchFn: typeof fetch = fetch,
 ): Promise<PrompterSendOutcome> {
   const path =
     kind === "send" ? "/api/prompter/send" : "/api/prompter/send-previous";
-  const answer = await fetch(path, {
+  const answer = await fetchFn(path, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(request),
@@ -89,8 +91,9 @@ export async function lookupVersionCreatedAt(
   storyId: string,
   versionId: string,
   token: string | null,
+  fetchFn: typeof fetch = fetch,
 ): Promise<number | null> {
-  const answer = await fetch(
+  const answer = await fetchFn(
     `/api/versions?docId=${encodeURIComponent(storyId)}`,
     { headers: authHeaders(token) },
   ).catch(() => null);

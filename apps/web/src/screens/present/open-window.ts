@@ -11,18 +11,20 @@ const opened = new Map<string, Window>();
 
 /**
  * Opens the window of `mode` on `docId`, or focuses it when this tab opened it before. It opens without `noopener`, so
- * the new window copies this tab's session storage and so its person.
+ * the new window copies this tab's session storage and so its person. Returns false when the browser blocked the pop-up.
  */
 export function openPresentWindow(
   docId: string,
   mode: PresentMode["id"],
-): void {
+): boolean {
   const name = `manent-${mode}-${docId}`;
   const open = opened.get(name);
   if (open !== undefined && !open.closed) {
     open.focus();
-    return;
+    return true;
   }
   const made = window.open(`/s/${docId}/${PRESENT_PATHS[mode]}`, name);
-  if (made !== null) opened.set(name, made);
+  if (made === null) return false;
+  opened.set(name, made);
+  return true;
 }
