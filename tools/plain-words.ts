@@ -67,5 +67,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report,
   counting, figure, per,
   best, inside, narrow, year,
-  benchmark
+  benchmark,
+  advanced, allowed, blank, choices, control, controlling, description, external, fast, forward, id, insert, ip, jpeg, jump, limit, lower, ncs, normal, optional, paused, png, port, ports, scroll, taking, taller, upper, webp, wider
 `);
