@@ -24,6 +24,7 @@ export const WORKSPACE_INDEX_MAPS = Object.freeze([
   "projects",
   "documents",
   "folders",
+  "templates",
 ] as const);
 
 /** The maps of a project's index. */

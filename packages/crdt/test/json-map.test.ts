@@ -61,7 +61,7 @@ test("the map names of the two index kinds are fixed", () => {
       "private_folder",
       "goals",
     ],
-    ["projects", "documents", "folders"],
+    ["projects", "documents", "folders", "templates"],
   ]);
 });
 
