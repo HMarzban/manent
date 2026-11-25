@@ -36,10 +36,10 @@ async function closeSuggestions(page: Page): Promise<void> {
   if (list !== null) await page.keyboard.press("Escape");
 }
 
-/** You, with the test build's hooks kept, in a new screenplay made with the Library's New script. */
-export async function newScript(page: Page): Promise<void> {
+/** You, or `userId`, with the test build's hooks kept, in a new screenplay made with the Library's New script. */
+export async function newScript(page: Page, userId = "you"): Promise<void> {
   await keepEveryHooks(page);
-  await signedInAs(page, "you");
+  await signedInAs(page, userId);
   await page
     .getByRole("button", { name: labelOf("library.newScript") })
     .first()
@@ -48,15 +48,17 @@ export async function newScript(page: Page): Promise<void> {
 }
 
 /**
- * A new script of `format` for You, holding `doc` when given and otherwise the format's empty first line, with the
- * caret at the end of its first line; resolves to its doc id. A page is drawn first, so the hooks that find it are known.
+ * A new script of `format` for You, or for `userId`, holding `doc` when given and otherwise the format's empty first
+ * line, with the caret at the end of its first line; resolves to its doc id. A page is drawn first, so the hooks that
+ * find it are known.
  */
 export async function openScript(
   page: Page,
   format: string,
   doc?: DocJSON,
+  userId?: string,
 ): Promise<string> {
-  await newScript(page);
+  await newScript(page, userId);
   const docId = String(await editorHook(page, "open", format, doc ?? null));
   // the page stays hidden until its faces have loaded, and a hidden page takes no focus
   await expect(page.locator(EDITABLE)).toBeVisible();
@@ -242,6 +244,13 @@ export const groupHook = (
     },
     [group, name, args] as const,
   );
+
+/** Opens View ▾, clicks its item named `name`, and closes the menu. */
+export async function viewItem(page: Page, name: RegExp): Promise<void> {
+  await page.getByRole("button", { name: "View", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name }).click();
+  await page.keyboard.press("Escape");
+}
 
 /** Dana Reyes, the simulated writer the remote hooks bring in. */
 export const DANA = { userId: "dana", name: "Dana Reyes", colorIndex: 0 };

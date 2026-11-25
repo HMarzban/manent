@@ -15,7 +15,7 @@ Several people can be in one script at once. Each change reaches the others as i
 
 ## Try it in the demo
 
-Dana, Sam, Priya, Leo and Ana share the Writers' room, and a script one of them makes there opens for the others with the role the workspace gives them. Choose Dana in one tab, click **New script** in the Writers' room and type a line. Copy the script's id, the part of the address after `/s/`. In a second tab, open `http://localhost:4747/choose?next=/s/<id>` with that id in place of `<id>`, choose Priya, and type in either tab. Two tabs of one person work as well: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
+Dana, Sam, Priya, Leo and Ana share the Writers' room, and a script one of them makes there opens for the others with the role the workspace gives them. Choose Dana in one tab, click **New script** in the Writers' room and type a line. In a second tab, choose Priya: Dana's new project is in her Library too, and opens on a click. Type in either tab. Two tabs of one person work as well: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
 
 ## Production revisions
 
@@ -38,5 +38,4 @@ These commands appear in the command palette, and on the desktop in the Producti
 ## Not in this build
 
 - **Comments.** The side panel has History, Details and Tour; comments are planned.
-- **Opening another person's script from the Library.** Priya's Library lists Dana's script, marked "Not on this device", but a row marked so does not open from the Library yet; open the script by its address, as above.
 - **Roles in practice.** The demo people have roles (editor, reader and commenter, production permissions) and the server checks them, but no screen yet lets you share a script or change a role.

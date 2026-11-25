@@ -26,7 +26,7 @@ const DRAFTS = [
 /** The pages the fixed opening fills before the first generated scene. */
 const OPENING_PAGES = 5;
 /** Actions the beats never draw, kept for the fits and the earlier drafts to add. */
-const RESERVE = 50;
+const RESERVE = 70;
 const CAST_WORDS = new Set(
   GUIDE.cast.flatMap((c) => `${c.cue} ${c.name}`.toLowerCase().split(/[\s.]+/)),
 );

@@ -1,12 +1,7 @@
 // The Send screen: the form its route names, inside the frame, over the document it sends.
 import { COMMANDS } from "@manent/commands";
 import { markEnd, markStart } from "@manent/perf";
-import {
-  CommandButton,
-  LIBRARY_WORDS,
-  MessageSlot,
-  useSubscribable,
-} from "@manent/ui";
+import { LIBRARY_WORDS, MessageSlot, useSubscribable } from "@manent/ui";
 import {
   getRouteApi,
   useNavigate,
@@ -15,6 +10,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
 import { safeNext } from "../../session.ts";
@@ -81,7 +77,7 @@ function SendStatusBar(): ReactNode {
         run={(id) => commands.run(id, "control")}
         registered={isCommandId}
       />
-      <CommandButton id="app.palette" size="sm" />
+      <CommandsButton />
     </ShellRegion>
   );
 }

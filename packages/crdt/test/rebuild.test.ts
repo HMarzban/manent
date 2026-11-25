@@ -138,7 +138,7 @@ test("what a newer build wrote survives a rebuild", () => {
   });
 });
 
-test("a rebuild copies the script body, the two settings maps, the overrides map, the notes, the import record and the title page, and no other root", () => {
+test("a rebuild copies the script body, the two settings maps, the overrides map, the notes, the import record, the title page, the alternates, the cuts and the scene progress, and no other root", () => {
   expect(ROOT_TYPE_NAMES).toEqual([
     "prosemirror",
     "settings",
@@ -147,6 +147,9 @@ test("a rebuild copies the script body, the two settings maps, the overrides map
     "notes",
     "imported",
     "titlePage",
+    "alternates",
+    "cuts",
+    "sceneProgress",
   ]);
 });
 

@@ -61,12 +61,16 @@ test("every new module exists and every package entry imports cleanly", async ()
     await import(fromRoot(entry));
 });
 
-test("the Import section is the last of the script's sections", async () => {
+test("the Import section is registered among the script's sections", async () => {
   const [{ DETAILS_SECTIONS }, { ImportSection }] = await Promise.all([
     import(fromRoot("apps/web/src/screens/document/details-sections.ts")),
     import(fromRoot("apps/web/src/import/import-section.tsx")),
   ]);
-  expect(DETAILS_SECTIONS.at(-1)).toEqual({
+  expect(
+    DETAILS_SECTIONS.find(
+      (section: { readonly id: string }) => section.id === "import",
+    ),
+  ).toEqual({
     id: "import",
     scope: "script",
     Section: ImportSection,

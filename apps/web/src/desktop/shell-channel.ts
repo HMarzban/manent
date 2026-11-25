@@ -74,6 +74,7 @@ function shownMessages(shown: Subscribable<PersonServices | null>): {
       },
       current: () => queue()?.current() ?? null,
       dismiss: (id) => queue()?.dismiss(id),
+      withdraw: (id) => queue()?.withdraw(id),
       withdrawUndo: () => queue()?.withdrawUndo(),
       receipts: () => queue()?.receipts() ?? [],
       subscribe(listener) {

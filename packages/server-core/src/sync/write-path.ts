@@ -2,7 +2,6 @@
 // each turn's queue is committed per file before anything is acknowledged or published.
 import { applyInspecting, findCopies, updateMeta } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
-import type { Issue } from "@manent/schema";
 import type {
   AppendItem,
   DocFile,
@@ -10,85 +9,30 @@ import type {
   UpdateOrigin,
 } from "@manent/storage";
 import { CODE } from "@manent/sync-protocol";
-import type { CopiesKeptControl } from "@manent/sync-protocol";
-import type { TokenBucket } from "../limits/bucket.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
 import { admit, refusal } from "./admission.ts";
 import { writeOnCopy } from "./authority-write.ts";
 import type { AuthorityItem } from "./authority-write.ts";
 import {
   answer,
+  answerFailed,
+  appendedBy,
   commitFile,
-  committedOf,
+  isAuthorityWrite,
   settle,
+  shownWhileHeld,
   upstreamOf,
 } from "./commit.ts";
 import { copiesRepair } from "./copies.ts";
 import type { Refusal } from "./errors.ts";
-import type { HeldQueue } from "./held.ts";
 import type { IngestItem } from "./ingest.ts";
-import type {
-  Peer,
-  SettingRules,
-  SyncLimits,
-  Upstream,
-  WritePath,
-} from "./ports.ts";
+import type { Peer, WritePath } from "./ports.ts";
 import { appendOf, readUpdate } from "./push-update.ts";
 import type { Meta } from "./push-update.ts";
-import type { Room, Rooms, Subscription } from "./rooms.ts";
+import type { Room, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
 import { validateRoomPush } from "./validate.ts";
-
-export interface Committed {
-  room: Room;
-  sender: Peer | null;
-  seq: number;
-  update: Uint8Array;
-  /** Null for a setting the authority wrote. */
-  report: TransactionReport | null;
-  /** Also send the update to the sender: a setting, or a replay, whose sender is null. */
-  echo: boolean;
-}
-
-export interface WritePathPorts {
-  limits: SyncLimits;
-  now: () => number;
-  /** Runs `fn` when this turn's messages have been handled: the group commit. */
-  defer(fn: () => void): void;
-  rooms: Pick<Rooms, "reload" | "drop" | "changed">;
-  bucketOf(peer: Peer): { frames: TokenBucket; bytes: TokenBucket };
-  ack(peer: Peer, room: Room, clientSeq: number, serverSeq: number): void;
-  refuse(peer: Peer, room: Room, refusal: Refusal): void;
-  /** SYNC update to the room's editors (but the sender, unless echo); VIEW_PATCH to its viewers. */
-  publish(committed: Committed): void;
-  /** Tells and unsubscribes everyone in these rooms. */
-  poisoned(rooms: readonly Room[]): void;
-  /** Ends the subscriptions of editors below `toVersion`, before the update is published. */
-  schemaRaised(room: Room, toVersion: number): void;
-  /** Whether the heal rule admits these ranges of client ids that are not the pusher's. */
-  admitsForeign(
-    room: Room,
-    userId: string,
-    heal: boolean,
-    ranges: readonly { clientId: number; toClock: number }[],
-  ): boolean;
-  /** Inside the transaction, before each push's append. */
-  beforeAppend(room: Room, userId: string, heal: boolean): void;
-  /** Relayed rooms only. */
-  upstream: Upstream | null;
-  /** On a full disk, "poison" ends the file's rooms; "hold" gives what the commit could not write to `held`. */
-  fullDisk: "poison" | "hold";
-  held: HeldQueue;
-  registry: SettingRules;
-  schemaFloor: ((touched: readonly unknown[]) => number) | null;
-  /** Step 5: issues joined to validatePush's, any of which refuses the push. */
-  checkPush(room: Room, report: TransactionReport): Issue[];
-  /** Drawn from for the client id an authority write is made under in a relayed room, and for the ID a copy is given. */
-  ids(): string;
-  /** Step 6 left copies that differ in the room's script, which the person whose push made them reviews. */
-  copiesKept(room: Room, control: CopiesKeptControl): void;
-}
+import type { WritePathPorts } from "./write-path-ports.ts";
 
 /** What a turn holds until its commit. `ack` is a resend, acknowledged in its place. */
 type PeerItem = {
@@ -114,29 +58,6 @@ type PeerItem = {
 /** An entry of the write path's queue: what a commit writes, then answers. */
 export type QueuedItem = PeerItem | ReplayItem | IngestItem | AuthorityItem;
 
-/** The update the item appends once committed; null for one that appends none. */
-function appendedBy(item: QueuedItem): Uint8Array | null {
-  if (item.kind === "append" || item.kind === "ingest")
-    return item.append.update;
-  if (item.kind === "authority") return item.append?.update ?? null;
-  return item.kind === "replay" ? item.write.update : null;
-}
-
-/** A replay or an authority write that will never commit is answered as failed. */
-function answerFailed(item: QueuedItem): void {
-  if (item.kind === "replay") item.done({ ok: false });
-  if (item.kind === "authority")
-    item.done({ ok: false, code: "commit_failed" });
-}
-
-/**
- * A setting the authority wrote into the room's document. Shown before it commits, it would leave
- * a window holding structs under the authority's client id, which a crash can take from the log
- * and no window may push back.
- */
-const isAuthorityWrite = (item: QueuedItem): boolean =>
-  item.kind === "append" && item.setting;
-
 export function createWritePath(ports: WritePathPorts): WritePath {
   const { rooms } = ports;
   let queue: QueuedItem[] = [];
@@ -144,12 +65,17 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   const heldFiles = new Map<DocFile, StorageError>();
   /** By document: what its held items append, in arrival order. */
   const heldUpdates = new Map<string, Uint8Array[]>();
+  /** By document: what of its held items its windows were sent, in arrival order. */
+  const heldShownUpdates = new Map<string, Uint8Array[]>();
 
   const keepHeld = (item: QueuedItem): void => {
     const update = appendedBy(item);
     if (update === null) return;
     const { docId } = item.room;
     heldUpdates.set(docId, [...(heldUpdates.get(docId) ?? []), update]);
+    if (shownWhileHeld(item) === null) return;
+    const shown = heldShownUpdates.get(docId) ?? [];
+    heldShownUpdates.set(docId, [...shown, update]);
   };
 
   const enqueue = (item: QueuedItem): void => {
@@ -158,8 +84,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   };
 
   const authority: WritePath["authority"] = (room, write, done) => {
-    const { userId, origin, inTransaction } = write;
-    const written = writeOnCopy(room, origin, write.edit, ports.ids);
+    const { userId, origin, writer, inTransaction } = write;
+    const written = writeOnCopy(room, origin, write.edit, ports.ids, writer);
     if (!written.ok)
       return done({ ok: false, code: "refused", reason: written.reason });
     const { update, report } = written;
@@ -252,8 +178,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       }
       // a held item is shown now, but for what the authority wrote, and acknowledged once it commits;
       // a replay and an authority write answer whole then
-      const committed = isAuthorityWrite(item) ? null : committedOf(item);
-      if (committed !== null) ports.publish(committed);
+      const shown = shownWhileHeld(item);
+      if (shown !== null) ports.publish(shown);
     }
   }
 
@@ -293,8 +219,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      const issues = validateRoomPush(report, room);
-      issues.push(...ports.checkPush(room, report));
+      const issues = validateRoomPush({ report, room, subscription });
+      issues.push(...ports.checkPush(room, report, subscription));
       if (issues.length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
@@ -373,6 +299,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       heldFiles.delete(file);
       for (const item of items) {
         heldUpdates.delete(item.room.docId);
+        heldShownUpdates.delete(item.room.docId);
         // published when they were held, but for what the authority wrote
         if (isAuthorityWrite(item)) answer(item, ports);
         else settle(item, ports);
@@ -381,6 +308,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     holdError: (file) => heldFiles.get(file) ?? null,
     heldUpdates: (docId) => heldUpdates.get(docId) ?? [],
+    heldShownUpdates: (docId) => heldShownUpdates.get(docId) ?? [],
     flush,
     queued: () => queue.length + ports.held.size(),
   };

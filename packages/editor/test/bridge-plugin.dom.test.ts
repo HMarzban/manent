@@ -404,3 +404,99 @@ test("the bridge never walks the document", () => {
     2,
   ]);
 });
+
+/** Moves the caret to the end of `block` without changing the document. */
+function moveCaretTo(view: EditorView, block: number): void {
+  const index = toIndex(view.state.doc);
+  const end = blockPos(index, block) + 1 + index.blocks[block]!.text.length;
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, end)),
+  );
+}
+
+test("moving the caret to another scene updates the current scene on the next frame", () => {
+  const doc = docOfBlocks([
+    ["scene_heading", "INT. A - DAY"],
+    ["action", "first"],
+    ["scene_heading", "INT. B - DAY"],
+    ["action", "second"],
+    ["scene_heading", "INT. C - DAY"],
+  ]);
+  const timers = fakeTimers();
+  const frames = fakeFrames();
+  const facts: Partial<FactsShape>[] = [];
+  const publishedRows: (readonly OutlineEntry[])[] = [];
+  const publishedCurrent: (string | null)[] = [];
+  const view = viewOf(doc, 1, [
+    pagination(),
+    bridgePlugin({
+      facts: { publish: (changed) => facts.push(changed) },
+      outline: {
+        publish: (rows) => publishedRows.push(rows),
+        publishCurrent: (blockId) => publishedCurrent.push(blockId),
+      },
+      history: noHistory,
+      words,
+      format: () => "screenplay",
+      frames,
+      timers,
+    }),
+  ]);
+  frames.fire();
+  const initialRowCount = publishedRows.length;
+  const initialCurrent = [...publishedCurrent];
+
+  moveCaretTo(view, 3);
+  const beforeFrame = [...publishedCurrent];
+  frames.fire();
+  const afterMoveFacts = facts.at(-1);
+
+  // moving inside the same scene publishes nothing more
+  moveCaretTo(view, 2);
+  frames.fire();
+
+  // advancing the 250 ms timer triggers no structural rebuild for selection-only moves
+  timers.advance(250);
+
+  expect([
+    initialRowCount,
+    initialCurrent,
+    beforeFrame,
+    publishedCurrent,
+    publishedRows.length,
+    afterMoveFacts?.scene,
+    afterMoveFacts?.sceneId,
+  ]).toEqual([1, [bid(0)], [bid(0)], [bid(0), bid(2)], 1, "2", bid(2)]);
+});
+
+test("a minimal outline sink receives a frame-fast update when the caret enters another scene", () => {
+  const doc = docOfBlocks([
+    ["scene_heading", "INT. A - DAY"],
+    ["action", "first"],
+    ["scene_heading", "INT. B - DAY"],
+    ["action", "second"],
+    ["scene_heading", "INT. C - DAY"],
+  ]);
+  const { view, frames, outline } = mount(doc, 1);
+  frames.fire();
+  const first = outline[0]!;
+  moveCaretTo(view, 3);
+  const beforeFrame = outline.length;
+  frames.fire();
+  const second = outline[1]!;
+  expect([
+    beforeFrame,
+    outline.length,
+    second.map((entry) => [entry.blockId, entry.current]),
+    second[2] === first[2],
+  ]).toEqual([
+    1,
+    2,
+    [
+      [bid(0), false],
+      [bid(2), true],
+      [bid(4), false],
+    ],
+    true,
+  ]);
+});

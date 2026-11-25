@@ -5,8 +5,9 @@ export class Receipt {
   /** The changes waiting at step 2, and how many items were filed before it; null when no receipt is owed. */
   private owed: { sent: number; setAside: number } | null = null;
 
+  /** A receipt still owed goes on counting what was filed since its own step 2. */
   owe(sent: number, setAside: number): void {
-    this.owed = { sent, setAside };
+    this.owed = { sent, setAside: this.owed?.setAside ?? setAside };
   }
 
   /** The reconnect ended in a move: nothing is told for it. */

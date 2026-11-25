@@ -2,7 +2,10 @@
 // and memory storage, moved only by its clock, the service's deferred work and network steps.
 import { createRng, seededIdSource } from "@manent/demo";
 import type { Rng } from "@manent/demo";
-import type { SyncLimits } from "@manent/server-core";
+import { sceneBlocks } from "@manent/revisions";
+import type { RestoreScope } from "@manent/revisions";
+import type { BlockJSON, DocJSON } from "@manent/schema";
+import type { SyncHooks, SyncLimits, SyncService } from "@manent/server-core";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import { createSyncClient, soloLeader } from "@manent/sync-client";
@@ -33,6 +36,8 @@ export type { SimClient } from "./device.ts";
 
 export interface World {
   readonly seed: number;
+  /** The world's one document. */
+  readonly docId: string;
   readonly clock: FakeClock;
   readonly network: MemoryNetwork;
   readonly storage: MemoryStorage;
@@ -51,6 +56,10 @@ export interface World {
   rebuilds(): number;
   /** The lines of the document's current generation rebuilt from the log alone. */
   serverText(): string[];
+  /** Markers a person removed: deleted where they were held, kept only in a cleared browser, or taken out by a restore. */
+  removed(): ReadonlySet<string>;
+  /** A restore of `target` over `before`: the markers `before` holds within `scope` and `target` lacks there are removed by the restorer's choice. */
+  noteRestore(before: DocJSON, target: DocJSON, scope: RestoreScope): void;
   /** The invariants; throws an Error naming the seed and the first one broken. */
   check(): void;
 }
@@ -81,6 +90,7 @@ function randomOf(rng: Rng): Random {
 }
 
 class SimWorld implements World {
+  readonly docId = DOC;
   readonly clock: FakeClock;
   readonly network: MemoryNetwork;
   readonly storage: MemoryStorage;
@@ -189,6 +199,16 @@ class SimWorld implements World {
     return rebuild(this.storage).lines;
   }
 
+  removed(): ReadonlySet<string> {
+    return this.books.removed;
+  }
+
+  noteRestore(before: DocJSON, target: DocJSON, scope: RestoreScope): void {
+    const kept = markersIn(linesOfBlocks(blocksWithin(target, scope)));
+    for (const marker of markersIn(linesOfBlocks(blocksWithin(before, scope))))
+      if (!kept.has(marker)) this.books.removed.add(marker);
+  }
+
   check(): void {
     const broken = firstBroken({
       storage: this.storage,
@@ -221,6 +241,29 @@ class SimWorld implements World {
   }
 }
 
+const idOf = (block: BlockJSON): string => String(block.attrs?.id);
+
+/** Every block of `doc`, in order, whatever its section. */
+export const blocksOfDoc = (doc: DocJSON): BlockJSON[] =>
+  (doc.content ?? []).flatMap((section) => section.content ?? []);
+
+/** A document of one section holding `blocks`. */
+export const docOfBlocks = (blocks: readonly BlockJSON[]): DocJSON => ({
+  type: "doc",
+  content: [{ type: "section", content: [...blocks] }],
+});
+
+const linesOfBlocks = (blocks: BlockJSON[]): string[] =>
+  linesOfContent(docOfBlocks(blocks));
+
+/** The blocks of `doc` that `scope` covers, in order. */
+function blocksWithin(doc: DocJSON, scope: RestoreScope): BlockJSON[] {
+  const blocks = blocksOfDoc(doc);
+  if (scope.kind === "script") return blocks;
+  const ids = new Set(sceneBlocks(doc, scope.headingId));
+  return blocks.filter((block) => ids.has(idOf(block)));
+}
+
 /** The transport, with every replay key it sends kept in the books. */
 function keyed(transport: Transport, books: Books): Transport {
   return {
@@ -245,6 +288,12 @@ export async function createWorld(options: {
   serverVersions?: ServerVersions;
   clientVersions?: (device: string) => VersionSet;
   limits?: Partial<SyncLimits>;
+  /** Called once; every service the world starts gets the list, and `service()` answers the one running now. */
+  hooks?: (world: {
+    service: () => SyncService;
+    storage: MemoryStorage;
+    clock: FakeClock;
+  }) => readonly SyncHooks[];
 }): Promise<World> {
   const rng = createRng(options.seed);
   const clock = createFakeClock(START_AT);
@@ -254,6 +303,8 @@ export async function createWorld(options: {
   const versions = options.serverVersions ?? { current: V1, min: V1 };
   const random = rng.next;
   const { limits } = options;
+  const service = (): SyncService => server.service();
+  const hooks = options.hooks?.({ service, storage, clock });
   const server = createSimServer({
     network,
     storage,
@@ -261,6 +312,7 @@ export async function createWorld(options: {
     versions,
     random,
     limits,
+    hooks,
   });
   const ids = seededIdSource(rng);
   seedScript(storage, options.users, versions, ids);

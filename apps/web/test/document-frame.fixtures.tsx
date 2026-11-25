@@ -43,6 +43,7 @@ import type {
 } from "../src/state/outline.store.ts";
 import { panelsActions } from "../src/state/panels.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
+import { materialActions } from "../src/state/material.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import { renameActions } from "../src/state/rename.store.ts";
 import {
@@ -85,6 +86,7 @@ interface TestDocument extends DocumentServices {
   waitingByScene: Value<readonly { scene: string; count: number }[]>;
   stateFacts: Value<readonly StateFact[]>;
   people: Value<readonly PersonPresent[]>;
+  viewers: Value<number>;
   scriptBag: MemoryBag;
 }
 
@@ -131,6 +133,7 @@ function contextFor(
       shell: "web",
       demo: false,
       signedIn: signedIn(),
+      workspace: "writable",
       panelOpen: { left: panels.left !== null, side: panels.side !== null },
       historyPresent,
       format: null,
@@ -139,6 +142,18 @@ function contextFor(
       spaceBeforeSet: false,
       zoom: null,
       zoomPercent: null,
+      docKind: null,
+      projectKind: null,
+      outlineStart: false,
+      writing: null,
+      material: null,
+      rundown: null,
+      prompter: null,
+      inTrash: false,
+      canDelete: false,
+      focusMode: false,
+      readingAloud: false,
+      sprintRunning: false,
       production: null,
     };
   };
@@ -152,6 +167,7 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
       personal: createMemoryBag({ initial: {}, writable: () => true }),
       device: createMemoryBag({ initial: {}, writable: () => true }),
       script: scriptBag,
+      project: null,
     },
     beforeWrite: () => {},
     deferRemote: (apply) => apply(),
@@ -232,6 +248,8 @@ function outlineOf(
       return rows.get()[index] ?? null;
     },
     subscribe: (listener) => rows.subscribe(listener),
+    currentBlockId: () => rows.get().find((r) => r.current)?.blockId ?? null,
+    subscribeCurrent: (listener) => rows.subscribe(listener),
   };
 }
 
@@ -325,9 +343,11 @@ export async function renderFrame(
     ),
     stateFacts: createValue<readonly StateFact[]>([]),
     people: createValue<readonly PersonPresent[]>([]),
+    viewers: createValue(0),
     scriptBag:
       options.scriptBag ??
       createMemoryBag({ initial: {}, writable: () => true }),
+    material: materialActions,
   };
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",

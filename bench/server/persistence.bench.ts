@@ -85,7 +85,7 @@ function timingCommits(
     files.set(key, file);
     return file;
   };
-  return { directory: storage.directory, open, close: () => storage.close() };
+  return { ...storage, open, close: () => storage.close() };
 }
 
 /** The worker's checkpointer, telling whether a checkpoint of `docId` is unfinished. */

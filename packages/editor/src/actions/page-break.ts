@@ -3,6 +3,7 @@ import type { IdSource } from "@manent/schema";
 import { Selection, TextSelection } from "prosemirror-state";
 import type { Command } from "prosemirror-state";
 import { insertBlocks } from "../sections/insert-blocks.ts";
+import type { ActionEntry } from "./action-types.ts";
 
 /**
  * A page break at the caret, as pasted blocks go in: it splits a block in the
@@ -32,3 +33,11 @@ export function insertPageBreak(ids: IdSource): Command {
     return true;
   };
 }
+
+export const pageBreakEntry: ActionEntry<{ kind: "page_break" }> = {
+  readOnly: false,
+  run: (view, _, context) => {
+    insertPageBreak(context.ids)(view.state, view.dispatch);
+    return { ok: true };
+  },
+};

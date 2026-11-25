@@ -82,7 +82,7 @@ test("the two routes answer as their table says", async () => {
     400,
     { error: "bad_request" },
   ]);
-  expect(await create({ ...script, kind: "rundown" })).toEqual([
+  expect(await create({ ...script, kind: "draft" })).toEqual([
     400,
     { error: "unsupported_kind" },
   ]);

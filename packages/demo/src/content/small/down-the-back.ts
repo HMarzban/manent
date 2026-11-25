@@ -1,4 +1,5 @@
-// Down the Back of Everything: its front pages, its acts and scenes, and Act One's first two scenes.
+// Down the Back of Everything: its front pages, its acts and scenes, Act One's first two scenes, and the lines
+// the demo's writers type into it.
 
 export const DOWN_THE_BACK_FRONT = `
 general DOWN THE BACK OF EVERYTHING
@@ -178,4 +179,95 @@ dialogue A box. It's staying with us for a bit.
 action And Jumpox, without being asked, gathers its four brass feet underneath it, hops across the pavement and up the step, and goes into the shop as if it had always lived there. The side light goes in with it.
 action Spark follows. Gran, at the door, stands aside to let her pass, then stays there alone, looking at the empty doorway: not straight at it, but a little to one side, the way you look for something you saw once, a long time ago, and were never sure of.
 action Blackout.
+`;
+
+export const DOWN_THE_BACK_LINES = `
+action Jumpox gives a small, uncertain *tock* and shuffles a step closer to Spark.
+character SPARK
+dialogue If something's lost, it's somewhere. That's the first thing Gran ever taught me.
+character LOOKI
+parenthetical (from the corner of her eye)
+dialogue Down here, everything is somewhere. The trouble is that somewhere is very large.
+action The side light flickers. Spark keeps her eyes fixed on a button the size of a cartwheel.
+character GRAN
+dialogue Hands in your pockets, Spark, unless you're mending something.
+action A sock drifts past on the breeze, turns over once, and settles on the hill with the others.
+character LOOKI
+dialogue Every sock here was the other half of something. They don't like to be reminded.
+character SPARK
+dialogue Then we won't remind them. We'll just borrow the path.
+action Somewhere in the Umbrella Forest, a hundred umbrellas open at once, like a round of applause.
+character MR. DUSTIN PANN
+dialogue A place for everything, Miss Amari, and nothing in any of the places. That is tidiness.
+character SPARK
+dialogue That isn't tidy. That's empty.
+action Jumpox hops twice, then once more, the way it does when it agrees with somebody.
+character LOOKI
+dialogue Finders never keep. We only bring things back to the people who are missing them.
+action Spark takes the screwdriver from behind her ear and turns it over in her fingers, thinking.
+character MUM
+parenthetical (half asleep)
+dialogue Whatever you've brought home, love, it comes in the back way.
+character SPARK
+dialogue It's not a thing, Mum. It's more of a someone.
+action The Button River runs past in a clatter of buttons: brass ones, shell ones, one shaped like a strawberry.
+character MRS. LOMAX
+dialogue I put them down for one minute. One minute, and the whole world went blurry.
+character LOOKI
+dialogue Spectacles always go down the back of something. They like to see where things end up.
+action Spark kneels and feels along the gap with her fingertips, the way Gran feels for a loose wire.
+character GRAN
+parenthetical (to herself)
+dialogue Sixty years, and it's still there. Some things don't want to be found.
+character SPARK
+dialogue Everything wants to be found. It just doesn't always know who by.
+action A lamp-yellow glow, low in the corner. Nobody on stage looks at it. Everybody knows it is there.
+character LOOKI
+dialogue Don't look. Listen. Lost things hum, if you're quiet enough.
+action Jumpox's lid lifts a crack and claps shut: *tock*. Somewhere ahead, something answers.
+character SPARK
+parenthetical (to us)
+dialogue I've got six letters in my drawer at home. All stamped. None posted. Don't ask.
+action The Lost Bandstand creaks in the dark. Someone, long ago, left a trumpet on the top step.
+character MR. DUSTIN PANN
+parenthetical (smoothing his waistcoat)
+dialogue Lost is a decision, Miss Amari. People decide they can do without. I simply agree with them.
+character LOOKI
+dialogue Nobody decides to lose a key. It just slips.
+action Mr. Dustin Pann opens a drawer of his perfectly empty desk, looks into it, and closes it again, satisfied.
+action Jumpox nudges Spark's ankle with one brass foot: a hopeful *tock*.
+character SPARK
+dialogue I know. I'm looking. I'm looking without looking, which is harder than it sounds.
+action Rain begins in the Downtheback: not water, but buttons, pattering down on a thousand open umbrellas.
+character MRS. LOMAX
+parenthetical (peering at the audience)
+dialogue Is that a person in the front row, or a coat on a chair? Without my glasses, I'd say a coat.
+character GRAN
+dialogue You get that from me, the not giving up. Your mother gets it from me too, only she sleeps through it.
+action Spark climbs a hill of odd socks. Every step she takes, the hill sighs and shifts underneath her.
+character LOOKI
+parenthetical (very quietly)
+dialogue This is the farthest down the back I have ever been. I'd like you to know I'm being brave about it.
+character SPARK
+dialogue So am I. Mostly by talking.
+character KEEPER'S GRANDSON
+dialogue My grandad kept that light for fifty years, and I lost the key in a week.
+character SPARK
+dialogue Keys don't stay lost. They wait. That's the whole difference.
+action Far off, the Marramby Head lighthouse turns once in the dark, though nobody has the key to light it.
+character MUM
+parenthetical (pulling on her driver's jacket)
+dialogue Night shift. If anyone asks, you've been asleep since nine.
+character SPARK
+dialogue I'm always asleep since nine.
+action Jumpox crouches on its four brass feet and springs. For one moment it hangs in the air, perfectly happy.
+character MR. DUSTIN PANN
+dialogue You cannot mend everything, Miss Amari.
+character SPARK
+dialogue No. But I can look at it first.
+action A single brass letter glints on the floor of the Hall of Spectacles: a B, lying on its back, waiting.
+character LOOKI
+parenthetical (hardly daring)
+dialogue Is that it? Don't tell me. Don't look at it. Just pick it up.
+action Spark picks up the B without looking at it, the way you pick up a sleeping cat.
 `;

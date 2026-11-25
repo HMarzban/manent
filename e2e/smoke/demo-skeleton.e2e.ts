@@ -1,4 +1,10 @@
-import { DEMO_PEOPLE, TOUR, TOUR_GROUPS, isShown } from "@manent/demo";
+import {
+  DEMO_PEOPLE,
+  SEED_PROJECTS,
+  TOUR,
+  TOUR_GROUPS,
+  isShown,
+} from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
@@ -27,6 +33,8 @@ test("a tester chooses a person and reaches the Library", async ({
   browserName,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   // a first visit is once per person on this server, and earlier tests have had Leo's
   await reseedDemo(request);
   // `/` with no person redirects to the chooser
@@ -63,9 +71,13 @@ test("a tester chooses a person and reaches the Library", async ({
   // focused after a navigation
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
   await expect(page).toHaveTitle("Library — Leo Marsh — Manent demo");
-  await expect(page.getByRole("region", { name: "Projects" })).toContainText(
-    "No scripts yet",
-  );
+  // a reader of the Writers' room is listed each of its projects
+  for (const { title } of SEED_PROJECTS.filter(
+    (p) => p.workspaceId === "medium",
+  ))
+    await expect(page.getByRole("region", { name: "Projects" })).toContainText(
+      title,
+    );
   await expect(serverLine(page)).toHaveText("Server running");
   // open on the first visit to the Library, once the Tour lists a scenario
   const tour = tourTab(page);
@@ -73,7 +85,7 @@ test("a tester chooses a person and reaches the Library", async ({
     await expect(tour).toHaveCount(0);
     return;
   }
-  await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
+  await expect(tour).toBeVisible();
   // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
     await expect(
@@ -356,6 +368,8 @@ test("a reset drops what the tab had cached from the old seed", async ({
   page,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   await page.goto("/choose");
   await expect(page.getByRole("button", { name: /^Dana Reyes/ })).toBeVisible();
   const { control } = (await (

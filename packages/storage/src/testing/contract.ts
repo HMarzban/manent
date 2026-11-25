@@ -1,7 +1,7 @@
 // The tests every storage driver passes, registered by each driver's test file.
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import type { DocFile, Home, Storage, VersionRow } from "../ports.ts";
-import { COLOR_COUNT, StorageError } from "../ports.ts";
+import type { DocFile, Home, Storage, VersionRow } from "../ports/index.ts";
+import { COLOR_COUNT, StorageError } from "../ports/index.ts";
 import { DOC, DOC2, DOC3, HOME, item } from "./contract-fixtures.ts";
 import { generationsContract } from "./generations-contract.ts";
 import { historyContract } from "./history-contract.ts";

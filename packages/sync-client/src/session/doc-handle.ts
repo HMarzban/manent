@@ -55,6 +55,8 @@ export interface DocHandle {
   readonly readOnly: Subscribable<ViewHandle | null>;
   /** The latest upstream status the local node sent; always null unless the client runs with `via` "local_node". */
   readonly upstream: Subscribable<UpstreamStatus | null>;
+  /** How many other people have it open to read only; 0 while it is not subscribed for editing. */
+  readonly viewers: Subscribable<number>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
   setSetting(key: string, value: unknown): void;
@@ -76,8 +78,8 @@ export interface DocHandle {
     scope: RestoreScope,
   ): Promise<{ beforeVersionId: string; applied: number }>;
   deviceVersions(): Promise<DeviceVersion[]>;
-  /** The synced head this device has seen. */
-  lastServerSeq(): number;
+  /** The synced head this device has seen; null in a tab that does not lead, which holds no subscription. */
+  lastServerSeq(): number | null;
   /**
    * The IDs not yet held join this document's own client IDs and are stored,
    * so that the heal counts them as this client's; a subscribed document
@@ -85,5 +87,12 @@ export interface DocHandle {
    * that does not lead.
    */
   adoptClientIds(ids: readonly number[]): void;
+  /**
+   * A new client ID for the server to write under on this device's behalf, made one of this
+   * document's own and stored: what is written under it and later removed by someone who never
+   * saw it is set aside here as Recovered text, as this device's typing is. A tab that does not
+   * lead hands it to the tab that does, and resolves before that tab has stored it.
+   */
+  reserveClientId(): Promise<number>;
   close(): Promise<void>;
 }

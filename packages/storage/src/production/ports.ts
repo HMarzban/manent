@@ -123,6 +123,8 @@ export interface ProductionStore {
     patch: Partial<Omit<RevisionSetRow, "id" | "docId" | "ordinal">>,
   ): void;
   setBlocks(setId: string): SetBlockRow[];
+  /** Batched blocks for all listed revision sets, grouped by `setId` and ordered by `blockId`. */
+  setBlocksFor(setIds: readonly string[]): Map<string, SetBlockRow[]>;
   /** Replaces that set's rows. */
   putSetBlocks(setId: string, rows: readonly SetBlockRow[]): void;
   /** Newest first. */

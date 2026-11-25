@@ -6,6 +6,7 @@ import type { Comparison } from "@manent/revisions";
 import type { SinceResponse, VersionContent } from "@manent/sync-protocol";
 import {
   Button,
+  CommandButton,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -15,27 +16,29 @@ import {
   PLACE_WORDS,
   RadioGroup,
   RadioGroupItem,
-  Toggle,
   formatPosition,
 } from "@manent/ui";
-import { useEffect, useId, useLayoutEffect, useState } from "react";
+import { ChevronDownIcon } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   showChanges,
   sliceWorkingComparison,
 } from "../../editor-host/changes.ts";
 import {
-  baselineAt,
   baselineOfRow,
   defaultBaseline,
   sinceOpenedBaseline,
 } from "../../history/baseline.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
+import { setBaselineRow } from "../../history/history-view.ts";
 import { readLastOpened } from "../../history/last-opened.ts";
 import { useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
+import { peopleOf } from "./change-authors.ts";
+import type { Authors } from "./change-authors.ts";
 import { noteOf } from "./version-pane.tsx";
 
 /** In the order of HISTORY_WORDS.modes. */
@@ -46,55 +49,16 @@ const MODES: readonly ChangesMode[] = [
   "as_it_was",
 ];
 
+// a menu button's mark, after its words
+const CHEVRON = (
+  <ChevronDownIcon
+    aria-hidden="true"
+    className="size-icon shrink-0 text-fg-muted"
+  />
+);
+
 const isMode = (value: unknown): value is ChangesMode =>
   MODES.some((mode) => mode === value);
-
-/** By block id, the person of its last change since the baseline. */
-type Authors = Readonly<Record<string, string>>;
-
-const isChange = (entry: Comparison["entries"][number]): boolean =>
-  entry.kind !== "unchanged" || entry.moved;
-
-/** Of each change of `all`, who made it last since the baseline; null until the server has said, or when it cannot. */
-export function useAuthors(
-  docId: string,
-  all: Comparison | null,
-): Authors | null {
-  const { history } = useServices();
-  const baseline = useHistory("baseline");
-  const [told, setTold] = useState<{
-    all: Comparison;
-    authors: Authors;
-  } | null>(null);
-  useEffect(() => {
-    const since = baselineAt(baseline);
-    if (all === null || since === null) return undefined;
-    const changed = all.entries.filter(isChange).map((entry) => entry.id);
-    let shown = true;
-    void history.authors(docId, since, changed).then((answer) => {
-      if (shown && answer !== null) setTold({ all, authors: answer.authors });
-    });
-    return () => {
-      shown = false;
-    };
-  }, [history, docId, baseline, all]);
-  return told?.all === all ? told.authors : null;
-}
-
-/** The changes of `all` made last by one of `people`; null narrows nothing, as while who made them is not known. */
-export function authoredBlocks(
-  all: Comparison | null,
-  authors: Authors | null,
-  people: readonly string[] | null,
-): readonly string[] | null {
-  if (all === null || authors === null || people === null) return null;
-  return all.entries
-    .filter((entry) => {
-      const by = authors[entry.id];
-      return by !== undefined && people.includes(by);
-    })
-    .map((entry) => entry.id);
-}
 
 /** The baseline Changes since offers until one is chosen: since you last opened when others edited, else the newest draft. */
 function useOffered(
@@ -161,21 +125,27 @@ function useShownChanges(
 ): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
+  const filtered = useMemo(
+    () => (all === null ? null : filterComparison(all, { sceneIds, blockIds })),
+    [all, sceneIds, blockIds],
+  );
+  // the stepper starts again on other changes, and keeps its change when only Show changes
   useLayoutEffect(() => {
-    // the stepper starts again on other changes
     historyActions.setStep(null);
-    if (content === null || all === null) {
+  }, [docId, content, all, sceneIds, blockIds]);
+  useLayoutEffect(() => {
+    if (content === null || filtered === null) {
       showChanges(docId, null);
       return undefined;
     }
     showChanges(docId, {
       baseline: content,
-      comparison: filterComparison(all, { sceneIds, blockIds }),
+      comparison: filtered,
       display: mode === "asterisks" ? "asterisks" : "page",
     });
     return () => showChanges(docId, null);
-  }, [docId, content, all, mode, sceneIds, blockIds]);
-  return all === null ? null : filterComparison(all, { sceneIds, blockIds });
+  }, [docId, content, filtered, mode]);
+  return filtered;
 }
 
 const choose = (baseline: HistoryState["baseline"]) => (): void =>
@@ -191,15 +161,29 @@ function BaselineMenu(props: {
   const sinceOpened =
     lastOpened === null ? null : sinceOpenedBaseline(lastOpened);
   return (
-    <div className="flex items-center gap-2 text-ui">
+    <div className="flex flex-wrap items-center gap-2 text-ui">
       <span>{HISTORY_WORDS.changesSince}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           data-changes-since=""
-          render={<Button variant="outline" size="sm" />}
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-w-0 max-w-full"
+            />
+          }
         >
-          {props.offered?.title ?? null}
-          <span aria-hidden="true">▾</span>
+          {props.offered === null ? (
+            <span className="truncate text-fg-muted">
+              {HISTORY_WORDS.chooseBaseline}
+            </span>
+          ) : (
+            <span className="truncate" title={props.offered.title}>
+              {props.offered.title}
+            </span>
+          )}
+          {CHEVRON}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-80 overflow-auto">
           {sinceOpened === null ? null : (
@@ -220,6 +204,9 @@ function BaselineMenu(props: {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      {props.offered?.versionId != null ? (
+        <CommandButton id="history.copyLink" variant="outline" size="sm" />
+      ) : null}
     </div>
   );
 }
@@ -229,7 +216,7 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
   const mode = useHistory("mode");
   const baseline = useHistory("baseline");
   return (
-    <div className="flex flex-col gap-1 text-ui">
+    <div className="flex flex-col gap-2 text-ui">
       <span id={`${id}-label`}>{HISTORY_WORDS.show}</span>
       <RadioGroup
         aria-labelledby={`${id}-label`}
@@ -239,31 +226,23 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
           historyActions.setMode(chosen);
           if (baseline === null) historyActions.setBaseline(props.offered);
         }}
-        className="flex flex-col gap-1"
       >
         {MODES.map((choice, index) => (
-          <span key={choice} className="flex items-center gap-2">
+          <label
+            key={choice}
+            className="flex cursor-pointer items-center gap-2"
+          >
             <RadioGroupItem
               value={choice}
               aria-labelledby={`${id}-${choice}`}
             />
             <span id={`${id}-${choice}`}>{HISTORY_WORDS.modes[index]}</span>
-          </span>
+          </label>
         ))}
       </RadioGroup>
     </div>
   );
 }
-
-/** The people of `authors`, each once, in the order of their first change in `all`. */
-const peopleOf = (all: Comparison, authors: Authors): string[] => [
-  ...new Set(
-    all.entries.flatMap((entry) => {
-      const by = authors[entry.id];
-      return by === undefined ? [] : [by];
-    }),
-  ),
-];
 
 /** Filter ▾: every scene with a change, by its number and heading; then everyone who made one, by name. */
 function ChangesFilter(props: {
@@ -274,13 +253,19 @@ function ChangesFilter(props: {
   const { review } = useServices();
   const filter = useHistory("filter");
   const doc = review.docOf(props.docId);
+  const entriesById = useMemo(
+    () => new Map(props.all.entries.map((entry) => [entry.id, entry])),
+    [props.all],
+  );
   const headingOf = (sceneId: string): string => {
-    const entry = props.all.entries.find((e) => e.id === sceneId);
+    const entry = entriesById.get(sceneId);
     const block = entry?.newer ?? entry?.older ?? null;
     return block === null ? "" : textOf(block);
   };
-  const people =
-    props.authors === null ? [] : peopleOf(props.all, props.authors);
+  const people = useMemo(
+    () => (props.authors === null ? [] : peopleOf(props.all, props.authors)),
+    [props.all, props.authors],
+  );
   const scenes = (sceneIds: readonly string[] | null) => (): void =>
     historyActions.setFilter({ ...filter, sceneIds });
   const by = (authorUserIds: readonly string[] | null) => (): void =>
@@ -289,7 +274,7 @@ function ChangesFilter(props: {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
         {HISTORY_WORDS.filter}
-        <span aria-hidden="true">▾</span>
+        {CHEVRON}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-80 overflow-auto">
         <DropdownMenuItem onClick={scenes(null)}>
@@ -364,26 +349,38 @@ export function HistoryChanges(props: {
   const draftsOnly = useHistory("draftsOnly");
   const shown = useShownChanges(docId, content, all, props.blockIds);
   const note = content === null ? null : noteOf(content, docId);
+  useLayoutEffect(() => {
+    const id = offered?.versionId ?? null;
+    setBaselineRow(
+      id === null ? null : (rows.find((row) => row.item.id === id) ?? null),
+    );
+  }, [offered, rows]);
   return (
     <div className="flex flex-col gap-2 px-2 py-2">
       <BaselineMenu docId={docId} rows={rows} offered={offered} />
       {note === null ? null : <p className="text-meta text-fg-muted">{note}</p>}
       <ShowModes offered={offered} />
-      {all === null || shown === null ? null : (
+      {all === null || shown === null ? null : changeCount(all) === 0 &&
+        offered !== null ? (
+        // the baseline is Working as it is now: nothing to filter or step through
+        <p className="text-ui text-fg-muted">
+          {HISTORY_WORDS.noChangesSince(offered.title)}
+        </p>
+      ) : (
         <div className="flex flex-wrap items-center gap-2">
           <ChangesFilter docId={docId} all={all} authors={props.authors} />
           <Stepper count={changeCount(shown)} />
         </div>
       )}
-      <Toggle
+      <Button
         variant="outline"
         size="sm"
-        pressed={draftsOnly}
-        onPressedChange={(pressed) => historyActions.setDraftsOnly(pressed)}
-        className="self-start text-ui"
+        aria-pressed={draftsOnly}
+        onClick={() => historyActions.setDraftsOnly(!draftsOnly)}
+        className="self-start"
       >
         {HISTORY_WORDS.draftsOnly}
-      </Toggle>
+      </Button>
     </div>
   );
 }

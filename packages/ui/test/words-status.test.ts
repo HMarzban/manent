@@ -358,7 +358,7 @@ const ALL_ROWS_WITH_COUNT_1212: readonly StatusFacts[] = [
 ];
 
 test("every status sentence fits its slot with a four-digit count", () => {
-  // The slot is --status-server-w, 280 px at Interface size 100 %.
+  // --status-w keeps 280 px for it at Interface size 100 %.
   for (const f of ALL_ROWS_WITH_COUNT_1212)
     expect(textWidthPx(statusText(f).server, INTER_13PX)).toBeLessThanOrEqual(
       280,

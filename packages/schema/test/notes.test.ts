@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import {
-  NOTE_CONTEXT_UNITS,
+  ANCHOR_CONTEXT_UNITS,
   isScriptNote,
-  noteAnchorAt,
+  textAnchorAt,
 } from "../src/index.ts";
 import type { ScriptNote } from "../src/index.ts";
 
@@ -35,8 +35,8 @@ test("a note's anchor quotes its text with sixteen units either side, never half
     id: "blk_000000000001",
     text: "The lens turns. Salt on the glass, and 👁 above it all.",
   };
-  expect(NOTE_CONTEXT_UNITS).toBe(16);
-  expect(noteAnchorAt(block, 16, 20)).toEqual({
+  expect(ANCHOR_CONTEXT_UNITS).toBe(16);
+  expect(textAnchorAt(block, 16, 20)).toEqual({
     blockId: "blk_000000000001",
     start: 16,
     end: 20,
@@ -46,7 +46,7 @@ test("a note's anchor quotes its text with sixteen units either side, never half
   });
   // 16 units back would start inside the eye's pair: 15 are taken
   expect(
-    noteAnchorAt(
+    textAnchorAt(
       { id: "blk_000000000002", text: "👁 Salt on the glass." },
       17,
       20,
@@ -54,7 +54,7 @@ test("a note's anchor quotes its text with sixteen units either side, never half
   ).toMatchObject({ quote: "ass", prefix: " Salt on the gl" });
   // 16 units on would end inside the eye's pair: 15 are taken
   expect(
-    noteAnchorAt(
+    textAnchorAt(
       { id: "blk_000000000003", text: "Salt on the glass, 👁." },
       0,
       4,
@@ -70,5 +70,5 @@ test("a note's anchor outside its block's text is refused", () => {
     [0, 19],
     [0.5, 2],
   ] as const)
-    expect(() => noteAnchorAt(block, start, end)).toThrow(RangeError);
+    expect(() => textAnchorAt(block, start, end)).toThrow(RangeError);
 });

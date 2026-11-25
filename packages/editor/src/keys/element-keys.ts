@@ -11,14 +11,16 @@ import type { HistoryPort } from "../script-editor/ports.ts";
 import { sameElement, sectionEnter } from "../sections/commands.ts";
 import type { NextElement } from "../sections/commands.ts";
 
+/** Where the element picker opens: under the caret's line, or beside the control that names its list (`aria-controls`). */
+export type PickerAnchor = "caret" | "control";
+
 /** What the element keys need; each member is read when a key runs, never when the plugin is made. */
 export interface ElementContext {
   format(): FormatId;
   prefs(): FlowPrefs;
   history: HistoryPort;
   ids: IdSource;
-  /** Opens the element picker at the caret. */
-  openPicker(view: EditorView): void;
+  openPicker(view: EditorView, anchor: PickerAnchor): void;
 }
 
 /** The keys Preferences → Keyboard shows as fixed: the flow between elements and the caret's own moves. */
@@ -125,7 +127,7 @@ function enterKey(view: EditorView, context: ElementContext): boolean {
   if (caret.blank) {
     const { to } = flowRow(format, caret.element, context.prefs()).enterEmpty;
     if (to === "picker") {
-      context.openPicker(view);
+      context.openPicker(view, "caret");
       return true;
     }
     // a line already of its target element is left to the section plugin, which starts a new line

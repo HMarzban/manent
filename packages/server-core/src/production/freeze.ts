@@ -1,6 +1,14 @@
 // What a lock fixes in place: the scene numbers it writes, the script settings it freezes, and the rows
 // its commit writes.
-import { scriptBody, scriptSettings } from "@manent/crdt";
+import {
+  ORIGIN_LOAD,
+  createDoc,
+  discardPending,
+  loadDoc,
+  readProjectMap,
+  scriptBody,
+  scriptSettings,
+} from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { LockAnchorRecord } from "@manent/pagination";
 import {
@@ -11,8 +19,18 @@ import {
 } from "@manent/revisions";
 import type { RevisionColour } from "@manent/revisions";
 import type { FlatBlock } from "@manent/schema";
-import { SETTINGS } from "@manent/settings";
-import type { DocFile, RevisionSetRow, VersionRow } from "@manent/storage";
+import {
+  FOLLOWED_SCRIPT_KEYS,
+  SETTINGS,
+  resolveFollowed,
+} from "@manent/settings";
+import type {
+  DocFile,
+  RevisionSetRow,
+  Storage,
+  VersionRow,
+} from "@manent/storage";
+import { indexDocId } from "@manent/sync-protocol";
 import type { ColourOrderId, NumberingScheme } from "@manent/sync-protocol";
 import type { Position, ProductionOptions, Requests } from "./requests.ts";
 import { refused } from "./outcome.ts";
@@ -65,26 +83,101 @@ export function writeNumbers(
   });
 }
 
-/** Every script setting the lock freezes, at its value now or its default, with `locked`'s two. */
+function sameJson(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== typeof b || a === null || b === null) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => sameJson(item, b[i]))
+    );
+  }
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every(
+    (key) =>
+      Object.hasOwn(b, key) &&
+      sameJson(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      ),
+  );
+}
+
+/**
+ * The server-held settings of the project `docId` lives in (`template` and `style` maps of the project index);
+ * null when `docId` is outside a project or the project has no index yet.
+ */
+export function readProjectSettings(
+  storage: Storage,
+  docId: string,
+): Readonly<Record<string, unknown>> | null {
+  const home = storage.directory.placeOf(docId)?.home ?? null;
+  if (home === null || home.kind !== "project") return null;
+  const index = indexDocId("project", home.id);
+  const file = storage.open(home);
+  const row = file.log.get(index);
+  if (row === null) return null;
+  const checkpoint = file.checkpoints.newest(index, row.generation);
+  const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
+  const tail = file.log.tail(index, row.generation, checkpoint?.seq ?? 0, {
+    quarantine: false,
+  });
+  for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
+  discardPending(doc);
+  try {
+    const template = readProjectMap(doc, "template");
+    const style = readProjectMap(doc, "style");
+    const settings: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(template)) {
+      if (key !== "project.style" && key !== "project.ladder")
+        settings[key] = value;
+    }
+    if (Object.hasOwn(style, "project.style"))
+      settings["project.style"] = style["project.style"];
+    return settings;
+  } finally {
+    doc.destroy();
+  }
+}
+
+/**
+ * Every script setting the lock freezes — layout-guarded settings and every setting followed from the project —
+ * resolved from `project` where unset and written to its effective value (or default) with `locked`'s two.
+ */
 export function freezeSettings(
   doc: CrdtDoc,
   locked: { numbering: NumberingScheme; colourOrder: ColourOrderId },
   meta: { userId: string; setAt: number },
+  project: Readonly<Record<string, unknown>> | null = null,
 ): void {
   const settings = scriptSettings(doc);
   const stored = settings.entries();
-  const frozen = SETTINGS.all
-    .filter((d) => d.scope === "script" && d.guard === "layout")
-    .map((d): [string, unknown] => {
-      const value = stored[d.key];
-      return [d.key, d.type.parse(value).ok ? value : d.default];
-    });
+  const resolved = resolveFollowed(stored, project);
+  const keysToFreeze = new Set<string>([
+    ...SETTINGS.all
+      .filter((d) => d.scope === "script" && d.guard === "layout")
+      .map((d) => d.key),
+    ...Object.keys(FOLLOWED_SCRIPT_KEYS),
+  ]);
+  const frozen: [string, unknown][] = [];
+  for (const key of keysToFreeze) {
+    if (key === "script.numbering" || key === "script.colourOrder") continue;
+    const def = SETTINGS.all.find((held) => held.key === key);
+    if (def === undefined) continue;
+    const value = resolved[key];
+    frozen.push([key, def.type.parse(value).ok ? value : def.default]);
+  }
   frozen.push(
     ["script.numbering", locked.numbering],
     ["script.colourOrder", locked.colourOrder],
   );
   for (const [key, value] of frozen)
-    if (stored[key] !== value)
+    if (!Object.hasOwn(stored, key) || !sameJson(stored[key], value))
       settings.set(key, value, { ...meta, replaced: stored[key] ?? null });
 }
 

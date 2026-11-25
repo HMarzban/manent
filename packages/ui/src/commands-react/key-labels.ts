@@ -8,10 +8,17 @@ const MAC_PARTS: Readonly<Record<string, string>> = {
   Alt: "⌥",
   Shift: "⇧",
   Enter: "↵",
+  Backspace: "⌫",
+  Escape: "Esc",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
 };
 const OTHER_PARTS: Readonly<Record<string, string>> = {
   Mod: "Ctrl",
   Control: "Ctrl",
+  Escape: "Esc",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
 };
 /** "⌘K", "⌥↵", "⇧F6" on macOS; "Ctrl+K", "Ctrl+Shift+Z" on Windows and Linux. */
 export function keyLabel(chord: Chord, platform: Platform): string {

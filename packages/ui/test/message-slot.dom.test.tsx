@@ -183,3 +183,18 @@ test("a later change on the undo stack takes Undo out of a message, and the mess
     "",
   ]);
 });
+
+test("the message slot exposes the full text as a title and fades in on the base duration token", () => {
+  const queue = createMessageQueue(fakeClock());
+  const { el } = render(
+    <MessageSlot queue={queue} run={noop} registered={() => true} />,
+  );
+  act(() => queue.push(message({ text: "Paper is now A4 · 12 → 11 pages." })));
+  const paragraph = el.querySelector("p");
+  const wrapper = paragraph?.parentElement;
+  expect([
+    paragraph?.getAttribute("title"),
+    wrapper?.className.includes("duration-(--dur-base)"),
+    wrapper?.className.includes("fade-in-0"),
+  ]).toEqual(["Paper is now A4 · 12 → 11 pages.", true, true]);
+});

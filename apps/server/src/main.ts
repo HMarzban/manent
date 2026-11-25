@@ -3,13 +3,15 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  SEED_PROJECTS,
   createDemoDirectory,
   createDemoSignIn,
   createSeedTime,
-  heavyHomes,
 } from "@manent/demo";
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import {
+  ENGINE_VERSION,
+  ENGINE_VERSIONS,
+  TABLE_VERSION,
+} from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
@@ -17,7 +19,6 @@ import {
   createSignedSessionStore,
   createTicketStore,
   createWorkerCheckpointer,
-  createWorkflow,
   serveWithBun,
 } from "@manent/server-core";
 import type {
@@ -25,21 +26,22 @@ import type {
   Listener,
   ManentServer,
   ServerConfig,
+  SyncHooks,
   SyncSettings,
 } from "@manent/server-core";
 import { openSqliteStorage } from "@manent/storage";
-import type { Storage } from "@manent/storage";
-import { PROTOCOL_VERSION, indexDocId } from "@manent/sync-protocol";
-import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
+import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { DemoControls } from "@manent/sync-protocol";
 import { inProcessServer } from "./demo/in-process.ts";
 import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
 import { readServerRenderPdf } from "./production.ts";
-import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
-import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
+import { startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
+import { createHeavyState, isHeavyWaiting } from "./seed/heavy.ts";
 import { onServeError } from "./serve-error.ts";
+import { composeServices, stopComposedServices } from "./services.ts";
 
 const SESSION_KEY_BYTES = 32;
 
@@ -74,12 +76,13 @@ export function buildServerConfig(
     "127.0.0.1",
     ...(env.lanHost ? [env.lanHost] : []),
   ].map((h) => urlHost(h, port));
-  const versions = {
+  const current = {
     protocol: PROTOCOL_VERSION,
     schema: SCHEMA_VERSION,
-    engine: ENGINE_VERSION,
+    engine: ENGINE_VERSIONS.at(-1)!,
     table: TABLE_VERSION,
   };
+  const min = { ...current, engine: ENGINE_VERSION };
   return {
     http: {
       allowedHosts: hosts,
@@ -98,7 +101,7 @@ export function buildServerConfig(
     },
     socket: {
       tickets: createTicketStore({ now: Date.now }),
-      versions: { current: versions, min: versions },
+      versions: { current, min },
       allowedOrigins: hosts.map((h) => `http://${h}`),
     },
     sync: null,
@@ -199,61 +202,6 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
   };
 }
 
-/** The projects Lanternfield Studios' background seed writes, as its progress counts them. */
-const HEAVY_TOTAL = SEED_PROJECTS.filter(
-  (p) => p.workspaceId === "heavy",
-).length;
-
-/** Where the background seed adopts into: the live data and Lanternfield Studios' homes. */
-const adoptionOf = (dataDir: string, live: Storage) => ({
-  live,
-  stagingDir: stagingDirOf(dataDir),
-  dataDir: join(dataDir, "data"),
-  homes: heavyHomes(),
-});
-
-/**
- * Lanternfield Studios before the server listens: an adoption under way is finished, a stopped
- * seed cleared, through storage opened and closed here. True when its seed has yet to run.
- */
-async function isHeavyWaiting(dataDir: string): Promise<boolean> {
-  const live = openSqliteStorage({ dir: join(dataDir, "data"), now: Date.now });
-  try {
-    if (live.directory.placeOf(indexDocId("workspace", "heavy")) !== null)
-      return false;
-    return (await resumeStaging(adoptionOf(dataDir, live))) === "cleared";
-  } finally {
-    live.close();
-  }
-}
-
-/**
- * While `waiting`, `seeding` tells /api/me how far Lanternfield Studios' seed has come, and none of
- * its homes is ready until `adopted` is called.
- */
-function createHeavyState(waiting: boolean, dataDir: string, live: Storage) {
-  const adoption = adoptionOf(dataDir, live);
-  let seeding: WorkspaceRef["seeding"] = waiting
-    ? { done: 0, total: HEAVY_TOTAL, failed: false }
-    : null;
-  return {
-    seeding: (workspaceId: string) =>
-      workspaceId === "heavy" ? seeding : null,
-    isHomeReady: (home: string) =>
-      seeding === null || !adoption.homes.has(home),
-    progress(done: number, total: number) {
-      seeding = { done, total, failed: false };
-    },
-    failed() {
-      if (seeding !== null) seeding = { ...seeding, failed: true };
-    },
-    async adopted() {
-      await adoptStaging(adoption);
-      seeding = null;
-    },
-  };
-}
-
 /**
  * Listens on loopback, then on the LAN host on the port loopback bound, and
  * only then builds the server, so that its hosts name that port. `env.port`
@@ -290,7 +238,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
   const heavy = createHeavyState(waiting, env.dataDir, storage);
-  const { history, production } = createWorkflow({
+  const composed = composeServices({
     storage,
     sync: () => serving.sync!,
     clock,
@@ -298,12 +246,35 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     names: (userId) => config.auth.directory.user(userId)?.name ?? userId,
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
+    dataDir: env.dataDir,
+    openUrl: config.http.openUrl,
   });
   // the demo's services need the server these controls are given to, so the controls call them once they exist
   const controls: DemoControls = {
     writers: (...args) => services.writers(...args),
+    runningWriters: (...args) => services.runningWriters(...args),
     prepare: (...args) => services.prepare(...args),
     rebuild: (...args) => services.rebuild(...args),
+  };
+  let cachedSeedId: string | null = null;
+  const seedId = (): string | null =>
+    (cachedSeedId ??= readSeedId(env.dataDir));
+  let stopped: Promise<void> | null = null;
+  let presenceRequested = false;
+  const startPresence = () =>
+    void services.startPresence().catch(console.error);
+  const presenceHook: SyncHooks = {
+    subscribed(docId) {
+      if (
+        stopped === null &&
+        !presenceRequested &&
+        heavy.isHeavyProjectDoc(docId)
+      ) {
+        presenceRequested = true;
+        startPresence();
+      }
+      return null;
+    },
   };
   const serving = createServer({
     ...config,
@@ -314,47 +285,55 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     demo:
       config.demo === null
         ? null
-        : { ...config.demo, controls, isHomeReady: heavy.isHomeReady },
-    sync: { ...sync, hooks: [history, production.hooks] },
-    history,
-    production,
+        : { ...config.demo, seedId, controls, isHomeReady: heavy.isHomeReady },
+    sync: {
+      ...sync,
+      ...composed.sync,
+      hooks: [...(composed.sync.hooks ?? []), presenceHook],
+    },
+    ...composed.config,
   });
   built = serving;
+  const live = {
+    server: inProcessServer(serving, urlHost("127.0.0.1", port)),
+    sessions: config.auth.sessions,
+    storage,
+    sync: serving.sync!,
+    clock,
+  };
   const services = createDemoServices({
-    live: {
-      server: inProcessServer(serving, urlHost("127.0.0.1", port)),
-      sessions: config.auth.sessions,
-      storage,
-      sync: serving.sync!,
-      clock,
-    },
+    live,
     time: () => seedTimeAt(Date.now()),
     random: Math.random,
   });
-  // Lanternfield Studios' co-editing groups start once it is adopted: now, or when its seed is done
-  const startPresence = () =>
-    void services.startPresence().catch(console.error);
-  startPresence();
   const background = waiting
     ? startBackgroundSeed({
         command: Bun.isStandaloneExecutable
           ? [process.execPath]
-          : [process.execPath, "--no-orphans", import.meta.path],
+          : [process.execPath, import.meta.path],
         dataDir: env.dataDir,
         seedAt: Date.now(),
+        // the demo's supervisor, which may stop and start this server, keeps the seed until it ends
+        owner: env.control === null ? process.pid : process.ppid,
         onProgress: heavy.progress,
-        onDone: () => heavy.adopted().then(startPresence),
+        onDone: () =>
+          heavy
+            .adopted(live, () => composed.config.search?.catchUpNow())
+            .then(() => {
+              cachedSeedId = null;
+              if (stopped === null && presenceRequested) startPresence();
+            }),
         onFailed(reason) {
           console.error(reason);
           heavy.failed();
         },
       })
     : { stop: async () => {} };
-  let stopped: Promise<void> | null = null;
   const stop = (): Promise<void> => {
     stopped ??= (async () => {
       await background.stop();
       await services.close();
+      stopComposedServices(composed.config);
       await serving.sync?.shutdown();
       await stopListening();
       sync.close();

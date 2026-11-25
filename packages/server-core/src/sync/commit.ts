@@ -6,7 +6,8 @@ import { answerAuthority, commitAuthority } from "./authority-write.ts";
 import type { UpstreamItem } from "./ports.ts";
 import type { Room } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
-import type { Committed, QueuedItem, WritePathPorts } from "./write-path.ts";
+import type { Committed, WritePathPorts } from "./write-path-ports.ts";
+import type { QueuedItem } from "./write-path.ts";
 
 type AnswerPorts = Pick<
   WritePathPorts,
@@ -62,6 +63,35 @@ export function committedOf(item: QueuedItem): Committed | null {
   const { append, report, setting: echo } = item;
   const sender = item.subscription.peer;
   return { room, sender, seq, update: append.update, report, echo };
+}
+
+/**
+ * A setting the authority wrote into the room's document. Shown before it commits, it would leave
+ * a window holding structs under the authority's client id, which a crash can take from the log
+ * and no window may push back.
+ */
+export function isAuthorityWrite(item: QueuedItem): boolean {
+  return item.kind === "append" && item.setting;
+}
+
+/** What a held item sends the room before it commits; null for what waits for its commit, as an authority write does. */
+export function shownWhileHeld(item: QueuedItem): Committed | null {
+  return isAuthorityWrite(item) ? null : committedOf(item);
+}
+
+/** The update the item appends once committed; null for one that appends none. */
+export function appendedBy(item: QueuedItem): Uint8Array | null {
+  if (item.kind === "append" || item.kind === "ingest")
+    return item.append.update;
+  if (item.kind === "authority") return item.append?.update ?? null;
+  return item.kind === "replay" ? item.write.update : null;
+}
+
+/** A replay or an authority write that will never commit is answered as failed. */
+export function answerFailed(item: QueuedItem): void {
+  if (item.kind === "replay") item.done({ ok: false });
+  if (item.kind === "authority")
+    item.done({ ok: false, code: "commit_failed" });
 }
 
 /** Steps 9 and 10 but the publish: the acknowledgement, and the room moving on. */

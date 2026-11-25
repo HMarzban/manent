@@ -1,2 +1,3 @@
 @import "@manent/ui/theme.css";
 @import "./boot/static-frame.css";
+@import "./screens/present/room/room.css";

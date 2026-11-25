@@ -16,6 +16,7 @@ import type {
   LoadedDocument,
   SideState,
 } from "../ports/ports.ts";
+import { storedBase } from "../recovery/synced-base.ts";
 import { UpstreamWindow } from "../upstream/window.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
@@ -31,27 +32,20 @@ import { PushMarks } from "./push-marks.ts";
 import type { SessionLink, SessionOptions } from "./session-options.ts";
 import { createSubscription } from "./subscription.ts";
 import type { Subscription } from "./subscription.ts";
+import { createViewerCount } from "./viewer-count.ts";
+import { watchEdits } from "./watch-edits.ts";
 
 export type { SessionLink } from "./session-options.ts";
 
 /** One open document as its client drives it. */
 export interface Session {
   readonly handle: DocHandle;
-  /** A following tab's client ID: listed from now on, subscribing again when it is new. */
   addClient(clientId: number): void;
-  /**
-   * A following tab's edit, made in `generation`: applied and stored as an own
-   * entry, or, made in the document a move left, carried from it; resolves
-   * `refused` once its write settled.
-   */
+  addReservedClient(clientId: number): Promise<void>;
   edit(edit: UnsavedEdit, generation: number): Promise<boolean>;
-  /** A following tab moved to the new document, or closed it: the document a move left is not kept for it. */
   released(tabId: string): void;
-  /** The document as this tab holds it, for a tab that opens it. */
   state(): { state: Uint8Array; meta: DocMeta };
-  /** This tab no longer leads: the session stops using the store and the connection. */
   detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] };
-  /** Another document's meta changed: a creation waiting for that document asks again. */
   metaChanged(docId: string): void;
   link(facts: SessionLink): void;
   connected(send: (message: Message) => void, gate: ServerGate): void;
@@ -71,14 +65,18 @@ const LINK_SIDE: Readonly<Record<LinkIssue, SideState | null>> = Object.freeze({
 
 /** Loads the document before anything is sent: from the store, or in memory when the store cannot be read. */
 export async function openSession(options: SessionOptions): Promise<Session> {
+  // a document a following tab hands over is still typed in while the store is read, and nothing else watches it
+  const madeWhileLoading = watchEdits(options.doc);
   const loaded = await options.ports.store
     .load(options.docId)
     .catch((error: unknown) => {
-      if (!(error instanceof StoreError)) throw error;
-      return error;
+      if (error instanceof StoreError) return error;
+      madeWhileLoading();
+      throw error;
     });
+  const unsaved = [...options.unsaved, ...madeWhileLoading()];
   const readable = loaded instanceof StoreError ? null : loaded;
-  const session = new DocSession(options, readable);
+  const session = new DocSession({ ...options, unsaved }, readable);
   await session.ready(loaded);
   return session;
 }
@@ -96,6 +94,7 @@ class DocSession implements Session {
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly indexWait: IndexWait;
   private readonly pushes = new PushMarks();
+  private readonly viewers = createViewerCount();
   /** The node acknowledged an entry after the upstream status it last sent: Synced waits for the next. */
   private upstreamOutdated = false;
   /** The connection the device versions were last offered on. */
@@ -134,7 +133,6 @@ class DocSession implements Session {
     this.upstream =
       options.via === "local_node"
         ? new UpstreamWindow({
-            // the day the document last synced is the upstream's; the meta's change shows the status
             arrived: ({ lastSyncedAt }) => journal.patch({ lastSyncedAt }),
             tell: (event) => this.copy.tell(event),
           })
@@ -153,7 +151,6 @@ class DocSession implements Session {
       changed: () => this.refresh(),
       online: () => this.facts.state === "online",
       idle: () => this.subscription.left?.idle(),
-      // the node's upstream client holds every client ID of this device: it sets text aside
       ownClientIds: () => (relayed ? [] : journal.meta.clientIds),
       upstream: this.upstream,
     });
@@ -162,7 +159,7 @@ class DocSession implements Session {
       ports,
       journal,
       copy: this.copy,
-      syncedBase: loaded?.syncedBase ?? null,
+      syncedBase: storedBase(loaded),
       view: options.view,
       changed: () => this.refresh(),
       replaceConnection: options.replaceConnection,
@@ -179,8 +176,14 @@ class DocSession implements Session {
     this.handle = this.copy.handleOf({
       status: this.status,
       readOnly: this.subscription.readOnly,
+      viewers: this.viewers.value,
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
+      reserveClientId: async () => {
+        const clientId = journal.freshClientId(null, ports.random);
+        await this.addReservedClient(clientId);
+        return clientId;
+      },
       close: () => this.close(),
       nameVersion: async (name) => {
         const { stored, ...version } = this.copy.recordVersion(
@@ -198,11 +201,7 @@ class DocSession implements Session {
     });
   }
 
-  /**
-   * Stores a new document and the new client ID, then applies what was stored
-   * but not yet applied. `loaded` is what the store gave: a refusal means the
-   * session works in memory.
-   */
+  /** Stores a new document and the new client ID, then applies stored updates; a store refusal runs in memory. */
   async ready(loaded: LoadedDocument | StoreError | null): Promise<void> {
     const { journal } = this;
     await journal.open(loaded);
@@ -216,6 +215,13 @@ class DocSession implements Session {
 
   addClient(clientId: number): void {
     this.adoptClientIds([clientId]);
+  }
+
+  async addReservedClient(clientId: number): Promise<void> {
+    const { clientIds } = this.journal.meta;
+    if (!clientIds.includes(clientId))
+      this.journal.patch({ clientIds: [...clientIds, clientId] });
+    await this.journal.written();
   }
 
   edit(edit: UnsavedEdit, generation: number): Promise<boolean> {
@@ -269,12 +275,14 @@ class DocSession implements Session {
   disconnected(): void {
     this.pushes.dropped();
     this.indexWait.drop();
+    this.viewers.ended();
     this.subscription.disconnected();
   }
 
   receive(message: DocumentMessage): void {
     this.pushes.answered(message);
     this.route(message);
+    if (message.type === "CONTROL") this.viewers.control(message);
     const event = toDocEvent(message);
     if (event !== null) this.copy.emit(event);
   }
@@ -285,6 +293,7 @@ class DocSession implements Session {
     if (old && this.subscription.moving) return;
     this.pushes.ended(message);
     this.handshake.error(message);
+    if (!this.handshake.subscribed()) this.viewers.ended();
   }
 
   skipped(): void {
@@ -329,9 +338,7 @@ class DocSession implements Session {
     return deriveStatus({
       ...this.upstream?.facts(),
       link: this.facts.state,
-      // while moving the document is syncing, though no subscription is live
       subscribed: this.handshake.subscribed() || this.subscription.moving,
-      // and the new document is merged only once the move has loaded it
       merged: this.handshake.merged() && !this.subscription.moving,
       entries: journal.entries,
       unsavedWrites: journal.unsavedWrites(),
@@ -360,6 +367,8 @@ class DocSession implements Session {
     this.kept.stop();
     this.indexWait.drop();
     this.subscription.close();
+    // close any viewer so the next open receives its own frames
+    this.subscription.readOnly.get()?.close();
     this.copy.dispose();
     this.handshake.close();
     this.options.closed();

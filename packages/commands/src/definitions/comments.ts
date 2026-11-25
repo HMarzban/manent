@@ -1,0 +1,88 @@
+// The commands for adding comments (on a selection, scene or script) and writer-only notes.
+import type { CommandContext } from "../context.ts";
+import { defineCommands } from "../define.ts";
+
+const canComment = (ctx: CommandContext): boolean =>
+  ctx.role === "owner" || ctx.role === "editor" || ctx.role === "commenter";
+
+const canWriteNote = (ctx: CommandContext): boolean =>
+  ctx.role === "owner" || ctx.role === "editor";
+
+export const COMMENTS_COMMANDS = defineCommands([
+  {
+    id: "comment.add",
+    label: "Comment",
+    group: "script",
+    home: null,
+    scope: "editor",
+    keys: { mac: ["Mod+Alt+M"], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen && canComment(ctx),
+    whyNot: () => "needs a selection",
+    visible: (ctx) => ctx.docOpen && canComment(ctx),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["comment"] },
+    opens: { surface: "comment_popover", focus: "item" },
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "comment.onScene",
+    label: "Comment on this scene",
+    group: "script",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen && canComment(ctx),
+    whyNot: () => "needs a document open",
+    visible: (ctx) => ctx.docOpen && canComment(ctx),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["comment", "scene"] },
+    opens: { surface: "comment_popover", focus: "item" },
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "comment.onScript",
+    label: "Comment on the script",
+    group: "script",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen && canComment(ctx),
+    whyNot: () => "needs a document open",
+    visible: (ctx) => ctx.docOpen && canComment(ctx),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["comment", "script"] },
+    opens: { surface: "comment_popover", focus: "item" },
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "note.add",
+    label: "Note",
+    group: "script",
+    home: null,
+    scope: "editor",
+    keys: { mac: ["Mod+Alt+N"], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen && canWriteNote(ctx),
+    whyNot: () => "needs a document open",
+    visible: (ctx) => ctx.docOpen && canWriteNote(ctx),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["note", "writers only"] },
+    opens: { surface: "comment_popover", focus: "item" },
+    reach: "self",
+    setting: null,
+  },
+]);

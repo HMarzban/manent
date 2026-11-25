@@ -11,11 +11,10 @@ import type {
   HistoryRequestRow,
   ReplayRow,
   UpdateRow,
-  VersionCursor,
   VersionRow,
   VersionSummary,
-} from "../ports.ts";
-import { COLOR_COUNT } from "../ports.ts";
+} from "../ports/index.ts";
+import { COLOR_COUNT } from "../ports/index.ts";
 
 type StoredUpdate = UpdateRow & { generation: number; crc: number };
 
@@ -146,11 +145,13 @@ function readTail(
   doc: MemoryDoc | undefined,
   generation: number,
   after: number,
+  throughSeq?: number,
 ) {
   const rows: UpdateRow[] = [];
   const corrupt: number[] = [];
   for (const { crc, generation: of, ...row } of doc?.updates ?? []) {
     if (of !== generation || row.seq <= after) continue;
+    if (throughSeq !== undefined && row.seq > throughSeq) continue;
     if (crc32(row.update) !== crc) corrupt.push(row.seq);
     else rows.push({ ...row, update: new Uint8Array(row.update) });
   }
@@ -181,7 +182,12 @@ export function createLog(
           target.row = { ...target.row, schemaVersion: toVersion };
       }),
     tail(docId, generation, afterSeq, options) {
-      const tail = readTail(doc(docId), generation, afterSeq);
+      const tail = readTail(
+        doc(docId),
+        generation,
+        afterSeq,
+        options?.throughSeq,
+      );
       const { corrupt } = tail;
       if (corrupt.length === 0 || options?.quarantine === false) return tail;
       const isCorrupt = (u: StoredUpdate) =>
@@ -258,97 +264,6 @@ export function createReplays(
           throw new RangeError(`replay key ${row.key} is already stored`);
         log.replays.set(at, { ...row });
       }),
-  };
-}
-
-// Newest first, by createdAt then id, as the SQLite driver's page index orders them.
-const byPage = (a: VersionRow, b: VersionRow) =>
-  b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
-const isBefore = (v: VersionRow, cursor: VersionCursor) =>
-  v.createdAt < cursor.createdAt ||
-  (v.createdAt === cursor.createdAt && v.id < cursor.id);
-const copySummary = (summary: VersionSummary): VersionSummary => ({
-  authorIds: [...summary.authorIds],
-  blockIds: [...summary.blockIds],
-  sceneIds: [...summary.sceneIds],
-});
-
-function purgeIn(log: Logged, docId: string, generation: number): number {
-  const doc = log.docs.get(docId);
-  if (doc === undefined || doc.row === null || generation >= doc.row.generation)
-    throw new RangeError(`generation ${generation} of ${docId} is not frozen`);
-  const before = doc.updates.length;
-  doc.updates = doc.updates.filter((u) => u.generation !== generation);
-  doc.generations = doc.generations.map((g) =>
-    g.generation === generation ? { ...g, finalState: null } : g,
-  );
-  return before - doc.updates.length;
-}
-
-export function createHistory(
-  read: () => Logged,
-  write: Write,
-): DocFile["history"] {
-  return {
-    page: (docId, before, limit) =>
-      read()
-        .versions.filter(
-          (v) => v.docId === docId && (before === null || isBefore(v, before)),
-        )
-        .toSorted(byPage)
-        .slice(0, limit)
-        .map((v) => ({ ...v })),
-    get: (versionId) => copied(read().versions.find((v) => v.id === versionId)),
-    snapshotOf: (versionId) => copied(read().snapshots.get(versionId)),
-    setSnapshot: (versionId, ref, engineVersion) =>
-      write((log) => {
-        // an unknown version is left alone, as an UPDATE that matches no row
-        if (log.versions.some((v) => v.id === versionId))
-          log.snapshots.set(versionId, { ref, engineVersion });
-      }),
-    remove: (versionIds) =>
-      write((log) => {
-        log.versions = log.versions.filter((v) => !versionIds.includes(v.id));
-        for (const id of versionIds) {
-          log.snapshots.delete(id);
-          log.summaries.delete(id);
-        }
-      }),
-    putChunk: (hash, body) =>
-      write((log) => {
-        if (!log.chunks.has(hash.toHex()))
-          log.chunks.set(hash.toHex(), new Uint8Array(body));
-      }),
-    chunk(hash) {
-      const body = read().chunks.get(hash.toHex());
-      return body === undefined ? null : new Uint8Array(body);
-    },
-    chunkHashes: () =>
-      [...read().chunks.keys()]
-        .toSorted()
-        .map((hex) => Uint8Array.fromHex(hex)),
-    removeChunks: (hashes) =>
-      write((log) => {
-        for (const hash of hashes) log.chunks.delete(hash.toHex());
-      }),
-    summary(versionId) {
-      const summary = read().summaries.get(versionId);
-      return summary === undefined ? null : copySummary(summary);
-    },
-    setSummary: (versionId, summary) =>
-      write((log) => void log.summaries.set(versionId, copySummary(summary))),
-    request: (docId, key) => copied(read().requests.get(pairKey(docId, key))),
-    putRequest: (row) =>
-      write((log) => {
-        const at = pairKey(row.docId, row.key);
-        if (log.requests.has(at))
-          throw new RangeError(
-            `history request key ${row.key} is already stored`,
-          );
-        log.requests.set(at, { ...row });
-      }),
-    purgeLog: (docId, generation) =>
-      write((log) => purgeIn(log, docId, generation)),
   };
 }
 

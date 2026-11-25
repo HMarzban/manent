@@ -1,4 +1,5 @@
-// The element picker: a list of the format's elements under the caret's line, chosen by its keys while focus stays in the page.
+// The element picker: a list of the format's elements under the caret's line or beside the control that names it,
+// chosen by its keys while focus stays in the page.
 import type { FormatId } from "@manent/schema";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
@@ -6,6 +7,7 @@ import type { EditorView } from "prosemirror-view";
 import { ELEMENT_SLOTS, elementSlot, slotElement } from "../elements/index.ts";
 import type { ElementSlot } from "../elements/index.ts";
 import { elementOf, setElement } from "../keys/element-keys.ts";
+import type { PickerAnchor } from "../keys/element-keys.ts";
 import type { EditorWords, Frames } from "../script-editor/ports.ts";
 
 /** `layer` lies outside the zoomed container, so the list keeps its own size at any zoom. */
@@ -20,16 +22,22 @@ interface PickerState {
   open: boolean;
   /** The active option's place among the options the format offers. */
   active: number;
+  /** The control the list is placed beside, which Escape gives focus back to; null: under the caret's line. */
+  control: HTMLElement | null;
 }
 
 type PickerMeta =
-  | { readonly type: "open" }
+  | { readonly type: "open"; readonly control: HTMLElement | null }
   | { readonly type: "close" }
   | { readonly type: "move"; readonly active: number };
 
 export const pickerKey: PluginKey<PickerState> = new PluginKey("picker");
 
-const CLOSED: PickerState = Object.freeze({ open: false, active: 0 });
+const CLOSED: PickerState = Object.freeze({
+  open: false,
+  active: 0,
+  control: null,
+});
 const LIST_ID = "mn-picker";
 
 const optionId = (slot: ElementSlot): string => `${LIST_ID}-${slot}`;
@@ -61,9 +69,24 @@ function send(view: EditorView, meta: PickerMeta): void {
   view.dispatch(view.state.tr.setMeta(pickerKey, meta));
 }
 
-/** Opens the element picker at the caret; it does nothing in an editor without the picker. */
-export function openPicker(view: EditorView): void {
-  send(view, { type: "open" });
+/** The control on the page's document that names the picker's list as what it controls; null while none is drawn. */
+function namingControl(view: EditorView): HTMLElement | null {
+  const control = view.dom.ownerDocument.querySelector(
+    `[aria-controls="${LIST_ID}"]`,
+  );
+  return control instanceof HTMLElement ? control : null;
+}
+
+/**
+ * Opens the element picker at `anchor`: under the caret's line, or beside the control that names its list, and under the
+ * caret's line while none is drawn. It does nothing in an editor without the picker; its keys reach it while focus is in
+ * the page.
+ */
+export function openPicker(view: EditorView, anchor: PickerAnchor): void {
+  send(view, {
+    type: "open",
+    control: anchor === "control" ? namingControl(view) : null,
+  });
 }
 
 function choose(view: EditorView, format: FormatId, slot: ElementSlot): void {
@@ -93,11 +116,13 @@ function handleKey(
   event: KeyboardEvent,
   format: FormatId,
 ): boolean {
-  const { active } = pickerKey.getState(view.state) ?? CLOSED;
+  const { active, control } = pickerKey.getState(view.state) ?? CLOSED;
   const offered = offeredSlots(format);
   if (event.key === "Escape") {
     event.stopPropagation();
     send(view, CLOSE);
+    // the list beside a control closes back onto that control
+    control?.focus();
     return true;
   }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -160,17 +185,29 @@ function drawList(
   return list;
 }
 
-/** Puts the list in a frame below the caret's line, in the layer's own coordinates. */
+/**
+ * Puts the list below the caret's line, in the layer's own coordinates; or, beside a control, fixed to the window
+ * below it, or above it where the window has no room below, so the page's edges never clip it.
+ */
 function placeList(
   view: EditorView,
   list: HTMLElement,
-  layer: HTMLElement,
+  options: { layer: HTMLElement; control: HTMLElement | null },
 ): void {
-  const caret = view.coordsAtPos(view.state.selection.head);
-  const origin = layer.getBoundingClientRect();
-  list.style.position = "absolute";
-  list.style.left = `${caret.left - origin.left}px`;
-  list.style.top = `${caret.bottom - origin.top}px`;
+  const { control } = options;
+  if (control === null) {
+    const caret = view.coordsAtPos(view.state.selection.head);
+    const origin = options.layer.getBoundingClientRect();
+    list.style.position = "absolute";
+    list.style.left = `${caret.left - origin.left}px`;
+    list.style.top = `${caret.bottom - origin.top}px`;
+    return;
+  }
+  const box = control.getBoundingClientRect();
+  const room = control.ownerDocument.documentElement.clientHeight - box.bottom;
+  list.style.position = "fixed";
+  list.style.left = `${box.left}px`;
+  list.style.top = `${list.offsetHeight <= room ? box.bottom : box.top - list.offsetHeight}px`;
 }
 
 function markActive(list: HTMLElement, active: number): void {
@@ -179,7 +216,7 @@ function markActive(list: HTMLElement, active: number): void {
   );
 }
 
-/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter, Tab and Escape. Any other key, which then reaches the page, or a caret move closes it. */
+/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter, Tab and Escape. Any other key, which then reaches the page, a caret move or focus leaving the page closes it. */
 export function pickerPlugin(options: PickerOptions): Plugin {
   return new Plugin<PickerState>({
     key: pickerKey,
@@ -197,11 +234,12 @@ export function pickerPlugin(options: PickerOptions): Plugin {
             return {
               open: true,
               active: currentOption(state, options.format()),
+              control: meta.control,
             };
           case "close":
             return CLOSED;
           case "move":
-            return value.open ? { open: true, active: meta.active } : value;
+            return value.open ? { ...value, active: meta.active } : value;
         }
       },
     },
@@ -211,6 +249,13 @@ export function pickerPlugin(options: PickerOptions): Plugin {
         !event.isComposing &&
         (pickerKey.getState(view.state)?.open ?? false) &&
         handleKey(view, event, options.format()),
+      handleDOMEvents: {
+        // another popover, a field or another window took focus: the picker is transient
+        blur: (view) => {
+          if (pickerKey.getState(view.state)?.open ?? false) send(view, CLOSE);
+          return false;
+        },
+      },
       attributes: (state): Record<string, string> => {
         const picker = pickerKey.getState(state) ?? CLOSED;
         if (!picker.open) return {};
@@ -243,8 +288,9 @@ export function pickerPlugin(options: PickerOptions): Plugin {
             const drawn = drawList(view, options, options.format());
             list = drawn;
             options.layer.append(drawn);
+            const { control } = now;
             cancelPlace = options.frames.request(() =>
-              placeList(view, drawn, options.layer),
+              placeList(view, drawn, { layer: options.layer, control }),
             );
           }
           markActive(list, now.active);

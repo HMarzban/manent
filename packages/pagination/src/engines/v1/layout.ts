@@ -5,6 +5,7 @@ import type { Pagination } from "../../pages.ts";
 import type {
   LaidOutPage,
   LineKind,
+  LinePlace,
   LineRun,
   PositionedLine,
 } from "../../positioned-lines.ts";
@@ -115,13 +116,19 @@ function addNumbers(
     !isSceneHeading(keyAt(p.blocks, i))
   )
     return;
+  const sides = p.profile.furniture.sceneNumberSides;
+  if (sides === "none") return;
   const number = sceneNumber(p, i)!;
   const left = furnitureLine("scene_number", 0, y, number);
-  lines.push(
-    { ...left, x: -SCENE_NUMBER_GAP - left.cells },
-    { ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP },
-  );
+  if (sides === "left" || sides === "both")
+    lines.push({ ...left, x: -SCENE_NUMBER_GAP - left.cells });
+  if (sides === "right" || sides === "both")
+    lines.push({ ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP });
 }
+
+// A text line sits on the last unit of its slot, whose top is `top`.
+const textY = (spec: ElementSpec, top: number): number =>
+  top + spec.lineSpacing - 1;
 
 // Line m of block i in the slot whose top is `top`, with the margin numbers beside a block's first line.
 function addText(
@@ -133,7 +140,7 @@ function addText(
 ): void {
   const { spec } = p.metrics[i]!;
   const { runs, cells } = runsOf(p, i, m);
-  const y = top + spec.lineSpacing - 1;
+  const y = textY(spec, top);
   lines.push({
     kind: "text",
     x: xOf(spec, cells, m === 0),
@@ -210,6 +217,28 @@ export function layoutPage(p: Pagination, pageIndex: number): LaidOutPage {
     label: walk.page.label,
     lines: lines.toSorted((a, b) => a.y - b.y || a.x - b.x),
   };
+}
+
+/**
+ * Where each text line of a page sits, as layoutPage places it, in the order the page is walked; its text is not
+ * laid out, so this costs a fraction of layoutPage. Throws RangeError for an index past the last page.
+ */
+export function linePlacesOf(p: Pagination, pageIndex: number): LinePlace[] {
+  const places: LinePlace[] = [];
+  walkPage(
+    walkOf(
+      p,
+      pageIndex,
+      (i, m, top) =>
+        places.push({
+          blockId: p.blocks[i]!.id,
+          blockLine: m,
+          y: textY(p.metrics[i]!.spec, top),
+        }),
+      () => {},
+    ),
+  );
+  return places;
 }
 
 /** Each page's label (null for the first) and the text of its first row on the page, its lines joined by one space. */

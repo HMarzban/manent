@@ -49,7 +49,7 @@ export interface Journal {
   appendServer(update: Uint8Array, applied: boolean): number;
   /** A setting requested here; `value` is JSON text. */
   appendSetting(key: string, value: string): StoredSetting;
-  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write, with `syncedAt` unless it is null. */
+  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write, with `syncedAt` unless null. */
   acknowledge(
     clientSeq: number,
     serverSeq: number,
@@ -57,8 +57,8 @@ export interface Journal {
   ): void;
   /** Drops a setting refused for good; null when no setting has that sequence. */
   refuse(clientSeq: number): StoredSetting | null;
-  /** Every server update up to `through` is in the document. */
-  applied(through: number): void;
+  /** Every server update up to `through` is in the document; true when any was still unapplied. */
+  applied(through: number): boolean;
   /** Stores `items` as Recovered text, with the server entries up to `through` marked applied. */
   markApplied(through: number, items: RecoveredItem[]): void;
   /** A recovery's new start: `state` and `meta` replace what is stored, `items` are filed, and only waiting settings stay. */
@@ -84,21 +84,13 @@ export interface Journal {
 interface JournalOptions {
   docId: string;
   store: LocalStore;
-  /** What the store gave; null for a document it does not hold. */
   loaded: LoadedDocument | null;
-  /** A new document's request; null to open one that may exist. */
   create: DocMeta["create"];
-  /** Every update stored: the server's, this tab's, another tab's. */
   stored(update: Uint8Array): void;
-  /** The meta changed, or the store refused a write. */
   changed(): void;
-  /** An own entry's or a setting's write settled, so it may be sent. */
   sendable(): void;
-  /** The store refused a write because another tab now leads. */
   lostLead(): void;
-  /** The document's state for a checkpoint, and whether everything in it is synced. */
   checkpoint(): { state: Uint8Array; synced: boolean };
-  /** Writes an entry to the store; rejects StoreError as the store does. */
   append(entry: StoredEntry): Promise<void>;
 }
 
@@ -143,6 +135,7 @@ class StoreJournal implements Journal {
   private nextLocalSeq: number;
   /** Own entries and settings whose store write has not settled: nothing after the first is sent. */
   private readonly unsettled = new Set<number>();
+  private leadLost = false;
   private readonly pending = new Set<Promise<void>>();
   private sinceCheckpoint = 0;
   private readonly docId: string;
@@ -276,16 +269,20 @@ class StoreJournal implements Journal {
     return entry;
   }
 
-  applied(through: number): void {
-    this.entries = this.entries.map((e) =>
-      e.kind === "update" && !e.own && e.localSeq <= through
-        ? { ...e, applied: true }
-        : e,
-    );
-    this.prune();
+  applied(through: number): boolean {
+    let changed = false;
+    this.entries = this.entries.map((e) => {
+      if (e.kind !== "update" || e.own || e.applied || e.localSeq > through)
+        return e;
+      changed = true;
+      return { ...e, applied: true };
+    });
+    if (changed) this.prune();
+    return changed;
   }
 
   markApplied(through: number, items: RecoveredItem[]): void {
+    if (through === 0 && items.length === 0) return;
     void this.persist(() => this.store.markApplied(this.docId, through, items));
   }
 
@@ -357,7 +354,7 @@ class StoreJournal implements Journal {
     const waits = entry.kind === "set" || entry.own;
     if (waits) this.unsettled.add(entry.localSeq);
     const settled = this.persist(() => this.options.append(entry)).then(() => {
-      if (!waits) return;
+      if (!waits || this.leadLost) return;
       this.unsettled.delete(entry.localSeq);
       this.options.sendable();
     });
@@ -383,13 +380,11 @@ class StoreJournal implements Journal {
     return done;
   }
 
-  /** A refused write: work goes on in memory, and the status says it is not saved. `lost_lead`: another tab leads. */
+  /** A refused write: work goes on in memory, and the status says it is not saved. `lost_lead`: another tab leads, and from then on no entry settles, so that each is given back when this tab follows. */
   private failed(error: unknown): void {
     if (!(error instanceof StoreError)) throw error;
-    if (error.code === "lost_lead") {
-      this.options.lostLead();
-      return;
-    }
+    this.leadLost ||= error.code === "lost_lead";
+    if (this.leadLost) return this.options.lostLead();
     this.storeRefusing = true;
     this.options.changed();
   }

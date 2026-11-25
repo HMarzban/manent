@@ -75,10 +75,20 @@ test("the routes are the screens of this release", () => {
   expect(routePaths()).toEqual([
     "/",
     "/choose",
+    "/join/$token",
+    "/p/$projectId/board",
+    "/p/$projectId/settings",
     "/preferences",
     "/preferences/$pane",
+    "/r/$token",
     "/s/$docId",
+    "/s/$docId/changes/$a/$b",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
+    "/s/$docId/v/$versionId",
+    "/w/$workspaceId/settings",
+    "/w/$workspaceId/settings/$group",
   ]);
 });
 
@@ -91,10 +101,20 @@ test("the test build adds the development screens", () => {
       "/__stand-in",
       "/__states",
       "/choose",
+      "/join/$token",
+      "/p/$projectId/board",
+      "/p/$projectId/settings",
       "/preferences",
       "/preferences/$pane",
+      "/r/$token",
       "/s/$docId",
+      "/s/$docId/changes/$a/$b",
+      "/s/$docId/present",
+      "/s/$docId/prompter",
       "/s/$docId/send/$form",
+      "/s/$docId/v/$versionId",
+      "/w/$workspaceId/settings",
+      "/w/$workspaceId/settings/$group",
     ]);
   } finally {
     Reflect.deleteProperty(globalThis, "MANENT_FLAVOUR");
@@ -110,9 +130,15 @@ test("a screen that reads the route is that route's own lazily loaded component"
     .map(([path]) => path)
     .toSorted();
   expect(lazy).toEqual([
+    "/p/$projectId/board",
+    "/p/$projectId/settings",
     "/preferences/$pane",
     "/s/$docId",
+    "/s/$docId/changes/$a/$b",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
+    "/s/$docId/v/$versionId",
   ]);
 });
 
@@ -123,7 +149,7 @@ test("the Send screen's forms are a registration list that starts empty", () => 
     sendPath("d1", "print"),
   ]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
-    ["export", "print", "issue", "recall"],
+    ["export", "print", "send_draft", "issue", "recall"],
     "/s/d1/send/print",
   ]);
 });

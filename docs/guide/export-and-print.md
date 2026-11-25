@@ -44,4 +44,4 @@ Issuing starts the next colour: edits made afterwards are marked in it. **Recall
 
 - Export and Print are not available for Ink scripts.
 - An export is always the whole script. Choosing scenes or pages is not in this build.
-- Final Draft's older `.fdr` files are not opened.
+- Final Draft's older `.fdr` files are not read. Manent says to open one in Final Draft 8 or later, save it as an `.fdx` file and import that.

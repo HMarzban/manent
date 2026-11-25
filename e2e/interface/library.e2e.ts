@@ -1,6 +1,8 @@
 import { DEMO_WORKSPACES } from "@manent/demo";
+import { WORKSPACE_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { pressKeyOf } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const DOCUMENT_PATH = new RegExp(
@@ -12,6 +14,14 @@ const tabKey = (browserName: string): string =>
   browserName === "webkit" && process.platform === "darwin" ? "Alt+Tab" : "Tab";
 
 const focused = (page: Page) => page.locator(":focus");
+
+/** What the focused element reads as: a field's name, else its text, else its aria-label for icon-only buttons. */
+const focusedText = (page: Page): Promise<string> =>
+  focused(page).evaluate((element) =>
+    element instanceof HTMLInputElement
+      ? (element.getAttribute("aria-label") ?? "")
+      : element.textContent || element.getAttribute("aria-label") || "",
+  );
 
 // a new script left with no text and its first name is taken out of the Library when it is left
 const editable = (page: Page) =>
@@ -26,10 +36,11 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
     .getByRole("button", { name: "Writers' room", exact: true })
     .click();
   const items = page.getByRole("menuitem");
-  await expect(items).toHaveCount(2);
+  await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText("Writers' room");
   await expect(items.nth(0)).toHaveAttribute("aria-current", "true");
   await expect(items.nth(1)).toContainText(second);
+  await expect(items.nth(2)).toContainText(WORKSPACE_WORDS.title);
   await page.keyboard.press("Escape");
   await page
     .locator('[data-region="title_bar"]')
@@ -47,17 +58,47 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
   );
 });
 
+test("focus moved elsewhere as the switcher closes stays there, and the field takes what is typed", async ({
+  page,
+}) => {
+  await signedInAs(page, "dana");
+  const switcher = page.getByRole("button", {
+    name: "Writers' room",
+    exact: true,
+  });
+  await switcher.click();
+  await expect(page.getByRole("menuitem")).toHaveCount(3);
+  // a press outside closes the menu, and the palette opens while the menu is still fading out
+  await page.mouse.click(8, 400);
+  await pressKeyOf(page, "app.palette");
+  const field = page.getByRole("combobox");
+  await expect(field).toBeFocused();
+  // the palette takes focus straight back, so the switcher counts each time focus reaches it
+  await switcher.evaluate((button) => {
+    button.dataset["reached"] = "0";
+    button.addEventListener("focus", () => {
+      button.dataset["reached"] = String(Number(button.dataset["reached"]) + 1);
+    });
+  });
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.keyboard.type("tide");
+  await expect(field).toHaveValue("tide");
+  await expect(field).toBeFocused();
+  await expect(switcher).toHaveAttribute("data-reached", "0");
+});
+
 test("the Library is reached by keys alone", async ({ page, browserName }) => {
   const tab = tabKey(browserName);
-  await signedInAs(page, "leo");
+  // a writer: a reader of the workspace cannot add a project to it
+  await signedInAs(page, "priya");
   const heading = page.getByRole("heading", { name: "Library" });
   await expect(heading).toBeFocused();
   // the switcher is drawn once the server has listed the person's workspaces
   await expect(
     page.getByRole("button", { name: "Writers' room", exact: true }),
   ).toBeVisible();
-  // a first project, made with keys: New project, after Import… and New script, then its first card
-  for (let press = 0; press < 4; press++) await page.keyboard.press(tab);
+  // a first project, made with keys: New project, after the search field, Import… and New script, then its first card
+  for (let press = 0; press < 5; press++) await page.keyboard.press(tab);
   await expect(focused(page)).toHaveText("New project");
   await page.keyboard.press("Enter");
   await expect(focused(page)).toContainText("Film");
@@ -70,18 +111,34 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
+  // the title bar, then the side rail: Continue, Favourites, Private, the project list (with each row's menu),
+  // New folder, Trash, and then the first Continue row
   const order: string[] = [];
-  for (let press = 0; press < 6; press++) {
+  const continueRow = /^Untitled scriptUntitled film( \d+)? · Film/;
+  for (let press = 0; press < 40; press++) {
     await page.keyboard.press(tab);
-    order.push((await focused(page).textContent()) ?? "");
+    const label = await focusedText(page);
+    order.push(label);
+    if (continueRow.test(label)) break;
   }
-  expect(order).toEqual([
+  expect(order.slice(0, 11)).toEqual([
     "Writers' room",
+    "Search this workspace",
     "Import…",
     "New script",
     "New project",
-    "LM",
+    "PN",
+    "Continue",
+    "Favourites",
+    "Private",
+    // the project is numbered after the film projects the workspace holds already
+    expect.stringMatching(/^Untitled film( \d+)?$/),
+    expect.stringMatching(/^Untitled film( \d+)? — row menu$/),
+  ]);
+  expect(order.slice(-3)).toEqual([
+    "New folder",
+    "Trash",
     // the row ends with where the script is, which changes as it syncs
-    expect.stringMatching(/^Untitled scriptUntitled film · Film/),
+    expect.stringMatching(continueRow),
   ]);
 });

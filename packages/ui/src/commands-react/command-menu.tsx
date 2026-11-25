@@ -63,11 +63,16 @@ function MenuItem(props: {
   );
   const entry =
     item.checked === null ? (
-      <DropdownMenuItem disabled={!item.enabled} onClick={run}>
+      <DropdownMenuItem
+        data-tour={item.id}
+        disabled={!item.enabled}
+        onClick={run}
+      >
         {content}
       </DropdownMenuItem>
     ) : (
       <DropdownMenuCheckboxItem
+        data-tour={item.id}
         checked={item.checked}
         disabled={!item.enabled}
         onCheckedChange={run}

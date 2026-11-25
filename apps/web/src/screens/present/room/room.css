@@ -1,0 +1,66 @@
+/* The room window: only the driver's caret (with no name tab), the page, and everyone else's margin initials. */
+.mn-room .mn-cursor-tab {
+  display: none;
+}
+
+.mn-room mn-remote-sel {
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.mn-room .mn-page-view ::selection {
+  background-color: transparent;
+  color: inherit;
+}
+
+.mn-room
+  :is(
+    button.mn-marker,
+    .mn-marker-lock,
+    .mn-marker:not([role="img"]),
+    .mn-room-tag,
+    .mn-room-link,
+    .mn-asterisk,
+    .mn-review-bar
+  ) {
+  display: none !important;
+}
+
+.mn-room
+  :is(
+    .mn-comment,
+    .mn-comment[data-active],
+    .mn-added,
+    .mn-removed,
+    .mn-find,
+    .mn-find[data-current],
+    .mn-outside-font,
+    .mn-name-match,
+    .mn-timing-unread,
+    mn-offfont,
+    .mn-note,
+    .mn-link,
+    [data-hl],
+    mark[data-highlight],
+    ins[data-suggest],
+    del[data-suggest]
+  ) {
+  text-decoration-line: none;
+  background-color: transparent;
+  outline: none;
+  color: var(--page-ink);
+  font-style: inherit;
+}
+
+.mn-room :is([data-ink], span[data-color]) {
+  color: var(--page-ink);
+}
+
+.mn-room {
+  scroll-padding-block-start: 4rem;
+}
+
+.mn-room .mn-desk {
+  padding-inline: calc(var(--desk-pad) * var(--page-zoom));
+  padding-block-start: 4rem;
+}

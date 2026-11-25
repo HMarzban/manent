@@ -1,49 +1,48 @@
-// The Library: the workspace switcher, Continue, the projects, New script and New project, the person menu and the status bar.
+// The Library: the workspace switcher, its navigation and the view the address chooses, New script and New project, the
+// person menu and the status bar.
 import { TOUR, isShown } from "@manent/demo";
+import { indexDocId } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
+  DEMO_WORDS,
   LIBRARY_WORDS,
-  Row,
   Skeleton,
-  SurfaceState,
-  VirtualRows,
   createValue,
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
-import type {
-  Subscribable,
-  SurfaceRenderers,
-  SurfaceStateValue,
-} from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { focusHeading } from "../../focus.ts";
-import { useEnvironment, useServices } from "../../services/context.tsx";
+import { storageOfServices } from "../../services/api-cache.ts";
+import { useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
+import { createDeviceMemory } from "../../services/sync/device-memory.ts";
+import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
 import { panelsActions } from "../../state/panels.store.ts";
+import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
-import { ContinueList } from "./continue-list.tsx";
+import { useLibraryAddress } from "./library-address.ts";
+import { LibraryNav } from "./library-nav.tsx";
 import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
-import { KindIcon } from "./project-kind.tsx";
-import { NoProjects, ProjectList } from "./project-list.tsx";
+import { SearchField } from "./search-field.tsx";
+import { CONTINUE_VIEW, LIBRARY_VIEWS } from "./views.ts";
+import type { LibraryView } from "./views.ts";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
 // what the lists read while the workspace shown is not known yet
 const NO_ITEMS: Subscribable<readonly never[]> = createValue([]);
 const CACHED: Subscribable<"cached" | "problem"> = createValue("cached");
-// the placeholder rows drawn while the workspace is not known
-const PLACEHOLDER_ROWS = 6;
 // a Tour that lists no scenario is not opened on its own
 const TOUR_EMPTY = !TOUR.scenarios.some(isShown);
 
@@ -60,77 +59,40 @@ function useShownWorkspace(
   workspaces: readonly WorkspaceRef[] | null;
   serverProblem: boolean;
 } {
-  const w = useRouterState({
-    select: (state): unknown => state.location.search.w,
-  });
+  const services = useServices();
+  const w = useLibraryAddress().workspaceId;
   const signedIn = person.token !== null;
+  const memory = useMemo(
+    () =>
+      createDeviceMemory({ local: storageOfServices(services), session: null }),
+    [services],
+  );
+  const cached = useMemo(
+    () => (signedIn ? memory.workspaces(person.userId) : null),
+    [memory, person.userId, signedIn],
+  );
   // a person with no session has no workspaces to ask the server about
-  const me = useQuery({
-    queryKey: ["me", person.userId],
-    queryFn: listWorkspaces(api),
-    enabled: signedIn,
+  const me = useWorkspaces(api, person.userId, signedIn, {
+    cached,
+    onListed: (list) => memory.setWorkspaces(person.userId, list),
   });
   const known = signedIn ? (me.data ?? null) : null;
   const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
   return {
-    workspaceId: typeof w === "string" ? w : fallback,
+    workspaceId: w ?? fallback,
     workspaces: known,
     serverProblem: signedIn && me.isError,
   };
 }
 
-/** The person's workspaces; a server that cannot list them throws, so the query keeps the last list it heard. */
-function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
-  return async () => {
-    const answer = await api.me();
-    if (!answer.ok) {
-      throw new Error(
-        `the server did not list the workspaces: ${answer.reason}`,
-      );
-    }
-    return answer.me.workspaces;
-  };
-}
-
-function Placeholders(): ReactNode {
-  return (
-    <div aria-hidden="true" className="flex flex-col gap-1">
-      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
-        <Skeleton key={index} data-placeholder className="h-row-2" />
-      ))}
-    </div>
+/** The view the address chooses: the search's while it holds one, else the one its `view` names, else Continue. */
+function useChosenView(): LibraryView {
+  const { view, q } = useLibraryAddress();
+  const chosen = LIBRARY_VIEWS.find((entry) =>
+    entry.chosenBy === "q" ? q !== null : q === null && entry.id === view,
   );
-}
-
-const placeRow = (project: ProjectItem | undefined): ReactNode =>
-  project === undefined ? null : (
-    <Row leading={<KindIcon kind={project.kind} />}>{project.title}</Row>
-  );
-
-/**
- * The projects' names, under Continue, the place the main column shows. A window too narrow for it and the main
- * column side by side has no room for it.
- */
-function Places(props: { projects: readonly ProjectItem[] }): ReactNode {
-  const { projects } = props;
-  return (
-    <ShellRegion
-      region="left_panel"
-      className="hidden w-panel-left shrink-0 flex-col border-e border-line pt-2 @3xl:flex"
-    >
-      <Row current>{LIBRARY_WORDS.continueHeading}</Row>
-      <h2 className="mn-group-label">{LIBRARY_WORDS.projectsHeading}</h2>
-      <div className="min-h-0 flex-1">
-        <VirtualRows
-          count={projects.length}
-          rowHeight="one"
-          label={LIBRARY_WORDS.projectsHeading}
-          renderRow={(index) => placeRow(projects[index])}
-        />
-      </div>
-    </ShellRegion>
-  );
+  return chosen ?? CONTINUE_VIEW;
 }
 
 /**
@@ -175,54 +137,79 @@ function useWorkspaceLists(workspaceId: string | null): {
 }
 
 /**
- * The main column: Continue, then the projects; the problem line above them when the list could not be loaded. The
- * column does not scroll: Continue keeps to a third of it and the projects take the rest, each scrolling in its card.
+ * Tells the commands, while the Library is drawn, whether the person can add to the workspace shown: not while it is
+ * being seeded, nor while their role on its index only reads it.
  */
-function Lists(props: {
+function usePublishWorkspace(shown: {
+  api: Api;
+  userId: string;
   workspaceId: string | null;
-  continueList: readonly ContinueItem[];
-  projects: readonly ProjectItem[];
-  problem: boolean;
+  seeding: boolean;
+}): void {
+  const { api, userId, workspaceId, seeding } = shown;
+  const index =
+    workspaceId === null ? null : indexDocId("workspace", workspaceId);
+  const role = useQuery({
+    queryKey: ["role", userId, index],
+    queryFn: () => (index === null ? null : api.role(index)),
+    enabled: index !== null && !seeding,
+  }).data;
+  const workspace = seeding
+    ? "getting_ready"
+    : role === "comment" || role === "view"
+      ? "read_only"
+      : "writable";
+  useEffect(() => {
+    workspaceActions.set(workspace);
+  }, [workspace]);
+  useEffect(() => () => workspaceActions.set("writable"), []);
+}
+
+const GETTING_READY_ROWS = ["w-48", "w-36", "w-56", "w-44"] as const;
+
+/**
+ * What the main column says in place of the lists of a workspace that is being seeded, which hold nothing until it is
+ * ready, or whose seed stopped.
+ */
+function GettingReady(props: {
+  name: string;
+  seeding: NonNullable<WorkspaceRef["seeding"]>;
 }): ReactNode {
-  const { workspaceId, continueList, projects } = props;
-  const { where, now } = useEnvironment();
-  const navigate = useNavigate();
-  const [arrivedAt] = useState(() => now());
-  const open = (docId: string) => void navigate({ href: `/s/${docId}` });
-  const problem = <p className="text-ui">{LIBRARY_WORDS.problem}</p>;
-  const lists =
-    projects.length === 0 ? (
-      <NoProjects problem={props.problem ? problem : null} />
-    ) : (
-      <>
-        {props.problem ? problem : null}
-        <ContinueList items={continueList} shell={where.shell} open={open} />
-        <ProjectList
-          projects={projects}
-          shell={where.shell}
-          now={now()}
-          open={open}
-        />
-      </>
+  const { name, seeding } = props;
+  if (seeding.failed) {
+    return (
+      <div role="status" className="pt-6">
+        <p className="text-ui">{DEMO_WORDS.seedingFailed}</p>
+      </div>
     );
-  const render: SurfaceRenderers = {
-    ready: () => lists,
-    empty: () => lists,
-    loading: () => <Placeholders />,
-    // only a list that throws while it is drawn ends here
-    problem: () => problem,
-    // the Library has none of these: each row says where its document is, and the index lists only what the person may open
-    offline: () => lists,
-    read_only: () => lists,
-    no_access: () => lists,
-  };
-  const state: SurfaceStateValue =
-    workspaceId === null
-      ? { kind: "loading", sinceMs: arrivedAt }
-      : projects.length === 0
-        ? { kind: "empty" }
-        : { kind: "ready" };
-  return <SurfaceState surface="library" state={state} render={render} />;
+  }
+  return (
+    <div className="flex flex-col gap-4 pt-6">
+      <p role="status" className="text-ui text-fg-muted">
+        {LIBRARY_WORDS.gettingReady(name, seeding.done, seeding.total)}
+      </p>
+      <div aria-busy="true" className="mn-table flex flex-col">
+        <div aria-hidden="true" className="flex flex-col">
+          <div className="mn-table-head flex items-center gap-3 px-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="ms-auto hidden h-3 w-16 @lg:block" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          {GETTING_READY_ROWS.map((width, index) => (
+            <div
+              key={index}
+              className="flex min-h-row items-center gap-3 border-t border-line px-3 first:border-t-0"
+            >
+              <Skeleton className="size-icon shrink-0" />
+              <Skeleton className={`h-3.5 max-w-full ${width}`} />
+              <Skeleton className="ms-auto hidden h-3 w-20 @lg:block" />
+              <Skeleton className="h-3.5 w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
@@ -232,6 +219,14 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
     person,
   );
   const { continueList, projects, problem } = useWorkspaceLists(workspaceId);
+  const shown = workspaces?.find((ref) => ref.id === workspaceId) ?? null;
+  usePublishWorkspace({
+    api,
+    userId: person.userId,
+    workspaceId,
+    seeding: shown?.seeding != null,
+  });
+  const { id: viewId, View } = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
     workspaceId !== null && (person.token === null || workspaces !== null);
@@ -250,11 +245,16 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       </h1>
       <ShellRegion
         region="title_bar"
-        className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2"
+        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-2 border-b border-line px-2 py-1"
       >
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
-        ) : null}
+        ) : serverProblem ? null : (
+          <div aria-busy="true" className="shrink-0">
+            <Skeleton aria-hidden="true" className="h-control w-36" />
+          </div>
+        )}
+        <SearchField />
         <span className="flex-1" />
         <CommandButton id="file.import" variant="outline" />
         <CommandButton id="library.newScript" variant="outline" />
@@ -262,14 +262,22 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         <PersonMenu name={person.name} />
       </ShellRegion>
       <div className="@container flex min-h-0 flex-1">
-        <Places projects={projects} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
-          <Lists
-            workspaceId={workspaceId}
-            continueList={continueList}
-            projects={projects}
-            problem={problem || serverProblem}
-          />
+        <LibraryNav
+          workspaceId={workspaceId}
+          current={viewId}
+          projects={projects}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:mx-auto *:w-full *:max-w-content-wide">
+          {shown?.seeding == null ? (
+            <View
+              workspaceId={workspaceId}
+              continueList={continueList}
+              projects={projects}
+              problem={problem || serverProblem}
+            />
+          ) : (
+            <GettingReady name={shown.name} seeding={shown.seeding} />
+          )}
         </div>
         <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
       </div>

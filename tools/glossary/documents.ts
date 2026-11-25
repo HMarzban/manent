@@ -1,0 +1,42 @@
+// Documents and formats.
+import type { Term } from "./index.ts";
+import { row } from "./row.ts";
+
+export const DOCUMENT_TERMS: readonly Term[] = Object.freeze([
+  ...row("formats", ["Document"], []),
+  ...row("formats", ["Script"], []),
+  ...row("rundown", ["Segment", "Story"], ["item", "piece"]),
+  ...row("formats", ["Outline"], ["treatment"]),
+  ...row("rundown", ["Rundown"], ["running order"]),
+  ...row("series", ["Room log"], ["room notes"]),
+  ...row("series", ["Board"], ["season board", "whiteboard"]),
+  ...row("writing", ["Card", "Cards"], ["cards view", "corkboard"]),
+  ...row("formats", ["Format"], ["template"]),
+  ...row("formats", ["Template"], ["show format", "preset"]),
+  ...row("writing", ["Element"], ["block type"], ["line type"]),
+  ...row("writing", ["Section"], []),
+  ...row(
+    "writing",
+    ["Scene", "Page", "Chapter", "Title page", "Dual dialogue", "Page break"],
+    [],
+  ),
+  ...row("writing", ["Act"], []),
+  ...row("formats", ["Stage direction"], ["action"]),
+  ...row("formats", ["Cast of characters"], ["dramatis personae", "cast list"]),
+  ...row("formats", ["Start a stage play from this…"], ["adapt", "convert"]),
+  ...row("pages", ["Page label"], []),
+  ...row("writing", ["Synopsis"], ["logline"]),
+  ...row("pages", ["Layout engine"], ["pagination engine"]),
+  ...row("games", ["Play"], ["run"]),
+  ...row("games", ["Player"], ["preview"]),
+  ...row("games", ["Play from here"], []),
+  ...row("games", ["Passage"], ["paragraph", "node"]),
+  ...row("games", ["Choice"], ["option", "branch"]),
+  ...row("games", ["Gather"], []),
+  ...row("games", ["Knot", "Stitch"], []),
+  ...row("games", ["Variables"], ["state"]),
+  ...row("writing", ["Hand in", "Handed in", "Handing in"], []),
+  ...row("pages", ["Running time"], ["duration", "runtime"]),
+  ...row("formats", ["Beat"], ["plot point"]),
+  ...row("series", ["Storyline"], ["arc", "plot line", "thread"]),
+]);

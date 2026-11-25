@@ -127,6 +127,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     me: async () => ({ ok: false, reason: "unauthenticated" }),
     demo: async () => null,
     removedDoc: async () => null,
+    role: async () => null,
     docClients: async () => ({ clients: [] }),
     prepareTour: async () => ({ ok: false, reason: "unknown" }),
     writers: async (request) => ({
@@ -134,6 +135,14 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
       count: 0,
       names: [],
       endsAt: null,
+      placement: request.placement,
+    }),
+    runningWriters: async () => ({
+      asked: 0,
+      count: 0,
+      names: [],
+      endsAt: null,
+      placement: null,
     }),
     rebuild: async () => {},
     ...overrides,
@@ -229,7 +238,11 @@ export function testEnvironment(
     guard: createGuard({ flavour: "test" }),
     flavour: "test",
     // the editor is tested over its own mount
-    loadEditor: () => Promise.resolve(placeholderMount),
+    loadEditor: () =>
+      Promise.resolve({
+        mount: placeholderMount,
+        besideMount: () => placeholderMount,
+      }),
     shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
     dom: QUIET_DOM,
     online: () => true,

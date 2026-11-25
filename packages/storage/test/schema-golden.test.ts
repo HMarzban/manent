@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(5);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(5);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(5);
+  expect(STORAGE_SCHEMA_VERSION).toBe(10);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(10);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(10);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -61,11 +61,66 @@ test("the storage schema is exactly these tables", () => {
       "user_id TEXT",
       "role TEXT",
       "capabilities TEXT",
+      "source TEXT",
+      "last_active_at INTEGER",
     ],
     tombstones: [
       "doc_id TEXT",
       "deleted_by_user_id TEXT",
       "deleted_at INTEGER",
+    ],
+    share_links: [
+      "id TEXT",
+      "doc_id TEXT",
+      "token_hash BLOB",
+      "role TEXT",
+      "expires_at INTEGER",
+      "revoked_at INTEGER",
+      "created_by_user_id TEXT",
+      "created_at INTEGER",
+    ],
+    draft_links: [
+      "id TEXT",
+      "send_id TEXT",
+      "token_hash BLOB",
+      "sign_in INTEGER",
+      "expires_at INTEGER",
+      "created_at INTEGER",
+    ],
+    group_grants: ["doc_id TEXT", "group_id TEXT", "role TEXT"],
+    trash: [
+      "doc_id TEXT",
+      "workspace_id TEXT",
+      "home TEXT",
+      "deleted_by_user_id TEXT",
+      "deleted_at INTEGER",
+      "purge_after INTEGER",
+    ],
+    workspace_settings: [
+      "workspace_id TEXT",
+      "key TEXT",
+      "value TEXT",
+      "updated_by_user_id TEXT",
+      "updated_at INTEGER",
+    ],
+    api_keys: [
+      "id TEXT",
+      "workspace_id TEXT",
+      "name TEXT",
+      "key_hash BLOB",
+      "created_by_user_id TEXT",
+      "created_at INTEGER",
+      "last_used_at INTEGER",
+      "revoked_at INTEGER",
+    ],
+    notification_outbox: [
+      "id INTEGER",
+      "workspace_id TEXT",
+      "adapter TEXT",
+      "payload TEXT",
+      "attempts INTEGER",
+      "next_try_at INTEGER",
+      "delivered_at INTEGER",
     ],
   });
   expect(tableColumns(join(dir, `project-${PROJECT}.sqlite`))).toEqual({
@@ -263,6 +318,62 @@ test("the storage schema is exactly these tables", () => {
       "result TEXT",
       "created_at INTEGER",
     ],
+    draft_sends: [
+      "id TEXT",
+      "doc_id TEXT",
+      "version_id TEXT",
+      "name TEXT",
+      "group_ids TEXT",
+      "recipient_user_ids TEXT",
+      "watermarked_user_ids TEXT",
+      "files TEXT",
+      "what TEXT",
+      "against_version_id TEXT",
+      "sent_by_user_id TEXT",
+      "sent_at INTEGER",
+    ],
+    draft_opens: ["send_id TEXT", "user_id TEXT", "opened_at INTEGER"],
+    reader_reads: [
+      "doc_id TEXT",
+      "user_id TEXT",
+      "version_id TEXT",
+      "read_at INTEGER",
+    ],
+    private_copies: [
+      "private_doc_id TEXT",
+      "source_doc_id TEXT",
+      "owner_user_id TEXT",
+      "base_generation INTEGER",
+      "base_seq INTEGER",
+      "base_json TEXT",
+      "created_at INTEGER",
+      "handed_in_at INTEGER",
+    ],
+    handins: [
+      "key TEXT",
+      "private_doc_id TEXT",
+      "user_id TEXT",
+      "before_version_id TEXT",
+      "answer TEXT",
+      "at INTEGER",
+    ],
+    prompter_sends: [
+      "doc_id TEXT",
+      "row_id TEXT",
+      "story_doc_id TEXT",
+      "version_id TEXT",
+      "generation INTEGER",
+      "seq INTEGER",
+      "sent_by_user_id TEXT",
+      "sent_at INTEGER",
+    ],
+    prompter_requests: [
+      "doc_id TEXT",
+      "request_key TEXT",
+      "user_id TEXT",
+      "result TEXT",
+      "created_at INTEGER",
+    ],
   });
 });
 
@@ -434,11 +545,66 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([5, 5, 5]);
+  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
   expect(
     rawRows(
       files.documents,
       "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'doc_versions' AND sql IS NOT NULL ORDER BY name",
     ),
   ).toEqual([{ name: "doc_versions_by_doc" }, { name: "doc_versions_page" }]);
+});
+
+const indexNamesOf = (path: string) =>
+  rawRows(
+    path,
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name",
+  );
+
+test("a file written at version 9 gains the eight lookup indexes on open", async () => {
+  const old = await trees.tree();
+  const files = {
+    control: join(old, "control.sqlite"),
+    documents: docPath(old, HOME),
+    checkpoints: checkpointsPath(old, HOME),
+  };
+  for (const kind of ["control", "documents", "checkpoints"] as const) {
+    await Bun.write(files[kind], "");
+    for (const statement of MIGRATIONS[kind].slice(0, 9).flat())
+      rawSql(files[kind], statement);
+    rawSql(files[kind], "PRAGMA user_version = 9");
+  }
+  expect(indexNamesOf(files.control)).toEqual([
+    { name: "doc_directory_by_home" },
+  ]);
+  expect(indexNamesOf(files.documents)).toEqual([
+    { name: "doc_versions_by_doc" },
+    { name: "doc_versions_page" },
+    { name: "private_copies_open" },
+  ]);
+  expect(indexNamesOf(files.checkpoints)).toEqual([]);
+
+  const storage = openSqliteStorage({ dir: old, now });
+  const file = storage.open(HOME);
+  file.checkpoints.newest(DOC, 1);
+  storage.close();
+
+  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
+  expect(indexNamesOf(files.control)).toEqual([
+    { name: "doc_directory_by_home" },
+    { name: "draft_links_by_send" },
+    { name: "draft_links_by_token" },
+    { name: "share_links_by_doc" },
+    { name: "share_links_by_token" },
+  ]);
+  expect(indexNamesOf(files.documents)).toEqual([
+    { name: "doc_versions_by_doc" },
+    { name: "doc_versions_page" },
+    { name: "draft_opens_by_send_user" },
+    { name: "draft_sends_by_doc" },
+    { name: "private_copies_open" },
+    { name: "revision_issues_by_doc" },
+  ]);
+  expect(indexNamesOf(files.checkpoints)).toEqual([
+    { name: "checkpoint_pins_by_doc" },
+  ]);
 });

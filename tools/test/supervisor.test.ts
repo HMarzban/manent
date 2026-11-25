@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type {
   ControlStatusResponse,
   MeResponse,
+  ServerState,
   SignInResponse,
 } from "@manent/sync-protocol";
 import { createTempTrees } from "@manent/testkit";
@@ -31,7 +32,7 @@ let options: SupervisorOptions;
 let appUrl: string;
 let healthUrl: string;
 let shutdowns: number;
-let resets: { serverDown: boolean }[];
+let resets: { serverDown: boolean; state: ServerState }[];
 const started: Supervisor[] = [];
 let s: Supervisor;
 
@@ -55,7 +56,10 @@ beforeEach(async () => {
     token: TOKEN,
     allowedOrigins: [`http://localhost:${port}`],
     onReset: async () => {
-      resets.push({ serverDown: !(await reachable(healthUrl)) });
+      resets.push({
+        serverDown: !(await reachable(healthUrl)),
+        state: s.serverState(),
+      });
     },
     onShutdown: () => {
       shutdowns += 1;
@@ -360,11 +364,11 @@ test(
 );
 
 test(
-  "reset re-seeds while the server is down, then starts it",
+  "reset re-seeds while the server is down and reads resetting, then starts it",
   async () => {
     await (await launch()).startServer();
     expect(await control("POST", "/reset")).toEqual({ server: "running" });
-    expect(resets).toEqual([{ serverDown: true }]);
+    expect(resets).toEqual([{ serverDown: true, state: "resetting" }]);
     expect(await reachable(healthUrl)).toBe(true);
   },
   SLOW,

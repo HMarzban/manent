@@ -7,7 +7,7 @@ import type { BlockJSON } from "@manent/schema";
 import type { CopiesKeptControl } from "@manent/sync-protocol";
 import type { AuthorityWrite, AuthorityWriteResult } from "./ports.ts";
 import type { Room } from "./rooms.ts";
-import type { WritePathPorts } from "./write-path.ts";
+import type { WritePathPorts } from "./write-path-ports.ts";
 
 /** The copy as a wording of the block it copies: its content under the kept block's `id` and `from`. */
 function wordingOf({ kept, copy }: RepairedCopy): BlockJSON {

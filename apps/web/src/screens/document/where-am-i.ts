@@ -3,6 +3,7 @@
 import type { LayoutBlock } from "@manent/pagination";
 import { PLACE_WORDS, READOUT_WORDS, statusText } from "@manent/ui";
 import { useContext, useEffect, useRef } from "react";
+import { livePagination } from "../../editor-host/live-editor.ts";
 import { useAnnouncer } from "../../shell/announcer-region.tsx";
 import { FactsContext } from "../../state/bridge-contexts.ts";
 import { useWhereAsked } from "../../state/where.store.ts";
@@ -45,23 +46,18 @@ export function useWhereAmI(docId: string, mode: string | null): void {
       pageOrdinal: facts.get("pageOrdinal"),
     });
     const element = facts.get("element");
-    // the editor's module, already loaded with the page
-    void import("../../editor-host/live-editor.ts").then(
-      ({ livePagination }) => {
-        const parts = [
-          element,
-          cueOf(livePagination(docId)?.blocks ?? [], blockId),
-          scene === null ? null : READOUT_WORDS.scene(scene),
-          page,
-          device,
-          server,
-          mode,
-        ];
-        announcer.announce(
-          PLACE_WORDS.whereAmI(parts.filter((part) => part !== null)),
-          "polite",
-        );
-      },
+    const parts = [
+      element,
+      cueOf(livePagination(docId)?.blocks ?? [], blockId),
+      scene === null ? null : READOUT_WORDS.scene(scene),
+      page,
+      device,
+      server,
+      mode,
+    ];
+    announcer.announce(
+      PLACE_WORDS.whereAmI(parts.filter((part) => part !== null)),
+      "polite",
     );
   }, [asked, docId, facts, status, announcer, mode]);
 }

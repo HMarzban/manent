@@ -84,9 +84,11 @@ const fixtureApi = (options: {
   signIn: NEVER,
   demo: async () => null,
   removedDoc: async () => null,
+  role: async () => null,
   docClients: async () => ({ clients: [] }),
   prepareTour: NEVER,
   writers: NEVER,
+  runningWriters: NEVER,
   rebuild: NEVER,
 });
 
@@ -135,7 +137,11 @@ function FixtureSection(props: { row: Row }): ReactNode {
       waitingByScene: createValue(waiting),
     };
     const documents: DocumentSource = { open: () => doc, close: noop };
-    const library = createFixtureLibrary({ count: projects, ids: randomId });
+    const library = createFixtureLibrary({
+      count: projects,
+      ids: randomId,
+      made: { byName: NAME, at: now() },
+    });
     const queries = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -205,10 +211,13 @@ const outlined = (outline: OutlineSelectors) => (): ReactNode => (
 const outlineOf = (
   rowAt: (index: number) => OutlineRow | null,
   count: number,
+  currentId: string | null = null,
 ): OutlineSelectors => ({
   count: () => count,
   row: rowAt,
   subscribe: () => noop,
+  currentBlockId: () => currentId,
+  subscribeCurrent: () => noop,
 });
 const SCENES: readonly OutlineRow[] = DEMO_WORKSPACES.map(
   (workspace, index) => ({
@@ -314,7 +323,13 @@ const PAGES: Readonly<
       row(
         "left_panel",
         "ready",
-        outlined(outlineOf((index) => SCENES[index] ?? null, SCENES.length)),
+        outlined(
+          outlineOf(
+            (index) => SCENES[index] ?? null,
+            SCENES.length,
+            SCENES[0]?.blockId ?? null,
+          ),
+        ),
       ),
       row("left_panel", "empty", outlined(outlineOf(() => null, 0))),
       row(

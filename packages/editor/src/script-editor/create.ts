@@ -1,43 +1,40 @@
 // One script editor over one place: the binding, the keys, the popovers, the pages, the scroll rules and the bridge.
-import { profileFromSettings, readLayoutSettings } from "@manent/pagination";
+import {
+  LAYOUT_SETTING_KEYS,
+  engineFor,
+  profileFromSettings,
+  readLayoutSettings,
+} from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
   PageProfile,
   Pagination,
 } from "@manent/pagination";
-import { FORMATS, FORMAT_ELEMENTS } from "@manent/schema";
+import { FORMATS } from "@manent/schema";
 import type { FormatId, IdSource } from "@manent/schema";
-import { Plugin } from "prosemirror-state";
+import type { Plugin } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { runAction } from "../actions/run-action.ts";
-import type { ActionContext } from "../actions/run-action.ts";
-import type { ActionResult, EditorAction } from "../actions/action-types.ts";
-import { bridgePlugin } from "../bridge/bridge-plugin.ts";
-import { completePlugin } from "../complete/complete-plugin.ts";
+import type { ActionContext, ActionResult } from "../actions/action-types.ts";
+import type { EditorAction } from "../actions/registry.ts";
 import { CURSOR_CSS } from "../cursors/cursor-css.ts";
-import { cursorsPlugin } from "../cursors/cursor-plugin.ts";
-import { plainTextElement, slotElement } from "../elements/slots.ts";
-import { findPlugin } from "../find/find-plugin.ts";
-import { clipboardPlugin } from "../identity/clipboard.ts";
-import { idRegistryPlugin } from "../identity/id-registry.ts";
-import { commandKeymap } from "../keys/command-keymap.ts";
-import { detectPlugin } from "../keys/detect.ts";
-import { elementKeysPlugin } from "../keys/element-keys.ts";
+import { slotElement } from "../elements/slots.ts";
 import { loadFrontPages } from "../front-pages/load.ts";
 import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
-import { historyKeysPlugin } from "../keys/history-keys.ts";
 import type { LayoutView } from "../page/config.ts";
+import type { PageFurnitureOptions } from "../page/furniture/page-furniture.ts";
+import { withBatchedScaffold } from "../page/scaffold.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
-import { openPicker, pickerPlugin } from "../picker/picker-plugin.ts";
-import { PLACEHOLDER_CSS, placeholderPlugin } from "../picker/placeholder.ts";
+import { openPicker } from "../picker/picker-plugin.ts";
+import { PLACEHOLDER_CSS } from "../picker/placeholder.ts";
 import { restorePlace, savedPlaceOf } from "../scroll/saved-place.ts";
-import { scrollPlugin } from "../scroll/stability.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
-import { sourcePlugin } from "../source/source-plugin.ts";
+import { editorPlugins } from "./editor-plugins.ts";
+import { createFurnitureSync } from "./furniture.ts";
 import { mountEditor } from "./mount-view.ts";
 import {
   createPageControls,
@@ -65,6 +62,7 @@ export interface EditorPluginHost {
   layer(): HTMLElement | null;
   zoom(): number;
   setScenesNumbered(on: boolean): void;
+  readonly frames: Frames;
 }
 
 export interface ScriptEditor {
@@ -81,12 +79,14 @@ export interface ScriptEditor {
   zoomPercent(): number | null;
   /** Scrolls to the title page and puts the caret in its title; nothing without front pages. */
   showTitlePage(): void;
+  setEditable(editable: boolean): void;
   /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
   frontPages(): FrontPage[] | null;
   /** The label of the page before page 1 at viewport height `top`, px; null anywhere else. */
   frontPageAt(top: number): string | null;
   /** The index of the page at viewport height `top`, px; null without pages or where there is no script. */
   pageAt(top: number): number | null;
+  furniture(): PageFurnitureOptions;
   destroy(): void;
 }
 
@@ -126,30 +126,8 @@ export interface ScriptEditorOptions {
   desk: Desk;
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
-}
-
-/** The script settings the page profile is made from. */
-const LAYOUT_KEYS: readonly string[] = Object.freeze([
-  "script.format",
-  "script.paper",
-  "script.moresAtBreaks",
-  "script.sameSpeakerContd",
-  "script.sceneContinued",
-]);
-
-const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
-  tabindex: "0",
-  "aria-readonly": "true",
-});
-
-/** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
-function pageAttributes(options: ScriptEditorOptions): Record<string, string> {
-  return {
-    role: "textbox",
-    "aria-multiline": "true",
-    "aria-label": options.title.get(),
-    ...(options.editable ? {} : READ_ONLY_ATTRIBUTES),
-  };
+  /** The host's names, which autocomplete offers beside the script's; none when absent. */
+  projectNames?: readonly string[];
 }
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */
@@ -158,67 +136,6 @@ const LAYER_CSS = ".mn-layer { position: relative; }";
 /** An unknown format lays out as a screenplay, as the engine does. */
 const formatOf = (format: string): FormatId =>
   FORMATS.find((known) => known === format) ?? "screenplay";
-
-/** The plugins before the typesetting ones, and those after them. */
-function editorPlugins(
-  options: ScriptEditorOptions,
-  parts: {
-    layer: HTMLElement;
-    format(): FormatId;
-    context: ElementContext;
-    ports: ScrollPorts;
-    paged: boolean;
-    extra: readonly Plugin[];
-  },
-): { before: Plugin[]; after: Plugin[] } {
-  const { binding, words, frames, timers, ids, personal } = options;
-  const { layer, format, context } = parts;
-  const before = [
-    ...binding.plugins,
-    pickerPlugin({ format, words, layer, frames }),
-    completePlugin({ layer, frames, timers }),
-    commandKeymap(options.keys),
-    historyKeysPlugin({ history: binding.history, platform: options.platform }),
-    elementKeysPlugin(context),
-    detectPlugin(context),
-    clipboardPlugin({
-      ids,
-      random: options.random,
-      isUndoRedo: binding.isUndoRedo,
-      history: binding.history,
-      pastedText: options.pastedText,
-      plainElement: () => plainTextElement(format()),
-      formatElements: () => FORMAT_ELEMENTS[format()],
-    }),
-    new Plugin({ props: { attributes: () => pageAttributes(options) } }),
-  ];
-  const after = [
-    // the registry counts from the pagination plugin's block index
-    ...(parts.paged
-      ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
-      : []),
-    placeholderPlugin({ format, words }),
-    sourcePlugin({ format, layer }),
-    findPlugin(),
-    cursorsPlugin({ presence: binding.presence, frames, timers }),
-    scrollPlugin({
-      ...parts.ports,
-      isRemote: binding.isRemote,
-      typewriter: () => personal.get("writing.typewriterScrolling") === true,
-    }),
-    bridgePlugin({
-      facts: options.facts,
-      outline: options.outline,
-      history: binding.history,
-      words,
-      format,
-      frames,
-      timers,
-    }),
-    ...parts.extra,
-  ];
-  return { before, after };
-}
 
 /** `div.mn-layer`, which holds the popovers and the styles of the placeholders and the remote cursors. */
 function createLayer(doc: Document): HTMLElement {
@@ -255,12 +172,12 @@ const GO_TO_MARGIN_PX = 48;
 function actionContext(
   context: ElementContext,
   view: EditorView,
-  parts: { editable: boolean; ports: ScrollPorts },
+  parts: { editable(): boolean; ports: ScrollPorts },
 ): ActionContext {
   return {
     ...context,
     slotElement,
-    editable: () => parts.editable,
+    editable: parts.editable,
     goTo(blockId, offset) {
       const at = { blockId, offset };
       restorePlace(view, parts.ports, {
@@ -304,17 +221,48 @@ function subscribe(
   options: ScriptEditorOptions,
   view: EditorView,
   relayout: () => void,
+  onFurniture: () => void,
 ): (() => void)[] {
   // a transaction of no content, so the page's attributes are read again
   const reread = (): void =>
     view.dispatch(view.state.tr.setMeta("addToHistory", false));
+  const refreshTitle = (): void => {
+    reread();
+    onFurniture();
+  };
   return [
-    ...LAYOUT_KEYS.map((key) => options.script.subscribe(key, relayout)),
+    ...LAYOUT_SETTING_KEYS.map((key) =>
+      options.script.subscribe(key, relayout),
+    ),
+    options.script.subscribe("script.engineVersion", relayout),
+    options.script.subscribe("script.header", onFurniture),
+    options.script.subscribe("script.footer", onFurniture),
+    options.script.subscribe("script.dateFormat", onFurniture),
     options.personal.subscribe("writing.checkSpelling", reread),
-    options.title.subscribe(reread),
+    options.title.subscribe(refreshTitle),
     options.binding.history.onStep(options.onUndoStep),
   ];
 }
+
+const hasStoredSceneNumbers = (
+  script: ScriptEditorOptions["script"],
+): boolean => {
+  const explain: unknown = Reflect.get(script, "explain");
+  if (typeof explain !== "function") return true;
+  const info: unknown = explain.call(script, "script.sceneNumbers");
+  return (
+    typeof info === "object" &&
+    info !== null &&
+    Reflect.get(info, "modified") === true
+  );
+};
+
+const readScriptLayout = (script: ScriptEditorOptions["script"]) =>
+  readLayoutSettings((key) =>
+    key === "script.sceneNumbers" && !hasStoredSceneNumbers(script)
+      ? undefined
+      : script.get(key),
+  );
 
 /**
  * Builds the editor in `place`: the page's frame, the view and its plugins, and `div.mn-layer` for the popovers after
@@ -323,12 +271,20 @@ function subscribe(
  */
 export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const { place, binding, editable, script, desk, zoom } = options;
-  let layout = readLayoutSettings((key) => script.get(key));
+  let editableNow = editable;
+  let layout = readScriptLayout(script);
   let scenesNumbered = false;
   let pages: PageControls | null = null;
   const format = (): FormatId => formatOf(layout.format);
+  const currentEngine = (): Engine => {
+    const raw = script.get("script.engineVersion");
+    if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1) {
+      return engineFor(raw) ?? engineFor(1)!;
+    }
+    return options.layoutEngine;
+  };
   const profile = (): PageProfile | null =>
-    profileFromSettings(options.layoutEngine, { ...layout, scenesNumbered });
+    profileFromSettings(currentEngine(), { ...layout, scenesNumbered });
   const factor = (): number => (pages?.percent ?? 100) / 100;
   const layer = createLayer(place.ownerDocument);
   const ports = createScrollPorts(place, factor);
@@ -336,11 +292,22 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     layer: () => (layer.parentNode === null ? null : layer),
     zoom: factor,
     setScenesNumbered(on) {
+      if (scenesNumbered === on) return;
       scenesNumbered = on;
       pages?.repage();
     },
+    frames: options.frames,
   });
-  const first = profile();
+  let activeScaffold: PageScaffold | null = null;
+  const furnitureSync = createFurnitureSync({
+    script,
+    title: options.title,
+    timers: options.timers,
+    format,
+    scaffold: () => activeScaffold,
+  });
+  const firstEngine = currentEngine();
+  const first = profileFromSettings(firstEngine, { ...layout, scenesNumbered });
   const context = elementContext(options, format);
   const plugins = editorPlugins(options, {
     layer,
@@ -349,32 +316,53 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     ports,
     extra,
     paged: first !== null,
+    isEditable: () => editableNow,
   });
-  const mounted = mountEditor(options, {
-    profile: first,
-    context,
-    plugins,
-    ports,
+  plugins.after.unshift(furnitureSync.plugin());
+  const mounted = withBatchedScaffold(place, () => {
+    const built = mountEditor(
+      { ...options, layoutEngine: firstEngine },
+      { profile: first, context, plugins, ports },
+    );
+    activeScaffold = built.scaffold;
+    if (!editableNow) built.view.setProps({ editable: () => false });
+    place.append(layer);
+    if (built.scaffold !== null)
+      pages = createPageControls({
+        view: built.view,
+        scaffold: built.scaffold,
+        ports,
+        desk,
+        zoom,
+        layoutView: options.view,
+        engine: currentEngine,
+        profile,
+      });
+    furnitureSync.sync(built.view.state);
+    return built;
   });
   const { view, scaffold } = mounted;
-  place.append(layer);
-  if (scaffold !== null)
-    pages = createPageControls({
-      view,
-      scaffold,
-      ports,
-      desk,
-      zoom,
-      layoutView: options.view,
-      profile,
-    });
   const front = frontPagesOf(options, view, scaffold, { profile, ports });
-  const actions = actionContext(context, view, { editable, ports });
-  const subscriptions = subscribe(options, view, () => {
-    layout = readLayoutSettings((key) => script.get(key));
-    pages?.repage();
-    front?.relayout();
+  const actions = actionContext(context, view, {
+    editable: () => editableNow,
+    ports,
   });
+  let relayoutQueued = false;
+  const scheduleRelayout = (): void => {
+    if (relayoutQueued) return;
+    relayoutQueued = true;
+    options.ports.defer(() => {
+      relayoutQueued = false;
+      if (view.isDestroyed) return;
+      layout = readScriptLayout(script);
+      pages?.repage();
+      front?.relayout();
+      furnitureSync.sync(view.state);
+    });
+  };
+  const subscriptions = subscribe(options, view, scheduleRelayout, () =>
+    furnitureSync.sync(view.state),
+  );
   return {
     view,
     scaffold,
@@ -385,9 +373,16 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     setZoom: (setting) => pages?.setZoom(setting),
     zoomPercent: () => pages?.percent ?? null,
     showTitlePage: () => front?.show(),
+    setEditable(next) {
+      editableNow = next;
+      view.setProps({ editable: () => editableNow });
+      view.dispatch(view.state.tr.setMeta("addToHistory", false));
+      front?.setEditable(next);
+    },
     frontPages: () => front?.printed() ?? null,
     frontPageAt: (top) => front?.labelAt(top) ?? null,
     pageAt: (top) => pageAtHeight(view, top),
+    furniture: () => furnitureSync.read(view.state),
     destroy() {
       for (const unsubscribe of subscriptions) unsubscribe();
       front?.destroy();

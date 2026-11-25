@@ -119,6 +119,53 @@ test("sections far from the selection are skipped and its neighbours are not", a
   ).toEqual([skipped, "visible", "visible", "visible"]);
 });
 
+test("a section drawn and then scrolled past takes the height its pages give it when it changes", async ({
+  page,
+}) => {
+  await open(page, "script=corpus:3000");
+  // the selection far below, so that the section changed is never kept
+  await page.evaluate(() => {
+    const { view, select } = window["__mn"];
+    const below = view.dom.querySelectorAll(".section")[20]!;
+    select(view.posAtDOM(below.querySelector("p.el")!, 0));
+  });
+  const scrollTo = (section: number) =>
+    page.evaluate(async (i) => {
+      const place = document.getElementById("place")!;
+      const at = document.querySelectorAll(".section")[i]!;
+      place.scrollTop +=
+        at.getBoundingClientRect().top - place.getBoundingClientRect().top;
+      await window["__mn"].idle();
+    }, section);
+  await scrollTo(5);
+  await scrollTo(12);
+  const [before, laidOut, model] = await page.evaluate(async () => {
+    const { view, sectionHeights, idle } = window["__mn"];
+    const was = sectionHeights()[5]!;
+    const block = view.dom
+      .querySelectorAll(".section")[5]!
+      .querySelector("p.el-action")!;
+    view.dispatch(
+      view.state.tr.insertText(
+        "The tide turns under the harbour wall and the boats knock. ".repeat(
+          10,
+        ),
+        view.posAtDOM(block, 0),
+      ),
+    );
+    await idle();
+    return [
+      was,
+      view.dom.querySelectorAll(".section")[5]!.getBoundingClientRect().height,
+      sectionHeights()[5]!,
+    ];
+  });
+  expect(
+    { grown: model > before, laidOut: Math.abs(laidOut - model) <= 0.02 },
+    `laid out at ${laidOut} px, its pages give ${model} px`,
+  ).toEqual({ grown: true, laidOut: true });
+});
+
 test("the caret crosses a section boundary it cannot see", async ({ page }) => {
   await open(page, "script=corpus:3000");
   // the start of section k's last block, an action of one line at the text edge, and the next section's first line

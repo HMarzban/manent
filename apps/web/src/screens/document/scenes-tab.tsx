@@ -1,11 +1,12 @@
-// The left panel's Scenes tab: the acts, sections and scenes of the outline, with a filter, named for the script's
-// format; a row goes to its place in the page.
+// The left panel's Scenes tab: the acts, sections and scenes of the outline as a list or as cards, with a filter, named
+// for the script's format; a row goes to its place in the page, moves by drag or key for a person who can edit, and
+// draws what other features say of its scene.
 import {
   DOCUMENT_WORDS,
   HISTORY_WORDS,
   Input,
   Row,
-  SCENES_WORDS,
+  SortableList,
   SurfaceState,
   VirtualRows,
   keyLabel,
@@ -14,28 +15,52 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import {
+  memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import {
+  BlankCard,
+  SceneCards,
+  ScenesSwitch,
+  useScenesView,
+} from "../../scenes/cards.tsx";
+import type { ScenesView } from "../../scenes/cards.tsx";
+import {
+  ScenePeople,
+  SceneTitle,
+  isPersonMark,
+  sceneRowMeta,
+  useSceneExtras,
+} from "../../scenes/marks.tsx";
+import type { SceneParts } from "../../scenes/marks.tsx";
+import { SceneRowsContext, useSceneMoves } from "../../scenes/moves.ts";
+import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
+import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
-import { useOutlineCount, useOutlineRow } from "../../state/outline.store.ts";
-import type { OutlineRow } from "../../state/outline.store.ts";
+import {
+  useIsCurrentOutline,
+  useOutlineCount,
+} from "../../state/outline.store.ts";
+import type {
+  OutlineRow,
+  OutlineSelectors,
+} from "../../state/outline.store.ts";
 import { panelRenderers } from "./panel-surface.tsx";
-import { SCENE_MARK_SOURCES } from "./scene-marks.ts";
+import { useCanEdit } from "./ruler-bar.tsx";
 
 // the element picker's key, which the editor binds
 const PICKER_CHORD = "Alt+Enter";
 const READY = Object.freeze({ kind: "ready" });
 const EMPTY = Object.freeze({ kind: "empty" });
+const NO_ROWS: readonly OutlineRow[] = Object.freeze([]);
 
 /** The format of `docId`'s script; the default format while no document is open. */
 function useFormat(docId: string | null): string {
@@ -49,32 +74,20 @@ function useFormat(docId: string | null): string {
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
 }
 
-/** Whether a scene heading is in a set of any source of scene marks, read again when a set changes. */
-function useSceneMarks(docId: string): (blockId: string) => boolean {
-  const sources = useMemo(
-    () => SCENE_MARK_SOURCES.map((source) => source(docId)),
-    [docId],
-  );
-  const [, changed] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    const stops = sources.map((source) => source.subscribe(changed));
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [sources]);
-  return (blockId) => sources.some((source) => source.get().has(blockId));
-}
-
-/** A scene's row: its number, heading and synopsis, then whether it is revised and its length. */
+/**
+ * A scene's row: its number, heading, synopsis and marks, then whether it is revised, the people in it, its length and
+ * its menu.
+ */
 function SceneLine(props: {
   row: OutlineRow;
-  marked: boolean;
+  parts: SceneParts;
+  current: boolean;
   goTo: () => void;
 }): ReactNode {
-  const { row, marked, goTo } = props;
+  const { row, parts, current, goTo } = props;
   if (row.omitted)
     return (
-      <Row current={row.current} onActivate={goTo}>
+      <Row current={current} onActivate={goTo}>
         <span className="whitespace-pre text-fg-muted">
           {row.number === null
             ? DOCUMENT_WORDS.omitted
@@ -82,104 +95,205 @@ function SceneLine(props: {
         </span>
       </Row>
     );
-  const trailing = [
-    ...(marked
+  const marks = parts.extras.marks(row.blockId);
+  const length = parts.extras.length(row);
+  const lengthTitle =
+    length === null
+      ? undefined
+      : (parts.extras.lengthTitle?.(row) ?? undefined);
+  const meta = sceneRowMeta(marks, row.synopsis);
+  const trailing: ReactNode[] = [
+    ...(marks.some((mark) => mark.kind === "revised")
       ? [
           <span key="revised" aria-hidden="true">
             *
           </span>,
         ]
       : []),
-    ...(row.eighths === null
+    // the people in the scene stand just before its length, in the same trailing item
+    ...(length === null && !marks.some(isPersonMark)
       ? []
       : [
-          <span key="length" className="tabular-nums">
-            {SCENES_WORDS.length(row.eighths)}
+          <span key="length" className="flex items-center gap-2">
+            <ScenePeople marks={marks} />
+            {length === null ? null : (
+              <span className="tabular-nums" title={lengthTitle}>
+                {length}
+              </span>
+            )}
           </span>,
         ]),
   ];
   return (
-    <Row
-      current={row.current}
-      onActivate={goTo}
-      leading={
-        row.number === null ? undefined : (
-          <span className="w-6 text-end tabular-nums">{row.number}</span>
-        )
-      }
-      meta={row.synopsis === "" ? undefined : row.synopsis}
-      trailing={trailing}
+    <SceneRowMenu
+      docId={parts.docId}
+      headingId={row.blockId}
+      title={row.heading}
+      items={parts.items}
     >
-      {marked ? (
-        <>
-          <span aria-hidden="true">{row.heading}</span>
-          <span className="sr-only">
-            {DOCUMENT_WORDS.revisedName(row.heading)}
-          </span>
-        </>
-      ) : (
-        row.heading
+      {(handle) => (
+        <Row
+          current={current}
+          onActivate={goTo}
+          leading={
+            row.number === null ? undefined : (
+              <span className="w-6 text-end tabular-nums">{row.number}</span>
+            )
+          }
+          meta={meta}
+          trailing={trailing}
+          menu={handle ?? undefined}
+        >
+          <SceneTitle heading={row.heading} marks={marks} />
+        </Row>
       )}
-    </Row>
+    </SceneRowMenu>
   );
 }
 
-/** An act heads the scenes after it; a section groups them and is never printed. */
-function OutlineLine(props: {
-  index: number;
-  isMarked: (blockId: string) => boolean;
+/** An act or knot heads the entries after it; a stitch indents under its knot; a section groups scenes. */
+const OutlineLine = memo(function OutlineLine(props: {
+  row: OutlineRow;
+  parts: SceneParts;
 }): ReactNode {
+  const { row, parts } = props;
   const { editor } = useServices();
-  const row = useOutlineRow(props.index);
-  if (row === null) return null;
+  const current = useIsCurrentOutline(row.blockId);
   const goTo = () =>
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   if (row.kind === "scene")
-    return (
-      <SceneLine row={row} marked={props.isMarked(row.blockId)} goTo={goTo} />
-    );
+    return <SceneLine row={row} parts={parts} current={current} goTo={goTo} />;
+  const textClass =
+    row.kind === "act" || row.kind === "knot"
+      ? "font-semibold"
+      : row.kind === "stitch"
+        ? "pl-4"
+        : "text-fg-muted italic";
   return (
-    <Row onActivate={goTo}>
-      <span
-        className={
-          row.kind === "act" ? "font-semibold" : "text-fg-muted italic"
-        }
-      >
-        {row.heading}
-      </span>
+    <Row current={current} onActivate={goTo}>
+      <span className={textClass}>{row.heading}</span>
     </Row>
   );
+});
+
+const isFilterableKind = (kind: OutlineRow["kind"]): boolean =>
+  kind === "scene" || kind === "knot" || kind === "stitch";
+
+/** The rows of `outline` shown under `filter`: matching scenes, knots and stitches; every row while it is empty. */
+function listedRows(
+  outline: OutlineSelectors | null,
+  filter: string,
+): readonly OutlineRow[] {
+  if (outline === null) return NO_ROWS;
+  const rows: OutlineRow[] = [];
+  for (let index = 0; index < outline.count(); index++) {
+    const row = outline.row(index);
+    if (
+      row !== null &&
+      (filter === "" ||
+        (isFilterableKind(row.kind) &&
+          matchesQuery(filter, [row.heading, row.synopsis])))
+    )
+      rows.push(row);
+  }
+  return rows;
 }
 
-/** The outline's indices of the scenes whose heading or synopsis matches `filter`; every row while it is empty. */
-function useShownRows(filter: string): readonly number[] | null {
+/** `listedRows`, read in render; the same list while no row of it changed, so the store sees no change. */
+function useListedRows(filter: string): readonly OutlineRow[] {
   const outline = useContext(OutlineContext);
   const subscribe = useCallback(
     (listener: () => void) => outline?.subscribe(listener) ?? (() => {}),
     [outline],
   );
-  const shown = useRef<readonly number[]>([]);
-  const read = (): readonly number[] | null => {
-    if (filter === "" || outline === null) return null;
-    const indices: number[] = [];
-    for (let index = 0; index < outline.count(); index++) {
-      const row = outline.row(index);
-      if (
-        row?.kind === "scene" &&
-        matchesQuery(filter, [row.heading, row.synopsis])
-      )
-        indices.push(index);
-    }
-    // the same list while it is unchanged, so the store sees no change
-    const before = shown.current;
+  const listed = useRef<readonly OutlineRow[]>(NO_ROWS);
+  const read = (): readonly OutlineRow[] => {
+    const rows = listedRows(outline, filter);
+    const before = listed.current;
     if (
-      before.length !== indices.length ||
-      before.some((index, at) => index !== indices[at])
+      before.length !== rows.length ||
+      before.some((row, at) => row !== rows[at])
     )
-      shown.current = indices;
-    return shown.current;
+      listed.current = rows;
+    return listed.current;
   };
   return useSyncExternalStore(subscribe, read, read);
+}
+
+/** The rows of a person who can edit: a scene moves by drag, by its menu's Move, and by the move commands. */
+function MovableRows(props: {
+  docId: string;
+  label: string;
+  rows: readonly OutlineRow[];
+  renderRow(row: OutlineRow): ReactNode;
+}): ReactNode {
+  const { docId, label, rows, renderRow } = props;
+  const { area, sortable, rowOf } = useSceneMoves({ docId, rows });
+  const renderItem = useCallback(
+    (id: string): ReactNode => {
+      const row = rowOf(id);
+      return row === null ? null : renderRow(row);
+    },
+    [rowOf, renderRow],
+  );
+  return (
+    <SceneRowsContext value={rows}>
+      <div {...area} className="min-h-0 flex-1">
+        <SortableList
+          {...sortable}
+          label={label}
+          orientation="vertical"
+          renderItem={renderItem}
+        />
+      </div>
+    </SceneRowsContext>
+  );
+}
+
+/** The listed rows as the view shows them: movable for a person who can edit (never for Ink knots). */
+function OutlineRows(props: {
+  view: ScenesView;
+  filter: string;
+  label: string;
+  canEdit: boolean;
+  movable: boolean;
+  parts: SceneParts;
+}): ReactNode {
+  const { parts } = props;
+  const rows = useListedRows(props.filter);
+  const renderRow = useCallback(
+    (row: OutlineRow): ReactNode => <OutlineLine row={row} parts={parts} />,
+    [parts],
+  );
+  if (props.view === "cards")
+    return (
+      <SceneCards
+        rows={rows}
+        canEdit={props.canEdit}
+        label={props.label}
+        parts={parts}
+      />
+    );
+  return props.movable ? (
+    <MovableRows
+      docId={parts.docId}
+      label={props.label}
+      rows={rows}
+      renderRow={renderRow}
+    />
+  ) : (
+    <div className="min-h-0 flex-1">
+      <VirtualRows
+        count={rows.length}
+        rowHeight="one"
+        label={props.label}
+        renderRow={(index) => {
+          const row = rows[index];
+          return row === undefined ? null : renderRow(row);
+        }}
+      />
+    </div>
+  );
 }
 
 function ScenesList(props: { docId: string }): ReactNode {
@@ -187,23 +301,35 @@ function ScenesList(props: { docId: string }): ReactNode {
   const { library } = useServices();
   const { platform } = useCommands();
   const format = useFormat(docId);
+  const isInk = format === "ink";
   const kindSource = useMemo(
     () => library.documentKind(docId),
     [library, docId],
   );
   const kind = useSubscribable(kindSource);
   const count = useOutlineCount();
-  const isMarked = useSceneMarks(docId);
+  const extras = useSceneExtras(docId, format);
+  const canEdit = useCanEdit(docId);
+  const items = useMemo(() => rowItemsFor(SCENE_ROW_ITEMS, canEdit), [canEdit]);
+  const parts = useMemo<SceneParts>(
+    () => ({ docId, extras, items }),
+    [docId, extras, items],
+  );
   const [filter, setFilter] = useState("");
-  const shown = useShownRows(filter);
+  const { view, setView } = useScenesView();
+  const activeView: ScenesView = isInk ? "list" : view;
+  const viewSwitch = isInk ? null : (
+    <ScenesSwitch view={view} onChange={setView} />
+  );
   return (
     <SurfaceState
       surface="left_panel"
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="flex min-h-0 flex-col">
-            <div className="p-2">
+          <div className="@container flex h-full min-h-0 flex-col">
+            <div className="flex items-center gap-2 p-2">
+              {viewSwitch}
               <Input
                 type="search"
                 aria-label={HISTORY_WORDS.filter}
@@ -215,30 +341,38 @@ function ScenesList(props: { docId: string }): ReactNode {
                   event.preventDefault();
                   setFilter("");
                 }}
-                className="h-control text-ui"
+                className="h-control min-w-0 flex-1 text-ui"
               />
             </div>
-            <VirtualRows
-              count={shown === null ? count : shown.length}
-              rowHeight="one"
+            <OutlineRows
+              view={activeView}
+              filter={filter}
               label={DOCUMENT_WORDS.leftTab(format)}
-              renderRow={(index) => (
-                <OutlineLine
-                  index={shown?.[index] ?? index}
-                  isMarked={isMarked}
-                />
-              )}
+              canEdit={canEdit}
+              movable={canEdit && !isInk}
+              parts={parts}
             />
           </div>
         ),
         empty: () => (
-          <p className="p-4 text-ui text-fg-muted">
-            {DOCUMENT_WORDS.scenesEmpty(
-              format,
-              kind,
-              keyLabel(PICKER_CHORD, platform),
+          <div className="flex h-full min-h-0 flex-col">
+            {viewSwitch === null ? null : (
+              <div className="p-2">{viewSwitch}</div>
             )}
-          </p>
+            {activeView === "cards" && canEdit ? (
+              <div className="p-2">
+                <BlankCard docId={docId} />
+              </div>
+            ) : (
+              <p className="p-4 text-ui text-fg-muted">
+                {DOCUMENT_WORDS.scenesEmpty(
+                  format,
+                  kind,
+                  keyLabel(PICKER_CHORD, platform),
+                )}
+              </p>
+            )}
+          </div>
         ),
       })}
     />

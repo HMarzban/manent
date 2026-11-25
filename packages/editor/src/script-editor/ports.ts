@@ -119,12 +119,12 @@ export interface FactsSink {
 }
 
 /**
- * A scene (a scene heading, slug or chapter), an act, or a section. `synopsis` and `omitted`: the heading's own
- * attributes. `eighths`: a scene's length in eighths of a page; null for an act or a section.
+ * A scene (a scene heading, slug or chapter), an act, a section, or an Ink knot or stitch. `synopsis` and `omitted`:
+ * the heading's own attributes. `eighths`: a scene's length in eighths of a page; null for any other kind.
  */
 export interface OutlineEntry {
   blockId: string;
-  kind: "scene" | "act" | "section";
+  kind: "scene" | "act" | "section" | "knot" | "stitch";
   number: string | null;
   heading: string;
   synopsis: string;
@@ -135,6 +135,8 @@ export interface OutlineEntry {
 
 export interface OutlineSink {
   publish(rows: readonly OutlineEntry[]): void;
+  /** Updates only the active heading's block id, without replacing the rows. */
+  publishCurrent?(blockId: string | null): void;
 }
 
 export interface DispatchGuardPort {

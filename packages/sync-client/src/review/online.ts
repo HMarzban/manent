@@ -34,6 +34,11 @@ function isRecent(change: Change, now: number): boolean {
   return now - change.at <= OVERLAP_WINDOW_MS;
 }
 
+const withoutNum = (block: BlockJSON): BlockJSON => ({
+  ...block,
+  attrs: { ...block.attrs, num: null },
+});
+
 function idOf(block: BlockJSON): string | null {
   const id = block.attrs?.id;
   return typeof id === "string" ? id : null;
@@ -101,6 +106,8 @@ export class OverlapWindow {
       if (blockId === null || touch === undefined || first === undefined)
         continue;
       if (this.isHeldElsewhere(blockId)) continue;
+      // only the authority writes a scene number, as a lock or an issue does: that is no one's wording
+      if (isSameBlock(withoutNum(block), withoutNum(touch.mine))) continue;
       const exclude = new Map([[doc.clientId, first.fromClock]]);
       const theirs = readBlockExcluding(doc, blockId, exclude);
       if (theirs === null || isSameBlock(theirs, touch.mine)) continue;

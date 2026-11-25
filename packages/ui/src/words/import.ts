@@ -64,6 +64,18 @@ export const KEPT_LABELS = {
   fountain_markup: "Fountain markup",
 } as const;
 
+/** The Details row of each unread code a PDF, Word or text import records under "Not brought in". */
+export const UNREAD_LABELS = {
+  page_furniture: "Page numbers, headers and footers, (MORE) and (CONT'D)",
+  image: "Images",
+  table: "Tables",
+  footnote: "Footnotes",
+  comment: "Comments made in the file",
+  /** `name` is the Word paragraph style's name as stored in the file. */
+  style: (name: string): string =>
+    `Text in the Word style "${name}", brought in as Action`,
+} as const;
+
 export const IMPORT_WORDS = {
   summary: (
     title: string,
@@ -74,6 +86,8 @@ export const IMPORT_WORDS = {
     `Imported '${title}': ${plural(pages, "page", "pages")}, ${plural(scenes, "scene", "scenes")}, ${plural(notes, "note", "notes")}.`,
   /** Follows an .fdx or .fdr summary, after one space. */
   finalDraftClause: "Page count can differ from Final Draft.",
+  /** Follows a .pdf summary, after one space. */
+  pdfClause: "Page count can differ from the PDF.",
   /** Follows an .fdx summary's clause; the message's action is `seeShortcuts`. */
   shortcutsClause: "Shortcuts follow Final Draft.",
   seeShortcuts: "See shortcuts",
@@ -89,6 +103,10 @@ export const IMPORT_WORDS = {
     `Couldn't open '${name}': Manent opens ${joinNames(extensions)} files.`,
   tooLarge: (name: string): string =>
     `Couldn't open '${name}': it is larger than 32 MB.`,
+  pdfNoText: (name: string): string =>
+    `Couldn't open '${name}': it holds pictures of pages and no text Manent can read.`,
+  docxTooLarge: (name: string): string =>
+    `Couldn't open '${name}': it unpacks to more than 64 MB.`,
   /** `format` is one of `formatNames`. */
   unreadable: (name: string, format: string): string =>
     `Couldn't open '${name}': Manent couldn't read it as a ${format} file.`,
@@ -100,6 +118,9 @@ export const IMPORT_WORDS = {
     fountain: "Fountain",
     fdr: "Final Draft",
     text: "text",
+    pdf: "PDF",
+    docx: "Word",
+    ink: "Ink",
   },
   groupTitle: "Import",
   /** `day` as `formatDate` writes it. */
@@ -124,9 +145,9 @@ export const IMPORT_WORDS = {
   notShownTitle: "Imported, not shown",
   notShownLine: (format: string): string =>
     `Kept with the script and written back when it is exported as ${format}.`,
-  /** Notes have no other place yet. */
-  notesRow: (n: number): string => plural(n, "note", "notes"),
+  notBroughtInTitle: "Not brought in",
   kept: KEPT_LABELS,
+  unread: UNREAD_LABELS,
   asFdx: "FDX",
   asFountain: "Fountain",
   leftOut: (names: string, format: string): string =>

@@ -12,8 +12,10 @@ import type {
   ProductionRefusal,
   VersionContent,
 } from "@manent/sync-protocol";
+import type { DraftEvents } from "../history/draft-events.ts";
 import type { HistoryService } from "../history/service.ts";
 import type { SettingRules, SyncService } from "../sync/ports.ts";
+import { readProjectSettings } from "./freeze.ts";
 import { isProductionRefusal, refused } from "./outcome.ts";
 import type { ProductionOutcome, ProductionRefused } from "./outcome.ts";
 import type { RenderPdf } from "./ports.ts";
@@ -27,6 +29,10 @@ export interface ProductionOptions {
   names: (userId: string) => string;
   renderPdf: RenderPdf;
   rules: SettingRules;
+  /** Told of each issue after its commit; absent, nobody is. */
+  draftEvents?: DraftEvents;
+  /** The settings of the project that holds the document, null for none; absent, no document has any. */
+  projectSettings?: (docId: string) => Readonly<Record<string, unknown>> | null;
 }
 
 /** Where an authority write lands: `before` the head before it, `seq` its update's (null: it wrote nothing). */
@@ -61,6 +67,8 @@ export interface Mutation<T> {
   answer(file: DocFile): T;
   /** A stored answer read back. */
   isAnswer(value: unknown): value is T;
+  /** After the commit, before the answer; a retry answered from its stored result never reaches it. */
+  afterCommit?(): void;
 }
 
 export interface Requests {
@@ -73,6 +81,8 @@ export interface Requests {
     userId: string,
     mutation: Mutation<T>,
   ): Promise<ProductionOutcome<T>>;
+  /** The server-held project settings for `docId`; null when the document has no project settings. */
+  projectSettings(docId: string): Readonly<Record<string, unknown>> | null;
   /** Inside a commit: a version of the document at `at`, holding `content` (null: the head). */
   keep(
     file: DocFile,
@@ -155,11 +165,6 @@ export function createRequests(
     return place === null ? null : storage.open(place.home);
   }
 
-  function capabilitiesOf(userId: string, docId: string): Capability[] | null {
-    const resolved = options.sync().access.resolve(userId, docId);
-    return resolved.ok ? resolved.access.capabilities : null;
-  }
-
   /** After the commit: the production kinds, then each version kept, to every editor and viewer. */
   function tell(
     file: DocFile,
@@ -231,6 +236,7 @@ export function createRequests(
     const [done] = made;
     if (done === undefined) return refused("busy");
     options.committed(docId);
+    mutation.afterCommit?.();
     tell(file, userId, mutation, done.kept);
     return { ok: true, value: done.answer };
   }
@@ -252,7 +258,7 @@ export function createRequests(
     }
     if (storage.directory.tombstoneOf(docId) !== null)
       return refused("not_found");
-    const capabilities = capabilitiesOf(userId, docId);
+    const capabilities = options.sync().access.capabilitiesOf(userId, docId);
     if (capabilities === null || !capabilities.includes(mutation.need))
       return refused("forbidden");
     return mutation.check(file) ?? (await write(file, userId, mutation));
@@ -263,9 +269,14 @@ export function createRequests(
       const file = placed(docId);
       if (file === null || storage.directory.tombstoneOf(docId) !== null)
         return refused("not_found");
-      return capabilitiesOf(userId, docId) === null
+      return options.sync().access.capabilitiesOf(userId, docId) === null
         ? refused("forbidden")
         : { ok: true, file };
+    },
+    projectSettings(docId) {
+      return options.projectSettings !== undefined
+        ? options.projectSettings(docId)
+        : readProjectSettings(storage, docId);
     },
     mutate(userId, mutation) {
       if (!isRequestKey(mutation.key))

@@ -1,5 +1,5 @@
-// One home's document file: its log, versions, history, generations, replays, adoptions and production tables over one connection,
-// and the checkpoints file beside it.
+// One home's document file: its log, versions, history, generations, replays, adoptions, production, sharing,
+// private-copy and prompter tables over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
 import { crc32 } from "../checksum.ts";
 import type {
@@ -11,12 +11,16 @@ import type {
   Home,
   UpdateOrigin,
   UpdateRow,
-} from "../ports.ts";
-import { COLOR_COUNT, StorageError } from "../ports.ts";
+} from "../ports/index.ts";
+import { COLOR_COUNT, StorageError } from "../ports/index.ts";
+import { createSqlitePrivateCopies } from "../private-copy/sqlite.ts";
 import { createSqliteProduction } from "../production/sqlite.ts";
+import { createSqlitePrompter } from "../prompter/sqlite.ts";
+import { createSqliteSharing } from "../sharing/sqlite.ts";
 import { createSqliteAdoptions } from "./adoptions.ts";
 import { createCheckpointsFile } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
+import type { SqliteDurability } from "./files.ts";
 import { createSqliteGenerations } from "./generations.ts";
 import { createSqliteHistory, createSqliteVersions } from "./history.ts";
 import { createSqliteReplays } from "./replays.ts";
@@ -88,6 +92,9 @@ function prepareLog(db: Database) {
     ),
     tail: db.query<StoredUpdate, [string, number, number]>(
       'SELECT seq, update_blob AS "update", crc32 AS crc, user_id AS userId, origin, created_at AS createdAt FROM doc_updates WHERE doc_id = ?1 AND generation = ?2 AND seq > ?3 ORDER BY seq',
+    ),
+    tailThrough: db.query<StoredUpdate, [string, number, number, number]>(
+      'SELECT seq, update_blob AS "update", crc32 AS crc, user_id AS userId, origin, created_at AS createdAt FROM doc_updates WHERE doc_id = ?1 AND generation = ?2 AND seq > ?3 AND seq <= ?4 ORDER BY seq',
     ),
     quarantine: db.query<never, [string, number, number, number]>(
       `INSERT INTO doc_quarantine (doc_id, generation, seq, update_blob, crc32, user_id, origin, created_at, quarantined_at)
@@ -189,10 +196,15 @@ function appendRow(sql: Statements, item: AppendItem, at: number): number {
 function readTail(
   sql: Statements,
   where: [docId: string, generation: number, afterSeq: number],
+  throughSeq?: number,
 ) {
   const rows: UpdateRow[] = [];
   const corrupt: number[] = [];
-  for (const { crc, origin, ...row } of sql.tail.all(...where)) {
+  const raw =
+    throughSeq === undefined
+      ? sql.tail.all(...where)
+      : sql.tailThrough.all(where[0], where[1], where[2], throughSeq);
+  for (const { crc, origin, ...row } of raw) {
     if (crc32(row.update) === crc && isIn(ORIGINS, origin))
       rows.push({ ...row, origin });
     else corrupt.push(row.seq);
@@ -223,7 +235,11 @@ function createLog(db: Database, sql: Statements, now: () => number): DocLog {
     raiseSchema: (docId, toVersion) =>
       transact(db, () => sql.raiseSchema.run(docId, toVersion)),
     tail(docId, generation, afterSeq, options) {
-      const tail = readTail(sql, [docId, generation, afterSeq]);
+      const tail = readTail(
+        sql,
+        [docId, generation, afterSeq],
+        options?.throughSeq,
+      );
       if (tail.corrupt.length > 0 && options?.quarantine !== false)
         transact(db, () => {
           for (const seq of tail.corrupt) {
@@ -273,19 +289,21 @@ export function openDocFile(options: {
   dir: string;
   home: Home;
   now: () => number;
+  durability?: SqliteDurability;
 }): SqliteDocFile {
   const path = docFilePath(options.dir, options.home);
-  const db = openDatabase(path);
+  const db = openDatabase(path, { durability: options.durability });
   try {
     migrate(db, "documents");
   } catch (error) {
     db.close();
     throw error;
   }
-  const { now } = options;
+  const { now, durability } = options;
   const caches = createCheckpointsFile({
     path: path.replace(/\.sqlite$/, ".checkpoints.sqlite"),
     now,
+    durability,
   });
   const log = createLog(db, { ...prepareLog(db), ...prepareLedger(db) }, now);
   const file: SqliteDocFile = {
@@ -299,6 +317,9 @@ export function openDocFile(options: {
     measures: caches.measures,
     adoptions: createSqliteAdoptions(db),
     production: createSqliteProduction(db),
+    sharing: createSqliteSharing(db),
+    privateCopies: createSqlitePrivateCopies(db),
+    prompter: createSqlitePrompter(db),
     transaction: (fn) => transact(db, fn),
     close() {
       caches.close();

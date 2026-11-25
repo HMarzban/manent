@@ -7,6 +7,7 @@ import type { MarkRecord } from "@manent/perf";
 import { FORMATS, blocksOf, parseDoc } from "@manent/schema";
 import type { DocJSON, FormatId } from "@manent/schema";
 import type { StatusFacts } from "@manent/ui";
+import { afterNextPaint } from "../next-paint.ts";
 import type { PersonServices } from "../services/ports.ts";
 import type { OpenEditor } from "./editor-mount.ts";
 import type { LocalSession } from "./editor-sessions.ts";
@@ -90,7 +91,7 @@ export interface EditorHooks {
 const startsOf = (pages: readonly Page[]): PageStart[] =>
   pages.map(({ label, block, line }) => ({ label, block, line }));
 
-/** A press's time to the next paint: one frame, then a message, which runs after that frame's paint. */
+/** A press's time to the next paint. */
 function createKeystrokeProbe(view: () => EditorView): {
   start(): void;
   stop(): number[];
@@ -99,16 +100,7 @@ function createKeystrokeProbe(view: () => EditorView): {
   let watched: HTMLElement | null = null;
   const onKey = (): void => {
     const pressedAt = performance.now();
-    requestAnimationFrame(() => {
-      const channel = new MessageChannel();
-      channel.port1.addEventListener("message", () => {
-        samples.push(performance.now() - pressedAt);
-        channel.port1.close();
-      });
-      // a listener added this way hears nothing until the port starts
-      channel.port1.start();
-      channel.port2.postMessage(null);
-    });
+    afterNextPaint(() => samples.push(performance.now() - pressedAt));
   };
   return {
     start() {

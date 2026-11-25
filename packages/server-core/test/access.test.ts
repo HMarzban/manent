@@ -75,8 +75,9 @@ test("each way a request can be wrong has its code", () => {
     { docId: DOC, kind: "private", home: "user", workspaceId: "medium" },
   ])
     expect(codeOf(body)).toBe("bad_request");
-  for (const kind of ["rundown", "comments", "draft"])
-    expect(codeOf({ docId: DOC, kind, home: P })).toBe("unsupported_kind");
+  expect(codeOf({ docId: DOC, kind: "draft", home: P })).toBe(
+    "unsupported_kind",
+  );
 });
 
 test("a project is its first writer's until they share it", () => {

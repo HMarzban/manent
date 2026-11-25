@@ -8,8 +8,10 @@ import { parseDoc } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import { EditorState } from "prosemirror-state";
 import {
+  GUTTER_COLUMNS,
   changesPlugin,
   createMarkLayer,
+  gutterColumnPx,
   markPosition,
   paginationKey,
   setChanges,
@@ -83,11 +85,17 @@ const topsOf = (pages: HTMLElement, selector: string): number[] =>
   );
 
 test("an asterisk sits at the right margin of each changed line", () => {
-  expect(markPosition(LETTER_SCREENPLAY, 1, 10)).toEqual({
+  const pos = markPosition(LETTER_SCREENPLAY, 1, 10);
+  expect(pos).toEqual({
     topPx: 1056 + 24 + 96 + 80,
     rightPx: 816 - 96 + 9.6,
     gutterPx: 824,
   });
+  expect([
+    gutterColumnPx(pos.gutterPx, GUTTER_COLUMNS.changes),
+    gutterColumnPx(pos.gutterPx, GUTTER_COLUMNS.comments),
+    gutterColumnPx(pos.gutterPx, GUTTER_COLUMNS.people),
+  ]).toEqual([824, 852, 880]);
 });
 
 test("the layer draws the pages in view and nothing else", () => {

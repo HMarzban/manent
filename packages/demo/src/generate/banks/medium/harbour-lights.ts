@@ -30,6 +30,7 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "EXT. EAST CHANNEL",
     "EXT. THE BAR",
     "EXT. MAINLAND SLIP",
+    "INT. ARDLE BANK",
     "INT. BREAD VAN",
   ],
   names: [
@@ -335,10 +336,10 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       scenes: [11, 12],
       pages: [10, 12],
       timeOfDay: "DAY",
-      places: ["INT. ENGINE ROOM"],
-      cast: ["PIKE", "IDA"],
+      places: ["INT. ENGINE ROOM", "INT. HOLLIS KITCHEN"],
+      cast: ["PIKE", "CAL"],
       summary:
-        "Pike explains to Ida how salt got into the port engine, drawing the cooling pipe on the back of a tide table.",
+        "Pike explains to Cal how salt got into the port engine, and draws him the cooling pipe on the back of a tide table at the café after closing.",
     },
     {
       id: "medium/harbour-lights/202#7",
@@ -415,7 +416,7 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       scenes: [27, 28],
       pages: [26, 28],
       timeOfDay: "DAY",
-      places: ["EXT. MAINLAND SLIP"],
+      places: ["EXT. MAINLAND SLIP", "INT. ARDLE BANK"],
       cast: ["NORA"],
       summary:
         "Nora walks up from the Ardle slip to the bank, and the figures she is shown there are worse than the ones in her bag.",

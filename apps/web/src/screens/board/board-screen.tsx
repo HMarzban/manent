@@ -1,0 +1,311 @@
+// The Board screen in the document frame: one board per series project, filtered by season, with keyboard and pointer moves.
+import type { EpisodeEntry } from "@manent/crdt";
+import { DEMO_PEOPLE } from "@manent/demo";
+import {
+  BOARD_WORDS,
+  Button,
+  DOCUMENT_WORDS,
+  Skeleton,
+  messageFor,
+} from "@manent/ui";
+import type { SortableListsHandle } from "@manent/ui";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { Columns3Icon, LockIcon, PlusIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { registerBoardController } from "../../board/board-actions.ts";
+import { useEpisodeScenes } from "../../board/episode-scenes.ts";
+import { cardsInCell, cellKey } from "../../board/model.ts";
+import type { BoardCard } from "../../board/model.ts";
+import { useBoardData } from "../../board/use-board-data.ts";
+import { useBoardMutations } from "../../board/use-board-mutations.ts";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
+import { focusHeading } from "../../focus.ts";
+import { useServices } from "../../services/context.tsx";
+import { pageTitle } from "../../text.ts";
+import { BoardStatusBar, BoardTitleBar } from "./board-bars.tsx";
+import { BoardGrid } from "./board-grid.tsx";
+import type { AddingCardCell } from "./board-grid.tsx";
+
+const route = getRouteApi("/p/$projectId/board");
+
+const SKELETON_COLS = [0, 1, 2, 3] as const;
+const SKELETON_ROWS = [0, 1] as const;
+
+function BoardGridSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="min-w-full overflow-x-auto">
+      <div
+        aria-hidden="true"
+        className="grid min-w-full grid-cols-5 overflow-hidden rounded-surface border border-line bg-chrome"
+      >
+        <div className="min-h-row border-b border-line px-3 py-2" />
+        {SKELETON_COLS.map((col) => (
+          <div
+            key={col}
+            className="flex min-h-row items-center gap-2 border-b border-l border-line px-3 py-2"
+          >
+            <Skeleton className="h-3 w-8 shrink-0" />
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+        ))}
+        {SKELETON_ROWS.map((row) => (
+          <div key={row} className="contents">
+            <div
+              className={`flex flex-col gap-2 px-3 py-3${row === 0 ? " border-b border-line" : ""}`}
+            >
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            {SKELETON_COLS.map((col) => (
+              <div
+                key={`${row}:${col}`}
+                className={`flex flex-col gap-2 border-l border-line p-2${row === 0 ? " border-b" : ""}`}
+              >
+                <div className="mn-card flex flex-col gap-1.5 p-2">
+                  <Skeleton className="h-3.5 w-4/5" />
+                  <Skeleton className="h-3 w-3/5" />
+                </div>
+                {col % 2 === row % 2 ? (
+                  <div className="mn-card flex flex-col gap-1.5 p-2">
+                    <Skeleton className="h-3.5 w-3/4" />
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function BoardScreen(): ReactNode {
+  const { projectId }: { projectId: string } = route.useParams();
+  const { season: seasonParam }: { season: string | null } = route.useSearch();
+  const navigate = useNavigate();
+  const { userId, messages } = useServices();
+  const data = useBoardData(projectId, seasonParam);
+  const scenesByScript = useEpisodeScenes(data.episodes);
+
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [linkingCardId, setLinkingCardId] = useState<string | null>(null);
+  const [addingStoryline, setAddingStoryline] = useState(false);
+  const [addingCardCell, setAddingCardCell] = useState<AddingCardCell | null>(
+    null,
+  );
+  const sortableRef = useRef<SortableListsHandle | null>(null);
+
+  const onCardRemoved = useCallback((cardId: string) => {
+    setSelectedCardId((prev) => (prev === cardId ? null : prev));
+  }, []);
+  const mutations = useBoardMutations(data, {
+    onCardCreated: setSelectedCardId,
+    onCardRemoved,
+  });
+
+  // on a project that is not a series the route shows the Library
+  useEffect(() => {
+    if (data.lookup.status === "not_series") {
+      void navigate({ href: "/", replace: true });
+    }
+  }, [data.lookup.status, navigate]);
+
+  const projectTitle =
+    data.lookup.status === "ready" ? data.lookup.project.title : null;
+
+  useEffect(() => {
+    if (projectTitle === null) return;
+    focusHeading(document);
+  }, [projectId, projectTitle]);
+
+  useEffect(() => {
+    if (projectTitle === null) return;
+    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
+    document.title = pageTitle(
+      BOARD_WORDS.title(projectTitle),
+      person?.name ?? null,
+    );
+  }, [projectTitle, userId]);
+
+  const handleOpenCard = useCallback(
+    (card: BoardCard, episode: EpisodeEntry): void => {
+      const scriptId = episode.docIds.script;
+      if (scriptId === null) return;
+      const href =
+        card.link === null
+          ? `/s/${scriptId}`
+          : `/s/${scriptId}?at=${encodeURIComponent(card.link.blockId)}`;
+      void navigate({ href });
+    },
+    [navigate],
+  );
+
+  useEffect(() => {
+    return registerBoardController({
+      addStoryline() {
+        if (data.canEdit) setAddingStoryline(true);
+      },
+      addCard() {
+        if (!data.canEdit) return;
+        const selected = data.cards.find((c) => c.id === selectedCardId);
+        const storylineId = selected?.storylineId ?? data.storylines[0]?.id;
+        const episodeId = selected?.episodeId ?? data.episodes[0]?.id;
+        if (storylineId !== undefined && episodeId !== undefined) {
+          setAddingCardCell({ storylineId, episodeId });
+        }
+      },
+      linkScene() {
+        if (!data.canEdit || selectedCardId === null) return;
+        const card = data.cards.find((c) => c.id === selectedCardId);
+        if (card === undefined) return;
+        const episode = data.episodes.find((e) => e.id === card.episodeId);
+        if (episode === undefined) return;
+        if (episode.docIds.script === null) {
+          messages.push(
+            messageFor({
+              kind: "command_unavailable",
+              label: BOARD_WORDS.linkToScene,
+              reason: BOARD_WORDS.needsScript(episode.number),
+            }),
+          );
+          return;
+        }
+        setLinkingCardId(card.id);
+      },
+      moveCard(by) {
+        if (!data.canEdit) return;
+        const focusedId =
+          document.activeElement?.getAttribute("data-board-card") ??
+          selectedCardId;
+        if (focusedId === null) return;
+        const card = data.cards.find((c) => c.id === focusedId);
+        if (card === undefined) return;
+        const cell = cardsInCell(data.cards, card.storylineId, card.episodeId);
+        const index = cell.findIndex((c) => c.id === card.id);
+        if (index === -1) return;
+        sortableRef.current?.move(
+          card.id,
+          cellKey(card.storylineId, card.episodeId),
+          index + by,
+        );
+      },
+    });
+  }, [data, selectedCardId, messages]);
+
+  if (data.lookup.status === "not_series") return null;
+
+  if (data.lookup.status === "loading") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col bg-chrome text-fg">
+        <div
+          aria-hidden="true"
+          className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2"
+        >
+          <Skeleton className="h-control-sm w-16" />
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-control-sm w-24" />
+          <Skeleton className="ms-auto h-control-sm w-28" />
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
+          <BoardGridSkeleton />
+        </div>
+        <BoardStatusBar />
+      </div>
+    );
+  }
+
+  const empty =
+    data.boardLoaded && data.storylines.length === 0 && !addingStoryline;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-chrome text-fg">
+      <BoardTitleBar
+        projectTitle={data.lookup.project.title}
+        seasons={data.seasons}
+        activeSeason={data.activeSeason}
+        canEdit={data.canEdit}
+        showViewOnly={data.accessReady && !data.canEdit && !data.accessRemoved}
+        onBack={() => void navigate({ href: "/" })}
+        onSeasonChange={(nextSeasonId) =>
+          void navigate({
+            href: `/p/${projectId}/board?season=${encodeURIComponent(nextSeasonId)}`,
+            replace: true,
+          })
+        }
+        onAddStoryline={() => setAddingStoryline(true)}
+      />
+
+      <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
+        {data.accessRemoved ? (
+          <div className="flex min-h-full items-center justify-center py-12">
+            <EmptyHeroCard
+              icon={<LockIcon aria-hidden="true" className="size-5" />}
+              description={DOCUMENT_WORDS.noAccess}
+            />
+          </div>
+        ) : !data.boardLoaded && !addingStoryline ? (
+          <BoardGridSkeleton />
+        ) : empty ? (
+          <div
+            data-tour="board"
+            className="flex min-h-full items-center justify-center py-12"
+          >
+            <EmptyHeroCard
+              icon={<Columns3Icon aria-hidden="true" className="size-5" />}
+              title={BOARD_WORDS.board}
+              description={BOARD_WORDS.empty}
+              actions={
+                data.canEdit ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setAddingStoryline(true)}
+                  >
+                    <PlusIcon
+                      aria-hidden="true"
+                      data-icon="inline-start"
+                      className="size-icon"
+                    />
+                    {BOARD_WORDS.addStoryline}
+                  </Button>
+                ) : null
+              }
+            />
+          </div>
+        ) : (
+          <BoardGrid
+            storylines={data.storylines}
+            episodes={data.episodes}
+            cards={data.cards}
+            scenesByScript={scenesByScript}
+            canEdit={data.canEdit}
+            selectedCardId={selectedCardId}
+            linkingCardId={linkingCardId}
+            addingStoryline={addingStoryline}
+            addingCardCell={addingCardCell}
+            sortableRef={sortableRef}
+            mutations={mutations}
+            onSelectCard={setSelectedCardId}
+            onLinkingCardChange={setLinkingCardId}
+            onOpenCard={handleOpenCard}
+            onCommitStoryline={(title) => {
+              setAddingStoryline(false);
+              mutations.commitStoryline(title);
+            }}
+            onCancelStoryline={() => setAddingStoryline(false)}
+            onStartAddCard={(storylineId, episodeId) =>
+              setAddingCardCell({ storylineId, episodeId })
+            }
+            onCommitAddCard={(storylineId, episodeId, text) => {
+              setAddingCardCell(null);
+              mutations.commitAddCard(storylineId, episodeId, text);
+            }}
+            onCancelAddCard={() => setAddingCardCell(null)}
+          />
+        )}
+      </div>
+
+      <BoardStatusBar />
+    </div>
+  );
+}

@@ -11,6 +11,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import { historyEvents } from "../../history/history-events.ts";
+import { watchTrashHandle } from "../../library/trash-api.ts";
 import type { PersonSync } from "./create-sync.ts";
 import { nameOf } from "./index-entries.ts";
 import { toStatusFacts } from "./status-facts.ts";
@@ -47,6 +48,7 @@ export interface Shown {
   status: Value<StatusFacts>;
   waitingByScene: Value<readonly SceneWaiting[]>;
   stateFacts: Value<readonly StateFact[]>;
+  viewers: Value<number>;
 }
 
 /** An open document and the person's sync it is open in. */
@@ -87,8 +89,15 @@ function groupWaiting(options: Following, open: Opened): () => void {
   let cancel: (() => void) | null = null;
   let groupedAt = Number.NEGATIVE_INFINITY;
   let count = -1;
+  let runSeq = 0;
   const group = async (): Promise<void> => {
+    const thisSeq = ++runSeq;
+    if (handle.status.get().waiting === 0) {
+      shown.waitingByScene.set([]);
+      return;
+    }
     const loaded = await sync.store.load(docId);
+    if (thisSeq !== runSeq) return;
     const scenes = new Map<string, number>();
     const waiting = waitingElements(loaded?.entries ?? []);
     // one pass over the document: a script just opened waits on every one of its elements
@@ -117,6 +126,7 @@ function groupWaiting(options: Following, open: Opened): () => void {
   follow();
   const stop = handle.status.subscribe(follow);
   return () => {
+    runSeq += 1;
     stop();
     cancel?.();
   };
@@ -144,17 +154,27 @@ export function followHandle(options: Following, open: Opened): () => void {
     if (!isSameStatus(shown.status.get(), facts)) shown.status.set(facts);
     shown.stateFacts.set(role === "comment" ? ROLE_COMMENT : NO_FACTS);
   };
+  const showViewers = (): void =>
+    shown.viewers.set((view ?? handle).viewers.get());
   let stopView: (() => void) | null = null;
   const viewing = (next: ViewHandle | null): void => {
     stopView?.();
     view = next;
-    stopView = next?.status.subscribe(show) ?? null;
+    const stops = [
+      next?.status.subscribe(show),
+      next?.viewers.subscribe(showViewers),
+    ];
+    stopView = () => {
+      for (const stop of stops) stop?.();
+    };
     show();
+    showViewers();
   };
   let unfollow = options.review.follow(docId, handle.doc());
   viewing(handle.readOnly.get());
   const stops = [
     handle.readOnly.subscribe(viewing),
+    handle.viewers.subscribe(showViewers),
     ...[
       handle.status,
       sync.link,
@@ -180,6 +200,14 @@ export function followHandle(options: Following, open: Opened): () => void {
       messages: options.messages,
       nameOf,
       viewerUserId: sync.userId,
+    }),
+    watchTrashHandle({
+      docId,
+      handle,
+      userId: sync.userId,
+      title: () => options.titles(docId),
+      messages: options.messages,
+      nameOf,
     }),
     groupWaiting(options, open),
     options.opened(docId, handle),

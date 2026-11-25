@@ -7,7 +7,8 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import { Mapping, StepMap } from "prosemirror-transform";
 import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import type { ActionResult, EditorAction } from "../actions/action-types.ts";
+import type { ActionResult } from "../actions/action-types.ts";
+import type { EditorAction } from "../actions/registry.ts";
 import { findKey } from "./find-plugin.ts";
 import type { FindState, Match } from "./find-plugin.ts";
 
@@ -258,19 +259,35 @@ function replaceAll(
   return { ok: true };
 }
 
+/**
+ * Scrolls the current match into view. The page scrolls to its selection only while it holds the browser's selection,
+ * which stays in the Find bar's field as it is typed in.
+ */
+function revealCurrent(view: EditorView): void {
+  view.dom
+    .querySelector(`.${MARK.class}[data-current]`)
+    ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/** The result of an action that selects a match, once its match is in view. */
+function revealed(view: EditorView, result: ActionResult): ActionResult {
+  if (result.ok) revealCurrent(view);
+  return result;
+}
+
 /** Runs a Find bar action on the view as it is now. */
 export function runFind(view: EditorView, action: FindAction): ActionResult {
   const { state, dispatch } = view;
   switch (action.kind) {
     case "find":
       findText(view, action.search);
-      return { ok: true };
+      return revealed(view, { ok: true });
     case "find_next":
-      return findStep(state, 1, dispatch);
+      return revealed(view, findStep(state, 1, dispatch));
     case "find_previous":
-      return findStep(state, -1, dispatch);
+      return revealed(view, findStep(state, -1, dispatch));
     case "replace":
-      return replaceMatch(state, action.text, dispatch);
+      return revealed(view, replaceMatch(state, action.text, dispatch));
     case "replace_all":
       return replaceAll(state, action.text, dispatch);
   }

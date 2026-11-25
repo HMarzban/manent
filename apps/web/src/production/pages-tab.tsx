@@ -100,7 +100,7 @@ function PageLine(props: {
             key="chip"
             data-rev={row.revision}
             aria-hidden="true"
-            className="block size-3 shrink-0 rounded-micro border border-line"
+            className="mn-rev-chip"
           />,
           <span key="name">{row.revisionName}</span>,
         ];
@@ -114,7 +114,8 @@ function PageLine(props: {
           <span aria-hidden="true" className="w-icon" />
         )
       }
-      trailing={handle === null ? revision : [...revision, handle]}
+      trailing={revision}
+      menu={handle ?? undefined}
       onActivate={props.onChoose}
     >
       {props.renumbering ? (

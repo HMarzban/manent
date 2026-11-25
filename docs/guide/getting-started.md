@@ -64,13 +64,13 @@ The Library lists the projects of one workspace. Choose the workspace from the m
 - **Import…** makes a script from a Final Draft or Fountain file; see [Import a script](export-and-print.md#import-a-script).
 - **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. Each kind starts with one script in its own format: Film and Series as a screenplay, Show, News and Podcast as Variety, Book as a manuscript, Game as Game Script and Stage play as a stage play. Change the format in **Details → Script**, under Script settings.
 
-The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. A script that is not on this device yet says "Not on this device", and in this build such a row does not open from the Library; the script opens by its address, `/s/` and its id, as step 5 of [What to try](#what-to-try) shows.
+The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. While you are online, the Library fetches each script that is not on this device yet, and the row opens on a click. Offline, such a row says "Not on this device" and does not open until the connection is back.
 
-The Writers' room also lists the demo's first seeded projects, such as The Long Night. They are not on a new device either, so they do not open from the Library yet.
+Every workspace but Your desk starts with seeded projects, such as The Long Night in the Writers' room. Lanternfield Studios holds forty, written after the demo opens; until they are all there, the workspace menu says how many are ready.
 
 ## The Tour
 
-**Tour** in the demo bar opens the Tour panel. It is meant to be a guided walk through the demo; in this build it shows no scenarios yet.
+**Tour** in the demo bar opens the Tour panel. It walks through the demo one scenario at a time: what to set up, then what to check. A scenario is shown only once what it shows works in this build.
 
 ## What to try
 

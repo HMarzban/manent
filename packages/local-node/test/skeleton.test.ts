@@ -10,7 +10,7 @@ import { createSyncClient } from "@manent/sync-client";
 import { CONTROL_KINDS } from "@manent/sync-protocol";
 
 test("what this plan builds on is present", () => {
-  expect([...CONTROL_KINDS].slice(9)).toEqual([
+  expect([...CONTROL_KINDS].slice(9, 12)).toEqual([
     "upstream_status",
     "upstream_refused",
     "copies_kept",

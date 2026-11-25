@@ -1,6 +1,6 @@
 // The production tables of one document file: the store over its connection, and the checks on what it reads back.
 import type { Database } from "bun:sqlite";
-import { StorageError } from "../ports.ts";
+import { StorageError } from "../ports/index.ts";
 import { readStrings } from "../sqlite/directory.ts";
 import { transact } from "../sqlite/files.ts";
 import type {
@@ -269,6 +269,32 @@ function updateSet(db: Database, setId: string, patch: SetPatch): void {
   }
 }
 
+const SET_IN_CHUNK = 500;
+
+function readSetBlocksFor(
+  db: Database,
+  setIds: readonly string[],
+): Map<string, SetBlockRow[]> {
+  const uniqueIds = [...new Set(setIds)];
+  const bySet = new Map<string, SetBlockRow[]>();
+  for (let start = 0; start < uniqueIds.length; start += SET_IN_CHUNK) {
+    const slice = uniqueIds.slice(start, start + SET_IN_CHUNK);
+    const placeholders = slice.map(() => "?").join(", ");
+    const rows = db
+      .query<StoredBlock, string[]>(
+        `SELECT set_id AS setId, block_id AS blockId, page_label AS pageLabel, change, hash, ranges
+         FROM revision_set_blocks WHERE set_id IN (${placeholders}) ORDER BY set_id, block_id`,
+      )
+      .all(...slice);
+    for (const { ranges, ...row } of rows) {
+      const list = bySet.get(row.setId) ?? [];
+      list.push({ ...row, ...readRanges(ranges) });
+      bySet.set(row.setId, list);
+    }
+  }
+  return bySet;
+}
+
 /** The production tables of the document file `db`. */
 export function createSqliteProduction(db: Database): ProductionStore {
   const sql: Statements = {
@@ -307,6 +333,7 @@ export function createSqliteProduction(db: Database): ProductionStore {
       sql.blocks
         .all(setId)
         .map(({ ranges, ...row }) => ({ ...row, ...readRanges(ranges) })),
+    setBlocksFor: (setIds) => readSetBlocksFor(db, setIds),
     putSetBlocks: (setId, rows) =>
       write(() => {
         sql.dropBlocks.run(setId);

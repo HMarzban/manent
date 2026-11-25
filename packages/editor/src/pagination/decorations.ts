@@ -2,19 +2,21 @@
 import { engineFor, isSceneBoundary, specKey } from "@manent/pagination";
 import type {
   ChangeHint,
-  ElementSpec,
   Engine,
   LayoutBlock,
   Pagination,
 } from "@manent/pagination";
-import type { Dual } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Mapping, StepMap } from "prosemirror-transform";
-import { Decoration, DecorationSet } from "prosemirror-view";
+import { Decoration } from "prosemirror-view";
+import type { DecorationSet } from "prosemirror-view";
 import type { BreakStyle, LayoutView } from "../page/config.ts";
+import { blockAttrs, columnOf, firstsOnPages } from "./block-attrs.ts";
+import type { BlockContext } from "./block-attrs.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
-import { toBreakSpecs, toRuleSpecs } from "./break-specs.ts";
+import type { BlockRange } from "./block-ranges.ts";
+import { toBreakSpecsIn, toRuleSpecs } from "./break-specs.ts";
 import type { BreakSpec } from "./break-specs.ts";
 import type { PaginationState } from "./plugin.ts";
 import { renderBreak, renderCast } from "./widgets.ts";
@@ -42,73 +44,6 @@ function widgetOf(spec: BreakSpec): Decoration {
     stopEvent: () => true,
     ignoreSelection: true,
   });
-}
-
-// A block's dual column, in a run only: a right column counts after a left one.
-function columnOf(blocks: readonly LayoutBlock[], i: number): Dual | null {
-  const side = blocks[i]!.dual;
-  if (side !== "right") return side;
-  let at = i;
-  while (blocks[at]?.dual === "right") at--;
-  return blocks[at]?.dual === "left" ? "right" : null;
-}
-
-// The first block of each column on each page, so its space above is the drop a page's first block takes.
-function firstsOnPages(p: Pagination): Set<number> {
-  const firsts = new Set<number>();
-  for (const page of p.pages) {
-    if (page.line === 0) firsts.add(page.block);
-    if (page.right !== null && page.right.line === 0)
-      firsts.add(page.right.block);
-    if (page.line > 0 || page.right !== null) continue;
-    let split = page.block;
-    while (p.blocks[split]?.dual === "left") split++;
-    if (split > page.block && p.blocks[split]?.dual === "right")
-      firsts.add(split);
-  }
-  return firsts;
-}
-
-function overrideStyle(spec: ElementSpec): string {
-  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; text-align: ${spec.align}`;
-}
-
-interface BlockContext {
-  readonly p: Pagination;
-  readonly engine: Engine;
-  readonly firsts: ReadonlySet<number>;
-  /** The profile's own element specs: a block laid out by another has overrides. */
-  readonly rows: ReadonlySet<ElementSpec>;
-}
-
-function blockAttrs(
-  context: BlockContext,
-  i: number,
-): Record<string, string> | null {
-  const { p, engine } = context;
-  const { furniture } = p.profile;
-  const block = p.blocks[i]!;
-  const { spec } = p.metrics[i]!;
-  const column = columnOf(p.blocks, i);
-  const classes = [
-    ...(context.firsts.has(i) ? ["pg-first"] : []),
-    ...(column === null ? [] : [column === "left" ? "dual-l" : "dual-r"]),
-  ];
-  const attrs: Record<string, string> = {};
-  if (classes.length > 0) attrs["class"] = classes.join(" ");
-  const scene = furniture.scenesNumbered ? engine.sceneNumber(p, i) : null;
-  if (scene !== null) attrs["data-scene"] = scene;
-  if (engine.contdSuffix(p, i)) attrs["data-contd"] = furniture.contdText;
-  const speech = engine.speechNumber(p, i);
-  if (speech !== null) attrs["data-speech"] = String(speech);
-  if (spec.enclosure !== null) {
-    attrs["data-open"] = spec.enclosure[0];
-    attrs["data-close"] = spec.enclosure[1];
-  }
-  if (block.type === "break" && block.text === "")
-    attrs["data-mark"] = furniture.breakMark;
-  if (!context.rows.has(spec)) attrs["style"] = overrideStyle(spec);
-  return Object.keys(attrs).length > 0 ? attrs : null;
 }
 
 /** Calls `visit` with each block in [from, to), the position before it and its node. */
@@ -153,7 +88,7 @@ export function decorationsFor(
   const specs =
     options.view === "reflow"
       ? toRuleSpecs(index, p)
-      : toBreakSpecs(index, p, options.style);
+      : toBreakSpecsIn(index, p, options.style, from, to);
   const decorations = specs
     .filter((spec) => spec.pos >= fromPos && spec.pos < toPos)
     .map(widgetOf);
@@ -165,8 +100,16 @@ export function decorationsFor(
   };
   eachBlock(index, from, to, (i, pos, node) => {
     const attrs = blockAttrs(context, i);
-    if (attrs !== null)
-      decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+    if (attrs !== null) {
+      const nodeAttrs =
+        "data-scene" in attrs
+          ? {
+              ...attrs,
+              "data-scene-sides": p.profile.furniture.sceneNumberSides,
+            }
+          : attrs;
+      decorations.push(Decoration.node(pos, pos + node.nodeSize, nodeAttrs));
+    }
     const cast = engine.castList(p, i);
     if (cast !== null)
       decorations.push(
@@ -210,8 +153,9 @@ function changeMapping(
   return new Mapping([new StepMap([start, oldEnd - start, newEnd - start])]);
 }
 
-// Page `a` of `p` draws its break and its blocks as page `b` of `old` did, its blocks `shift` later.
-function isDrawnAsBefore(
+// Page `a` of `p` lies as page `b` of `old` did, its blocks `shift` later: the same starts, room, top and (MORE),
+// after a page above it as full.
+function isPlacedAsBefore(
   p: Pagination,
   a: number,
   old: Pagination,
@@ -234,11 +178,7 @@ function isDrawnAsBefore(
     x.block === y.block + shift &&
     x.line === y.line &&
     x.offset === y.offset &&
-    x.label === y.label &&
     x.more === y.more &&
-    x.contd === y.contd &&
-    x.contdRight === y.contdRight &&
-    x.sceneContinued === y.sceneContinued &&
     x.topUnits === y.topUnits &&
     x.usedUnits === y.usedUnits &&
     (above === undefined
@@ -247,6 +187,57 @@ function isDrawnAsBefore(
         above.usedUnits === wasAbove.usedUnits &&
         above.more === wasAbove.more)
   );
+}
+
+// Page `a` of `p` draws its break and its blocks as page `b` of `old` did, its blocks `shift` later.
+function isDrawnAsBefore(
+  p: Pagination,
+  a: number,
+  old: Pagination,
+  b: number,
+  shift: number,
+): boolean {
+  const x = p.pages[a]!;
+  const y = old.pages[b]!;
+  return (
+    isPlacedAsBefore(p, a, old, b, shift) &&
+    x.label === y.label &&
+    x.contd === y.contd &&
+    x.contdRight === y.contdRight &&
+    x.sceneContinued === y.sceneContinued
+  );
+}
+
+// How many pages at the end of `p` are each as `isSame` finds the page as many from the end of `old`.
+function sameAtEnd(
+  old: Pagination,
+  p: Pagination,
+  shift: number,
+  isSame: typeof isDrawnAsBefore,
+): number {
+  const pages = p.pages.length;
+  const oldPages = old.pages.length;
+  let tail = 0;
+  while (
+    tail < Math.min(pages, oldPages) &&
+    isSame(p, pages - 1 - tail, old, oldPages - 1 - tail, shift)
+  )
+    tail++;
+  return tail;
+}
+
+/**
+ * The block after which every block lies where it did, the change's shift later, so that a run of blocks after it
+ * keeps its height; the block count when the last page does not lie as it did.
+ */
+export function placedAsBeforeAfter(
+  old: Pagination,
+  p: Pagination,
+  change: ChangeHint,
+): number {
+  const shift = change.newEnd - change.oldEnd;
+  const tail = sameAtEnd(old, p, shift, isPlacedAsBefore);
+  return tail === 0 ? p.blocks.length : p.pages[p.pages.length - tail]!.block;
 }
 
 // The blocks in [from, to) that `numberOf` numbers.
@@ -273,7 +264,7 @@ function sceneStartOf(blocks: readonly LayoutBlock[], before: number): number {
  * before; the next cue's suffix and the dual run after the change; the scene heading above the change when its
  * cast list changed; and, when a numbered scene or speech was added or removed, every block after.
  */
-function affectedBlocks(
+export function affectedBlocks(
   old: Pagination,
   p: Pagination,
   change: ChangeHint,
@@ -289,12 +280,7 @@ function affectedBlocks(
     p.pages[first] === old.pages[first]
   )
     first++;
-  let tail = 0;
-  while (
-    tail < Math.min(pages, oldPages) &&
-    isDrawnAsBefore(p, pages - 1 - tail, old, oldPages - 1 - tail, shift)
-  )
-    tail++;
+  const tail = sameAtEnd(old, p, shift, isDrawnAsBefore);
   let from = change.first;
   // the block after the change too: its break sits where the step ends, and the step drops a widget there
   let to = Math.max(
@@ -349,36 +335,37 @@ function affectedBlocks(
   return { from: Math.min(from, n), to: Math.min(to, n) };
 }
 
-/**
- * The decorations after a change: built whole with no `prev`; otherwise `prev`'s, moved past the changed
- * blocks by one step, with those of the affected blocks built again. With nothing changed, `prev`'s.
- */
-export function updateDecorations(
-  prev: PaginationState | null,
+/** `set` with the decorations of the blocks in `ranges` built again. */
+export function redrawn(
+  set: DecorationSet,
   index: BlockIndex,
   p: Pagination,
-  change: ChangeHint | null,
+  ranges: readonly BlockRange[],
   options: DecorationOptions,
 ): DecorationSet {
   const n = index.blocks.length;
-  if (prev === null)
-    return DecorationSet.create(
-      index.doc,
-      decorationsFor(index, p, 0, n, options),
-    );
-  if (change === null) return prev.decorations;
+  let drawn = set;
+  for (const { from, to } of ranges) {
+    const fromPos = blockPos(index, from);
+    const toPos = to < n ? blockPos(index, to) : index.doc.content.size;
+    const stale = drawn
+      .find(fromPos, toPos)
+      .filter((d) => d.from >= fromPos && (to === n || d.from < toPos));
+    drawn = drawn
+      .remove(stale)
+      .add(index.doc, decorationsFor(index, p, from, to, options));
+  }
+  return drawn;
+}
+
+/** `prev`'s decorations in the document `index` holds, moved past the changed blocks by one step. */
+export function movedDecorations(
+  prev: PaginationState,
+  index: BlockIndex,
+  change: ChangeHint,
+): DecorationSet {
   // a composition's decorations were mapped through its own steps, so they are in this document already
-  const mapped = prev.frozen
+  return prev.frozen
     ? prev.decorations
     : prev.decorations.map(changeMapping(prev.index, index, change), index.doc);
-  const { from, to } = affectedBlocks(prev.pagination, p, change);
-  if (from >= to) return mapped;
-  const fromPos = blockPos(index, from);
-  const toPos = to < n ? blockPos(index, to) : index.doc.content.size;
-  const stale = mapped
-    .find(fromPos, toPos)
-    .filter((d) => d.from >= fromPos && (to === n || d.from < toPos));
-  return mapped
-    .remove(stale)
-    .add(index.doc, decorationsFor(index, p, from, to, options));
 }

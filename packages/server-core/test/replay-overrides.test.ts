@@ -1,14 +1,22 @@
 import { expect, test } from "bun:test";
 import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
   ORIGIN_LOAD,
+  SCENE_PROGRESS_MAP,
   createDoc,
+  jsonMap,
   loadDoc,
+  moveToCuts,
+  readSceneProgress,
   revisedOverrides,
   scriptBody,
   scriptSettings,
   titlePage,
+  writeSceneProgress,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
+import { blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { encodeReplayUpdates } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
@@ -121,6 +129,7 @@ function overridesWorld(title: string | null = null) {
       clock.runDeferred();
       return outcome;
     },
+    roomDoc,
     /** The overrides as the log of the current generation builds them. */
     roomOverrides: (): [string, string][] =>
       revisedOverrides(roomDoc()).entries(),
@@ -190,4 +199,56 @@ test("a rebuild keeps the title page, and a title page edit made offline is kept
     },
   });
   expect(world.roomTitlePage()).toEqual(["The Long Shift", "written by"]);
+});
+
+test("offline cuts, alternates and sceneProgress survive Reorganise with no Recovered text", async () => {
+  const world = overridesWorld();
+  const { samDoc } = world;
+  const alt = {
+    v: 1,
+    blockId: "b000000000000001",
+    text: "Sleet on the glass.",
+    authorUserId: "sam",
+    createdAt: 2_000,
+    pitched: false,
+  };
+  const cutUpdate = capture(samDoc, () => {
+    const moved = moveToCuts(samDoc, {
+      blockIds: ["b000000000000001"],
+      authorUserId: "sam",
+      now: () => 2_000,
+      ids: () => "cut-1",
+    });
+    if (!moved.ok) throw new Error("expected cut to succeed");
+  });
+  const altUpdate = capture(samDoc, () =>
+    jsonMap(samDoc, ALTERNATES_MAP).set("alt-1", alt),
+  );
+  const progressUpdate = capture(samDoc, () =>
+    writeSceneProgress(samDoc, "b000000000000001", "drafting", "typing"),
+  );
+  const outcome = await world.replayed([cutUpdate, altUpdate, progressUpdate]);
+  const rebuilt = world.roomDoc();
+  expect([
+    outcome.ok && outcome.response.setAside,
+    blocksOf(scriptBody(rebuilt).materialize()).length,
+    jsonMap(rebuilt, CUTS_MAP).keys(),
+    jsonMap(rebuilt, ALTERNATES_MAP).get("alt-1"),
+    readSceneProgress(rebuilt, "b000000000000001"),
+  ]).toEqual([[], 0, ["cut-1"], alt, "drafting"]);
+});
+
+test("a replay rejects an invalid sceneProgress or cuts map entry", async () => {
+  const world = overridesWorld();
+  const { samDoc } = world;
+  const badProgress = capture(samDoc, () =>
+    jsonMap(samDoc, SCENE_PROGRESS_MAP).set(
+      "b000000000000001",
+      "invalid_progress",
+    ),
+  );
+  expect(await world.replayed([badProgress])).toEqual({
+    ok: false,
+    code: "invalid",
+  });
 });

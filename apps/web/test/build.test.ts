@@ -13,6 +13,7 @@ interface Chunk {
   name: string;
   path: string;
   entry: boolean;
+  entryPoint: string | null;
   /** The chunks this one imports statically, by output name. */
   imports: readonly string[];
   /** The source files in it, as the metafile names them. */
@@ -28,11 +29,30 @@ function chunksOf(built: Built, outDir: string): Chunk[] {
       name,
       path: join(outDir, name),
       entry: output.entryPoint?.endsWith("index.html") === true,
+      entryPoint: output.entryPoint ?? null,
       imports: output.imports
         .filter((i) => i.kind === "import-statement")
         .map((i) => i.path),
       inputs: Object.keys(output.inputs),
     }));
+}
+
+/** Every chunk reached by static imports from `start`. */
+function staticReachOf(chunks: readonly Chunk[], start: Chunk): Chunk[] {
+  const byName = new Map(chunks.map((chunk) => [chunk.name, chunk]));
+  const reached: Chunk[] = [];
+  const seen = new Set<string>();
+  const queue = [start];
+  for (const chunk of queue) {
+    if (seen.has(chunk.name)) continue;
+    seen.add(chunk.name);
+    reached.push(chunk);
+    for (const next of chunk.imports) {
+      const target = byName.get(next);
+      if (target !== undefined) queue.push(target);
+    }
+  }
+  return reached;
 }
 
 const productionBuild = async (): Promise<{ outDir: string; built: Built }> => {
@@ -95,16 +115,66 @@ test("the build writes a service worker holding the whole shell, fonts included"
   const built = await buildWeb({ outDir, flavour: "production" });
   if (!built.ok) throw new TypeError(built.logs.join("\n"));
   const sw = await Bun.file(join(outDir, "sw.js")).text();
+  const chunks = chunksOf(built, outDir);
+  const entry = chunks.find((chunk) => chunk.entry);
+  if (entry === undefined) throw new TypeError("no entry chunk");
+  const editorEntry = chunks.find((chunk) =>
+    chunk.entryPoint?.endsWith("services/person-editor.ts"),
+  );
+  if (editorEntry === undefined) throw new TypeError("no person-editor chunk");
+  const requiredReach = new Set([
+    ...staticReachOf(chunks, entry).map((c) => basename(c.name)),
+    ...staticReachOf(chunks, editorEntry).map((c) => basename(c.name)),
+  ]);
+  const onDemandMarkers = ["pdfjs-dist/", "packages/formats/"];
+  const heavyOnDemand = new Set(
+    chunks
+      .filter(
+        (chunk) =>
+          !requiredReach.has(basename(chunk.name)) &&
+          (onDemandMarkers.some((marker) =>
+            chunk.entryPoint?.includes(marker),
+          ) ||
+            chunk.inputs.some((input) =>
+              onDemandMarkers.some((marker) => input.includes(marker)),
+            )),
+      )
+      .map((chunk) => basename(chunk.name)),
+  );
+  heavyOnDemand.add("ink-compile.worker.js");
   for (const file of built.files.filter(
-    (f) => new RegExp("\\.(html|js|css|woff2?)$").test(f) && f !== "sw.js",
+    (f) =>
+      new RegExp("\\.(html|js|css|woff2)$").test(f) &&
+      f !== "sw.js" &&
+      !heavyOnDemand.has(basename(f)),
   ))
     expect(sw).toContain(JSON.stringify(`/${basename(file)}`));
+  // heavy on-demand chunks and legacy .woff PDF fonts stay out of eager precache and use runtime caching
+  for (const file of heavyOnDemand) {
+    if (file === "ink-compile.worker.js") {
+      expect(sw).not.toMatch(new RegExp('url:"/ink-compile\\.worker\\.js"'));
+      expect(sw).toContain('"/ink-compile.worker.js"');
+    } else {
+      expect(sw).not.toContain(JSON.stringify(`/${file}`));
+    }
+  }
+  for (const file of built.files.filter((f) => f.endsWith(".woff")))
+    expect(sw).not.toContain(JSON.stringify(`/${basename(file)}`));
+  expect(sw).toContain("manent-runtime-assets-");
+  expect(sw).not.toContain("manent-runtime-assets-v1");
   const css = built.files.filter((f) => f.endsWith(".css"));
   expect(css.length).toBe(1);
-  // the build inlines the stylesheet's fonts
-  expect(await Bun.file(join(outDir, css[0]!)).text()).toContain(
-    "data:font/woff2",
+  const cssText = await Bun.file(join(outDir, css[0]!)).text();
+  // Inter variable fonts are emitted as external content-hashed .woff2 files, never base64-inlined in CSS
+  expect(cssText).not.toContain("data:font/woff2");
+  const extractedFonts = built.files.filter((f) =>
+    new RegExp("^font-[0-9a-f]{8}\\.woff2$").test(basename(f)),
   );
+  expect(extractedFonts.length).toBe(2);
+  for (const font of extractedFonts) {
+    expect(cssText).toContain(`/${basename(font)}`);
+    expect(sw).toContain(JSON.stringify(`/${basename(font)}`));
+  }
   expect(sw).not.toContain('"/api/');
   // the library stays in the worker
   for (const file of built.files.filter(
@@ -112,3 +182,59 @@ test("the build writes a service worker holding the whole shell, fonts included"
   ))
     expect(await Bun.file(join(outDir, file)).text()).not.toContain("Serwist");
 }, 60_000);
+
+test("the entry and its static chunks hold none of the editor's code", async () => {
+  const outDir = await trees.tree({});
+  const built = await buildWeb({ outDir, flavour: "test" });
+  const chunks = chunksOf(built, outDir);
+  const entry = chunks.find((chunk) => chunk.entry);
+  if (entry === undefined) throw new TypeError("no entry chunk");
+  const reached = staticReachOf(chunks, entry);
+  const editorInputs = reached.flatMap((chunk) =>
+    chunk.inputs.filter(
+      (input) =>
+        input.includes("packages/editor/") ||
+        input.includes("prosemirror-state"),
+    ),
+  );
+  const texts = await Promise.all(
+    reached.map((chunk) => Bun.file(chunk.path).text()),
+  );
+  expect([
+    editorInputs,
+    texts.some((text) =>
+      text.includes("Adding different instances of a keyed plugin"),
+    ),
+  ]).toEqual([[], false]);
+}, 30_000);
+
+test("the document screen and palette chunks hold none of the editor's code", async () => {
+  const outDir = await trees.tree({});
+  const built = await buildWeb({ outDir, flavour: "test" });
+  const chunks = chunksOf(built, outDir);
+  for (const suffix of [
+    "screens/document/document-screen.tsx",
+    "shell/shell-palette.tsx",
+  ]) {
+    const start = chunks.find((chunk) => chunk.entryPoint?.endsWith(suffix));
+    if (start === undefined) throw new TypeError(`no chunk for ${suffix}`);
+    const reached = staticReachOf(chunks, start);
+    const editorInputs = reached.flatMap((chunk) =>
+      chunk.inputs.filter(
+        (input) =>
+          input.includes("packages/editor/") ||
+          input.includes("prosemirror-state"),
+      ),
+    );
+    const texts = await Promise.all(
+      reached.map((chunk) => Bun.file(chunk.path).text()),
+    );
+    expect([
+      suffix,
+      editorInputs,
+      texts.some((text) =>
+        text.includes("Adding different instances of a keyed plugin"),
+      ),
+    ]).toEqual([suffix, [], false]);
+  }
+}, 30_000);

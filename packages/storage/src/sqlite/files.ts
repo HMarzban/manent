@@ -2,24 +2,48 @@
 import { Database, SQLiteError } from "bun:sqlite";
 import { join } from "node:path";
 import { wellFormedKey } from "../home.ts";
-import type { Home } from "../ports.ts";
-import { STORAGE_SCHEMA_VERSION, StorageError } from "../ports.ts";
+import type { Home } from "../ports/index.ts";
+import { STORAGE_SCHEMA_VERSION, StorageError } from "../ports/index.ts";
 import { MIGRATIONS } from "./migrations.ts";
 
 export const CONTROL_FILE = "control.sqlite";
+
+/** Write durability for a SQLite WAL connection: "full" (default) for primary files, "normal" for derived caches, "off" for disposable staging. */
+export type SqliteDurability = "full" | "normal" | "off";
 
 /** `project-<uuid>.sqlite` or `user-<userId>.sqlite`, in `dir`. */
 export const docFilePath = (dir: string, home: Home): string =>
   join(dir, `${wellFormedKey(home).replace(":", "-")}.sqlite`);
 
+function applyDurability(db: Database, durability: SqliteDurability): void {
+  switch (durability) {
+    case "full":
+      db.run("PRAGMA synchronous = FULL");
+      if (process.platform === "darwin") db.run("PRAGMA fullfsync = 1");
+      return;
+    case "normal":
+      db.run("PRAGMA synchronous = NORMAL");
+      return;
+    case "off":
+      db.run("PRAGMA synchronous = OFF");
+      return;
+    default:
+      durability satisfies never;
+  }
+}
+
 /** A connection with the pragmas every file runs with. StorageError("corrupt") when SQLite cannot read the file. */
-export function openDatabase(path: string): Database {
+export function openDatabase(
+  path: string,
+  options?: { durability?: SqliteDurability },
+): Database {
   let db: Database | null = null;
   try {
     db = new Database(path, { create: true, strict: true });
     db.run("PRAGMA journal_mode = WAL");
-    db.run("PRAGMA synchronous = FULL");
-    if (process.platform === "darwin") db.run("PRAGMA fullfsync = 1");
+    applyDurability(db, options?.durability ?? "full");
+    db.run("PRAGMA cache_size = -16000");
+    db.run("PRAGMA temp_store = MEMORY");
     db.run("PRAGMA foreign_keys = ON");
     db.run("PRAGMA busy_timeout = 5000");
     return db;

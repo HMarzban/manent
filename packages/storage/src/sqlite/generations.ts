@@ -1,6 +1,6 @@
 // A document's closed generations, and the one write that closes the current one.
 import type { Database } from "bun:sqlite";
-import type { DocLog, Generations, GenerationRow } from "../ports.ts";
+import type { DocLog, Generations, GenerationRow } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
 const GENERATION = `SELECT doc_id AS docId, generation, final_seq AS finalSeq, final_state AS finalState, frozen_at AS frozenAt,

@@ -623,6 +623,124 @@ test("what this machine keeps private stays out of every tracked file", async ()
   expect(await check(files, local(false))).toEqual(["LICENSE:1 license"]);
 });
 
+const COMPARE = "site/compare.html";
+/** A comparison page: one product in a column heading, one in its left-out list. */
+const comparison = (...extra: string[]) =>
+  lines(
+    "<table>", // 1
+    '<tr><th scope="col">Feature</th><th scope="col">Quillmate</th></tr>', // 2
+    "<tr><td>Quillmate Cloud runs on the web.</td></tr>", // 3
+    "</table>", // 4
+    '<ul class="left-out">', // 5
+    "<li>Inkwell Classic: no longer sold.</li>", // 6
+    "</ul>", // 7
+    ...extra, // 8 on
+  );
+const products = (paths: string[] = []): LocalRules => ({
+  ...tracked(COMPARE, ...paths),
+  paths: ["docs/drafts"],
+  terms: ["quillmate", "inkwell", "zebra", "quokka"].map(
+    (word) => new RegExp(String.raw`\b${word}\b`, "i"),
+  ),
+});
+
+test("the comparison page may name the products it lists", async () => {
+  expect(await check({ [COMPARE]: comparison() }, products())).toEqual([]);
+});
+
+test("only the comparison page may name products, and only those it lists, never the acknowledged name", async () => {
+  // the same text in any other tracked file
+  const other = "site/index.html";
+  expect(await check({ [other]: comparison() }, products([other]))).toEqual([
+    `${other}:2 private-term`,
+    `${other}:3 private-term`,
+    `${other}:6 private-term`,
+  ]);
+  // a private term the page does not list as a product, and a private path
+  expect(
+    await check(
+      { [COMPARE]: comparison("<p>Zebra wrote it.</p>", "<p>docs/drafts</p>") },
+      products(),
+    ),
+  ).toEqual([`${COMPARE}:8 private-term`, `${COMPARE}:9 private-path`]);
+  // the name the README's acknowledgement holds, even when listed as a product
+  expect(
+    await check(
+      {
+        [COMPARE]: comparison(
+          '<tr><th scope="col">Quokka</th></tr>',
+          "<p>Quokka does it too.</p>",
+        ),
+      },
+      products(),
+    ),
+  ).toEqual([`${COMPARE}:8 private-term`, `${COMPARE}:9 private-term`]);
+});
+
+const PAGE = "site/index.html";
+const HOLDER_NOTICE = edit(NOTICE, { 2: "Copyright 2026 Z. Zebra" });
+/** A site page whose footer names the holder on line 2. */
+const footer = (...extra: string[]) =>
+  lines("<footer>", "  © 2026 Z. Zebra", ...extra, "</footer>");
+const holderTerms = (names: string[], paths: string[] = []): LocalRules => ({
+  ...tracked(PAGE, COMPARE, ...paths),
+  terms: names.map((word) => new RegExp(String.raw`\b${word}\b`, "i")),
+});
+
+test("a site page's footer may name the copyright holder that NOTICE names", async () => {
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [PAGE]: footer() },
+      holderTerms(["zebra", "quokka"]),
+    ),
+  ).toEqual([]);
+  // the comparison page too, beside the products it lists
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [COMPARE]: comparison("© 2026 Z. Zebra") },
+      products(),
+    ),
+  ).toEqual([]);
+});
+
+test("only that footer line may name the holder, and only the holder", async () => {
+  const source = "packages/one/credits.txt";
+  const local = holderTerms(["zebra"], [source]);
+  // anywhere else in a site page, or a line that adds to the copyright
+  expect(
+    await check(
+      {
+        ...HOLDER_NOTICE,
+        [PAGE]: footer(
+          "<p>Z. Zebra wrote it.</p>",
+          "<p>© 2026 Z. Zebra</p>",
+          "© 2026 Z. Zebra and friends",
+        ),
+      },
+      local,
+    ),
+  ).toEqual([
+    `${PAGE}:3 private-term`,
+    `${PAGE}:4 private-term`,
+    `${PAGE}:5 private-term`,
+  ]);
+  // the same line in a file outside the site
+  expect(await check({ ...HOLDER_NOTICE, [source]: footer() }, local)).toEqual([
+    `${source}:2 private-term`,
+  ]);
+  // a holder NOTICE does not name
+  expect(await check({ [PAGE]: footer() }, local)).toEqual([
+    `${PAGE}:2 private-term`,
+  ]);
+  // another private term the footer line holds
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [PAGE]: footer() },
+      { ...local, terms: [...local.terms, /© 2026/i] },
+    ),
+  ).toEqual([`${PAGE}:2 private-term`]);
+});
+
 test("a link must lead to a file git tracks or would track", async () => {
   const untracked = "tools/out/report.md";
   const files = {

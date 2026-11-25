@@ -13,10 +13,12 @@ test("a script's settings become its page profile", () => {
     profileFromSettings(v1, {
       format: "stage_play",
       paper: "a4",
+      linesPerPage: null,
       moresAtBreaks: false,
       sameSpeakerContd: true,
       sceneContinued: true,
       scenesNumbered: true,
+      sceneNumberSides: null,
     })!.key,
   ).toBe(
     v1.profileFor("stage_play", {

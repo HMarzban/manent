@@ -1,7 +1,13 @@
-// Preferences → Account: who you are, and where your preferences are kept.
+// Preferences → Account: who you are, where your preferences are kept, and Sign out.
 import { DEMO_PEOPLE } from "@manent/demo";
-import { CommandButton, PREFERENCES_WORDS, useCommandState } from "@manent/ui";
+import {
+  CommandButton,
+  PREFERENCES_WORDS,
+  useCommandState,
+  useSubscribable,
+} from "@manent/ui";
 import type { ReactNode } from "react";
+import { SignOutDialogHost } from "../../account/sign-out-dialog.tsx";
 import { useServices } from "../../services/context.tsx";
 
 /** In the demo, the person and their title, read-only, with Switch person. */
@@ -22,8 +28,10 @@ function DemoPerson(): ReactNode {
 }
 
 export function AccountPane(): ReactNode {
+  const services = useServices();
   const demo = useCommandState("app.switchPerson").visible;
   const signedOut = useCommandState("app.signInToSync").visible;
+  const synced = useSubscribable(services.privateIndexSynced());
   return (
     <>
       {demo ? <DemoPerson /> : null}
@@ -33,9 +41,14 @@ export function AccountPane(): ReactNode {
           <CommandButton id="app.signInToSync" variant="outline" />
         </div>
       ) : (
-        // until sync says they have reached the account
-        <p className="text-ui">{PREFERENCES_WORDS.accountSaved("waiting")}</p>
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-ui">
+            {PREFERENCES_WORDS.accountSaved(synced ? "synced" : "waiting")}
+          </p>
+          <CommandButton id="app.signOut" variant="outline" />
+        </div>
       )}
+      <SignOutDialogHost />
     </>
   );
 }

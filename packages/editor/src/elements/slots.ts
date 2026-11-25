@@ -1,4 +1,13 @@
-import type { ActBreakKind, BlockType, FormatId } from "@manent/schema";
+import { firstElement } from "@manent/schema";
+import type {
+  ActBreakKind,
+  BlockType,
+  ElementRef,
+  FormatId,
+} from "@manent/schema";
+
+export { firstElement };
+export type { ElementRef };
 
 /** The element picker's keys, in its order. */
 export const ELEMENT_SLOTS = [
@@ -18,12 +27,6 @@ export const ELEMENT_SLOTS = [
   "G",
 ] as const;
 export type ElementSlot = (typeof ELEMENT_SLOTS)[number];
-
-/** An element as a block holds it: `kind` is set on an act break only. */
-export interface ElementRef {
-  readonly type: BlockType;
-  readonly kind: ActBreakKind | null;
-}
 
 const ref = (type: BlockType): ElementRef =>
   Object.freeze({ type, kind: null });
@@ -103,11 +106,6 @@ export function elementSlot(
         slots[slot]?.type === element.type && slots[slot].kind === element.kind,
     ) ?? null
   );
-}
-
-/** A new script's first block: slot 1, or in Ink, which has none, its one element. */
-export function firstElement(format: FormatId): ElementRef {
-  return SLOTS[format]["1"] ?? SLOTS[format]["2"];
 }
 
 /** The element a pasted plain line becomes. */

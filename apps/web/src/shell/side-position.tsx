@@ -30,6 +30,16 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
   const { widthPx } = props;
   const drag = useRef<{ x: number; widthPx: number } | null>(null);
   const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Home") {
+      event.preventDefault();
+      panelsActions.resize("side", MIN_WIDTH_PX);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      panelsActions.resize("side", MAX_WIDTH_PX);
+      return;
+    }
     // the panel is on the right: moving the edge left widens it
     const step =
       event.key === "ArrowLeft"
@@ -50,6 +60,9 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
     if (start !== null)
       panelsActions.resize("side", start.widthPx + start.x - event.clientX);
   };
+  const stopDrag = (): void => {
+    drag.current = null;
+  };
   return (
     <div
       role="separator"
@@ -59,13 +72,12 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
       aria-valuemin={MIN_WIDTH_PX}
       aria-valuemax={MAX_WIDTH_PX}
       tabIndex={0}
-      className="w-1 shrink-0 cursor-col-resize bg-line"
+      className="relative w-px shrink-0 cursor-col-resize bg-line transition-colors after:absolute after:inset-y-0 after:-inset-x-1 hover:bg-line-strong focus-visible:bg-accent-solid"
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
+      onPointerUp={stopDrag}
+      onPointerCancel={stopDrag}
     />
   );
 }

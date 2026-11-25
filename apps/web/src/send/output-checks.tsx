@@ -1,11 +1,20 @@
 // The Checks row both forms share: what the script font cannot draw, which prints as boxes.
+import { engineFor } from "@manent/pagination";
 import type { Engine, Pagination } from "@manent/pagination";
 import { EDITOR_WORDS, joinNames } from "@manent/ui";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { CheckMark } from "./check-mark.tsx";
-import { engineOf } from "./print-pages.ts";
 
 const SHOWN_CHARACTERS = 12;
+
+function engineOf(p: Pagination): Engine {
+  const engine = engineFor(p.engineVersion);
+  if (engine === null)
+    throw new RangeError(
+      `no engine of version ${p.engineVersion} in this build`,
+    );
+  return engine;
+}
 
 /** Adds to `found` each cluster of `text` that overlaps one of `runs` (the engine's `offFontRanges`) and takes a cell. */
 function addOffFont(

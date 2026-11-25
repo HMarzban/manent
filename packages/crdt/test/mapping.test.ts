@@ -107,6 +107,7 @@ test("storage matches the y-prosemirror 1.3.7 binding", () => {
     synopsis: "",
     noContd: false,
     noTiming: false,
+    tags: [],
   });
   expect(text(yBlock, 0).toDelta()).toEqual([
     { insert: "Hello ", attributes: { bold: {} } },

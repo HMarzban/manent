@@ -8,7 +8,7 @@ export type PlatformKeys = Readonly<Record<Platform, Keys>>;
 
 // keys that type a letter, a digit or a symbol on some layout
 const CHARACTER_KEY = "[A-Z0-9]|[,/\\[\\]=-]";
-const KEY = `${CHARACTER_KEY}|F(?:1[0-2]|[1-9])|Enter|Escape|Arrow(?:Up|Down|Left|Right)|PageUp|PageDown|Home|End`;
+const KEY = `${CHARACTER_KEY}|F(?:1[0-2]|[1-9])|Enter|Escape|Delete|Arrow(?:Up|Down|Left|Right)|PageUp|PageDown|Home|End`;
 const CHORD_PATTERN = new RegExp(
   `^(?:Mod\\+)?(?:Control\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:${KEY})$`,
 );

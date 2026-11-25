@@ -8,7 +8,13 @@ import type {
 } from "../../pages.ts";
 import { runAt } from "./dual.ts";
 import { castListOf, isSceneBoundary, isSceneHeading } from "./cast.ts";
-import { fillPage, firstStart, hasSpeakerSuffix, measureAt } from "./fill.ts";
+import {
+  fillPage,
+  firstStart,
+  hasSpeakerSuffix,
+  measureAt,
+  suffixOf,
+} from "./fill.ts";
 import type { FilledPage, PageStart } from "./fill.ts";
 import { createFlow, keyAt } from "./keep.ts";
 import type { Flow } from "./keep.ts";
@@ -147,6 +153,42 @@ function reachOf(
   };
 }
 
+/**
+ * The metrics of the edit's blocks that are the last pass's own objects and would be measured as they were: with
+ * the same suffix and no forced offset, then or now. Edits merged into one change span every block between the
+ * places they changed, and these are most of them.
+ */
+function keptMetrics(
+  prev: Pagination,
+  blocks: readonly LayoutBlock[],
+  change: ChangeHint,
+  was: ReadonlyMap<number, readonly number[]>,
+  now: ReadonlyMap<number, readonly number[]>,
+): Map<number, BlockMetrics> {
+  const kept = new Map<number, BlockMetrics>();
+  if (
+    change.oldEnd - change.first === 1 &&
+    change.newEnd - change.first === 1 &&
+    prev.blocks[change.first] !== blocks[change.first]
+  )
+    return kept;
+  const { profile } = prev;
+  const at = new Map<LayoutBlock, number>();
+  for (let j = change.first; j < change.oldEnd; j++) at.set(prev.blocks[j]!, j);
+  for (let i = change.first; i < change.newEnd; i++) {
+    const j = at.get(blocks[i]!);
+    if (j === undefined || was.has(j) || now.has(i)) continue;
+    const then = suffixOf(prev.blocks, profile, j);
+    const suffix = suffixOf(blocks, profile, i);
+    if (
+      suffix.text === then.text &&
+      suffix.forced.join() === then.forced.join()
+    )
+      kept.set(i, prev.metrics[j]!);
+  }
+  return kept;
+}
+
 const startOf = (page: Page): PageStart => ({
   block: page.block,
   line: page.line,
@@ -246,6 +288,38 @@ function refill(
   return kept;
 }
 
+function updatedMetrics(
+  prev: Pagination,
+  own: readonly LayoutBlock[],
+  edit: ChangeHint,
+  shift: number,
+  recompute: readonly ReadonlySet<number>[],
+  forced: ReadonlyMap<number, readonly number[]>,
+  unchanged: ReadonlyMap<number, BlockMetrics>,
+): BlockMetrics[] {
+  const { profile } = prev;
+  let metrics: BlockMetrics[];
+  if (shift === 0) {
+    metrics = prev.metrics.slice();
+    for (let i = edit.first; i < edit.newEnd; i++)
+      metrics[i] =
+        unchanged.get(i) ?? measureAt(own, profile, i, forced.get(i) ?? []);
+  } else {
+    metrics = prev.metrics.slice(0, edit.first);
+    for (let i = edit.first; i < edit.newEnd; i++)
+      metrics.push(
+        unchanged.get(i) ?? measureAt(own, profile, i, forced.get(i) ?? []),
+      );
+    for (let i = edit.newEnd; i < own.length; i++)
+      metrics.push(prev.metrics[i - shift]!);
+  }
+  for (const set of recompute)
+    for (const i of set)
+      if (i >= 0 && i < own.length)
+        metrics[i] = measureAt(own, profile, i, forced.get(i) ?? []);
+  return metrics;
+}
+
 /**
  * The pages of `blocks` after an edit to `prev.blocks`, with `prev`'s profile and locks: the same as
  * `paginate` gives. A block that is the same object keeps its metrics; filling restarts at the first
@@ -259,30 +333,30 @@ export function repaginate(
 ): Pagination {
   const edit = change ?? changeOf(prev.blocks, blocks);
   if (edit === null) return prev;
-  const own = Object.freeze([...blocks]);
+  const own = Object.isFrozen(blocks) ? blocks : blocks.slice();
   const { profile, locks } = prev;
   const shift = edit.newEnd - edit.oldEnd;
   const reach = reachOf(prev, own, edit);
-  let { end } = reach;
+  let { first, end } = reach;
   const before = startsOf(prev, edit);
   const plan: LockPlan = needsResolving(prev, own, edit)
     ? planLocks(own, profile, locks)
     : { starts: before, taken: takenOf(locks) };
   const moved = relocked(before, plan.starts);
-  let { first } = reach;
   for (const block of moved) {
     first = Math.min(first, block);
     end = Math.max(end, block + 1);
   }
   const forced = forcedOffsets(plan.starts);
-  const metrics: readonly BlockMetrics[] = Object.freeze(
-    own.map((_, i) =>
-      (i >= edit.first && i < edit.newEnd) ||
-      reach.resuffixed.has(i) ||
-      moved.has(i)
-        ? measureAt(own, profile, i, forced.get(i) ?? [])
-        : prev.metrics[i < edit.first ? i : i - shift]!,
-    ),
+  const unchanged = keptMetrics(prev, own, edit, forcedOffsets(before), forced);
+  const metrics = updatedMetrics(
+    prev,
+    own,
+    edit,
+    shift,
+    [reach.resuffixed, moved],
+    forced,
+    unchanged,
   );
   const flow = createFlow(
     own,
@@ -309,12 +383,10 @@ export function repaginate(
     locks,
     blocks: own,
     metrics,
-    pages: Object.freeze(
-      kept.map(({ page, old }, index) =>
-        old !== null && old.index === index && old.label === labels[index]
-          ? old
-          : Object.freeze({ ...page, index, label: labels[index]! }),
-      ),
+    pages: kept.map(({ page, old }, index) =>
+      old !== null && old.index === index && old.label === labels[index]
+        ? old
+        : Object.freeze({ ...page, index, label: labels[index]! }),
     ),
   });
 }

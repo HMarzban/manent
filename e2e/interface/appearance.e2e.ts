@@ -457,3 +457,58 @@ test("at 200 % in 1,280 × 800 nothing scrolls sideways, and every target is at 
   expect(found).toEqual({ "/": none, [`/s/${DOC_ID}`]: none });
   await page.context().close();
 });
+
+test("the palette's keyed row is a fill and a bar, never a ring; its rows show whether they can be pressed; it fits a phone", async ({
+  browser,
+}) => {
+  const page = await youAt(browser, "100");
+  await pressKeyOf(page, "app.palette");
+  const field = page.getByRole("combobox", { name: "Commands" });
+  await expect(field).toBeFocused();
+  // palette rows transition their background fill over --dur-fast, so wait for the highlight to settle
+  await expect
+    .poll(() =>
+      page.locator("[role='option'][data-highlighted]").evaluate((row) => {
+        const probe = document.createElement("span");
+        probe.style.background = "var(--bg-control)";
+        row.append(probe);
+        const fill = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const style = getComputedStyle(row);
+        const bar = getComputedStyle(row, "::before");
+        return {
+          outline: style.outlineStyle,
+          filled: style.backgroundColor === fill,
+          bar: [bar.content, bar.borderInlineStartWidth],
+          cursor: style.cursor,
+        };
+      }),
+    )
+    .toEqual({
+      outline: "none",
+      filled: true,
+      bar: ['""', "2px"],
+      cursor: "pointer",
+    });
+  await field.fill(labelOf("doc.export"));
+  const unavailable = await page
+    .locator("[role='option'][aria-disabled='true']")
+    .first()
+    .evaluate((row) => getComputedStyle(row).cursor);
+  await page.keyboard.press("Escape");
+  await expect(field).toHaveCount(0);
+  await page.setViewportSize({ width: 375, height: 740 });
+  await pressKeyOf(page, "app.palette");
+  const box = await page
+    .locator("div:has(> div > [role='combobox'])")
+    .last()
+    .boundingBox();
+  expect({
+    unavailable,
+    fits: box !== null && box.x >= 0 && box.x + box.width <= 375,
+  }).toEqual({
+    unavailable: "not-allowed",
+    fits: true,
+  });
+  await page.context().close();
+});

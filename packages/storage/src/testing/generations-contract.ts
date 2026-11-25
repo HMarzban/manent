@@ -1,7 +1,7 @@
 // The contract's tests of closed generations, replay keys, adoptions, measures and the checkpoint a replay starts from.
 import { expect, test } from "bun:test";
-import type { DocFile, FreezeItem, Storage } from "../ports.ts";
-import { StorageError } from "../ports.ts";
+import type { DocFile, FreezeItem, Storage } from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 import { DOC, DOC2, HOME, bytes, item } from "./contract-fixtures.ts";
 
 /** The running contract's current file and clock, its driver's reopen, and its ways of damaging a row and a checkpoint. */

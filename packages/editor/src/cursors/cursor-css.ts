@@ -13,15 +13,20 @@ export const CURSOR_CSS = `
 .mn-cursor {
   position: relative;
   display: inline;
+  z-index: 1;
   pointer-events: none;
   user-select: none;
 }
+.mn-cursor[data-active] {
+  z-index: 3;
+}
 .mn-cursor-bar {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: -1px;
+  bottom: -1px;
   left: -1px;
   width: 2px;
+  border-radius: 1px;
   background: var(--mn-collab);
 }
 .mn-cursor-tab {
@@ -29,10 +34,15 @@ export const CURSOR_CSS = `
   bottom: 100%;
   left: -1px;
   padding: 0 4px;
+  border-radius: 2px 2px 2px 0;
   font: 600 var(--type-micro) / var(--lh-micro) var(--face-ui);
   white-space: nowrap;
   color: var(--collab-on);
   background: var(--mn-collab);
+  opacity: 0.94;
+}
+.mn-cursor[data-idle] .mn-cursor-tab {
+  opacity: 0.74;
 }
 mn-remote-sel {
   box-shadow: inset 0 -2px 0 var(--mn-collab);

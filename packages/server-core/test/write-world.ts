@@ -97,7 +97,7 @@ function recordingStorage(
     files.set(key, file);
     return file;
   };
-  return { directory: storage.directory, open, close: () => storage.close() };
+  return { ...storage, open, close: () => storage.close() };
 }
 
 function subscriptionOf(peer: Peer, mode: "edit" | "view"): Subscription {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createDoc } from "@manent/crdt";
+import { SCHEMA_VERSION } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { DeviceVersion, DocStatus } from "@manent/sync-client";
 import type {
@@ -13,6 +14,7 @@ import { historyFacts } from "../src/history/facts.ts";
 import { readLastOpened, writeLastOpened } from "../src/history/last-opened.ts";
 import { createHistorySource, createUploader } from "../src/history/source.ts";
 import type { HistoryRow } from "../src/history/source.ts";
+import { nextDraftName } from "../src/screens/document/draft-name.tsx";
 import { SYNCED_STATUS, fakeHandle, turn, until } from "./sync.fixtures.ts";
 import type { FakeHandle } from "./sync.fixtures.ts";
 
@@ -348,6 +350,7 @@ test("restore goes to the server when it can, and to the device when it cannot",
         key: "00000000000000000000000000000001",
         versionId: "v1",
         scope: { kind: "script" },
+        clientId: 7,
       },
       authorization: "Bearer tok",
     },
@@ -528,6 +531,20 @@ test("the last-opened position uses its fixed key", async () => {
   expect(handle.closes()).toBe(1);
 });
 
+test("a tab that does not lead keeps the head the list read as where the person was, and closes its view", async () => {
+  const handle = Object.assign(handleWith(), { lastServerSeq: () => null });
+  const { source } = sourceOver(handle, () =>
+    json(list([], { head: { generation: 1, seq: 41 } })),
+  );
+  const rows = source.rows(DOC);
+  const stop = rows.subscribe(() => {});
+  await until(() => rows.get().state.kind === "empty");
+  stop();
+  await turn();
+  expect(readLastOpened("sam", DOC)).toEqual({ generation: 1, seq: 41 });
+  expect(handle.closes()).toBe(1);
+});
+
 test("a device version is uploaded once the server takes it or will never take it", async () => {
   const statuses = [200, 422, 500];
   const { fetch, calls } = fakeFetch(() =>
@@ -551,9 +568,40 @@ test("a device version is uploaded once the server takes it or will never take i
         name: null,
         deviceId: "dev",
         content: DOC_JSON,
-        schemaVersion: 1,
+        schemaVersion: SCHEMA_VERSION,
       },
     },
     authorization: "Bearer tok",
   });
+});
+
+test("nextDraftName advances along the ladder past named and sent rows", () => {
+  const rows: HistoryRow[] = [
+    {
+      item: item("v-1", TODAY_09_02, {
+        kind: "sent",
+        name: "First draft",
+        createdByUserId: "sam",
+      }),
+      title: "First draft",
+      day: "Today",
+      time: "09:02",
+      local: null,
+    },
+    {
+      item: item("v-2", TODAY_14_10, {
+        kind: "named",
+        name: "White draft",
+        createdByUserId: "sam",
+      }),
+      title: "White draft",
+      day: "Today",
+      time: "14:10",
+      local: null,
+    },
+  ];
+  expect([
+    nextDraftName(rows, []),
+    nextDraftName(rows, ["First draft", "White draft", "Blue draft"]),
+  ]).toEqual(["Third draft", "Blue draft"]);
 });

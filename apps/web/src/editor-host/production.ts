@@ -116,43 +116,74 @@ export function runRevisionCommand(
 function deferred(): {
   port: ProductionPort;
   pages: { publish(rows: readonly PageRow[], scenes: readonly string[]): void };
-  connect(services: ProductionServices): void;
+  connect(services: ProductionServices, detach: () => void): void;
+  isDisposed(): boolean;
 } {
   let services: ProductionServices | null = null;
-  const viewListeners = new Set<() => void>();
-  const keyListeners = new Set<(keys: readonly string[]) => void>();
+  let detachEditor: (() => void) | null = null;
+  let hadSubscribers = false;
+  let disposed = false;
+  const viewStops = new Map<() => void, () => void>();
+  const keyStops = new Map<(keys: readonly string[]) => void, () => void>();
+  const releaseIfEmpty = (): void => {
+    if (!hadSubscribers || viewStops.size > 0 || keyStops.size > 0) return;
+    disposed = true;
+    detachEditor?.();
+    detachEditor = null;
+  };
   return {
     port: {
       view: (): ProductionView | null => services?.port.view() ?? null,
       subscribe(listener) {
-        viewListeners.add(listener);
-        const stop = services?.port.subscribe(listener);
+        hadSubscribers = true;
+        viewStops.set(
+          listener,
+          services === null ? () => {} : services.port.subscribe(listener),
+        );
         return () => {
-          viewListeners.delete(listener);
-          stop?.();
+          viewStops.get(listener)?.();
+          viewStops.delete(listener);
+          releaseIfEmpty();
         };
       },
       overrides: {
         get: (key) => services?.port.overrides.get(key) ?? null,
         set: (key, value) => services?.port.overrides.set(key, value),
         subscribe(listener) {
-          keyListeners.add(listener);
-          const stop = services?.port.overrides.subscribe(listener);
+          hadSubscribers = true;
+          keyStops.set(
+            listener,
+            services === null
+              ? () => {}
+              : services.port.overrides.subscribe(listener),
+          );
           return () => {
-            keyListeners.delete(listener);
-            stop?.();
+            keyStops.get(listener)?.();
+            keyStops.delete(listener);
+            releaseIfEmpty();
           };
         },
       },
     },
     pages: { publish: (rows, scenes) => services?.sink.publish(rows, scenes) },
-    connect(connected) {
+    connect(connected, detach) {
+      if (disposed) {
+        detach();
+        return;
+      }
       services = connected;
-      for (const listener of viewListeners) connected.port.subscribe(listener);
-      for (const listener of keyListeners)
-        connected.port.overrides.subscribe(listener);
-      for (const listener of viewListeners) listener();
+      detachEditor = detach;
+      for (const [listener, stop] of viewStops) {
+        stop();
+        viewStops.set(listener, connected.port.subscribe(listener));
+      }
+      for (const [listener, stop] of keyStops) {
+        stop();
+        keyStops.set(listener, connected.port.overrides.subscribe(listener));
+      }
+      for (const listener of viewStops.keys()) listener();
     },
+    isDisposed: () => disposed,
   };
 }
 
@@ -168,8 +199,8 @@ export function productionEditorPlugin(context: EditorPluginContext): Plugin {
   const { userId } = person;
   const live = deferred();
   const follow = (services: ProductionServices): void => {
-    live.connect(services);
-    services.attach({
+    if (live.isDisposed()) return;
+    const detach = services.attach({
       selection: () => {
         const view = liveEditor(docId)?.view;
         return view === undefined ? null : selectionOf(view.state);
@@ -181,16 +212,20 @@ export function productionEditorPlugin(context: EditorPluginContext): Plugin {
           : (revisionKey.getState(view.state)?.revisedPages ?? []);
       },
     });
+    live.connect(services, detach);
   };
   const held = productionServicesFor(docId);
-  if (held !== null && held.userId === userId) follow(held);
-  else
+  if (held !== null && held.userId === userId) {
+    if (held.port.view() !== null) context.setScenesNumbered(true);
+    follow(held);
+  } else
     // the services load apart from the editor, with the person's sync
     void Promise.all([
       person.openHandle(docId),
       import("../production/services.ts"),
     ]).then(
-      ([handle, { createProductionServices }]) =>
+      ([handle, { createProductionServices }]) => {
+        if (live.isDisposed()) return;
         follow(
           keepProductionServices(docId, userId, () =>
             createProductionServices({
@@ -201,7 +236,8 @@ export function productionEditorPlugin(context: EditorPluginContext): Plugin {
               messages: person.messages,
             }),
           ),
-        ),
+        );
+      },
       // a script whose sync never started, or whose services could not load, has no production to follow
       () => {},
     );
@@ -215,6 +251,7 @@ export function productionEditorPlugin(context: EditorPluginContext): Plugin {
     scenesNumbered: (on) => context.setScenesNumbered(on),
     lockIcon,
     lockMarkerName: PRODUCTION_WORDS.lockMarkerName,
+    frames: context.frames,
   });
 }
 

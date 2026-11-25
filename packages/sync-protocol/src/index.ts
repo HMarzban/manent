@@ -52,6 +52,7 @@ export { gateConnection, gateDocument } from "./gating.ts";
 export type { ConnectionGate } from "./gating.ts";
 export {
   DOC_KINDS,
+  commentsDocId,
   docIdV7,
   indexDocId,
   isDocId,
@@ -65,6 +66,7 @@ export {
   HTTP_ERROR_CODES,
   REPLAY_REFUSALS,
   SERVER_STATES,
+  WRITER_PLACEMENTS,
   decodeReplayUpdates,
   encodeReplayUpdates,
   isHttpErrorCode,
@@ -109,6 +111,7 @@ export type {
   TourPrepareRequest,
   TourPrepareResponse,
   WorkspaceRef,
+  WriterPlacement,
   WritersRequest,
   WritersResponse,
   WsTicketResponse,
@@ -198,6 +201,57 @@ export type {
   NativeRole,
   OpenedFile,
   PageMessage,
+  PrompterFilesStatus,
   ShellMessage,
   UpdateState,
 } from "./desktop.ts";
+export type {
+  PrompterFeed,
+  PrompterPatch,
+  PrompterRow,
+  PrompterSendRequest,
+  PrompterSendResponse,
+  PrompterStory,
+} from "./prompter.ts";
+export type {
+  HandInOverlap,
+  HandInRequest,
+  HandInResponse,
+  HandedInControl,
+  PrivateCopyEntry,
+  PrivateCreateRequest,
+  PrivateCreateResponse,
+} from "./private-copy.ts";
+export type {
+  DriverAnswer,
+  DriverChanged,
+  DriverReleaseRequest,
+  DriverTakeRequest,
+  DriverTakenResponse,
+} from "./driver.ts";
+export { SHARE_LINK_EXPIRIES_MS } from "./sharing.ts";
+export type {
+  ShareGrantGroupResponse,
+  ShareGrantRequest,
+  ShareGroup,
+  ShareGroupRequest,
+  ShareJoinRequest,
+  ShareJoinResponse,
+  ShareLink,
+  ShareLinkExpiryMs,
+  ShareLinkRequest,
+  ShareLinkResponse,
+  SharePeopleRequest,
+  SharePeopleResponse,
+  SharePerson,
+  ShareRemoveRequest,
+  ShareRevokeRequest,
+  ShareRole,
+} from "./sharing.ts";
+export * from "./drafts.ts";
+export { encodeViewerCount, parseViewerCount } from "./viewer-count.ts";
+export * from "./library-http.ts";
+export * from "./search-http.ts";
+export * from "./workspace-http.ts";
+export * from "./notifications-http.ts";
+export * from "./public-api-http.ts";
