@@ -94,6 +94,7 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
       "Script settings",
       "Project settings",
       "Rename",
+      "Favourite",
       "Export…",
       "Print…⌘P",
       "Copy link",
@@ -107,6 +108,7 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
       "Print…⌘P",
       "Copy link",
       "Open beside",
+      "Favourite",
     ],
   ]);
 });
