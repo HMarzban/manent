@@ -266,7 +266,7 @@ test("mountBesideEditor skips restorePlace when at is set and re-attaches on foc
     docId: "b2",
     at: { blockId: "blk-5" },
     facts: { publish() {} },
-    outline: { publish() {} },
+    outline: { publish() {}, publishCurrent() {} },
     settings: { get: () => null, subscribe: () => () => {} },
     guard: env.guard,
   });

@@ -3,12 +3,12 @@
 import type { ActionEntry } from "./action-types.ts";
 import { dualDialogueEntry } from "./dual.ts";
 import { elementEntry, pickerEntry } from "./element.ts";
+import { goToEntry } from "./go-to.ts";
 import { alignEntry, layoutEntry, spaceBeforeEntry } from "./layout.ts";
 import {
   findEntry,
   findNextEntry,
   findPreviousEntry,
-  goToEntry,
   goToPersonEntry,
   replaceAllEntry,
   replaceEntry,

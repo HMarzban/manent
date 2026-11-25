@@ -9,8 +9,8 @@ import type { EditorAction } from "./registry.ts";
 
 /**
  * Runs `action` on the view. On a page that is not editable everything but undo, redo, finding and moving the caret is
- * `read_only`. Finding, moving the caret and a synopsis are loaded apart the first time one is asked for, so they
- * answer `ok` at once and run when loaded.
+ * `read_only`. Finding, stepping scenes, going to a person and a synopsis are loaded apart the first time one is asked
+ * for, so they answer `ok` at once and run when loaded.
  */
 export function runAction(
   view: EditorView,

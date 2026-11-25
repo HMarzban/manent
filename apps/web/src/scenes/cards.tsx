@@ -9,11 +9,18 @@ import {
   Segmented,
   SortableList,
 } from "@manent/ui";
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import { liveEditor } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { createLocalMap } from "../services/local-map.ts";
+import { useIsCurrentOutline } from "../state/outline.store.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
 import { ScenePeople, SceneTitle } from "./marks.tsx";
 import type { SceneParts } from "./marks.tsx";
@@ -91,9 +98,13 @@ export function ScenesSwitch(props: {
  * A scene's card: its number and menu, heading and marks, synopsis, the people in it and its length. It goes to the
  * scene, as a row does.
  */
-function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
+const SceneCard = memo(function SceneCard(props: {
+  row: OutlineRow;
+  parts: SceneParts;
+}): ReactNode {
   const { row, parts } = props;
   const { editor } = useServices();
+  const current = useIsCurrentOutline(row.blockId);
   const goTo = () =>
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   const marks = parts.extras.marks(row.blockId);
@@ -109,7 +120,7 @@ function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
           role="group"
           tabIndex={0}
           aria-label={rowLabel(row)}
-          aria-current={row.current ? "true" : undefined}
+          aria-current={current ? "true" : undefined}
           className={CARD}
           onClick={goTo}
           onKeyDown={(event) => {
@@ -143,7 +154,7 @@ function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
       )}
     </SceneRowMenu>
   );
-}
+});
 
 /** Writes a Scene Heading with empty text and `synopsis` at the end of the script, as one undo step; false when the script cannot be changed here. */
 function writeSceneCard(docId: string, synopsis: string): boolean {
@@ -196,17 +207,18 @@ function MovableCards(props: {
   scenes: readonly OutlineRow[];
   renderCard(row: OutlineRow): ReactNode;
 }): ReactNode {
-  const moves = useSceneMoves({ docId: props.docId, rows: props.scenes });
+  const { docId, scenes, renderCard } = props;
+  const { area, sortable, rowOf } = useSceneMoves({ docId, rows: scenes });
+  const renderItem = useCallback(
+    (id: string): ReactNode => {
+      const row = rowOf(id);
+      return row === null ? null : renderCard(row);
+    },
+    [rowOf, renderCard],
+  );
   return (
-    <div {...moves.area}>
-      <SortableList
-        {...moves.sortable}
-        orientation="grid"
-        renderItem={(id) => {
-          const row = moves.rowOf(id);
-          return row === null ? null : props.renderCard(row);
-        }}
-      />
+    <div {...area}>
+      <SortableList {...sortable} orientation="grid" renderItem={renderItem} />
     </div>
   );
 }
@@ -217,28 +229,33 @@ export function SceneCards(props: {
   canEdit: boolean;
   parts: SceneParts;
 }): ReactNode {
-  const { parts } = props;
+  const { rows, canEdit, parts } = props;
   const scenes = useMemo(
-    () => props.rows.filter((row) => row.kind === "scene"),
-    [props.rows],
+    () => rows.filter((row) => row.kind === "scene"),
+    [rows],
   );
-  const card = (row: OutlineRow): ReactNode => (
-    <SceneCard row={row} parts={parts} />
+  const renderCard = useCallback(
+    (row: OutlineRow): ReactNode => <SceneCard row={row} parts={parts} />,
+    [parts],
   );
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-2">
-      {props.canEdit ? (
-        <MovableCards docId={parts.docId} scenes={scenes} renderCard={card} />
+      {canEdit ? (
+        <MovableCards
+          docId={parts.docId}
+          scenes={scenes}
+          renderCard={renderCard}
+        />
       ) : (
         <div role="list" className="flex flex-wrap gap-3">
           {scenes.map((row) => (
             <div key={row.blockId} role="listitem">
-              {card(row)}
+              {renderCard(row)}
             </div>
           ))}
         </div>
       )}
-      {props.canEdit ? <BlankCard docId={parts.docId} /> : null}
+      {canEdit ? <BlankCard docId={parts.docId} /> : null}
     </div>
   );
 }

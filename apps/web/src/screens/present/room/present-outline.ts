@@ -89,9 +89,15 @@ function findActiveHeading(
   return active;
 }
 
-function readActiveScene(rows: readonly OutlineRow[]): ActivePresentScene {
+function readActiveScene(
+  rows: readonly OutlineRow[],
+  currentBlockId: string | null,
+): ActivePresentScene {
   const fallback =
-    rows.find((row) => row.current)?.blockId ?? rows[0]?.blockId ?? null;
+    currentBlockId ??
+    rows.find((row) => row.current)?.blockId ??
+    rows[0]?.blockId ??
+    null;
   const region = document.querySelector(PAGE_REGION);
   if (region === null) return { activeBlockId: fallback, progress: 0 };
   const maxScroll = region.scrollHeight - region.clientHeight;
@@ -112,13 +118,24 @@ function readActiveScene(rows: readonly OutlineRow[]): ActivePresentScene {
 export function useActivePresentScene(
   rows: readonly OutlineRow[],
 ): ActivePresentScene {
+  const outline = useContext(OutlineContext);
+  const subscribeCurrent = useCallback(
+    (notify: () => void) => outline?.subscribeCurrent(notify) ?? noop,
+    [outline],
+  );
+  const readCurrent = (): string | null => outline?.currentBlockId() ?? null;
+  const currentBlockId = useSyncExternalStore(
+    subscribeCurrent,
+    readCurrent,
+    readCurrent,
+  );
   const [state, setState] = useState<ActivePresentScene>(() =>
-    readActiveScene(rows),
+    readActiveScene(rows, currentBlockId),
   );
   useEffect(() => {
     const sync = (): void =>
       setState((prev) => {
-        const next = readActiveScene(rows);
+        const next = readActiveScene(rows, currentBlockId);
         return prev.activeBlockId === next.activeBlockId &&
           prev.progress === next.progress
           ? prev
@@ -167,7 +184,7 @@ export function useActivePresentScene(
       unsubscribeEditors();
       if (raf !== 0) cancelAnimationFrame(raf);
     };
-  }, [rows]);
+  }, [rows, currentBlockId]);
   return state;
 }
 

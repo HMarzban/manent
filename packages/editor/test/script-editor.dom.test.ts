@@ -603,3 +603,16 @@ test("destroying leaves nothing behind", () => {
     e.view.isDestroyed,
   ]).toEqual([0, 0, 0, null, 0, 0, true]);
 });
+
+test("going to a block moves the caret synchronously", () => {
+  const { e } = editor();
+  const moved = e.run({ kind: "go_to", blockId: bid(2), offset: 2 });
+  const { $head } = e.view.state.selection;
+  const missing = e.run({ kind: "go_to", blockId: "missing", offset: 0 });
+  expect([moved, $head.parent.attrs.id, $head.parentOffset, missing]).toEqual([
+    { ok: true },
+    bid(2),
+    2,
+    { ok: false, reason: "nothing_to_do" },
+  ]);
+});

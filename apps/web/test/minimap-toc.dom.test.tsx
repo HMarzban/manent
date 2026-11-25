@@ -633,6 +633,11 @@ test("the outline hook tracks updates from context with stable references", () =
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
+    currentBlockId: () => currentRows.find((r) => r.current)?.blockId ?? null,
+    subscribeCurrent: (fn) => {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
   };
 
   const snapshots: (readonly OutlineRow[])[] = [];

@@ -1,10 +1,16 @@
 // One list a person reorders by pointer or keyboard; a command moves an item through its handle.
-import { useImperativeHandle, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import type { ReactNode, Ref } from "react";
 import { SORTABLE_WORDS } from "../../words/sortable.ts";
 import { VirtualRows } from "../row/virtual-rows.tsx";
 import { useFollowFocus } from "./follow-focus.ts";
-import type { SortableEntry } from "./landing.ts";
+import type { Place, SortableEntry } from "./landing.ts";
 import { SortableArea } from "./sortable-area.tsx";
 import { SortableItem } from "./sortable-item.tsx";
 import type { Orientation } from "./sortable-item.tsx";
@@ -31,6 +37,31 @@ interface SortableListProps {
   orientation: Orientation;
   ref?: Ref<SortableListHandle>;
 }
+
+interface RenderedItemProps {
+  id: string;
+  index: number;
+  orientation: Orientation;
+  renderItem(id: string): ReactNode;
+}
+
+const RenderedItem = memo(function RenderedItem({
+  id,
+  index,
+  orientation,
+  renderItem,
+}: RenderedItemProps): ReactNode {
+  return (
+    <SortableItem
+      id={id}
+      index={index}
+      group={LIST_ID}
+      orientation={orientation}
+    >
+      {renderItem(id)}
+    </SortableItem>
+  );
+});
 
 /** Drags an item to a new place in the list by pointer or keyboard, saying each move to a screen reader. */
 export function SortableList({
@@ -62,27 +93,31 @@ export function SortableList({
     [items, onMove, focus],
   );
 
+  const lists = useMemo(() => [{ id: LIST_ID, items }], [items]);
+  const handleDrop = useCallback(
+    (_itemId: string, from: Place, to: Place) => onMove(from.index, to.index),
+    [onMove],
+  );
+
   const item = (index: number): ReactNode => {
     const entry = items[index];
     return entry === undefined ? null : (
-      <SortableItem
+      <RenderedItem
         key={entry.id}
         id={entry.id}
         index={index}
-        group={LIST_ID}
         orientation={orientation}
-      >
-        {renderItem(entry.id)}
-      </SortableItem>
+        renderItem={renderItem}
+      />
     );
   };
 
   return (
     <SortableArea
-      lists={[{ id: LIST_ID, items }]}
+      lists={lists}
       area={focus.area}
       className={orientation === "vertical" ? VERTICAL_AREA : undefined}
-      onDrop={(_itemId, from, to) => onMove(from.index, to.index)}
+      onDrop={handleDrop}
     >
       {orientation === "vertical" ? (
         <VirtualRows

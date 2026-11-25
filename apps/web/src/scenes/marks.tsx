@@ -2,7 +2,7 @@
 // in place of its length; and the heading the marks are drawn after.
 import { AvatarStack, DOCUMENT_WORDS, SCENES_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { useEffect, useMemo, useReducer } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { SCENE_LENGTH_SOURCES } from "../screens/document/scene-lengths.ts";
 import { SCENE_MARK_SOURCES } from "../screens/document/scene-marks.ts";
@@ -10,23 +10,36 @@ import type { SceneMark } from "../screens/document/scene-marks.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
 import type { SceneRowItem } from "./row-items.ts";
 
-/** The value of each of `sources` for `docId`, read again when one changes. */
+/** The current values of `sources` for `docId`, keeping one array reference while none changed. */
 function useSources<T>(
   sources: readonly ((docId: string) => Subscribable<T>)[],
   docId: string,
-): readonly Subscribable<T>[] {
+): readonly T[] {
   const opened = useMemo(
     () => sources.map((source) => source(docId)),
     [sources, docId],
   );
-  const [, changed] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    const stops = opened.map((source) => source.subscribe(changed));
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [opened]);
-  return opened;
+  const snapshot = useRef<readonly T[]>([]);
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const stops = opened.map((source) => source.subscribe(listener));
+      return () => {
+        for (const stop of stops) stop();
+      };
+    },
+    [opened],
+  );
+  const read = (): readonly T[] => {
+    const next = opened.map((source) => source.get());
+    const prev = snapshot.current;
+    if (
+      prev.length !== next.length ||
+      prev.some((value, index) => !Object.is(value, next[index]))
+    )
+      snapshot.current = next;
+    return snapshot.current;
+  };
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 // the order a row draws its marks in, whichever source gives them
@@ -54,19 +67,22 @@ export interface SceneParts {
 export function useSceneExtras(docId: string): SceneExtras {
   const marks = useSources(SCENE_MARK_SOURCES, docId);
   const lengths = useSources(SCENE_LENGTH_SOURCES, docId);
-  return {
-    marks: (blockId) =>
-      marks
-        .flatMap((source) => source.get().get(blockId) ?? [])
-        .toSorted((a, b) => MARK_ORDER[a.kind] - MARK_ORDER[b.kind]),
-    length(row) {
-      for (const source of lengths) {
-        const text = source.get().get(row.blockId);
-        if (text !== undefined) return text;
-      }
-      return row.eighths === null ? null : SCENES_WORDS.length(row.eighths);
-    },
-  };
+  return useMemo(
+    () => ({
+      marks: (blockId) =>
+        marks
+          .flatMap((source) => source.get(blockId) ?? [])
+          .toSorted((a, b) => MARK_ORDER[a.kind] - MARK_ORDER[b.kind]),
+      length(row) {
+        for (const source of lengths) {
+          const text = source.get(row.blockId);
+          if (text !== undefined) return text;
+        }
+        return row.eighths === null ? null : SCENES_WORDS.length(row.eighths);
+      },
+    }),
+    [marks, lengths],
+  );
 }
 
 type PersonMark = Extract<SceneMark, { kind: "person" }>;

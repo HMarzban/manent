@@ -135,6 +135,8 @@ export interface OutlineEntry {
 
 export interface OutlineSink {
   publish(rows: readonly OutlineEntry[]): void;
+  /** Updates only the active heading's block id, without replacing the rows. */
+  publishCurrent?(blockId: string | null): void;
 }
 
 export interface DispatchGuardPort {

@@ -211,10 +211,13 @@ const outlined = (outline: OutlineSelectors) => (): ReactNode => (
 const outlineOf = (
   rowAt: (index: number) => OutlineRow | null,
   count: number,
+  currentId: string | null = null,
 ): OutlineSelectors => ({
   count: () => count,
   row: rowAt,
   subscribe: () => noop,
+  currentBlockId: () => currentId,
+  subscribeCurrent: () => noop,
 });
 const SCENES: readonly OutlineRow[] = DEMO_WORKSPACES.map(
   (workspace, index) => ({
@@ -320,7 +323,13 @@ const PAGES: Readonly<
       row(
         "left_panel",
         "ready",
-        outlined(outlineOf((index) => SCENES[index] ?? null, SCENES.length)),
+        outlined(
+          outlineOf(
+            (index) => SCENES[index] ?? null,
+            SCENES.length,
+            SCENES[0]?.blockId ?? null,
+          ),
+        ),
       ),
       row("left_panel", "empty", outlined(outlineOf(() => null, 0))),
       row(

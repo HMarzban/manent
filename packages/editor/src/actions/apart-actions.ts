@@ -24,7 +24,6 @@ export function runApart(
     case "replace":
     case "replace_all":
       return runFind(view, action);
-    case "go_to":
     case "step_scene":
     case "go_to_person":
       return runGoTo(view, action, goTo);

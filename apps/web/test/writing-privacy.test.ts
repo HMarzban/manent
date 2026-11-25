@@ -351,7 +351,7 @@ test("a tab locks the shared script read-only when another tab chooses Privately
     docId: DOC_B,
     element,
     facts: { publish: noop },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: services.openScriptStore(DOC_B),
     guard: { enter: noop, leave: noop },
   });

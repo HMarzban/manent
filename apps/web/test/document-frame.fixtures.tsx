@@ -248,6 +248,8 @@ function outlineOf(
       return rows.get()[index] ?? null;
     },
     subscribe: (listener) => rows.subscribe(listener),
+    currentBlockId: () => rows.get().find((r) => r.current)?.blockId ?? null,
+    subscribeCurrent: (listener) => rows.subscribe(listener),
   };
 }
 

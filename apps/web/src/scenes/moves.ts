@@ -12,7 +12,13 @@ import {
   useCommands,
 } from "@manent/ui";
 import type { Message, MessageQueue, SortableListHandle } from "@manent/ui";
-import { useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import { liveEditor } from "../editor-host/live-editor.ts";
 import { productionServicesFor } from "../production/live-services.ts";
@@ -260,16 +266,20 @@ export function useSceneMoves(options: {
       }),
     [resolved],
   );
+  const rowsRef = useRef(rows);
+  useLayoutEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   useEffect(() => {
-    const indexOf = (id: string | null): number =>
-      rows.findIndex((row) => row.blockId === id);
     const mover: SceneMover = {
       move(by) {
+        const current = rowsRef.current;
         const focused = itemOf(document.activeElement);
+        const focusedId = focused?.getAttribute("data-sortable-id") ?? null;
         const index = area.current?.contains(focused)
-          ? indexOf(focused?.getAttribute("data-sortable-id") ?? null)
+          ? current.findIndex((row) => row.blockId === focusedId)
           : -1;
-        if (rows[index]?.kind !== "scene") return false;
+        if (current[index]?.kind !== "scene") return false;
         list.current?.move(index, by);
         return true;
       },
@@ -296,36 +306,67 @@ export function useSceneMoves(options: {
     return () => {
       if (shown === mover) shown = null;
     };
+  }, []);
+  const prevItems = useRef<readonly { id: string; label: string }[]>([]);
+  const items = useMemo(() => {
+    const next = rows.map((row) => ({ id: row.blockId, label: rowLabel(row) }));
+    const prev = prevItems.current;
+    if (
+      prev.length === next.length &&
+      prev.every(
+        (entry, index) =>
+          entry.id === next[index]?.id && entry.label === next[index]?.label,
+      )
+    )
+      return prev;
+    prevItems.current = next;
+    return next;
   }, [rows]);
-  const items = useMemo(
-    () => rows.map((row) => ({ id: row.blockId, label: rowLabel(row) })),
-    [rows],
+  const prevById = useRef<ReadonlyMap<string, OutlineRow>>(new Map());
+  const byId = useMemo(() => {
+    const prev = prevById.current;
+    if (
+      prev.size === rows.length &&
+      rows.every((row) => prev.get(row.blockId) === row)
+    )
+      return prev;
+    const next = new Map(rows.map((row) => [row.blockId, row]));
+    prevById.current = next;
+    return next;
+  }, [rows]);
+  const onKeyDownCapture = useCallback(
+    (event: ReactKeyboardEvent): void => {
+      const id = resolve(event.nativeEvent);
+      // while a scene is dragged its keys are the drag's
+      const dragging =
+        event.currentTarget.querySelector("[data-dragging]") !== null;
+      if (id !== null && !dragging) {
+        event.preventDefault();
+        event.stopPropagation();
+        service.run(id, "key");
+        return;
+      }
+      if (event.key === "Enter" && !dragging && isHandle(event.target))
+        event.preventDefault();
+    },
+    [resolve, service],
   );
-  const byId = useMemo(
-    () => new Map(rows.map((row) => [row.blockId, row])),
-    [rows],
+  const onMove = useCallback(
+    (from: number, to: number): void =>
+      moveSceneTo({ docId, rows: rowsRef.current, from, to, messages }),
+    [docId, messages],
   );
-  const onKeyDownCapture = (event: ReactKeyboardEvent): void => {
-    const id = resolve(event.nativeEvent);
-    // while a scene is dragged its keys are the drag's
-    const dragging =
-      event.currentTarget.querySelector("[data-dragging]") !== null;
-    if (id !== null && !dragging) {
-      event.preventDefault();
-      event.stopPropagation();
-      service.run(id, "key");
-      return;
-    }
-    if (event.key === "Enter" && !dragging && isHandle(event.target))
-      event.preventDefault();
-  };
+  const rowOf = useCallback(
+    (id: string): OutlineRow | null => byId.get(id) ?? null,
+    [byId],
+  );
   return {
     area: { ref: area, onKeyDownCapture },
     sortable: {
       ref: list,
       items,
-      onMove: (from, to) => moveSceneTo({ docId, rows, from, to, messages }),
+      onMove,
     },
-    rowOf: (id) => byId.get(id) ?? null,
+    rowOf,
   };
 }
