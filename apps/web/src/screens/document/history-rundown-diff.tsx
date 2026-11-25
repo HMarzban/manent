@@ -134,6 +134,7 @@ function DiffTable(props: {
           canEdit &&
           side !== "before" &&
           versionId !== null &&
+          rowDiff.before !== null &&
           isRundownRowChange(rowDiff);
         return (
           <div

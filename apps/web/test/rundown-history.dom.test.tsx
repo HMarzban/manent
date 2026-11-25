@@ -442,9 +442,10 @@ test("rundown History renders In the grid, Side by side and As it was with non-c
   expect(overlay.getAttribute("data-rundown-history-mode")).toBe("grid");
 
   // Non-colour diff attributes & text markers (LIS keeps Music Cue and marks Cold Open moved down from 2)
-  expect(
-    overlay.querySelector('[data-diff-row="added"]')?.textContent,
-  ).toContain(RUNDOWN_HISTORY_WORDS.added);
+  const addedRow = overlay.querySelector('[data-diff-row="added"]');
+  expect(addedRow?.textContent).toContain(RUNDOWN_HISTORY_WORDS.added);
+  // Rows added after the baseline did not exist in the baseline version, so no row Restore button is shown.
+  expect(addedRow?.querySelector("button")).toBeNull();
   expect(
     overlay.querySelector('[data-diff-row="removed"]')?.textContent,
   ).toContain(RUNDOWN_HISTORY_WORDS.removed);
