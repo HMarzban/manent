@@ -27,6 +27,8 @@ test("the Work together group lists its scenarios, each waiting one with the fea
     ["together-share", null],
     ["together-style", null],
     ["together-links", null],
+    ["together-workspace-settings", null],
+    ["together-can-also", null],
   ]);
   expect(
     validateTour(
