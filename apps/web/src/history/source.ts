@@ -1,13 +1,10 @@
-// The history of each script as this tab reads it: the versions listed, the content of each, and the requests that
+// The history of each document as this tab reads it: the versions listed, the content of each, and the requests that
 // name, save and restore them. Each action's key is made once and sent again with every retry of that action.
-import type { RestoreScope } from "@manent/revisions";
-import { SCHEMA_VERSION } from "@manent/schema";
-import { uploadRequestOf } from "@manent/sync-client";
-import type { DeviceVersion, DocHandle } from "@manent/sync-client";
+import type { DocHandle } from "@manent/sync-client";
 import type {
   AuthorsRequest,
   AuthorsResponse,
-  RestoreRequest,
+  RestoreScopeBody,
   SaveRequest,
   SinceResponse,
   VersionContent,
@@ -15,21 +12,27 @@ import type {
   WhoWroteResponse,
 } from "@manent/sync-protocol";
 import type { Subscribable, SurfaceStateValue } from "@manent/ui";
-import {
-  isAuthors,
-  isContentAnswer,
-  isRestoreAnswer,
-  isSince,
-  isWhoWrote,
-} from "./bodies.ts";
+import { isAuthors, isContentAnswer, isSince, isWhoWrote } from "./bodies.ts";
 import { createContentCache } from "./content-cache.ts";
 import { docOfContent } from "./content-doc.ts";
+import type { HistoryRow } from "./history-rows.ts";
 import { readLastOpened } from "./last-opened.ts";
 import { createHistoryHttp, readBody } from "./requests.ts";
+import {
+  cacheKeyOf,
+  createActionKeys,
+  deviceContent,
+  isKept,
+  isRundownSnapshot,
+  isSent,
+  postRestoreWithRetry,
+  restoreRundownOnDevice,
+  rundownOfContent,
+} from "./rundown-source.ts";
 import { createVersionLists } from "./version-list.ts";
-import type { HistoryRow } from "./history-rows.ts";
 
 export type { HistoryRow } from "./history-rows.ts";
+export { createUploader } from "./rundown-source.ts";
 
 export interface HistorySource {
   /** The device's rows first while the server's load. */
@@ -66,7 +69,7 @@ export interface HistorySource {
   restore(
     docId: string,
     versionId: string,
-    scope: RestoreScope,
+    scope: RestoreScopeBody,
   ): Promise<
     | { ok: true; beforeVersionId: string }
     | { ok: false; reason: "offline" | "refused" }
@@ -85,96 +88,6 @@ export interface HistorySource {
 
 const DONE = Object.freeze({ ok: true } as const);
 const NOT_DONE = Object.freeze({ ok: false } as const);
-
-/** POST /api/versions/upload of a device version: true once the server holds it, or has said it never will (422). */
-export function createUploader(options: {
-  fetch: typeof fetch;
-  token: () => string | null;
-  deviceId: string;
-}): (version: DeviceVersion) => Promise<boolean> {
-  const http = createHistoryHttp(options);
-  return async (version) => {
-    try {
-      const response = await http.post(
-        "/api/versions/upload",
-        uploadRequestOf(version, options.deviceId, SCHEMA_VERSION),
-      );
-      return response.status === 200 || response.status === 422;
-    } catch {
-      // the upload is tried again on the next connection
-      return false;
-    }
-  };
-}
-
-/** A key per action, kept until the action has an answer, so that a retry of it sends the same key. */
-function createActionKeys(ids: () => string) {
-  const kept = new Map<string, string>();
-  return {
-    of(action: string): string {
-      const key = kept.get(action) ?? ids();
-      kept.set(action, key);
-      return key;
-    },
-    done(action: string): void {
-      kept.delete(action);
-    },
-  };
-}
-
-const cacheKeyOf = (
-  docId: string,
-  at: { versionId: string } | { position: VersionPosition },
-): string =>
-  "versionId" in at
-    ? `${docId} version ${at.versionId}`
-    : `${docId} position ${at.position.generation}:${at.position.seq}`;
-
-/** The request can reach the server, and the server holds the script. */
-function isSent(handle: DocHandle): boolean {
-  const status = handle.status.get();
-  return status.link === "online" && !status.neverSynced;
-}
-
-/** True once the device has kept the version; false when its store refused it. */
-const isKept = (stored: Promise<unknown>): Promise<boolean> =>
-  stored.then(
-    () => true,
-    () => false,
-  );
-
-/** The wait before a restore the server could not take then (429 busy, or 5xx) is sent again. */
-const RESTORE_RETRY_MS = 2_000;
-
-/** Resolves at the next status whose link is online. */
-const nextOnline = (handle: DocHandle): Promise<void> =>
-  new Promise((resolve) => {
-    const stop = handle.status.subscribe((status) => {
-      if (status.link !== "online") return;
-      stop();
-      resolve();
-    });
-  });
-
-/** A device version's content, laid out with the script's settings as the device holds them now. */
-async function deviceContent(
-  handle: DocHandle,
-  versionId: string,
-): Promise<VersionContent | null> {
-  const version = (await handle.deviceVersions()).find(
-    (v) => v.id === versionId,
-  );
-  if (version === undefined) return null;
-  return {
-    v: 1,
-    blocks: (version.content.content ?? []).flatMap((s) => s.content ?? []),
-    settings: { ...handle.settings.get() },
-    schemaVersion: SCHEMA_VERSION,
-    engineVersion: null,
-    locks: null,
-    authors: {},
-  };
-}
 
 /**
  * `open` gives a view of the handle the document source already holds; the source closes each view it opens, once,
@@ -229,6 +142,11 @@ export function createHistorySource(options: {
       if (!response.ok) return null;
       const answer = await readBody(response, isContentAnswer);
       if (answer === null) return null;
+      if (
+        answer.value.content.rundown !== undefined &&
+        !isRundownSnapshot(answer.value.content.rundown)
+      )
+        return null;
       cache.put(cacheKeyOf(docId, at), answer.value.content, answer.bytes);
       return answer.value.content;
     } catch {
@@ -257,46 +175,30 @@ export function createHistorySource(options: {
     docId: string,
     handle: DocHandle,
     versionId: string,
-    scope: RestoreScope,
+    scope: RestoreScopeBody,
   ): ReturnType<HistorySource["restore"]> {
     const content =
       cache.get(cacheKeyOf(docId, { versionId })) ??
       (await deviceContent(handle, versionId));
+    const rundownTarget = rundownOfContent(content);
+    if (rundownTarget !== null) {
+      const result = restoreRundownOnDevice({
+        handle,
+        target: rundownTarget,
+        scope,
+        userId,
+        now: options.now,
+        ids: options.ids,
+      });
+      lists.refresh(docId);
+      return result;
+    }
+    if (scope.kind === "row") return { ok: false, reason: "offline" };
     const target = content === null ? null : docOfContent(content);
     if (target === null) return { ok: false, reason: "offline" };
     const { beforeVersionId } = await handle.restoreLocally(target, scope);
     lists.refresh(docId);
     return { ok: true, beforeVersionId };
-  }
-
-  async function restoreOnServer(
-    request: RestoreRequest,
-    handle: DocHandle,
-  ): ReturnType<HistorySource["restore"]> {
-    const response = await http
-      .post("/api/versions/restore", request)
-      .catch(() => null);
-    if (response === null) {
-      await nextOnline(handle);
-      return restoreOnServer(request, handle);
-    }
-    if (response.status === 429 || response.status >= 500) {
-      // the server answers a key it holds with its first result, so sending it again restores at most once
-      await new Promise((resolve) => setTimeout(resolve, RESTORE_RETRY_MS));
-      if (handle.status.get().link !== "online") await nextOnline(handle);
-      return restoreOnServer(request, handle);
-    }
-    if (response.status === 409 || response.status === 422)
-      return { ok: false, reason: "refused" };
-    if (!response.ok)
-      throw new Error(`POST /api/versions/restore answered ${response.status}`);
-    const answer = await readBody(response, isRestoreAnswer);
-    lists.refresh(request.docId);
-    if (answer === null)
-      throw new Error(
-        "POST /api/versions/restore answered a body this build cannot read",
-      );
-    return { ok: true, beforeVersionId: answer.value.beforeVersionId };
   }
 
   return {
@@ -347,7 +249,12 @@ export function createHistorySource(options: {
         const clientId = await handle.reserveClientId();
         const key = options.ids();
         const request = { docId, key, versionId, scope, clientId };
-        return restoreOnServer(request, handle);
+        return postRestoreWithRetry({
+          http,
+          request,
+          handle,
+          refresh: (id) => lists.refresh(id),
+        });
       }),
     async whoWrote(docId, blockId) {
       const response = await http.get("/api/versions/who", { docId, blockId });
