@@ -57,5 +57,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   most, something,
   less,
   anything, create, lets, program, programs, revoke, revoked, such,
-  problem, visited
+  problem, visited,
+  aren't, compiled, joined, json, problems, utf-8, xml
 `);
