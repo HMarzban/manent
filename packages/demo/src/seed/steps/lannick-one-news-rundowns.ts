@@ -23,6 +23,7 @@ import { seedDoc, seedProject } from "../catalogue.ts";
 import type { SeedDriver } from "../driver.ts";
 import type { SeedContext, SeedStep } from "../seed.ts";
 import { DAY_MS } from "../time.ts";
+import { replaceBlockText } from "./replace-block-text.ts";
 import { drainUntil, settleScriptRows } from "./the-late-desk-rundowns.ts";
 
 const PROJECT_KEY = "medium/lannick-one-news";
@@ -114,27 +115,6 @@ interface SavedBlock {
   readonly blockId: string;
   readonly finalText: string;
   readonly earlierText: string;
-}
-
-function replaceBlockText(
-  doc: CrdtDoc,
-  blockId: string,
-  from: string,
-  to: string,
-): void {
-  let start = 0;
-  while (start < from.length && from[start] === to[start]) start += 1;
-  let end = 0;
-  while (
-    end < from.length - start &&
-    end < to.length - start &&
-    from[from.length - 1 - end] === to[to.length - 1 - end]
-  )
-    end += 1;
-  scriptBody(doc).write((writer) => {
-    writer.deleteText(blockId, start, from.length - start - end);
-    writer.insertText(blockId, start, to.slice(start, to.length - end));
-  });
 }
 
 async function stageEarlierWording(

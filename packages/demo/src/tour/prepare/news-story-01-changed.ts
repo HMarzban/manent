@@ -1,11 +1,12 @@
 // As Ana, ensures Lannick One News day D is inside its air window with story 01 changed after being sent.
 import { readRundown, scriptBody, setRundownFields } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { RundownJSON } from "@manent/schema";
 import { seedDoc } from "../../seed/catalogue.ts";
 import { SeedDriverError } from "../../seed/driver.ts";
 import type { SeedDriver } from "../../seed/driver.ts";
+import { replaceBlockText } from "../../seed/steps/replace-block-text.ts";
+import { drainUntil } from "../../seed/steps/the-late-desk-rundowns.ts";
 import type { TourPreparation } from "./index.ts";
 import { READY } from "./seeded-doc.ts";
 
@@ -30,27 +31,6 @@ function isInsideAirWindow(rundown: RundownJSON, now: number): boolean {
     now >= airAt - windowLeadMs &&
     now <= airAt + Math.max(targetMs ?? 0, totalMs)
   );
-}
-
-function replaceBlockText(
-  doc: CrdtDoc,
-  blockId: string,
-  from: string,
-  to: string,
-): void {
-  let start = 0;
-  while (start < from.length && from[start] === to[start]) start += 1;
-  let end = 0;
-  while (
-    end < from.length - start &&
-    end < to.length - start &&
-    from[from.length - 1 - end] === to[to.length - 1 - end]
-  )
-    end += 1;
-  scriptBody(doc).write((writer) => {
-    writer.deleteText(blockId, start, from.length - start - end);
-    writer.insertText(blockId, start, to.slice(start, to.length - end));
-  });
 }
 
 async function rewriteStoryPhrase(
@@ -84,7 +64,6 @@ export const NEWS_STORY_01_CHANGED: TourPreparation = {
     const rundownDocId = seedDoc(RUNDOWN_KEY).docId;
     const storyDocId = seedDoc(STORY_01_KEY).docId;
 
-    let row01Id: string | null = null;
     const rundownSession = await driver.open(ANA, rundownDocId);
     try {
       const rundown = readRundown(rundownSession.doc);
@@ -97,20 +76,34 @@ export const NEWS_STORY_01_CHANGED: TourPreparation = {
           "unavailable",
           `${RUNDOWN_KEY} has no row for ${STORY_01_KEY}`,
         );
-      row01Id = row01.id;
+      if (driver.prompter === null)
+        throw new SeedDriverError("unavailable", "the server has no prompter");
+      const row01Id = row01.id;
       await rundownSession.change((doc) =>
         setRundownFields(doc, { airAt: now + FORTY_MINUTES_MS }),
       );
+      await rewriteStoryPhrase(
+        driver,
+        storyDocId,
+        FINAL_PHRASE,
+        EARLIER_PHRASE,
+      );
+      await driver.prompter.send(ANA, rundownDocId, row01Id);
+      await rewriteStoryPhrase(
+        driver,
+        storyDocId,
+        EARLIER_PHRASE,
+        FINAL_PHRASE,
+      );
+      await drainUntil(
+        rundownSession.doc,
+        (doc) =>
+          readRundown(doc).rows.find((row) => row.id === row01Id)?.prompter
+            ?.state === "changed",
+      );
+      return READY;
     } finally {
       await rundownSession.close();
     }
-
-    if (driver.prompter === null)
-      throw new SeedDriverError("unavailable", "the server has no prompter");
-
-    await rewriteStoryPhrase(driver, storyDocId, FINAL_PHRASE, EARLIER_PHRASE);
-    await driver.prompter.send(ANA, rundownDocId, row01Id);
-    await rewriteStoryPhrase(driver, storyDocId, EARLIER_PHRASE, FINAL_PHRASE);
-    return READY;
   },
 };

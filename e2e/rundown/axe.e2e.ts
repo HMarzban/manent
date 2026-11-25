@@ -7,29 +7,15 @@ import {
   RUNDOWN_WORDS,
 } from "@manent/ui";
 import { expect, test } from "@playwright/test";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { pressKeyOf } from "../support/interface.ts";
+import { ensureNewsAirWindow } from "../support/rundown.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const RULES = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const NEWS_RUNDOWN_KEY = "medium/lannick-one-news/rundowns/day";
 const LATE_DESK_RUNDOWN_KEY = "medium/the-late-desk/rundowns/day";
 const ROW_8_SEGMENT = "Guest one: Tessa Morland (Ida in Harbour Lights)";
-
-/** Ensures Lannick One News day D is inside its air window with story 01 changed for the Prompter column check. */
-async function ensureNewsAirWindow(request: APIRequestContext): Promise<void> {
-  const signIn = await request.post("/api/sign-in", {
-    data: { userId: "ana" },
-  });
-  const token: unknown = Reflect.get(Object(await signIn.json()), "token");
-  if (typeof token !== "string")
-    throw new Error("the demo did not sign ana in");
-  const prepared = await request.post("/api/demo/tour/prepare", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { scenarioId: "rundown-send" },
-  });
-  expect(await prepared.json()).toEqual({ ok: true });
-}
 
 /** Runs axe WCAG 2 A/AA/2.1 AA/2.2 AA rules, excluding Base UI's nameless focus-guard buttons in WebKit. */
 async function violationsOf(page: Page): Promise<unknown[]> {

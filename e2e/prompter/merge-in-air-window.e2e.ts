@@ -6,29 +6,15 @@ import {
   RUNDOWN_WORDS,
 } from "@manent/ui";
 import { expect, test } from "@playwright/test";
-import type { APIRequestContext, Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { settled } from "../editor/support.ts";
 import { readStatus, setConnection } from "../offline/support.ts";
+import { ensureNewsAirWindow } from "../support/rundown.ts";
 import { committedOnDevice, signedInAs } from "../support/tour.ts";
 
 const NEWS_RUNDOWN_KEY = "medium/lannick-one-news/rundowns/day";
 const STORY_KEY = "medium/lannick-one-news/stories/02";
 const STORY_TITLE = "Library: what happens to Mercer Street";
-
-/** Ensures Lannick One News day D is inside its air window via the demo preparation route. */
-async function ensureNewsAirWindow(request: APIRequestContext): Promise<void> {
-  const signIn = await request.post("/api/sign-in", {
-    data: { userId: "ana" },
-  });
-  const token: unknown = Reflect.get(Object(await signIn.json()), "token");
-  if (typeof token !== "string")
-    throw new Error("the demo did not sign ana in");
-  const prepared = await request.post("/api/demo/tour/prepare", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { scenarioId: "rundown-send" },
-  });
-  expect(await prepared.json()).toEqual({ ok: true });
-}
 
 /** Places the caret at the end of `block` and types `text`. */
 async function appendToBlock(
