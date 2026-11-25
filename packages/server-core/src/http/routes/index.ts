@@ -15,6 +15,7 @@ import { SHARE_ROUTES } from "./share.ts";
 import { DRAFTS_ROUTES } from "./drafts.ts";
 import { PRIVATE_ROUTES } from "./private.ts";
 import { DRIVER_ROUTES } from "./driver.ts";
+import { MOS_ROUTES } from "./mos.ts";
 import { PROMPTER_ROUTES } from "./prompter.ts";
 import { trashRoutes } from "./trash.ts";
 import { searchRoutes } from "./search.ts";
@@ -39,6 +40,7 @@ export const ROUTES: readonly Route[] = [
   ...DRAFTS_ROUTES,
   ...PRIVATE_ROUTES,
   ...DRIVER_ROUTES,
+  ...MOS_ROUTES,
   ...PROMPTER_ROUTES,
   ...trashRoutes,
   ...searchRoutes,

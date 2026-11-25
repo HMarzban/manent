@@ -13,6 +13,7 @@ import type { DraftsService } from "../drafts/service.ts";
 import type { DriverService } from "../driver/service.ts";
 import type { HistoryService } from "../history/service.ts";
 import type { TrashService } from "../library/service.ts";
+import type { MosBridgeService } from "../mos/bridge.ts";
 import type { NotificationsService } from "../notifications/service.ts";
 import type { PrivateCopyService } from "../private-copy/service.ts";
 import type { ProductionService } from "../production/service.ts";
@@ -35,6 +36,7 @@ import type { SyncService, SyncSettings } from "../sync/ports.ts";
 import type { WorkspaceService } from "../workspace/service.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
+import { answerMosRequest } from "./routes/mos.ts";
 import { hearReplays } from "./routes/replay.ts";
 import { ROUTES } from "./routes/index.ts";
 import { serveStatic } from "./static.ts";
@@ -97,6 +99,8 @@ export interface ServerConfig {
   rundown?: RundownService;
   /** Absent: every prompter route answers not_found. */
   prompter?: PrompterService;
+  /** Absent: every MOS broadcast route answers not_found. */
+  mos?: MosBridgeService;
   /** Absent: every Trash route answers not_found. */
   trash?: TrashService;
   /** Absent: every search route answers not_found. */
@@ -200,6 +204,13 @@ export function createServer(config: ServerConfig): ManentServer {
       if (route !== undefined) {
         const user = () => userOf(request, config.auth);
         return route.handle({ request, peer, config, user });
+      }
+      if (config.mos !== undefined) {
+        const answered = await answerMosRequest(request, {
+          mos: config.mos,
+          user: () => userOf(request, config.auth),
+        });
+        if (answered !== null) return answered;
       }
       if (isApi || request.method !== "GET" || webDir === null)
         return failure("not_found", 404);
