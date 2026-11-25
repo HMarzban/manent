@@ -8,11 +8,11 @@ import type { DocKind } from "@manent/sync-protocol";
 import { IMPORT_WORDS, joinNames } from "@manent/ui";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 
-/** What a file type writes from: the document, its title, and the pages the frame shows. */
+/** What a file type writes from: the document, its title, and the pages the frame shows (null for a format without pages). */
 export interface ExportWork {
   readonly docId: string;
   readonly title: string;
-  readonly pages: Pagination;
+  readonly pages: Pagination | null;
   readonly now: () => number;
 }
 

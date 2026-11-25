@@ -11,7 +11,7 @@ const config = () =>
 
 test("the server announces the engine and table versions it runs", () => {
   expect(config().socket.versions.current).toMatchObject({
-    engine: 1,
+    engine: 2,
     table: 1,
   });
   expect(config().socket.versions.min).toMatchObject({ engine: 1, table: 1 });
