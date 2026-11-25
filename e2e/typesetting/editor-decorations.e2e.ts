@@ -69,13 +69,21 @@ test("pages are drawn where the engine put them", async ({ page }) => {
 
 test("furniture is drawn but is not text", async ({ page }) => {
   await open(page, "long-speech");
-  const shown = await page.evaluate(() =>
-    [".pb-more", ".pb-contd", ".pb-mid .pb-head"].map(
+  // sheet header furniture replaces the break widget's page number so it is never drawn twice
+  const shown = await page.evaluate(() => ({
+    breakWidgets: [".pb-more", ".pb-contd", ".pb-mid .pb-head"].map(
       (selector) =>
         getComputedStyle(document.querySelector(selector)!, "::before").content,
     ),
-  );
-  expect(shown).toEqual(['"(MORE)"', '"MARA (CONT\'D)"', '"2."']);
+    pageNumber:
+      document
+        .querySelector(".mn-sheet[data-page='1'] .mn-header")
+        ?.textContent?.trim() ?? null,
+  }));
+  expect(shown).toEqual({
+    breakWidgets: ['"(MORE)"', '"MARA (CONT\'D)"', "none"],
+    pageNumber: "2.",
+  });
   const furniture = ["(MORE)", "(CONT'D)", "2."];
   const text = await page.evaluate(
     () => window["__mn"].view.dom.textContent ?? "",

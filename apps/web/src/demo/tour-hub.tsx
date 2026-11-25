@@ -208,7 +208,7 @@ export function TourHub(props: {
         <div
           role="group"
           aria-label={TOUR_WORDS.filterLabel}
-          className="flex items-center gap-1 pt-0.5"
+          className="flex flex-wrap items-center gap-1 pt-0.5"
         >
           {filters.map(({ id, label }) => (
             <Button
