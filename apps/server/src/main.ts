@@ -9,7 +9,11 @@ import {
   createSeedTime,
   heavyHomes,
 } from "@manent/demo";
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import {
+  ENGINE_VERSION,
+  ENGINE_VERSIONS,
+  TABLE_VERSION,
+} from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
@@ -39,7 +43,7 @@ import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
 import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
 import { onServeError } from "./serve-error.ts";
-import { composeServices } from "./services.ts";
+import { composeServices, stopComposedServices } from "./services.ts";
 
 const SESSION_KEY_BYTES = 32;
 
@@ -74,12 +78,13 @@ export function buildServerConfig(
     "127.0.0.1",
     ...(env.lanHost ? [env.lanHost] : []),
   ].map((h) => urlHost(h, port));
-  const versions = {
+  const current = {
     protocol: PROTOCOL_VERSION,
     schema: SCHEMA_VERSION,
-    engine: ENGINE_VERSION,
+    engine: ENGINE_VERSIONS.at(-1)!,
     table: TABLE_VERSION,
   };
+  const min = { ...current, engine: ENGINE_VERSION };
   return {
     http: {
       allowedHosts: hosts,
@@ -98,7 +103,7 @@ export function buildServerConfig(
     },
     socket: {
       tickets: createTicketStore({ now: Date.now }),
-      versions: { current: versions, min: versions },
+      versions: { current, min },
       allowedOrigins: hosts.map((h) => `http://${h}`),
     },
     sync: null,
@@ -299,6 +304,8 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     names: (userId) => config.auth.directory.user(userId)?.name ?? userId,
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
+    dataDir: env.dataDir,
+    openUrl: config.http.openUrl,
   });
   // the demo's services need the server these controls are given to, so the controls call them once they exist
   const controls: DemoControls = {
@@ -358,7 +365,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     stopped ??= (async () => {
       await background.stop();
       await services.close();
-      composed.config.prompter?.stop();
+      stopComposedServices(composed.config);
       await serving.sync?.shutdown();
       await stopListening();
       sync.close();

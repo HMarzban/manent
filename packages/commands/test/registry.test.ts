@@ -426,20 +426,18 @@ const state = (id: string, c: Partial<CommandContext>) => {
   return d.when!(k) ? "ran" : d.whyNot!(k);
 };
 
-test("Ruler, Export and Print are disabled with their reason off a document and in Ink, and run for a viewer", () => {
+test("Ruler and Print are disabled off a document and in Ink; Export runs in Ink too, and all three run for a viewer", () => {
   expect(
     ["view.ruler", "doc.export", "doc.print"].map((id) => [
       state(id, { docOpen: false }),
       state(id, { docOpen: true, format: "ink" }),
       state(id, { docOpen: true, format: "screenplay", role: "viewer" }),
     ]),
-  ).toEqual(
-    Array.from({ length: 3 }, () => [
-      "needs a document open",
-      "isn't part of the Ink format",
-      "ran",
-    ]),
-  );
+  ).toEqual([
+    ["needs a document open", "isn't part of the Ink format", "ran"],
+    ["needs a document open", "ran", "ran"],
+    ["needs a document open", "isn't part of the Ink format", "ran"],
+  ]);
 });
 
 test("Zoom in and out stop at the ends and say why", () => {
