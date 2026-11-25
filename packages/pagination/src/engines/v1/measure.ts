@@ -2,7 +2,11 @@
 import type { LayoutBlock } from "../../layout-block.ts";
 import type { ElementSpec, PageProfile } from "../../page-profile.ts";
 import type { BlockMetrics } from "../../pages.ts";
-import { clusterCells } from "./cells.ts";
+import { castListOf, isSceneBoundary, speakerName } from "./cast.ts";
+import { clusterCells, upperCase } from "./cells.ts";
+import { isInRun } from "./dual.ts";
+import { measureGraphic } from "./graphics.ts";
+import { keyAt } from "./keep.ts";
 import { specKey } from "./profile.ts";
 import { wrap } from "./wrap.ts";
 
@@ -76,6 +80,8 @@ export function measure(
   const spec = resolveSpec(profile, block);
   if (!spec.printed)
     return Object.freeze({ lines: 0, starts: new Int32Array(0), spec });
+  if (block.type === "graphic")
+    return measureGraphic(block, spec, context.forced ?? []);
   const [open, close] = spec.enclosure ?? ["", ""];
   const starts = wrap(block.text + (context.suffix ?? "") + close, spec.width, {
     firstLineIndent:
@@ -85,4 +91,69 @@ export function measure(
     forced: context.forced ?? [],
   });
   return Object.freeze({ lines: starts.length, starts, spec });
+}
+
+/**
+ * Cue i is shown with the same-speaker suffix: the nearest earlier cue in its scene has its name, and
+ * neither the profile, the cue's `noContd` nor its own text already ending in the suffix says no.
+ * A cue in a dual run neither takes the suffix nor counts as the earlier cue.
+ */
+export function hasSpeakerSuffix(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+): boolean {
+  const { furniture } = profile;
+  const cue = blocks[i]!;
+  if (
+    !furniture.speakerContinued ||
+    cue.noContd ||
+    keyAt(blocks, i) !== "character" ||
+    upperCase(cue.text).trimEnd().endsWith(furniture.contdText.trim()) ||
+    isInRun(blocks, profile, i)
+  )
+    return false;
+  const name = speakerName(cue.text);
+  if (name === "") return false;
+  for (let j = i - 1; j >= 0; j--) {
+    const key = keyAt(blocks, j);
+    if (isSceneBoundary(key)) return false;
+    if (key === "character" && !isInRun(blocks, profile, j))
+      return speakerName(blocks[j]!.text) === name;
+  }
+  return false;
+}
+
+/**
+ * What block i is drawn with after its text, and the offsets where that starts a line: a cue's same-speaker
+ * suffix, or a scene heading's cast list on lines of its own.
+ */
+export function suffixOf(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+): { readonly text: string; readonly forced: readonly number[] } {
+  if (hasSpeakerSuffix(blocks, profile, i))
+    return { text: profile.furniture.contdText, forced: [] };
+  const cast = castListOf(blocks, profile, i);
+  return cast === null
+    ? { text: "", forced: [] }
+    : { text: cast, forced: [blocks[i]!.text.length] };
+}
+
+/** Block i measured as the page shows it: with its suffix, and a line starting at each forced offset and each the suffix asks for. */
+export function measureAt(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+  forced: readonly number[],
+): BlockMetrics {
+  const suffix = suffixOf(blocks, profile, i);
+  return measure(blocks[i]!, profile, {
+    suffix: suffix.text,
+    forced:
+      suffix.forced.length === 0
+        ? forced
+        : [...new Set([...forced, ...suffix.forced])].toSorted((a, b) => a - b),
+  });
 }

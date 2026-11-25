@@ -2,8 +2,11 @@
 // 60 % right (Character in capitals, Parenthetical, Dialogue), one table row per block.
 import { STYLE, upperCase } from "@manent/pagination";
 import type { Paper } from "@manent/pagination";
-import type { BlockJSON } from "@manent/schema";
+import type { BlockJSON, GraphicAttrs } from "@manent/schema";
+import { CURRENT_GLYPH_METRICS } from "../pdf/draw.ts";
 import type { ScriptFontFiles } from "../pdf/fonts.ts";
+import { drawGraphicBox } from "../pdf/graphics.ts";
+import type { PdfAsset } from "../pdf/graphics.ts";
 import {
   PAPER_PORTRAIT_PT,
   drawHairline,
@@ -24,6 +27,8 @@ export interface VarietyTwoColumnOptions {
   readonly fonts: ScriptFontFiles;
   /** Milliseconds since the epoch, written as the creation and modification dates; 0 when absent. */
   readonly createdAt?: number;
+  /** Optional decoded PNG/JPEG blobs keyed by SHA-256 assetId for inline graphics in the left column. */
+  readonly assets?: ReadonlyMap<string, PdfAsset>;
 }
 
 interface TableGeometry {
@@ -44,6 +49,7 @@ interface PlacedRow {
   readonly side: "left" | "right";
   readonly style: number;
   readonly lines: readonly string[];
+  readonly graphic?: GraphicAttrs;
 }
 
 const FONT_SIZE_PT = 12;
@@ -91,6 +97,23 @@ function classifyBlock(
   if (type === "group") return null;
   if (type === "page_break") return "page_break";
   const raw = blockPlainText(block);
+  if (type === "graphic") {
+    const g: GraphicAttrs = block.attrs?.graphic ?? {
+      kind: "image",
+      assetId: null,
+      heightLines: 6,
+      label: "",
+      alt: "",
+      aspectWidth: null,
+      aspectHeight: null,
+    };
+    return {
+      side: "left",
+      style: 0,
+      lines: raw === "" ? [] : wrapTextLines(raw, geom.leftMaxCells),
+      graphic: g,
+    };
+  }
   if (RIGHT_TYPES.has(type)) {
     const text = type === "character" ? upperCase(raw) : raw;
     return {
@@ -236,11 +259,85 @@ function drawPlacedRow(
   }
 }
 
+function drawGraphicRow(
+  pdf: PDFKit.PDFDocument,
+  state: StoryCursor,
+  placed: PlacedRow,
+  geom: TableGeometry,
+  scale: FontScale,
+  assets: ReadonlyMap<string, PdfAsset> | undefined,
+): void {
+  const g = placed.graphic!;
+  const boxHeightPt = Math.min(
+    g.heightLines * LINE_HEIGHT_PT,
+    geom.bottomPt - geom.marginPt - ROW_PAD_Y_PT * 2,
+  );
+  const captionHeightPt = placed.lines.length * LINE_HEIGHT_PT;
+  const totalHeightPt =
+    boxHeightPt +
+    (captionHeightPt > 0 ? 4 + captionHeightPt : 0) +
+    ROW_PAD_Y_PT * 2;
+  if (state.drewRowOnPage && state.cursorY + totalHeightPt > geom.bottomPt) {
+    state.cursorY = openVarietyPage(pdf, geom);
+    state.drewRowOnPage = false;
+  }
+  const topY = state.cursorY;
+  const boxWidthPt = geom.leftMaxCells * scale.cellPt;
+  const asset = g.assetId !== null ? assets?.get(g.assetId) : undefined;
+  drawGraphicBox(
+    pdf,
+    {
+      xPt: geom.leftXPt,
+      yPt: topY + ROW_PAD_Y_PT,
+      widthPt: boxWidthPt,
+      heightPt: boxHeightPt,
+    },
+    { kind: g.kind, label: g.label, alt: g.alt },
+    asset,
+    CURRENT_GLYPH_METRICS,
+  );
+  let textY = topY + ROW_PAD_Y_PT + boxHeightPt + 4;
+  for (const line of placed.lines) {
+    if (line !== "")
+      drawScriptLine(
+        pdf,
+        line,
+        geom.leftXPt,
+        textY + scale.baselinePt,
+        0,
+        scale,
+      );
+    textY += LINE_HEIGHT_PT;
+  }
+  const bottomY = topY + totalHeightPt;
+  drawHairline(
+    pdf,
+    geom.dividerXPt,
+    topY,
+    geom.dividerXPt,
+    bottomY,
+    ROW_RULE_PT,
+    RULE_RGB,
+  );
+  drawHairline(
+    pdf,
+    geom.marginPt,
+    bottomY,
+    geom.marginPt + geom.contentWidthPt,
+    bottomY,
+    ROW_RULE_PT,
+    RULE_RGB,
+  );
+  state.cursorY = bottomY;
+  state.drewRowOnPage = true;
+}
+
 function drawStory(
   pdf: PDFKit.PDFDocument,
   row: RundownExportRow,
   geom: TableGeometry,
   scale: FontScale,
+  assets: ReadonlyMap<string, PdfAsset> | undefined,
 ): void {
   const state: StoryCursor = {
     cursorY: drawStoryHeading(
@@ -266,7 +363,9 @@ function drawStory(
       state.drewRowOnPage = false;
       continue;
     }
-    drawPlacedRow(pdf, state, placed, geom, scale, maxLinesPerPage);
+    if (placed.graphic !== undefined)
+      drawGraphicRow(pdf, state, placed, geom, scale, assets);
+    else drawPlacedRow(pdf, state, placed, geom, scale, maxLinesPerPage);
   }
 }
 
@@ -295,6 +394,6 @@ export async function writeVarietyTwoColumnPdf(
     createdAt: options.createdAt,
     fonts: options.fonts,
   });
-  for (const row of stories) drawStory(pdf, row, geom, scale);
+  for (const row of stories) drawStory(pdf, row, geom, scale, options.assets);
   return await finish();
 }

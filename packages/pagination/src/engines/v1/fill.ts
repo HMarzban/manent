@@ -1,17 +1,10 @@
 // The page filler: one page from where it opens to the break that ends it. Units are half-lines.
-import type { LayoutBlock } from "../../layout-block.ts";
-import type { PageProfile } from "../../page-profile.ts";
-import type { BlockMetrics, Page } from "../../pages.ts";
+import type { Page } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
-import {
-  castListOf,
-  isSceneBoundary,
-  isSceneHeading,
-  speakerName,
-} from "./cast.ts";
-import { upperCase } from "./cells.ts";
-import { columnHeight, isInRun, lastCutRow, resumeAt } from "./dual.ts";
+import { isSceneBoundary, isSceneHeading } from "./cast.ts";
+import { columnHeight, lastCutRow, resumeAt } from "./dual.ts";
 import type { ColumnPiece, Point } from "./dual.ts";
+import { isAtomicGraphicAtTop } from "./graphics.ts";
 import {
   columnCueOf,
   columnsOf,
@@ -32,8 +25,9 @@ import {
   tailOf,
 } from "./keep.ts";
 import type { DualUnit, Flow } from "./keep.ts";
-import { measure } from "./measure.ts";
 import { splitAt } from "./split.ts";
+
+export { hasSpeakerSuffix, measureAt, suffixOf } from "./measure.ts";
 
 /** Lines the CONTINUED: line and the blank line under it take at a page's top. */
 const CONTINUED_LINES = 2;
@@ -73,37 +67,6 @@ interface Break {
   readonly more: boolean;
   readonly contd: string | null;
   readonly contdRight: string | null;
-}
-
-/**
- * Cue i is shown with the same-speaker suffix: the nearest earlier cue in its scene has its name, and
- * neither the profile, the cue's `noContd` nor its own text already ending in the suffix says no.
- * A cue in a dual run neither takes the suffix nor counts as the earlier cue.
- */
-export function hasSpeakerSuffix(
-  blocks: readonly LayoutBlock[],
-  profile: PageProfile,
-  i: number,
-): boolean {
-  const { furniture } = profile;
-  const cue = blocks[i]!;
-  if (
-    !furniture.speakerContinued ||
-    cue.noContd ||
-    keyAt(blocks, i) !== "character" ||
-    upperCase(cue.text).trimEnd().endsWith(furniture.contdText.trim()) ||
-    isInRun(blocks, profile, i)
-  )
-    return false;
-  const name = speakerName(cue.text);
-  if (name === "") return false;
-  for (let j = i - 1; j >= 0; j--) {
-    const key = keyAt(blocks, j);
-    if (isSceneBoundary(key)) return false;
-    if (key === "character" && !isInRun(blocks, profile, j))
-      return speakerName(blocks[j]!.text) === name;
-  }
-  return false;
 }
 
 // The page opening at line `line` of `block` is inside a scene that began on an earlier page.
@@ -207,6 +170,11 @@ function step(flow: Flow, sheet: Sheet, i: number, line: number): Break | null {
   }
   let k = splitAt(piece, flow.profile.rules, line, avail);
   if (k < 0 && (sheet.atTop || sheet.onlyKeeps)) {
+    // a graphic + caption stays atomic even if taller than a single page
+    if (isAtomicGraphicAtTop(flow.blocks[i]!, sheet.atTop, line, whole)) {
+      place(sheet, before + rest, false);
+      return null;
+    }
     // only the transition does not fit, and the block has no tail to give it
     if (whole && rest + reserveOf(flow, i) <= avail) {
       place(sheet, before + rest, flow.metrics[i]!.spec.keptWithNext);
@@ -340,38 +308,4 @@ export function fillPage(
     if (unit !== null) i = unit.run.end - 1;
   }
   return { page: filled(flow, start, sheet.used, false), next: null };
-}
-
-/**
- * What block i is drawn with after its text, and the offsets where that starts a line: a cue's same-speaker
- * suffix, or a scene heading's cast list on lines of its own.
- */
-export function suffixOf(
-  blocks: readonly LayoutBlock[],
-  profile: PageProfile,
-  i: number,
-): { readonly text: string; readonly forced: readonly number[] } {
-  if (hasSpeakerSuffix(blocks, profile, i))
-    return { text: profile.furniture.contdText, forced: [] };
-  const cast = castListOf(blocks, profile, i);
-  return cast === null
-    ? { text: "", forced: [] }
-    : { text: cast, forced: [blocks[i]!.text.length] };
-}
-
-/** Block i measured as the page shows it: with its suffix, and a line starting at each forced offset and each the suffix asks for. */
-export function measureAt(
-  blocks: readonly LayoutBlock[],
-  profile: PageProfile,
-  i: number,
-  forced: readonly number[],
-): BlockMetrics {
-  const suffix = suffixOf(blocks, profile, i);
-  return measure(blocks[i]!, profile, {
-    suffix: suffix.text,
-    forced:
-      suffix.forced.length === 0
-        ? forced
-        : [...new Set([...forced, ...suffix.forced])].toSorted((a, b) => a - b),
-  });
 }

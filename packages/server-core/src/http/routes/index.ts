@@ -23,6 +23,8 @@ import { apiKeyRoutes } from "./api-keys.ts";
 import { notificationRoutes } from "./notifications.ts";
 import { publicApiRoutes } from "./public-api.ts";
 
+export { handleAssetRoute } from "./assets.ts";
+
 export const ROUTES: readonly Route[] = [
   ...adoptRoutes,
   ...AUTH_ROUTES,
