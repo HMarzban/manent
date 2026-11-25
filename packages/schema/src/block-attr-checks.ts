@@ -1,5 +1,16 @@
-import { ALIGNMENTS, DUALS, LINK_KINDS } from "./attrs.ts";
-import type { BlockAttrs } from "./attrs.ts";
+import {
+  ALIGNMENTS,
+  DUALS,
+  GRAPHIC_ATTR_KEYS,
+  GRAPHIC_KINDS,
+  GRAPHIC_MAX_ALT_LENGTH,
+  GRAPHIC_MAX_DIMENSION_PX,
+  GRAPHIC_MAX_HEIGHT_LINES,
+  GRAPHIC_MAX_LABEL_LENGTH,
+  GRAPHIC_MIN_HEIGHT_LINES,
+  LINK_KINDS,
+} from "./attrs.ts";
+import type { BlockAttrs, GraphicAttrs } from "./attrs.ts";
 import { ACT_BREAK_KINDS } from "./block-types.ts";
 import { isBlockId, parseFrom } from "./identity.ts";
 import {
@@ -13,6 +24,7 @@ import {
 import type { Check } from "./shape.ts";
 
 const ELEMENT_NAME = /^[a-z_]{1,32}$/;
+const ASSET_ID = /^[0-9a-f]{64}$/;
 
 /** The shape every element name has, known to this build or not. */
 export function isElementName(value: unknown): value is string {
@@ -28,6 +40,40 @@ function isLinkTo(value: unknown): boolean {
     Object.keys(value).length === 2 &&
     oneOf(LINK_KINDS)(value.kind) &&
     isBlockId(value.blockId)
+  );
+}
+
+const isGraphicHeightLines = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= GRAPHIC_MIN_HEIGHT_LINES &&
+  value <= GRAPHIC_MAX_HEIGHT_LINES;
+
+const isGraphicDimension = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isSafeInteger(value) &&
+  value >= 1 &&
+  value <= GRAPHIC_MAX_DIMENSION_PX;
+
+const isAssetId = (value: unknown): boolean =>
+  isString(value) && ASSET_ID.test(value);
+
+/** Strictly flat seven-primitive graphic attributes and nothing else. */
+export function isGraphicAttrs(value: unknown): value is GraphicAttrs {
+  if (!isObject(value)) return false;
+  if (Object.keys(value).length !== GRAPHIC_ATTR_KEYS.length) return false;
+  for (const key of GRAPHIC_ATTR_KEYS)
+    if (!Object.hasOwn(value, key)) return false;
+  return (
+    oneOf(GRAPHIC_KINDS)(value.kind) &&
+    orNull(isAssetId)(value.assetId) &&
+    isGraphicHeightLines(value.heightLines) &&
+    isString(value.label) &&
+    value.label.length <= GRAPHIC_MAX_LABEL_LENGTH &&
+    isString(value.alt) &&
+    value.alt.length <= GRAPHIC_MAX_ALT_LENGTH &&
+    orNull(isGraphicDimension)(value.aspectWidth) &&
+    orNull(isGraphicDimension)(value.aspectHeight)
   );
 }
 
@@ -55,4 +101,5 @@ export const BLOCK_ATTR_CHECKS: Readonly<
   suggestAt: orNull(isCount),
   tags: (value) => Array.isArray(value) && value.every(isTag),
   linkTo: orNull(isLinkTo),
+  graphic: orNull(isGraphicAttrs),
 };

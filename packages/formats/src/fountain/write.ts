@@ -41,6 +41,7 @@ const LACKING: Readonly<Record<BlockType, string | null>> = {
   body: "Body",
   break: "Break",
   quote: "Quote",
+  graphic: "Graphic",
 };
 
 const MARKERS: Readonly<Record<FountainMark, string>> = {

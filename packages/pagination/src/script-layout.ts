@@ -86,6 +86,7 @@ const SPEC_KEYS: Readonly<Record<SpecKey, true>> = {
   "act_break.end_of_act": true,
   "act_break.teaser": true,
   "act_break.tag": true,
+  graphic: true,
 };
 
 function asSpecKey(key: string): SpecKey | null {

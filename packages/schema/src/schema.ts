@@ -2,12 +2,13 @@ import { Schema } from "prosemirror-model";
 import type { AttributeSpec, Node, TagParseRule } from "prosemirror-model";
 import { DEFAULT_BLOCK_ATTRS } from "./attrs.ts";
 import { renderedType } from "./block-types.ts";
+import type { DocJSON } from "./json.ts";
 import { MARK_SPECS } from "./marks.ts";
 import type { MarkName } from "./marks.ts";
-import { isString } from "./shape.ts";
+import { isObject, isString } from "./shape.ts";
 
-/** 2: a General element may carry `tags` and `linkTo`; a block holding either needs a reader of schema 2. */
-export const SCHEMA_VERSION = 2;
+/** 3: inline graphic blocks (`type: "graphic"` and flat `graphic` attrs); a block holding either needs a reader of schema 3. */
+export const SCHEMA_VERSION = 3;
 
 /** The number of blocks a section holds when a script is cut into sections. */
 export const SECTION_TARGET_BLOCKS = 100;
@@ -93,6 +94,12 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
         };
         if (id !== null) attrs["data-id"] = id;
         if (UNSPELLED_TYPES.includes(type)) attrs.spellcheck = "false";
+        if (isObject(node.attrs.graphic)) {
+          const graphic = node.attrs.graphic;
+          if (isString(graphic.kind)) attrs["data-graphic-kind"] = graphic.kind;
+          if (typeof graphic.heightLines === "number")
+            attrs["data-graphic-lines"] = String(graphic.heightLines);
+        }
         return ["p", attrs, 0];
       },
     },
@@ -100,3 +107,49 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
   },
   marks: MARK_SPECS,
 });
+
+function blockMinSchemaVersion(block: unknown): number {
+  if (!isObject(block) || block.type !== "block" || !isObject(block.attrs))
+    return 1;
+  const attrs = block.attrs;
+  if (
+    attrs.type === "graphic" ||
+    (attrs.graphic !== null && attrs.graphic !== undefined)
+  )
+    return 3;
+  const hasTags = Array.isArray(attrs.tags) && attrs.tags.length > 0;
+  const hasLinkTo = attrs.linkTo !== null && attrs.linkTo !== undefined;
+  if (hasTags || hasLinkTo) return 2;
+  return 1;
+}
+
+/**
+ * The lowest schema version a reader needs for `input` (a whole document or a
+ * list of touched blocks): 3 when any block is a graphic or carries `graphic`
+ * attributes, 2 when any block carries `tags` or `linkTo`, otherwise 1.
+ */
+export function minSchemaVersionOf(
+  input: DocJSON | readonly unknown[],
+): number {
+  let floor = 1;
+  const visit = (blocks: readonly unknown[]): void => {
+    for (const block of blocks) {
+      const needed = blockMinSchemaVersion(block);
+      if (needed > floor) floor = needed;
+      if (floor === SCHEMA_VERSION) return;
+    }
+  };
+  if (Array.isArray(input)) {
+    visit(input);
+    return floor;
+  }
+  if (isObject(input) && Array.isArray(input.content)) {
+    for (const section of input.content) {
+      if (isObject(section) && Array.isArray(section.content)) {
+        visit(section.content);
+        if (floor === SCHEMA_VERSION) return floor;
+      }
+    }
+  }
+  return floor;
+}

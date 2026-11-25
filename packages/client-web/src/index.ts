@@ -1,4 +1,5 @@
 // Browser drivers for the sync client: WebSocket, IndexedDB, Web Locks and BroadcastChannel.
+export * from "./asset-store.ts";
 export * from "./browser.ts";
 export * from "./clear.ts";
 export * from "./idb-store.ts";

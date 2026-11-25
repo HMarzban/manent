@@ -56,6 +56,7 @@ const UNSTYLED_TYPES: ReadonlySet<BlockType> = new Set([
   "group",
   "page_break",
   "ink_line",
+  "graphic",
 ]);
 
 interface StyleElement {

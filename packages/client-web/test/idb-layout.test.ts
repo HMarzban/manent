@@ -144,14 +144,18 @@ async function putLease(
   db.close();
 }
 
-test("LOCAL_STORE_VERSION 1 is exactly these stores, keys and indexes", async () => {
+test("LOCAL_STORE_VERSION 2 is exactly these stores, keys and indexes", async () => {
   const indexedDb = new IDBFactory();
   await openIdbStore({ userId: "dana", indexedDb });
   const db = await rawOpen(indexedDb, "manent:dana");
-  expect(LOCAL_STORE_VERSION).toBe(1);
-  expect(db.version).toBe(1);
+  expect(LOCAL_STORE_VERSION).toBe(2);
+  expect(db.version).toBe(2);
   expect(localDatabaseName("dana")).toBe("manent:dana");
   expect(describeStores(db)).toEqual({
+    assets: {
+      keyPath: "assetId",
+      indexes: { byProject: "projectId", byUploadState: "uploadState" },
+    },
     bases: { keyPath: "docId", indexes: {} },
     checkpoints: { keyPath: "docId", indexes: {} },
     entries: { keyPath: ["docId", "localSeq"], indexes: {} },
@@ -162,7 +166,7 @@ test("LOCAL_STORE_VERSION 1 is exactly these stores, keys and indexes", async ()
   });
 });
 
-test("a store written by this version, record by record, still opens", async () => {
+test("a version 1 database upgrades cleanly to version 2, keeping existing stores and adding assets", async () => {
   const indexedDb = new IDBFactory();
   await writeGoldenDatabase(indexedDb);
   const store = await openIdbStore({ userId: "dana", indexedDb });
@@ -194,6 +198,14 @@ test("a store written by this version, record by record, still opens", async () 
   expect(await store.summaries?.()).toEqual([
     { docId: DOC, neverSynced: false, waiting: 2, parked: null, recovered: 0 },
   ]);
+  await store.close();
+  const db = await rawOpen(indexedDb, "manent:dana");
+  expect(db.version).toBe(2);
+  expect(describeStores(db).assets).toEqual({
+    keyPath: "assetId",
+    indexes: { byProject: "projectId", byUploadState: "uploadState" },
+  });
+  db.close();
 });
 
 test("a refused setting leaves its sequence on the document's meta record", async () => {
@@ -242,9 +254,10 @@ test("a tab that lost the lead cannot write", async () => {
 
 test("a database from a newer build is refused and left as it is", async () => {
   const indexedDb = new IDBFactory();
-  (await rawOpen(indexedDb, "manent:dana", 2)).close();
+  const futureVersion = LOCAL_STORE_VERSION + 1;
+  (await rawOpen(indexedDb, "manent:dana", futureVersion)).close();
   await expect(
     openIdbStore({ userId: "dana", indexedDb }),
   ).rejects.toMatchObject({ code: "unavailable" });
-  expect((await rawOpen(indexedDb, "manent:dana")).version).toBe(2);
+  expect((await rawOpen(indexedDb, "manent:dana")).version).toBe(futureVersion);
 });

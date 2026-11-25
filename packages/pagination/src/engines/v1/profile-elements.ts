@@ -75,6 +75,7 @@ export const ELEMENT_ROWS: Readonly<Record<SpecKey, ElementSpec>> =
     body: ACTION,
     break: ACTION,
     quote: ACTION,
+    graphic: like({ split: "never" }),
   });
 
 /** The manuscript's own elements, on its 65-cell column and double-spaced. */
