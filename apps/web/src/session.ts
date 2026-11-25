@@ -98,11 +98,29 @@ export function chooseUrl(currentPath: string): string {
 
 const BASE = "http://manent.invalid";
 
+function hasUnsafeNextChar(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    // ASCII control characters or backslashes that browsers may normalise into scheme/host separators
+    if (code <= 0x1f || code === 0x7f || code === 0x5c) return true;
+  }
+  return false;
+}
+
 /** `next` when it is a path inside this app, otherwise "/". */
 export function safeNext(next: string | null): string {
-  if (!next || !next.startsWith("/")) return "/";
+  if (
+    !next ||
+    !next.startsWith("/") ||
+    next.startsWith("//") ||
+    hasUnsafeNextChar(next)
+  )
+    return "/";
   try {
-    return new URL(next, BASE).origin === BASE ? next : "/";
+    const parsed = new URL(next, BASE);
+    return parsed.origin === BASE && parsed.pathname.startsWith("/")
+      ? next
+      : "/";
   } catch {
     return "/";
   }

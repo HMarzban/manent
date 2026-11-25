@@ -13,6 +13,7 @@ import { CloudExclamationPointIcon } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { Api } from "../api.ts";
+import { AiPledge } from "../account/ai-pledge.tsx";
 import { focusHeading } from "../focus.ts";
 import { initialsOf } from "../initials.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -255,6 +256,9 @@ export function ChooseScreen(props: {
         <TimingProvider timing={timing}>
           <SurfaceState surface="choose" state={state} render={render} />
         </TimingProvider>
+      </div>
+      <div className="mt-8 border-t border-line pt-6">
+        <AiPledge />
       </div>
       {person && <SwitchGuard into={guard} />}
     </div>
