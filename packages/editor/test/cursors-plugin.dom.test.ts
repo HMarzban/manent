@@ -93,12 +93,16 @@ afterEach(() => {
 function mount(
   doc: Node,
   f: Fakes,
+  isRemote?: (tr: Transaction) => boolean,
 ): { view: EditorView; draws: () => Transaction[] } {
   const transactions: Transaction[] = [];
   const view: EditorView = new EditorView(
     document.body.appendChild(document.createElement("div")),
     {
-      state: EditorState.create({ doc, plugins: [cursorsPlugin(f)] }),
+      state: EditorState.create({
+        doc,
+        plugins: [cursorsPlugin({ ...f, ...(isRemote ? { isRemote } : {}) })],
+      }),
       dispatchTransaction: (tr) => {
         transactions.push(tr);
         view.updateState(view.state.apply(tr));
@@ -342,4 +346,44 @@ test("a caret and its selection take their person's collaborator token, and noth
       ...Array.from({ length: 10 }, (_, i) => `--collab-${i + 1}`),
     ]),
   );
+});
+
+test("remote typing advances the remote caret past each character in the same transaction without snapping back", () => {
+  const f = fakes();
+  const REMOTE = "test-remote";
+  const { view } = mount(docOf([["from the corn"]]), f, (tr) =>
+    Boolean(tr.getMeta(REMOTE)),
+  );
+  f.emit([dana(at(0, 13), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[15, "cursor:7:3:true"]]);
+  // Remote writer types 'e' and then 'r' via full-doc replacement (as y-prosemirror does) before awareness catches up
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corne").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[16, "cursor:7:3:true"]]);
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corner").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[17, "cursor:7:3:true"]]);
+  // A lagging awareness packet for the earlier 'e' keystroke does not snap the caret backward mid-burst
+  f.advance(40);
+  f.emit([dana(at(0, 14), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[17, "cursor:7:3:true"]]);
+  // Backspace moves the caret back in the same transaction
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corne").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[16, "cursor:7:3:true"]]);
+});
+
+test("local typing at a remote caret keeps the remote caret before locally inserted text", () => {
+  const f = fakes();
+  const { view } = mount(docOf([["rain"]]), f, () => false);
+  f.emit([dana(at(0, 4), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[6, "cursor:7:3:true"]]);
+  view.dispatch(view.state.tr.insertText("s", 6));
+  expect(widgets(view)).toEqual([[6, "cursor:7:3:true"]]);
 });

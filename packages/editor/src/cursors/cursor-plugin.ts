@@ -3,7 +3,7 @@
 // Only the people the shown filter names are drawn.
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { EditorState, PluginView } from "prosemirror-state";
+import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type {
@@ -14,6 +14,8 @@ import type {
   Timers,
 } from "../script-editor/ports.ts";
 import { placeOf, positionOf } from "./place.ts";
+import { adjustForDocChange, reconcileCursors } from "./track.ts";
+import type { TrackedCursor } from "./track.ts";
 
 /** How long a caret's tab shows its person's name after they last moved, ms; then it shows their initials. */
 export const NAME_TAB_MS = 3000;
@@ -34,6 +36,8 @@ interface CursorsState {
   readonly shown: ShownCursors;
   /** The time the tabs, and who is moving, were last judged by, ms. */
   readonly now: number;
+  /** Live CRDT-tracked cursor places keyed by cursor key, preventing lag and backward snaps. */
+  readonly tracked: ReadonlyMap<string, TrackedCursor>;
   /**
    * Where each cursor drawn was last found, by its key: a caret stays there while its place is in a block this page
    * does not hold yet, since a person's caret may arrive before the line they typed it in.
@@ -73,6 +77,14 @@ const caretCount = (set: DecorationSet): number =>
     String(spec.key).startsWith(CARET_KEY),
   ).length;
 
+const eligibleCount = (
+  cursors: readonly RemoteCursor[],
+  shown: ShownCursors,
+): number =>
+  shown === "everyone"
+    ? cursors.length
+    : cursors.filter((each) => shown.includes(each.userId)).length;
+
 function caretOf(
   cursor: RemoteCursor,
   named: boolean,
@@ -82,6 +94,8 @@ function caretOf(
     const doc = view.dom.ownerDocument;
     const caret = doc.createElement("span");
     caret.className = "mn-cursor";
+    if (named) caret.dataset["active"] = "";
+    else caret.dataset["idle"] = "";
     // a person asked for by name is drawn even where the page hides other people's cursors
     if (listed) caret.style.display = "inline";
     // other people's carets are not part of the text a screen reader reads
@@ -150,7 +164,7 @@ function foundOf(
 /** The cursors of `drawn` on `state`: their decorations and where each was found. */
 function decorationsOf(
   state: EditorState,
-  drawn: Omit<CursorsState, "decorations" | "found">,
+  drawn: Pick<CursorsState, "cursors" | "shown" | "now">,
   before: CursorsState["found"],
 ): Pick<CursorsState, "decorations" | "found"> {
   const { cursors, shown, now } = drawn;
@@ -167,6 +181,7 @@ function decorationsOf(
     decorations.push(
       Decoration.widget(head, caretOf(cursor, named, listed), {
         key: `${CARET_KEY}${cursor.key}:${cursor.colour}:${named}${listed ? ":listed" : ""}`,
+        side: -1,
       }),
       ...selectionOf(state, cursor, head),
     );
@@ -192,6 +207,8 @@ interface CursorsOptions {
   readonly presence: PresencePort;
   readonly frames: Frames;
   readonly timers: Timers;
+  /** Whether a transaction arrived from another collaborator rather than local typing. */
+  readonly isRemote?: (tr: Transaction) => boolean;
 }
 
 function cursorsView(view: EditorView, options: CursorsOptions): PluginView {
@@ -237,8 +254,15 @@ function cursorsView(view: EditorView, options: CursorsOptions): PluginView {
       const { state } = view;
       if (prev.doc === state.doc && prev.selection.eq(state.selection)) return;
       presence.publish(placeOf(state));
-      // a change can move or remove the blocks a place names: the cursors are found again
-      if (prev.doc !== state.doc && received.length > 0) request();
+      // only schedule a follow-up draw when some eligible received cursor is still unplaced in this doc
+      if (prev.doc !== state.doc && received.length > 0) {
+        const current = cursorsKey.getState(state);
+        if (
+          current === undefined ||
+          current.found.size < eligibleCount(received, current.shown)
+        )
+          request();
+      }
     },
     destroy() {
       unsubscribe();
@@ -265,10 +289,22 @@ function afterMeta(
   prev: CursorsState,
   meta: Meta,
 ): CursorsState {
-  const drawn =
-    meta.type === "draw"
-      ? { cursors: meta.cursors, shown: prev.shown, now: meta.now }
-      : { cursors: prev.cursors, shown: meta.shown, now: prev.now };
+  if (meta.type === "shown") {
+    const drawn = {
+      cursors: prev.cursors,
+      shown: meta.shown,
+      now: prev.now,
+      tracked: prev.tracked,
+    };
+    return { ...drawn, ...decorationsOf(state, drawn, prev.found) };
+  }
+  const reconciled = reconcileCursors(meta.cursors, prev.tracked, meta.now);
+  const drawn = {
+    cursors: reconciled.cursors,
+    shown: prev.shown,
+    now: meta.now,
+    tracked: reconciled.tracked,
+  };
   return { ...drawn, ...decorationsOf(state, drawn, prev.found) };
 }
 
@@ -277,6 +313,7 @@ function afterMeta(
  * otherwise), and publishes the local caret when the page opens and after each update that moves it or the text.
  */
 export function cursorsPlugin(options: CursorsOptions): Plugin {
+  const isRemote = options.isRemote ?? (() => false);
   return new Plugin<CursorsState>({
     key: cursorsKey,
     state: {
@@ -284,19 +321,34 @@ export function cursorsPlugin(options: CursorsOptions): Plugin {
         cursors: [],
         shown: "everyone",
         now: 0,
+        tracked: new Map(),
         found: new Map(),
         decorations: DecorationSet.empty,
       }),
-      apply: (tr, prev, _old, state) => {
+      apply: (tr, prev, oldState, state) => {
         const meta: Meta | undefined = tr.getMeta(cursorsKey);
         if (meta !== undefined) return afterMeta(state, prev, meta);
-        if (!tr.docChanged) return prev;
+        if (!tr.docChanged || prev.cursors.length === 0) return prev;
+        const adjusted = adjustForDocChange(
+          oldState,
+          state,
+          prev.cursors,
+          prev.tracked,
+          isRemote(tr),
+          options.timers.now(),
+        );
+        const next = adjusted.changed
+          ? { ...prev, cursors: adjusted.cursors, tracked: adjusted.tracked }
+          : prev;
         const mapped = prev.decorations.map(tr.mapping, tr.doc);
-        // a remote change replaces the whole script, and a mapping drops every caret in a replaced range: the carets
-        // are found again from their places in the same transaction, so that no frame is drawn without them
-        return caretCount(mapped) === caretCount(prev.decorations)
-          ? { ...prev, decorations: mapped }
-          : { ...prev, ...decorationsOf(state, prev, prev.found) };
+        // a remote change replaces the block or moves text at the caret: redraw synchronously in the same transaction
+        const redraw =
+          adjusted.changed ||
+          caretCount(mapped) !== caretCount(prev.decorations) ||
+          prev.found.size < eligibleCount(next.cursors, next.shown);
+        return redraw
+          ? { ...next, ...decorationsOf(state, next, prev.found) }
+          : { ...next, decorations: mapped };
       },
     },
     view: (view) => cursorsView(view, options),

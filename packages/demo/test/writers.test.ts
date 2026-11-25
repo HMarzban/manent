@@ -420,3 +420,34 @@ test("a person who stops sends no more and leaves presence", async () => {
     { clientId: CLIENT_ID, clock: w.sent.length, state: null },
   ]);
 });
+
+test("presence sends the updated caret immediately on normal typing without a 200 ms delay", () => {
+  const w = world(PROFILES.demo, { region: REGION });
+  w.person.start();
+  // One keystroke at 250 ms; awareness updates in the same tick rather than 200 ms later
+  w.fake.advance(250);
+  const last = typedIn(w.person).at(-1)!;
+  expect(headOf(w.sent.at(-1)!)).toEqual({
+    blockId: last.blockId,
+    offset: textOf(w.doc, last.blockId)!.length,
+  });
+});
+
+test("recordEvents: false keeps events bounded while lastTypedAt tracks edits", () => {
+  const doc = scriptDocFromJSON(SCRIPT, { clientId: CLIENT_ID });
+  const fake = createFakeClock();
+  const person = createSimulatedPerson({
+    handle: { doc: () => doc, sendAwareness: () => {} },
+    client: { setOnline: () => {} },
+    profile: PROFILES.demo,
+    clock: fake.clock,
+    random: seededRandom(11),
+    region: REGION,
+    markers: false,
+    recordEvents: false,
+  });
+  person.start();
+  fake.advance(5_000);
+  expect(person.events).toEqual([]);
+  expect(person.lastTypedAt()).toBeGreaterThan(0);
+});

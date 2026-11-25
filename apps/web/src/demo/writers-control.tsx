@@ -6,6 +6,7 @@ import {
   Popover,
   PopoverContent,
   Segmented,
+  joinNames,
 } from "@manent/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { WRITER_PLACEMENTS } from "@manent/sync-protocol";
@@ -15,7 +16,7 @@ import type {
   WritersResponse,
 } from "@manent/sync-protocol";
 import { UsersIcon } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
 import { useServices } from "../services/context.tsx";
@@ -85,6 +86,15 @@ function ScriptWriters(props: {
   const queryClient = useQueryClient();
   const caret = useEditorFact("blockId");
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const requestSeq = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const canEdit = useCanEdit(docId);
   const queryKey = [WRITERS_QUERY, docId];
   const answer = useQuery({
@@ -103,15 +113,26 @@ function ScriptWriters(props: {
     placement: WriterPlacement,
   ): void => {
     setOpen(false);
+    if (
+      count > 0 &&
+      running?.placement === placement &&
+      running.asked === count
+    )
+      return;
+    const seq = ++requestSeq.current;
+    setPending(true);
     const afterBlockId = count === 0 ? null : caret;
     api.writers({ docId, count, afterBlockId, placement }).then(
       // an answer to a question asked before this change would undo it on the bar
       async (next) => {
+        if (!mounted.current || seq !== requestSeq.current) return;
         await queryClient.cancelQueries({ queryKey });
         queryClient.setQueryData(queryKey, next);
+        if (mounted.current && seq === requestSeq.current) setPending(false);
       },
       () => {
         // a request the server refused or never heard leaves the writers as they were
+        if (mounted.current && seq === requestSeq.current) setPending(false);
       },
     );
   };
@@ -124,12 +145,13 @@ function ScriptWriters(props: {
         drops={running === null ? "later" : undefined}
         tour={TOUR}
         hint={DEMO_WORDS.addWritersHint}
+        disabled={pending}
         opens
       />
       <PopoverContent
         data-surface="demo"
         align="start"
-        className="w-auto gap-2"
+        className="w-auto max-w-xs gap-2"
       >
         {WRITER_PLACEMENTS.map((placement) => (
           <Fragment key={placement}>
@@ -150,10 +172,16 @@ function ScriptWriters(props: {
             />
           </Fragment>
         ))}
+        {running === null || running.names.length === 0 ? null : (
+          <p className="line-clamp-2 text-meta text-fg-muted">
+            {joinNames(running.names)}
+          </p>
+        )}
         {running === null || running.count === 0 ? null : (
           <Button
             variant="outline"
             size="sm"
+            disabled={pending}
             // stopping seats no one, whatever the placement
             onClick={() => ask(0, "own_scenes")}
           >

@@ -89,7 +89,12 @@ export function editorPlugins(
     placeholderPlugin({ format, words }),
     sourcePlugin({ format, layer }),
     findPlugin(),
-    cursorsPlugin({ presence: binding.presence, frames, timers }),
+    cursorsPlugin({
+      presence: binding.presence,
+      frames,
+      timers,
+      isRemote: binding.isRemote,
+    }),
     scrollPlugin({
       ...parts.ports,
       isRemote: binding.isRemote,
