@@ -5,7 +5,6 @@ import { indexDocId, isDocKind, projectHome } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, NEW_PROJECT_CARDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { CreateResult, ProjectItem, ProjectKind } from "../ports.ts";
-import { projectStartOf } from "./create-script.ts";
 import { isFields } from "./device-memory.ts";
 import { nameOf } from "./index-entries.ts";
 import type { DocumentEntry, ProjectEntry } from "./index-entries.ts";
@@ -169,6 +168,7 @@ export async function createPrivateProject(options: {
 }): Promise<CreateResult> {
   const sync = await options.client;
   const projectId = options.newId();
+  const { projectStartOf } = await import("./create-script.ts");
   const start = projectStartOf(options.kind);
   const handle = await sync.create({
     kind: start.docKind,
