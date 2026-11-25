@@ -6,6 +6,7 @@ import { join, relative, resolve } from "node:path";
 import type { BuildMetafile } from "bun";
 import tailwind from "bun-plugin-tailwind";
 import { BOOT_SCRIPT, bootScriptHash } from "./src/boot/boot-script.ts";
+import { renderBenchmarkReportHtml } from "./src/build/benchmark-html.ts";
 import { buildId, precacheEntries } from "./src/sw/manifest.ts";
 import type { PrecacheEntry } from "./src/sw/manifest.ts";
 
@@ -144,9 +145,21 @@ async function buildWorker(
   });
 }
 
+/** Reads `docs/benchmark/report.md` when published; null before the report exists. */
+async function readBenchmarkReport(): Promise<string | null> {
+  try {
+    return await readFile(join(REPO_ROOT, "docs/benchmark/report.md"), "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return null;
+    throw error;
+  }
+}
+
 /**
  * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined,
- * then the service worker that precaches every file of the app, then the third-party notices.
+ * then the service worker that precaches every file of the app, then the third-party notices
+ * and the standalone benchmark report page.
  * `files` are the outputs' paths relative to `outDir`, `sw.js` last. The test flavour also serves
  * the development screens.
  */
@@ -222,6 +235,10 @@ export async function buildWeb(options: {
   );
   if (notices.exitCode !== 0)
     return { ok: false, logs: [notices.stderr.toString()] };
+  await writeFile(
+    resolve(outDir, "benchmark-report.html"),
+    renderBenchmarkReportHtml(await readBenchmarkReport()),
+  );
   return {
     ok: true,
     files: [

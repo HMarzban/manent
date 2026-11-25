@@ -75,7 +75,7 @@ export function startPrecache(options: {
   });
   serwist.registerRoute(
     new NavigationRoute(serwist.createHandlerBoundToUrl("/index.html"), {
-      denylist: [API_PATH, /^\/ws$/],
+      denylist: [API_PATH, /^\/ws$/, /^\/benchmark-report\.html$/],
     }),
   );
   serwist.registerRoute(
