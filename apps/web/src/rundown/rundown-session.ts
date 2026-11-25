@@ -1,31 +1,28 @@
-// Live per-rundown session: opens the CRDT handle, tracks timing, access, project people, selection and undo.
-import {
-  createRundownUndo,
-  observeRundown,
-  readRundown,
-  setCell,
-} from "@manent/crdt";
-import type { CrdtDoc, RundownUndo } from "@manent/crdt";
+// Live per-rundown session: opens CRDT or read-only ViewHandle, tracks timing, access, people, selection and undo.
+import type { RundownUndo } from "@manent/crdt";
 import type { RundownColumnId, RundownJSON } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
-import { RUNDOWN_WORDS } from "@manent/ui";
 import type { GridCellCoord, StatusFacts } from "@manent/ui";
 import { useEffect, useRef } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { readPerson } from "../session.ts";
 import { rundownActions } from "../state/rundown.store.ts";
-import { registerRundownUndo, registerUndoRecorder } from "./handlers.ts";
 import type { RundownUndoEntry } from "./handlers.ts";
 import {
   EMPTY_PEOPLE,
   accessFromStatus,
-  buildRundownClock,
   fetchRundownMeta,
-  findProjectTitle,
-  isLoadedRundown,
 } from "./rundown-access.ts";
 import type { RundownAccess, RundownPerson } from "./rundown-access.ts";
+import {
+  bindRundownSessionUndo,
+  createOnDeviceTracker,
+  openRundownSessionHandle,
+  publishRundownSnapshot,
+  watchProjectTitle,
+  writeRundownCell,
+} from "./rundown-view-session.ts";
 import {
   getRundownView,
   setRundownView,
@@ -57,8 +54,8 @@ export interface RundownSessionControls {
 }
 
 /**
- * Opens the rundown CRDT handle, tracks timing, access, project people, offline story availability, selection and
- * rundown undo/redo, publishing the live snapshot for `state-facts.ts`, `row-readout.tsx` and `rundown.store.ts`.
+ * Opens the rundown CRDT handle (or attaches its read-only `ViewHandle` for `Can view` / `Can comment`),
+ * tracking timing, access, project people, offline story availability, selection and rundown undo/redo.
  */
 export function useRundownSession(
   docId: string,
@@ -81,7 +78,6 @@ export function useRundownSession(
   const projectTitleRef = useRef<string | null>(null);
   const peopleRef = useRef<readonly RundownPerson[]>(EMPTY_PEOPLE);
   const onDeviceRef = useRef<ReadonlySet<string>>(EMPTY_SET);
-  const storyKeyRef = useRef("");
 
   const view =
     useRundownView(docId) ??
@@ -103,166 +99,70 @@ export function useRundownSession(
     rundown: RundownJSON | null,
     status: StatusFacts,
   ): void => {
-    const clock =
-      rundown === null
-        ? null
-        : buildRundownClock(rundown, liveDurationRef.current);
-    const access = accessFromStatus(status, describedRef.current);
-    setRundownView(docId, {
+    publishRundownSnapshot({
+      docId,
       ready,
       rundown,
-      clock,
+      status,
+      described: describedRef.current,
+      liveDuration: liveDurationRef.current,
       onDevice: onDeviceRef.current,
-      access,
       people: peopleRef.current,
       projectTitle: projectTitleRef.current,
       activeCell: activeRef.current,
       selectedRowIds: selectedRef.current,
       editingCell: editingRef.current,
     });
-    const selectedIds = selectedRef.current;
-    const activeRowId = activeRef.current?.rowId ?? null;
-    const scriptRowSelected =
-      rundown !== null &&
-      rundown.rows.some(
-        (row) =>
-          row.kind === "script" &&
-          (selectedIds.size > 0
-            ? selectedIds.has(row.id)
-            : row.id === activeRowId),
-      );
-    rundownActions.setContext(docId, {
-      canEdit: access === "edit",
-      selectedRows: selectedIds.size,
-      scriptRowSelected,
-      editingCell: editingRef.current,
-    });
+  };
+  const republishCurrent = (): void => {
+    const current = getRundownView(docId);
+    if (current !== undefined)
+      publish(current.ready, current.rundown, doc.status.get());
   };
 
   useEffect(() => {
     let live = true;
-    let stopDoc = (): void => {};
-    let stopReplaced = (): void => {};
-    let stopHandleStatus = (): void => {};
-    let opened: DocHandle | null = null;
     describedRef.current = null;
     activeRef.current = null;
     selectedRef.current = EMPTY_SET;
     editingRef.current = false;
-    storyKeyRef.current = "";
     undoLabelsRef.current = [];
     redoLabelsRef.current = [];
 
-    const checkOnDevice = (data: RundownJSON): void => {
-      const ids = data.rows.flatMap((row) =>
-        row.kind === "script" && row.docId !== null ? [row.docId] : [],
-      );
-      const key = ids.join(",");
-      if (key === storyKeyRef.current) return;
-      storyKeyRef.current = key;
-      if (ids.length === 0) {
-        onDeviceRef.current = EMPTY_SET;
-        return;
-      }
-      void services
-        .onDevice(ids)
-        .then((held) => {
-          if (!live) return;
-          onDeviceRef.current = held;
-          if (opened !== null) {
-            const latest = readRundown(opened.doc());
-            publish(isLoadedRundown(latest, opened), latest, doc.status.get());
-          }
-        })
-        .catch(() => {
-          // sync could not start: keep the last known device set
-        });
-    };
-
-    const readNow = (): void => {
-      if (!live || opened === null) return;
-      const data = readRundown(opened.doc());
-      checkOnDevice(data);
-      publish(isLoadedRundown(data, opened), data, doc.status.get());
-    };
-
-    const attachDoc = (crdtDoc: CrdtDoc): void => {
-      stopDoc();
-      undoRef.current?.destroy();
-      undoRef.current = createRundownUndo(crdtDoc, { trackedOrigins: [null] });
-      stopDoc = observeRundown(crdtDoc, readNow);
-    };
-
-    const stopRecorder = registerUndoRecorder(docId, (entry) => {
-      undoLabelsRef.current.push(entry);
-      redoLabelsRef.current = [];
-    });
-
-    const stopUndo = registerRundownUndo({
-      undo() {
-        const manager = undoRef.current;
-        if (manager === null) return;
-        const entry = undoLabelsRef.current.pop();
-        const steps = entry?.steps ?? 1;
-        for (let i = 0; i < steps; i++) manager.undo();
-        if (entry === undefined) return;
-        redoLabelsRef.current.push(entry);
-        entry.onUndo?.();
-        if (entry.message !== null) {
-          services.messages.withdraw("rundown.action");
-          services.messages.withdraw("rundown.undo");
-          services.messages.push({
-            id: "rundown.undo",
-            text: entry.message,
-            lifetime: "brief",
-            ownWork: false,
-            actions: [],
-          });
-        }
-      },
-      redo() {
-        const manager = undoRef.current;
-        if (manager === null) return;
-        const entry = redoLabelsRef.current.pop();
-        const steps = entry?.steps ?? 1;
-        for (let i = 0; i < steps; i++) manager.redo();
-        if (entry === undefined) return;
-        undoLabelsRef.current.push(entry);
-        entry.onRedo?.();
+    let readHandle = (): void => {};
+    const checkOnDevice = createOnDeviceTracker({
+      services,
+      isLive: () => live,
+      onChange(held) {
+        onDeviceRef.current = held;
+        readHandle();
       },
     });
 
-    const stopStatus = doc.status.subscribe((st) => {
-      if (!live) return;
-      if (opened !== null) {
-        const data = readRundown(opened.doc());
-        publish(isLoadedRundown(data, opened), data, st);
-      } else {
-        publish(false, null, st);
-      }
-    });
-
-    void services
-      .openHandle(docId)
-      .then((handle) => {
-        if (!live) {
-          void handle.close();
-          return;
-        }
-        opened = handle;
+    const sessionHandle = openRundownSessionHandle({
+      docId,
+      services,
+      onHandle(handle) {
         handleRef.current = handle;
-        attachDoc(handle.doc());
-        stopReplaced = handle.on((event) => {
-          if (event.type !== "replaced") return;
-          attachDoc(handle.doc());
-          readNow();
-        });
-        stopHandleStatus = handle.status.subscribe(readNow);
-        readNow();
-      })
-      .catch(() => {
-        if (live) publish(true, null, doc.status.get());
-      });
+      },
+      onUndo(undo) {
+        undoRef.current = undo;
+      },
+      onOnDevice: checkOnDevice,
+      onSnapshot(ready, rundown) {
+        if (live) publish(ready, rundown, doc.status.get());
+      },
+    });
+    readHandle = sessionHandle.readNow;
+
+    const stopUndo = bindRundownSessionUndo({
+      docId,
+      services,
+      getUndo: () => undoRef.current,
+      undoLabels: undoLabelsRef,
+      redoLabels: redoLabelsRef,
+    });
+    const stopStatus = doc.status.subscribe(() => readHandle());
 
     const person = readPerson(tabStorage);
     const token = person?.userId === services.userId ? person.token : null;
@@ -270,49 +170,25 @@ export function useRundownSession(
       if (!live) return;
       describedRef.current = meta.access;
       peopleRef.current = meta.people;
-      if (opened !== null) readNow();
-      else publish(false, null, doc.status.get());
+      readHandle();
     });
 
-    const projectIdSource = services.library.documentProject(docId);
-    const projectStops: (() => void)[] = [];
-    const lookupProjectTitle = (): void => {
-      const projectId = projectIdSource.get();
-      if (projectId === null) return;
-      void services.api.me().then((me) => {
-        if (!live) return;
-        const workspaces = me.ok ? me.me.workspaces.map(({ id }) => id) : [];
-        for (const ws of [...workspaces, services.userId]) {
-          const list = services.library.projects(ws);
-          const check = (): void => {
-            const title = findProjectTitle(list.get(), projectId);
-            if (title !== null && title !== projectTitleRef.current) {
-              projectTitleRef.current = title;
-              if (opened !== null) readNow();
-              else publish(false, null, doc.status.get());
-            }
-          };
-          projectStops.push(list.subscribe(check));
-          check();
-        }
-      });
-    };
-    projectStops.push(projectIdSource.subscribe(lookupProjectTitle));
-    lookupProjectTitle();
+    const stopProject = watchProjectTitle({
+      services,
+      docId,
+      isLive: () => live,
+      onTitle(title) {
+        projectTitleRef.current = title;
+        readHandle();
+      },
+    });
 
     return () => {
       live = false;
-      stopRecorder();
       stopUndo();
       stopStatus();
-      stopDoc();
-      stopReplaced();
-      stopHandleStatus();
-      for (const stop of projectStops) stop();
-      undoRef.current?.destroy();
-      undoRef.current = null;
-      handleRef.current = null;
-      if (opened !== null) void opened.close();
+      sessionHandle.stop();
+      stopProject();
       rundownActions.setContext(docId, null);
       setRundownView(docId, null);
     };
@@ -343,43 +219,31 @@ export function useRundownSession(
     },
     setActiveCell(cell) {
       activeRef.current = cell;
-      const current = getRundownView(docId);
-      if (current !== undefined)
-        publish(current.ready, current.rundown, doc.status.get());
+      republishCurrent();
     },
     setSelection(rowIds) {
       selectedRef.current = new Set(rowIds);
-      const current = getRundownView(docId);
-      if (current !== undefined)
-        publish(current.ready, current.rundown, doc.status.get());
+      republishCurrent();
     },
     setEditingCell(editing) {
       editingRef.current = editing;
-      const current = getRundownView(docId);
-      if (current !== undefined)
-        publish(current.ready, current.rundown, doc.status.get());
+      republishCurrent();
     },
     writeCell(rowId, columnId, value, columnLabel, rowNumber) {
       const handle = handleRef.current;
       if (handle === null) return;
-      setCell(handle.doc(), rowId, columnId, value, {
-        userId: services.userId,
-        now,
-      });
-      const displayNumber =
-        rowNumber ??
-        (() => {
-          const idx = readRundown(handle.doc()).rows.findIndex(
-            (row) => row.id === rowId,
-          );
-          return idx >= 0 ? idx + 1 : null;
-        })();
-      undoLabelsRef.current.push({
-        message:
-          displayNumber !== null
-            ? RUNDOWN_WORDS.undidCellChange(columnLabel, displayNumber)
-            : null,
-      });
+      undoLabelsRef.current.push(
+        writeRundownCell({
+          handle,
+          userId: services.userId,
+          now,
+          rowId,
+          columnId,
+          value,
+          columnLabel,
+          rowNumber,
+        }),
+      );
       redoLabelsRef.current = [];
     },
   };
