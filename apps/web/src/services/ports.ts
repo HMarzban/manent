@@ -187,6 +187,12 @@ export interface Reverses {
   run(messageId: string): boolean;
 }
 
+/** One document with changes waiting to sync on this device. */
+export interface WaitingDocumentSummary {
+  readonly docId: string;
+  readonly waiting: number;
+}
+
 /** The editor's structural and picker keys, listed as Fixed in Preferences → Keyboard. */
 export interface FixedKey {
   chord: Chord;
@@ -244,6 +250,10 @@ export interface PersonServices {
   prompter(rundownId: string): Promise<PrompterHandle>;
   /** Those of `docIds` this device holds; rejects when the person's sync could not start. */
   onDevice(docIds: readonly string[]): Promise<ReadonlySet<string>>;
+  /** Documents on this device with changes waiting to sync; rejects when the person's sync could not start. */
+  waitingDocuments(): Promise<readonly WaitingDocumentSummary[]>;
+  /** Whether the person's private index has no change waiting and is synced with the server. */
+  privateIndexSynced(): Subscribable<boolean>;
   /** The index of the project `projectId`. */
   projectIndex(projectId: string): ProjectIndex;
   folders: Folders;

@@ -250,3 +250,8 @@ export type {
 } from "./sharing.ts";
 export * from "./drafts.ts";
 export { encodeViewerCount, parseViewerCount } from "./viewer-count.ts";
+export * from "./library-http.ts";
+export * from "./search-http.ts";
+export * from "./workspace-http.ts";
+export * from "./notifications-http.ts";
+export * from "./public-api-http.ts";
