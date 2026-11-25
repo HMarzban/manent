@@ -26,6 +26,7 @@ Start with the part that matches what you want to do. Each page says what works 
 ## Understand Manent
 
 - [Architecture overview](architecture/overview.md): the system, every package and its status, a change from keystroke to disk.
+- [Workspace, search and Ink](architecture/workspace-search-and-ink.md): full-text search, Trash and folders, workspace settings, Can also permissions, the public API, notifications, Ink compilation and player, layout engines and Sides.
 - [Layers and dependency rules](architecture/layers.md): which package may import which, and how that is checked.
 - [Repository outline](architecture/repository.md): what is in each folder.
 - [Decision records](decisions/README.md): what was decided, what else was considered, and what each choice costs.
