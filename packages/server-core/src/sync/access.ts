@@ -256,17 +256,15 @@ export function createDocumentAccess(options: {
     return resolved.ok ? resolved.access.capabilities : null;
   }
 
-  /** Each other user's role on `index`, an owner's as `edit`, then the creator as owner. */
+  /** Each other user's role on `index` (from source `workspace`), an owner's as `edit`, then the creator as owner. */
   function grant(docId: string, userId: string, index: string | null): void {
     const held = index === null ? [] : directory.rolesOf(index);
     for (const other of held)
-      if (other.userId !== userId)
-        directory.setRole(
-          docId,
-          other.userId,
-          other.role === "owner" ? "edit" : other.role,
-          other.capabilities,
-        );
+      if (other.userId !== userId) {
+        const role = other.role === "owner" ? "edit" : other.role;
+        directory.setRole(docId, other.userId, role, other.capabilities);
+        storage.shareLinks.grant(docId, other.userId, role, "workspace");
+      }
     directory.setRole(docId, userId, "owner", OWNER_CAPABILITIES);
   }
 
@@ -317,7 +315,7 @@ export function createDocumentAccess(options: {
       kind,
       ownerUserId: kind === "private" ? userId : null,
       schemaVersion: versions.current.schema,
-      engineVersion: versions.current.engine,
+      engineVersion: versions.min.engine,
     });
     const created = place === null;
     // a comments document holds no role of its own: each person's is their role on the script

@@ -267,6 +267,8 @@ function createSyncedParts(
   | "viewComments"
   | "prompter"
   | "onDevice"
+  | "waitingDocuments"
+  | "privateIndexSynced"
   | "projectIndex"
   | "folders"
   | "favourites"
@@ -304,6 +306,12 @@ function createSyncedParts(
       );
       return new Set(docIds.filter((docId) => held.has(docId)));
     },
+    async waitingDocuments() {
+      return (await (await sync.client).documents())
+        .filter((doc) => doc.waiting > 0)
+        .map(({ docId, waiting }) => ({ docId, waiting }));
+    },
+    privateIndexSynced: () => sync.privateIndexSynced,
     projectIndex: (projectId) =>
       openProjectIndex({ client: sync.client, projectId }),
     folders: createFolders({ client: sync.client }),
