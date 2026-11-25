@@ -1,6 +1,6 @@
 // What the editor reads of the laid-out page, and a paged editor's profile and zoom.
 import { pageSizePx } from "@manent/pagination";
-import type { PageProfile } from "@manent/pagination";
+import type { Engine, PageProfile } from "@manent/pagination";
 import type { Node } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { blockNumber } from "../cursors/place.ts";
@@ -177,6 +177,7 @@ export function createPageControls(options: {
   zoom: ZoomSetting;
   /** In Reflow view the text wraps to the window at any zoom, so Fit width is 100 %. */
   layoutView: LayoutView;
+  engine(): Engine;
   profile(): PageProfile | null;
 }): PageControls {
   const { view, scaffold, ports, desk } = options;
@@ -220,15 +221,23 @@ export function createPageControls(options: {
       return percent;
     },
     repage() {
-      const next = options.profile();
+      const nextEngine = options.engine();
+      const nextProfile = options.profile();
       // a format to or from Ink: whoever mounted the editor builds it again
-      if (next === null || next.key === profileNow().key) return;
-      scaffold.setProfile(next);
+      if (nextProfile === null) return;
+      const current = paginationKey.getState(view.state)!.settings;
+      if (
+        nextEngine === current.engine &&
+        nextProfile.key === current.profile.key
+      ) {
+        return;
+      }
+      scaffold.setProfile(nextProfile);
       view.dispatch(
-        setPagination(view.state.tr, { profile: next }).setMeta(
-          "addToHistory",
-          false,
-        ),
+        setPagination(view.state.tr, {
+          engine: nextEngine,
+          profile: nextProfile,
+        }).setMeta("addToHistory", false),
       );
       fit();
     },
