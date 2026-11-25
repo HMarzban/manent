@@ -104,3 +104,4 @@ The evidence or event that would reopen this.
 - [0056. The air window opens 60 minutes before air and closes after the show](0056-air-window-bounds.md)
 - [0057. Prompter file output uses plain text with a tab-separated row list](0057-plain-text-prompter-files.md)
 - [0058. Prompter feeds heartbeat every second and report feed loss after three seconds](0058-prompter-heartbeat-and-feed-loss-threshold.md)
+- [0059. Tiered storage durability and on-demand delivery](0059-tiered-storage-durability-and-on-demand-delivery.md)
