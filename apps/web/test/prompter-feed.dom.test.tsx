@@ -1,7 +1,7 @@
+import { withDom } from "@manent/testkit/dom";
 import type { BlockJSON } from "@manent/schema";
 import type { PrompterHandle, PrompterStatus } from "@manent/sync-client";
 import type { PrompterRow } from "@manent/sync-protocol";
-import { withDom } from "@manent/testkit/dom";
 import { PROMPTER_WINDOW_WORDS, createValue } from "@manent/ui";
 import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
