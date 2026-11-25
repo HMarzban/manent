@@ -370,3 +370,32 @@ test("a menu is generated from the registry, with marks and keys", async () => {
     "true",
   ]);
 });
+
+test("an icon-only command button carries its label in aria-label and keeps its tooltip even without a key", async () => {
+  const { tree } = setup({
+    platform: "mac",
+    context: () => ({ ...CTX, platform: "mac" }),
+  });
+  const host = await render(
+    tree(
+      <>
+        <CommandButton id="format.bold" icon={<span />} iconOnly pressed />
+        <CommandButton id="format.strike" icon={<span />} iconOnly size="sm" />
+      </>,
+    ),
+  );
+  const [bold, strike] = [...host.querySelectorAll("button")];
+  if (!bold || !strike) throw new TypeError("the buttons were not drawn");
+  expect([
+    bold.textContent,
+    bold.getAttribute("aria-label"),
+    bold.getAttribute("aria-pressed"),
+    strike.textContent,
+    strike.getAttribute("aria-label"),
+    strike.getAttribute("aria-pressed"),
+  ]).toEqual(["", "Bold", "true", "", "Strikethrough", null]);
+  await act(async () => bold.focus());
+  expect(document.body.textContent).toBe("Bold⌘B");
+  await act(async () => strike.focus());
+  expect(document.body.textContent).toBe("Strikethrough");
+});

@@ -2108,6 +2108,84 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   background-color: var(--bg-accent);
 }
 
+/* Selection bubble menu: text colour and highlight swatches. */
+.mn-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line-strong);
+  background-color: var(--bg-well);
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+.mn-swatch[data-swatch="text-none"],
+.mn-swatch[data-swatch="hl-none"] {
+  background-color: var(--bg-well);
+  color: var(--fg-muted);
+}
+.mn-swatch[data-swatch="text-red"] {
+  background-color: var(--page-text-red);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-orange"] {
+  background-color: var(--page-text-orange);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-green"] {
+  background-color: var(--page-text-green);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-blue"] {
+  background-color: var(--page-text-blue);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-violet"] {
+  background-color: var(--page-text-violet);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="hl-yellow"] {
+  background-color: light-dark(rgb(240 190 0 / 0.65), rgb(227 179 65 / 0.55));
+}
+.mn-swatch[data-swatch="hl-green"] {
+  background-color: light-dark(rgb(40 170 90 / 0.55), rgb(90 200 130 / 0.5));
+}
+.mn-swatch[data-swatch="hl-pink"] {
+  background-color: light-dark(rgb(230 70 140 / 0.5), rgb(240 110 160 / 0.5));
+}
+.mn-swatch[data-swatch="hl-orange"] {
+  background-color: light-dark(rgb(240 130 20 / 0.58), rgb(240 150 70 / 0.52));
+}
+.mn-swatch[data-swatch="hl-violet"] {
+  background-color: light-dark(rgb(130 90 230 / 0.52), rgb(150 120 240 / 0.52));
+}
+@media (prefers-contrast: more) {
+  .mn-swatch[data-swatch] {
+    border-color: var(--line-strong);
+  }
+}
+.mn-swatch-item:hover .mn-swatch {
+  border-color: var(--fg);
+  transform: scale(1.1);
+}
+.mn-swatch[data-active] {
+  border-color: var(--fg);
+  box-shadow:
+    0 0 0 2px var(--bg-overlay),
+    0 0 0 3.5px var(--fg);
+}
+[role^="menuitem"].mn-swatch-item:focus-visible::before {
+  display: none;
+}
+[role^="menuitem"].mn-swatch-item:focus-visible {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: -2px;
+  background-color: var(--bg-subtle);
+}
+
 /* --------------------------------------------------------------------------
    MOTION. The system's setting always applies:
    nothing moves or scales, and fades of 100 ms remain.
@@ -2153,6 +2231,12 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
     > svg:last-child,
   .mn-minimap-tick {
     transform: none !important;
+  }
+  .mn-swatch {
+    transition: none;
+  }
+  .mn-swatch-item:hover .mn-swatch {
+    transform: none;
   }
 }
 
@@ -2231,6 +2315,15 @@ html[data-switching] *::after {
   .mn-minimap-spine-fill {
     forced-color-adjust: none;
     background-color: Highlight;
+  }
+  .mn-swatch[data-swatch] {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+  .mn-swatch[data-active] {
+    box-shadow: none;
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
   }
 }
 
