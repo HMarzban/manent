@@ -39,4 +39,9 @@ export const DOCUMENT_TERMS: readonly Term[] = Object.freeze([
   ...row("pages", ["Running time"], ["duration", "runtime"]),
   ...row("formats", ["Beat"], ["plot point"]),
   ...row("series", ["Storyline"], ["arc", "plot line", "thread"]),
+  ...row(
+    "writing",
+    ["Graphic", "Image", "Lower third", "Over the shoulder", "Full screen"],
+    [],
+  ),
 ]);

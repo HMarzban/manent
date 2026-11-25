@@ -2502,6 +2502,23 @@ html[data-switching] *::after {
   .mn-note {
     outline: 1px dashed CanvasText;
   }
+  .mn-graphic[data-selected] {
+    outline: 2px solid Highlight;
+  }
+  .mn-prompter-guide {
+    color: Highlight;
+  }
+  [data-change-current] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  [data-diff-row="added"],
+  [data-diff-row="moved"] {
+    border-inline-start: 2px solid Highlight;
+  }
+  [data-diff-row="removed"] {
+    border-inline-start: 2px solid CanvasText;
+  }
 }
 
 /* --------------------------------------------------------------------------
