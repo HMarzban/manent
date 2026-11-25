@@ -1,2 +1,8 @@
 // Workspace authority exports.
-export {};
+export { maskSettingValue } from "./mask.ts";
+export { createWorkspaceService } from "./service.ts";
+export type {
+  WorkspaceOutcome,
+  WorkspaceRefusal,
+  WorkspaceService,
+} from "./service.ts";
