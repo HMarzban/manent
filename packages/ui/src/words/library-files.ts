@@ -46,4 +46,36 @@ export const LIBRARY_FILES_WORDS = Object.freeze({
   privateNote: "Only you can see what you start here, until you share it.",
   privateEmpty:
     "Nothing here yet. Choose New script or New project to start something only you can see.",
+  moveToTrash: "Move to Trash",
+  moveToTrashOfflineReason: "needs a connection",
+  moveToTrashNeverSyncedReason: "needs this script synced first",
+  moveToTrashTitle: (title: string): string => `Move '${title}' to Trash?`,
+  moveToTrashBody: (people: string): string =>
+    `${people} can't open it while it is in Trash. It is kept there for 30 days, and can be restored until then.`,
+  moveToTrashConfirm: (title: string): string => `Move '${title}' to Trash`,
+  movedToTrash: (title: string): string => `Moved '${title}' to Trash.`,
+  restore: "Restore",
+  restoredFromTrash: (title: string): string =>
+    `Restored '${title}' from Trash.`,
+  movedBy: (name: string, when: string): string => `Moved by ${name}, ${when}`,
+  daysLeft: (days: number, underOneDay: boolean): string =>
+    underOneDay
+      ? "Less than a day left"
+      : days === 1
+        ? "1 day left"
+        : `${formatCount(days)} days left`,
+  trashEmpty: "Nothing is in Trash. A script moved here is kept for 30 days.",
+  trashOffline: "Trash needs a connection.",
+  trashProblem: "Couldn't load Trash.",
+  tryAgain: "Try again",
+  restoreRefused: (title: string): string =>
+    `Couldn't restore '${title}'. Try again.`,
+  moveToTrashRefused: (title: string): string =>
+    `Couldn't move '${title}' to Trash. Try again.`,
+  trashedByOther: (name: string, title: string): string =>
+    `${name} moved '${title}' to Trash. Your changes are kept, and it can be restored for 30 days.`,
+  untrashedByOther: (name: string, title: string): string =>
+    `${name} restored '${title}' from Trash.`,
+  moveToTrashNoPermission: (title: string, workspace: string): string =>
+    `Couldn't move '${title}' to Trash: you can no longer delete in ${workspace}.`,
 });

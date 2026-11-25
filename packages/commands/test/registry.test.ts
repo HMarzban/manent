@@ -978,6 +978,8 @@ test("the handler table names every command but the generated ones", () => {
     "library.renameFolder": noop,
     "library.moveToFolder": noop,
     "library.favourite": noop,
+    "doc.moveToTrash": noop,
+    "library.restore": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

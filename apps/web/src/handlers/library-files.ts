@@ -1,20 +1,23 @@
-// Handlers for Library folders, Favourites and Trash, plus shared folder create and move actions.
+// Handlers for Library folders, Favourites and Trash, plus shared folder and Trash actions.
 import type { CommandHandlers } from "@manent/commands";
-import { LIBRARY_FILES_WORDS } from "@manent/ui";
+import { LIBRARY_FILES_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
 import {
   folderPathNames,
   startRenameFolder,
 } from "../services/sync/folders.ts";
 import type { FolderEntry } from "../services/sync/folders.ts";
-import type { HandlerDeps } from "./index.ts";
+import { trashActions } from "../state/trash.store.ts";
+import type { HandlerDeps, Navigation } from "./index.ts";
 import { shownWorkspace } from "./shown-workspace.ts";
 
 type LibraryFilesCommandId =
   | "library.newFolder"
   | "library.renameFolder"
   | "library.moveToFolder"
-  | "library.favourite";
+  | "library.favourite"
+  | "doc.moveToTrash"
+  | "library.restore";
 
 /** Creates an untitled folder in `parentId`, starts inline rename on it, and reports refusal on failure. */
 export async function createAndRenameFolder(options: {
@@ -116,6 +119,148 @@ export async function moveProjectWithUndo(options: {
   }
 }
 
+const firstNameOf = (name: string): string => name.split(" ")[0] ?? name;
+
+/** Executes POST /api/trash/move, updates Trash state and announces success or refusal. */
+export async function executeMoveToTrash(options: {
+  readonly services: PersonServices;
+  readonly navigate: (href: string) => void;
+  readonly docId: string;
+  readonly title: string;
+  readonly workspaceId: string | null;
+  readonly navigateToLibrary: boolean;
+  readonly fromDialog: boolean;
+}): Promise<boolean> {
+  const {
+    services,
+    navigate,
+    docId,
+    title,
+    workspaceId,
+    navigateToLibrary,
+    fromDialog,
+  } = options;
+  if (fromDialog) trashActions.setConfirmBusy(true);
+  const result = await services.trash.move(docId);
+  if (!result.ok) {
+    let text = LIBRARY_FILES_WORDS.moveToTrashRefused(title);
+    if (result.reason === "forbidden") {
+      trashActions.set(docId, { canDelete: false });
+      const wsName =
+        workspaceId === null
+          ? null
+          : await services.trash.workspaceName(workspaceId);
+      if (wsName !== null)
+        text = LIBRARY_FILES_WORDS.moveToTrashNoPermission(title, wsName);
+    }
+    if (fromDialog) trashActions.setConfirmRefusal(text);
+    else
+      services.messages.push({
+        id: "trash_move_refused",
+        text,
+        actions: [],
+        lifetime: "brief",
+        ownWork: false,
+      });
+    return false;
+  }
+  if (fromDialog) trashActions.closeConfirm();
+  trashActions.set(docId, { inTrash: true });
+  trashActions.rememberTrashed({ docId, title });
+  trashActions.bumpRevision();
+  services.messages.push({
+    id: `trash_moved:${docId}`,
+    text: LIBRARY_FILES_WORDS.movedToTrash(title),
+    actions: [
+      { label: LIBRARY_FILES_WORDS.restore, commandId: "library.restore" },
+    ],
+    lifetime: "reverse",
+    ownWork: false,
+  });
+  if (navigateToLibrary) navigate("/");
+  return true;
+}
+
+/**
+ * Starts Move to Trash for `docId`: asks via the consequence dialog when anyone else holds a role on the script,
+ * otherwise moves at once and announces a Restore message.
+ */
+export async function requestMoveToTrash(options: {
+  readonly services: PersonServices;
+  readonly navigate: (href: string) => void;
+  readonly docId: string;
+  readonly title: string;
+  readonly workspaceId: string | null;
+  readonly navigateToLibrary: boolean;
+}): Promise<void> {
+  const { services, navigate, docId, title, workspaceId, navigateToLibrary } =
+    options;
+  const people = await services.trash.people(docId);
+  const others =
+    people === null
+      ? []
+      : people
+          .filter((person) => person.userId !== services.userId)
+          .map((person) => firstNameOf(person.name));
+  if (others.length > 0) {
+    trashActions.openConfirm({
+      docId,
+      title,
+      workspaceId,
+      otherNames: others,
+      navigateToLibrary,
+    });
+    return;
+  }
+  await executeMoveToTrash({
+    services,
+    navigate,
+    docId,
+    title,
+    workspaceId,
+    navigateToLibrary,
+    fromDialog: false,
+  });
+}
+
+/** Restores `docId` from Trash, announces `S4-LB-58`, and refreshes Trash state. */
+export async function restoreTrashedDocument(options: {
+  readonly services: PersonServices;
+  readonly docId: string;
+  readonly title: string;
+  readonly reportInline?: boolean;
+}): Promise<boolean> {
+  const { services, docId, title, reportInline = false } = options;
+  const ok = await services.trash.restore(docId);
+  if (!ok) {
+    if (!reportInline)
+      services.messages.push({
+        id: "trash_restore_refused",
+        text: LIBRARY_FILES_WORDS.restoreRefused(title),
+        actions: [],
+        lifetime: "brief",
+        ownWork: false,
+      });
+    return false;
+  }
+  trashActions.set(docId, { inTrash: false });
+  trashActions.bumpRevision();
+  services.messages.dismiss(`trash_moved:${docId}`);
+  services.messages.dismiss(`trash_other_moved:${docId}`);
+  services.messages.push({
+    id: `trash_restored:${docId}`,
+    text: LIBRARY_FILES_WORDS.restoredFromTrash(title),
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  });
+  return true;
+}
+
+function navigateTo(router: Navigation): (href: string) => void {
+  return (href) => router.navigate(href);
+}
+
 export function libraryFilesHandlers(
   deps: HandlerDeps,
 ): Pick<CommandHandlers, LibraryFilesCommandId> {
@@ -164,6 +309,33 @@ export function libraryFilesHandlers(
           now: now(),
         });
       })();
+    },
+    "doc.moveToTrash"() {
+      const { docId } = deps.shellState();
+      if (docId === null) return;
+      const title =
+        services.library.documentTitle(docId).get() ??
+        LIBRARY_WORDS.untitledScript;
+      void (async () => {
+        const workspaceId = await shownWorkspace(deps);
+        await requestMoveToTrash({
+          services,
+          navigate: navigateTo(router),
+          docId,
+          title,
+          workspaceId,
+          navigateToLibrary: true,
+        });
+      })();
+    },
+    "library.restore"() {
+      const target = trashActions.lastTrashed();
+      if (target === null) return;
+      void restoreTrashedDocument({
+        services,
+        docId: target.docId,
+        title: target.title,
+      });
     },
   };
 }

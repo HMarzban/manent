@@ -24,6 +24,7 @@ import {
   moveProjectWithUndo,
 } from "../handlers/library-files.ts";
 import { useLibraryAddress } from "../screens/library/library-address.ts";
+import { MoveToTrashRowItem } from "../screens/library/trash-view.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import {
   folderPathNames,
@@ -213,19 +214,25 @@ export function DocumentLibraryRowItems(props: { docId: string }): ReactNode {
   );
   const isFav = useSubscribable(favSource);
   return createElement(
-    DropdownMenuItem,
-    {
-      onClick: () =>
-        void services.favourites.toggle(services.userId, {
-          id: props.docId,
-          kind: "document",
-          workspaceId,
-          now: now(),
-        }),
-    },
-    isFav
-      ? LIBRARY_FILES_WORDS.removeFromFavourites
-      : LIBRARY_FILES_WORDS.favourite,
+    Fragment,
+    null,
+    createElement(
+      DropdownMenuItem,
+      {
+        className: "cursor-pointer",
+        onClick: () =>
+          void services.favourites.toggle(services.userId, {
+            id: props.docId,
+            kind: "document",
+            workspaceId,
+            now: now(),
+          }),
+      },
+      isFav
+        ? LIBRARY_FILES_WORDS.removeFromFavourites
+        : LIBRARY_FILES_WORDS.favourite,
+    ),
+    createElement(MoveToTrashRowItem, { docId: props.docId, workspaceId }),
   );
 }
 

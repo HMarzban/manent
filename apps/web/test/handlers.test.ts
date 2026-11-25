@@ -75,6 +75,7 @@ test("every command but the generated ones has a handler, and only the productio
       "timing.include",
       "prompter.send",
       "prompter.sendPrevious",
+      "doc.moveToTrash",
     ],
   );
 });
