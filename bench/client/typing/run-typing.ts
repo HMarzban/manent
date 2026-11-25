@@ -2,6 +2,8 @@
 // caret placed, and keys pressed one at a time as a person presses them.
 import type { DocJSON } from "@manent/schema";
 import type { Page } from "@playwright/test";
+import { documentOfPages } from "../../corpus/documents.ts";
+import type { CorpusDocument } from "../../corpus/documents.ts";
 
 const OPEN_MS = 60_000;
 const OPEN_POLL_MS = 100;
@@ -88,13 +90,32 @@ export async function openScript(
 ): Promise<string> {
   const docId = await editorHook(page, ["open"], format, doc);
   if (typeof docId !== "string") throw new TypeError("open gave no doc id");
+  await untilBlocks(page, blocks);
+  return docId;
+}
+
+/** The corpus's screenplay of `pages` pages (seed 1, sections of 100), opened on `page` as a new script; it and its doc id. */
+export async function openCorpusScript(
+  page: Page,
+  pages: number,
+): Promise<{ d: CorpusDocument; docId: string }> {
+  const d = documentOfPages({
+    format: "screenplay",
+    pages,
+    seed: 1,
+    sections: "even",
+  });
+  return { d, docId: await openScript(page, "screenplay", d.doc, d.blocks) };
+}
+
+/** Resolves once the page's open editor holds `blocks` blocks. */
+export async function untilBlocks(page: Page, blocks: number): Promise<void> {
   const until = performance.now() + OPEN_MS;
   while ((await blocksNow(page)) !== blocks) {
     if (performance.now() > until)
       throw new Error(`the script of ${blocks} blocks did not open`);
     await Bun.sleep(OPEN_POLL_MS);
   }
-  return docId;
 }
 
 async function blocksNow(page: Page): Promise<number | null> {
@@ -206,3 +227,86 @@ export const pasteToPaintMs = (page: Page, html: string): Promise<number> =>
       }),
     html,
   );
+
+/**
+ * The product marks the page kept under `name`, oldest first: `window.__manent.readMarks`, the function the editor
+ * hooks' `marks` is, which every screen of the test build has, an editor open or not.
+ */
+export async function markRecords(
+  page: Page,
+  name: string,
+): Promise<{ startMs: number; durationMs: number }[]> {
+  const found: unknown = await page.evaluate(
+    (wanted) =>
+      Reflect.apply(
+        Reflect.get(Object(Reflect.get(window, "__manent")), "readMarks"),
+        null,
+        [wanted],
+      ),
+    name,
+  );
+  if (!Array.isArray(found)) throw new TypeError("the marks are not a list");
+  return found.map((record: unknown) => {
+    const startMs: unknown = Reflect.get(Object(record), "startMs");
+    const durationMs: unknown = Reflect.get(Object(record), "durationMs");
+    if (typeof startMs !== "number" || typeof durationMs !== "number")
+      throw new TypeError("a mark needs a start and a duration");
+    return { startMs, durationMs };
+  });
+}
+
+/**
+ * Presses `press` (Playwright's key names) and resolves to the time from the keydown whose `key` is `key` to the next
+ * paint, ms: one frame, then a message, which runs after that frame's paint.
+ */
+export async function keyToPaintMs(
+  page: Page,
+  press: string,
+  key: string,
+): Promise<number> {
+  await page.evaluate((wanted) => {
+    const painted = new Promise<number>((resolve) => {
+      const onKey = (event: KeyboardEvent): void => {
+        if (event.key !== wanted) return;
+        window.removeEventListener("keydown", onKey, { capture: true });
+        const pressedAt = performance.now();
+        requestAnimationFrame(() => {
+          const channel = new MessageChannel();
+          channel.port1.addEventListener("message", () => {
+            resolve(performance.now() - pressedAt);
+            channel.port1.close();
+          });
+          // a listener added this way hears nothing until the port starts
+          channel.port1.start();
+          channel.port2.postMessage(null);
+        });
+      };
+      window.addEventListener("keydown", onKey, { capture: true });
+    });
+    Reflect.set(window, "__keyToPaint", painted);
+  }, key);
+  await page.keyboard.press(press);
+  const ms: unknown = await page.evaluate(() =>
+    Reflect.get(window, "__keyToPaint"),
+  );
+  if (typeof ms !== "number") throw new TypeError(`no paint followed ${key}`);
+  return ms;
+}
+
+/** Runs the palette's row labelled `label` once the palette has highlighted it; the time from its Enter to the next paint, ms. */
+export async function runFromPalette(
+  page: Page,
+  label: string,
+): Promise<number> {
+  await page.keyboard.press("ControlOrMeta+k");
+  const search = page.getByRole("combobox");
+  await search.waitFor();
+  await page.keyboard.type(label);
+  await page
+    .locator("[role='option'][data-highlighted]")
+    .filter({ hasText: label })
+    .waitFor();
+  const ms = await keyToPaintMs(page, "Enter", "Enter");
+  if (await search.isVisible()) await page.keyboard.press("Escape");
+  return ms;
+}
