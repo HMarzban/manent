@@ -34,11 +34,14 @@ test("storage cleared by the browser: synced scripts come back and the one kept 
     route.request().method() === "POST" ? route.abort() : route.fallback(),
   );
   await page.getByRole("button", { name: "‹ Library" }).click();
-  await page
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  const newScript = page
     .locator('[data-region="title_bar"]')
-    .getByRole("button", { name: "New script", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/s\//);
+    .getByRole("button", { name: "New script", exact: true });
+  await expect(newScript).toBeEnabled();
+  await newScript.click();
+  await expect(page).toHaveURL(/\/s\//, { timeout: 15_000 });
   await renameScript(page, KEPT_HERE);
   // named first, so the line typed after it gives the person's index time to reach the server
   await typeIn(page, { element: "scene_heading", nth: 0 }, "INT. FERRY DECK");

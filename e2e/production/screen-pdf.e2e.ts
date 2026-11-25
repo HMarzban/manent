@@ -46,11 +46,14 @@ async function startOf(page: Page, label: string): Promise<number> {
 async function openAsPriya(page: Page): Promise<string> {
   await keepEveryHooks(page);
   await signedInAs(page, "priya");
-  await page
-    .getByRole("button", { name: labelOf("library.newScript") })
-    .first()
-    .click();
-  await expect(page.locator(EDITABLE)).toBeAttached();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  const newScript = page
+    .locator('[data-region="title_bar"]')
+    .getByRole("button", { name: labelOf("library.newScript"), exact: true });
+  await expect(newScript).toBeEnabled();
+  await newScript.click();
+  await expect(page).toHaveURL(/\/s\//, { timeout: 15_000 });
+  await expect(page.locator(EDITABLE)).toBeAttached({ timeout: 15_000 });
   const docId = await editorHook(
     page,
     "open",
