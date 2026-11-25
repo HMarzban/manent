@@ -53,6 +53,7 @@ export const LIBRARY_WORDS = {
     "Scripts moved to the Trash appear here for 30 days, and can be put back in that time.",
   search: "Search this workspace",
   searchPlaceholder: "Search this workspace…",
+  clearSearch: "Clear search",
   /** The heading of what a search for `query` found. */
   searchHeading: (query: string): string => `Matches for '${query}'`,
   /** What a search for `query` says when no project's name holds it. */

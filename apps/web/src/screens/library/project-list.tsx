@@ -1,7 +1,9 @@
 // The region named Projects: the workspace's projects as a table of kind, last edit and place, each drawn by its kind's
 // view, or what to do when it holds none.
 import { CommandButton, LIBRARY_WORDS, VirtualRows, cn } from "@manent/ui";
+import { FileTextIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import type { ProjectItem } from "../../services/ports.ts";
 import { EDITED_COLUMN, KIND_COLUMN, ProjectRow } from "./project-row.tsx";
 import { PROJECT_VIEWS } from "./project-views.ts";
@@ -72,27 +74,30 @@ function PlainTable(props: {
 }
 
 /**
- * The Library's empty state: what it holds, and the ways to start. `problem` is the line saying the list could not be
- * loaded, or null; when it is given it leads, and the empty state reads as a quiet part of it.
+ * The Library's empty state: a centred hero card with the ways to start, inside a scrollable region so short
+ * viewports never clip it. `problem` is the line saying the list could not be loaded, or null; when given it leads
+ * above the card.
  */
 export function NoProjects(props: { problem: ReactNode }): ReactNode {
   const { problem } = props;
   return (
     <section
       aria-label={LIBRARY_WORDS.projectsRegion}
-      className={cn(
-        "flex flex-col items-start",
-        problem === null ? "gap-4 pt-6" : "gap-2",
-      )}
+      className="min-h-0 flex-1 overflow-y-auto"
     >
-      {problem}
-      <p className={problem === null ? "text-display" : "text-ui"}>
-        {LIBRARY_WORDS.empty}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <CommandButton id="file.import" variant="outline" />
-        <CommandButton id="library.newScript" variant="outline" />
-        <CommandButton id="library.newProject" variant="outline" />
+      <div className="flex min-h-full flex-col items-center justify-center gap-4 p-6">
+        {problem}
+        <EmptyHeroCard
+          icon={<FileTextIcon aria-hidden="true" className="size-5" />}
+          title={LIBRARY_WORDS.empty}
+          actions={
+            <>
+              <CommandButton id="file.import" variant="outline" />
+              <CommandButton id="library.newScript" variant="outline" />
+              <CommandButton id="library.newProject" variant="outline" />
+            </>
+          }
+        />
       </div>
     </section>
   );

@@ -11,6 +11,7 @@ import {
   Switch,
   formatDate,
 } from "@manent/ui";
+import { CopyIcon, Link2Icon } from "lucide-react";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { RoleSelect } from "./role-select.tsx";
@@ -57,25 +58,53 @@ export function LinkGroup(props: {
   const expiry = chosenExpiry ?? expiryOf(newest);
 
   const turn = (next: boolean): void => {
-    if (next) setShown(true);
-    else if (newest === null) setShown(false);
-    else void actions.turnOffLink();
+    if (next) {
+      setShown(true);
+      return;
+    }
+    setShown(false);
+    if (newest !== null) void actions.turnOffLink();
   };
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
-      <h2 id={headingId} className="mn-group-label -mx-3">
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-3.5"
+    >
+      <h2 id={headingId} className="mn-group-label p-0!">
         {WORDS.link}
       </h2>
-      <div className="flex items-center justify-between gap-2 text-ui">
-        <label htmlFor={switchId}>{WORDS.anyoneWithTheLink}</label>
+      <div className="flex items-center justify-between gap-3 text-ui">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="flex size-avatar shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
+          >
+            <Link2Icon className="size-3.5" />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <label
+              htmlFor={switchId}
+              className="cursor-pointer font-medium text-fg"
+            >
+              {WORDS.anyoneWithTheLink}
+            </label>
+            {newest === null ? null : (
+              <p className="text-meta text-fg-muted">
+                {newest.expiresAt === null
+                  ? WORDS.neverExpires
+                  : WORDS.expiresOn(formatDate(newest.expiresAt))}
+              </p>
+            )}
+          </div>
+        </div>
         <Switch id={switchId} checked={on} onCheckedChange={turn} />
       </div>
       {on ? (
-        <>
-          <div className="flex items-center gap-2 text-ui">
+        <div className="flex flex-col gap-2.5 border-t border-line pt-3 animate-in fade-in-0 duration-(--dur-fast) ease-out">
+          <div className="flex flex-wrap items-center gap-2 text-ui">
             <RoleSelect value={role} onChange={setRole} />
-            <span className="text-fg-muted">{WORDS.expires}</span>
+            <span className="text-meta text-fg-muted">{WORDS.expires}</span>
             <Select
               items={EXPIRY_ITEMS}
               value={String(expiry)}
@@ -93,30 +122,27 @@ export function LinkGroup(props: {
               </SelectContent>
             </Select>
           </div>
-          {newest === null ? null : (
-            <p className="text-meta text-fg-muted">
-              {newest.expiresAt === null
-                ? WORDS.neverExpires
-                : WORDS.expiresOn(formatDate(newest.expiresAt))}
-            </p>
-          )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               aria-disabled={role === null ? true : undefined}
               aria-describedby={role === null ? reasonId : undefined}
-              className="aria-disabled:text-fg-muted"
               onClick={() => {
                 if (role !== null)
                   void actions.copyLink(role, LINK_EXPIRIES_MS[expiry] ?? null);
               }}
             >
+              <CopyIcon aria-hidden="true" className="size-icon" />
               {WORDS.copyLink}
             </Button>
             {newest === null ? null : (
               <Button
                 variant="ghost"
-                onClick={() => void actions.turnOffLink()}
+                className="text-fg-muted hover:text-danger"
+                onClick={() => {
+                  setShown(false);
+                  void actions.turnOffLink();
+                }}
               >
                 {WORDS.turnOffLink}
               </Button>
@@ -130,7 +156,7 @@ export function LinkGroup(props: {
           {props.refusal === null ? null : (
             <RowRefusal sentence={props.refusal} />
           )}
-        </>
+        </div>
       ) : null}
     </section>
   );

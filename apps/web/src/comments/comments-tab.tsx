@@ -1,8 +1,10 @@
 // The right panel's Comments tab: exclusive filters (Open, Mine, Writers only, rounds), thread rows and empty states.
 import type { Choice, SettingValue } from "@manent/settings";
 import { COMMENTS_WORDS, HISTORY_WORDS, Segmented, Skeleton } from "@manent/ui";
+import { MessageSquareIcon } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { PanelTab } from "../shell/panel-tab.ts";
 import {
@@ -110,8 +112,12 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
       {state.loading && isEmpty ? (
         <CommentsSkeleton />
       ) : isEmpty ? (
-        <div className="p-4">
-          <p className="text-ui text-fg-muted">{emptyText}</p>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <EmptyHeroCard
+            compact
+            icon={<MessageSquareIcon aria-hidden="true" className="size-4" />}
+            description={emptyText}
+          />
         </div>
       ) : (
         <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">

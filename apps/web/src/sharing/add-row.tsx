@@ -1,6 +1,7 @@
 // Adding a person with a role, or a group with the role it holds. A person's role is never defaulted: Add says it
 // needs one until it is chosen.
 import {
+  Avatar,
   Button,
   DIALOG_WORDS,
   SHARING_WORDS,
@@ -11,8 +12,10 @@ import {
   SelectValue,
 } from "@manent/ui";
 import type { SignInChoice } from "@manent/sync-protocol";
+import { UsersIcon } from "lucide-react";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
+import { initialsOf } from "../initials.ts";
 import { RoleSelect } from "./role-select.tsx";
 import { RowRefusal } from "./row-refusal.tsx";
 import type { ShareActions } from "./share-actions.ts";
@@ -79,7 +82,7 @@ export function AddRow(props: {
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2 rounded-surface border border-line bg-subtle p-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <Select
           items={items}
@@ -88,23 +91,39 @@ export function AddRow(props: {
         >
           <SelectTrigger
             aria-label={WORDS.addPlaceholder}
-            className="min-w-0 flex-1"
+            className="min-w-0 flex-1 bg-raised!"
           >
             <SelectValue placeholder={WORDS.addPlaceholder} />
           </SelectTrigger>
           <SelectContent>
             {items.map((item) => (
               <SelectItem key={item.value} value={item.value}>
-                {item.label}
+                {item.target.kind === "person" ? (
+                  <Avatar
+                    name={item.label}
+                    initials={initialsOf(item.label)}
+                    colour={null}
+                    size="sm"
+                    decorative
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="flex size-avatar-sm shrink-0 items-center justify-center rounded-full border border-line bg-raised text-fg-muted"
+                  >
+                    <UsersIcon className="size-3" />
+                  </span>
+                )}
+                <span className="truncate">{item.label}</span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {target?.kind === "group" ? null : (
-          <RoleSelect value={role} onChange={setRole} />
+          <RoleSelect value={role} onChange={setRole} className="bg-raised!" />
         )}
         <Button
-          variant="outline"
+          variant={target !== null && !needsRole ? "default" : "outline"}
           disabled={target === null}
           aria-disabled={needsRole ? true : undefined}
           aria-describedby={needsRole ? reasonId : undefined}

@@ -3,7 +3,6 @@ import {
   BESIDE_WORDS,
   COPIES_WORDS,
   LIBRARY_WORDS,
-  Skeleton,
   StateBar,
   useSubscribable,
 } from "@manent/ui";
@@ -17,6 +16,7 @@ import type {
   BesideKind,
 } from "../../beside/kinds.ts";
 import { mountBesideEditor } from "../../editor-host/beside-editor.ts";
+import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { useDocumentTitle } from "../../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { createFactsStore, useEditorFact } from "../../state/facts.store.ts";
@@ -210,23 +210,7 @@ function SourceBeside(props: {
         />
       </div>
       {access === "checking" ? (
-        <div
-          aria-busy="true"
-          className="flex min-h-0 flex-1 justify-center overflow-auto bg-desk p-8"
-        >
-          <div
-            aria-hidden="true"
-            className="flex w-full max-w-content flex-col gap-3 rounded-surface border border-line bg-raised p-8"
-          >
-            <Skeleton className="h-4 w-2/5" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-11/12" />
-            <Skeleton className="h-3 w-4/5" />
-            <Skeleton className="mt-4 h-4 w-1/3" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-3/4" />
-          </div>
-        </div>
+        <ScriptPageSkeleton />
       ) : (
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
           <div
