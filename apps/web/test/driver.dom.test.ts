@@ -1,6 +1,6 @@
-import { createDoc } from "@manent/crdt";
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
+import { createDoc } from "@manent/crdt";
 import {
   currentDriver,
   refreshDriver,
