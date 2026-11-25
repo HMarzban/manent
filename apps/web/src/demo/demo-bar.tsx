@@ -20,9 +20,8 @@ export function preloadDemoBarControls(): void {
 }
 
 /**
- * Never takes focus; F6 reaches it. One row while its controls fit: short of room the labels before them and the
- * server's words go, then some buttons keep only their icons, and in the narrowest bar they take a second row rather
- * than widen the window.
+ * Never takes focus; F6 reaches it. Always one row: short of room the labels before its controls and the server's
+ * words go, then some buttons keep only their icons, and on narrow screens secondary tools fold into a compact menu.
  */
 export function DemoBar(props: {
   person: TabPerson | null;
@@ -35,7 +34,7 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="mn-bar flex min-h-demobar items-center gap-2 border-b border-line-strong bg-chrome px-3 text-meta text-fg sm:gap-3"
+      className="mn-bar flex h-demobar shrink-0 items-center gap-2 border-b border-line-strong bg-chrome px-2 text-meta text-fg sm:gap-3 sm:px-3"
     >
       <span className="mn-tag shrink-0" data-fill>
         {DEMO_WORDS.demo}

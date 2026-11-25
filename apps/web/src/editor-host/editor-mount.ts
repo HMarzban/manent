@@ -151,6 +151,31 @@ interface Opened extends OpenedScript {
   shown: Shown;
 }
 
+/** Scrolls past any rendered front (Title) pages so page 1 opens cleanly with no bottom card edge peeking under the bar. */
+function scrollToPageOne(
+  region: HTMLElement,
+  scaffold: ScriptEditor["scaffold"],
+): void {
+  if (scaffold === null) {
+    region.scrollTo({ top: 0 });
+    return;
+  }
+  const sheets = scaffold.front.querySelectorAll(".mn-sheet");
+  const lastFront = sheets.item(sheets.length - 1);
+  if (lastFront === null || lastFront.getBoundingClientRect().height <= 0) {
+    region.scrollTo({ top: 0 });
+    return;
+  }
+  const regionTop = region.getBoundingClientRect().top;
+  const frontBottom = lastFront.getBoundingClientRect().bottom;
+  const pagesTop = scaffold.pages.getBoundingClientRect().top;
+  const shift = Math.max(
+    frontBottom - regionTop + 8,
+    pagesTop - regionTop - 20,
+  );
+  if (shift > 0) region.scrollTop += shift;
+}
+
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
 function buildEditor(
   options: MountOptions,
@@ -176,7 +201,7 @@ function buildEditor(
   const region = element.closest<HTMLElement>(PAGE_REGION);
   if (place !== null) editor.restore(place);
   // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
-  else region?.scrollTo({ top: 0 });
+  else if (region !== null) scrollToPageOne(region, editor.scaffold);
   const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
   let stopThumb = noop;

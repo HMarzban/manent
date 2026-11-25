@@ -2,6 +2,7 @@
 import { DOCUMENT_WORDS, PanelTabs } from "@manent/ui";
 import { useRef } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import { panelWidthCss, rootFontScalePx } from "../../shell/narrow-window.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { LEFT_PANEL_TABS } from "./left-tabs.ts";
@@ -38,10 +39,15 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { x: event.clientX, widthPx };
   };
-  const onPointerMove = (event: PointerEvent): void => {
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
     const start = drag.current;
-    if (start !== null)
-      panelsActions.resize("left", start.widthPx + event.clientX - start.x);
+    if (start !== null) {
+      const scale = 16 / rootFontScalePx(event.currentTarget.ownerDocument);
+      panelsActions.resize(
+        "left",
+        Math.round(start.widthPx + (event.clientX - start.x) * scale),
+      );
+    }
   };
   const endDrag = (): void => {
     drag.current = null;
@@ -92,8 +98,8 @@ export function LeftPanel(props: {
     <PanelPlace over={overlay ? "start" : null}>
       <ShellRegion
         region="left_panel"
-        className="flex min-h-0 bg-chrome"
-        style={{ width: widthPx }}
+        className="flex min-h-0 shrink-0 bg-chrome"
+        style={{ width: panelWidthCss(widthPx), maxWidth: "100vw" }}
       >
         <div className="min-w-0 flex-1">
           <PanelTabs

@@ -5,13 +5,16 @@ import {
   Button,
   CommandButton,
   DEMO_WORDS,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PanelRightIcon, PowerIcon } from "lucide-react";
-import { useContext, useEffect, useRef } from "react";
+import { PanelRightIcon, PowerIcon, SlidersHorizontalIcon } from "lucide-react";
+import { useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
@@ -46,9 +49,9 @@ export function DemoBarControls(props: {
   // the shell provides the services and the commands together with the bridge's contexts
   const inShell = useContext(FactsContext) !== null;
   const { control } = props;
-  // one row while they fit, short of room with fewer words; a second row only where even that does not fit
+  // always one row: short of room labels drop, then secondary controls fold into DemoToolsPopover below sm
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-0.5 sm:gap-x-3">
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-2 sm:gap-x-3">
       <Person person={props.person} onClick={props.onPersonClick} />
       {inShell ? (
         <ShellControls control={control} />
@@ -64,6 +67,36 @@ const ONLINE: Subscribable<ConnectionMode> = Object.freeze({
   get: () => "online",
   subscribe: () => () => {},
 });
+
+/** Compact menu holding secondary demo controls on viewports below `sm` so the bar stays one 32 px row. */
+function DemoToolsPopover(props: { children: ReactNode }): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex shrink-0 sm:hidden">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={TEXT.demoTools}
+              title={TEXT.demoTools}
+            />
+          }
+        >
+          <SlidersHorizontalIcon aria-hidden="true" className="size-icon" />
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          data-surface="demo"
+          className="flex w-auto flex-col gap-2 p-3"
+        >
+          {props.children}
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 function ShellControls(props: { control: DemoControl | null }): ReactNode {
   const { control } = props;
@@ -82,9 +115,8 @@ function ShellControls(props: { control: DemoControl | null }): ReactNode {
   const { docId } = useSubscribable(useEnvironment().shellState);
   // Sign in to sync is offered until the person is signed in
   const signedIn = !useCommandState("app.signInToSync").visible;
-  return (
+  const secondary = (
     <>
-      {connection && <ConnectionChoice control={connection} />}
       <WritersControl
         docId={docId}
         signedIn={signedIn}
@@ -99,6 +131,13 @@ function ShellControls(props: { control: DemoControl | null }): ReactNode {
         unreachable={unreachable}
       />
       {control && <ResetControl {...control} />}
+    </>
+  );
+  return (
+    <>
+      {connection && <ConnectionChoice control={connection} />}
+      <div className="hidden sm:contents">{secondary}</div>
+      <DemoToolsPopover>{secondary}</DemoToolsPopover>
       <Tour />
     </>
   );
@@ -121,6 +160,7 @@ function Person(props: {
         size="sm"
         aria-label={DEMO_WORDS.person(person.name)}
         onClick={onClick}
+        className="px-1 sm:px-2"
       >
         <Avatar
           name={person.name}
@@ -129,7 +169,7 @@ function Person(props: {
           size="sm"
           decorative
         />
-        {person.name}
+        <span className="hidden sm:inline">{person.name}</span>
       </Button>
     </BarLabelled>
   );
