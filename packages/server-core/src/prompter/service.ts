@@ -10,12 +10,24 @@ import type { AirWindows } from "../rundown/air-window.ts";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
 import type { SubscribeHandler } from "../sync/subscribe.ts";
 import { createAutoSender } from "./auto-send.ts";
+import { createPrompterControl } from "./control.ts";
+import type {
+  PrompterControlOutcome,
+  PrompterControlService,
+  PrompterControlStatus,
+} from "./control.ts";
 import { createPrompterSender } from "./send.ts";
 import type { PrompterOutcome, PrompterRefusal } from "./send.ts";
 import { createPrompterFeedHub } from "./subscribe.ts";
-import type { UpstreamPrompterFeed } from "./subscribe.ts";
+import type { PrompterFeedHub, UpstreamPrompterFeed } from "./subscribe.ts";
 
-export type { PrompterOutcome, PrompterRefusal };
+export type {
+  PrompterControlOutcome,
+  PrompterControlService,
+  PrompterControlStatus,
+  PrompterOutcome,
+  PrompterRefusal,
+};
 
 export interface PrompterServiceOptions {
   storage: Storage;
@@ -33,6 +45,10 @@ export interface PrompterService {
   readonly hooks: SyncHooks;
   /** Per-service handler for `SUBSCRIBE` in prompter mode, passed into `SyncSettings.prompterSubscribe`. */
   readonly subscribePrompter: SubscribeHandler;
+  /** Live prompter feed hub for subscribers, control fanout and in-process listeners (MOS bridge). */
+  readonly feed: PrompterFeedHub;
+  /** Server-held remote prompter operator lease and scroll control service. */
+  readonly control: PrompterControlService;
   /** Sends a rundown row's current story head to the prompter and keeps a `prompter` History version. */
   send(
     userId: string,
@@ -43,12 +59,12 @@ export interface PrompterService {
     userId: string,
     request: PrompterSendRequest,
   ): Promise<PrompterOutcome<PrompterSendResponse>>;
-  /** Releases all prompter feed timers and automatic-send timers held by this service. */
+  /** Releases all prompter feed timers, operator lease timers and automatic-send timers held by this service. */
   stop(): void;
 }
 
 /**
- * Creates the prompter service with its own isolated feed hub.
+ * Creates the prompter service with its own isolated feed hub and remote scroll control state.
  * The caller attaches `service.hooks` and `service.subscribePrompter` to the sync service
  * and places `service` on `ServerConfig.prompter`.
  */
@@ -61,13 +77,17 @@ export function createPrompterService(
       ? createAirWindows({ clock, storage })
       : null;
   const airWindows = options.airWindows ?? ownedAirWindows!;
+  let control!: PrompterControlService;
   const feed = createPrompterFeedHub({
     storage,
     sync,
     clock,
     airWindows,
     upstreamFeed,
+    onPrompterSubscribed: (docId, tell, meta) =>
+      control.sendSnapshotTo(docId, tell, meta),
   });
+  control = createPrompterControl({ storage, sync, clock, feed });
 
   const autoSender = createAutoSender({
     storage,
@@ -95,9 +115,13 @@ export function createPrompterService(
       if (room.kind === "rundown") autoSender.onRundownCommitted(room, update);
       else if (room.kind === "script") autoSender.onStoryCommitted(room);
     },
+    editorLeft(room, userId) {
+      if (room.kind === "rundown") control.onEditorLeft(room, userId);
+    },
     forgotten(room) {
       ownedAirWindows?.hooks.forgotten?.(room);
       autoSender.onForgotten(room);
+      if (room.kind === "rundown") control.onForgotten(room);
     },
     subscribed(docId) {
       ownedAirWindows?.hooks.subscribed?.(docId);
@@ -109,9 +133,12 @@ export function createPrompterService(
   return {
     hooks,
     subscribePrompter: (sub) => feed.subscribe(sub),
+    feed,
+    control,
     send: sender.send,
     sendPrevious: sender.sendPrevious,
     stop() {
+      control.stop();
       autoSender.stop();
       feed.stop();
     },
