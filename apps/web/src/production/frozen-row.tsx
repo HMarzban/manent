@@ -101,8 +101,11 @@ function NewValue(props: {
   );
 }
 
-// a value only its own row can set has no plain way to a new one here
+const ENGINE_VERSION_KEY = "script.engineVersion";
+
+// a value only its own row can set has no plain way to a new one here; the layout engine is never changed through Change layout…
 const isChangedHere = (settingKey: SettingKey): boolean => {
+  if (String(settingKey) === ENGINE_VERSION_KEY) return false;
   const { kind } = SETTINGS.get(settingKey).type;
   return kind === "boolean" || kind === "choice" || kind === "number";
 };

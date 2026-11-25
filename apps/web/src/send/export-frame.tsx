@@ -28,6 +28,7 @@ function useChecksRow(
   title: string,
   type: ExportFileType | null,
   p: Pagination | null,
+  readyWithoutPages: boolean,
 ): SendRow | null {
   const leftOut = type?.leftOut ?? null;
   const checks = useMemo(
@@ -37,7 +38,8 @@ function useChecksRow(
   const [said, setSaid] = useState<SendRow | null>(null);
   useEffect(() => {
     setSaid(null);
-    if (leftOut === null || p === null) return undefined;
+    if (leftOut === null || (p === null && !readyWithoutPages))
+      return undefined;
     let shown = true;
     leftOut({ docId, title }).then(
       (sentence) => {
@@ -51,7 +53,7 @@ function useChecksRow(
     return () => {
       shown = false;
     };
-  }, [docId, title, leftOut, p]);
+  }, [docId, title, leftOut, p, readyWithoutPages]);
   return leftOut === null ? checks : said;
 }
 
@@ -63,7 +65,7 @@ async function exportScript(work: {
   file: ExportFileType;
   docId: string;
   title: string;
-  pages: Pagination;
+  pages: Pagination | null;
   now: Environment["now"];
   frame: Environment["frame"];
   signal: AbortSignal;
@@ -99,7 +101,7 @@ function exportedMessage(title: string): Message {
 interface ExportAction {
   busy: boolean;
   problem: string | null;
-  run: (file: ExportFileType, pages: Pagination) => Promise<void>;
+  run: (file: ExportFileType, pages: Pagination | null) => Promise<void>;
 }
 
 function useExportAction(
@@ -121,7 +123,7 @@ function useExportAction(
 
   const run = async (
     file: ExportFileType,
-    pages: Pagination,
+    pages: Pagination | null,
   ): Promise<void> => {
     const { signal } = left.current;
     setBusy(true);
@@ -171,17 +173,22 @@ function asRow(
 export function LiveExport(props: SendFormProps): ReactNode {
   const { docId } = props;
   const to = useOfferedTo(docId);
+  const isInk = to.docKind === "ink" || to.format === "ink";
   const types = typesOffered("export", to);
   const askedType = useSearchChoice("as");
   const [chosenId, choose] = useState(askedType);
   const type = types.find((entry) => entry.id === chosenId) ?? types[0] ?? null;
-  const what = useWhatRow("export", type?.id ?? null, to.locked);
+  const what = useWhatRow("export", type?.id ?? null, to.locked, docId);
   const { p, pages, title, tiles, back } = useSendPages(
     docId,
     what?.option ?? null,
+    type?.pagesOf ?? null,
+    what?.revision ?? 0,
   );
-  const checks = useChecksRow(docId, title, type, p);
+  const inkReady = isInk && type !== null && type.docKinds.includes("ink");
+  const checks = useChecksRow(docId, title, type, p, inkReady);
   const { busy, problem, run } = useExportAction(docId, title, back);
+  const canRun = type !== null && (pages !== null || inkReady);
   return (
     <SendFrame
       title={WORDS.exportTitle(1)}
@@ -201,8 +208,7 @@ export function LiveExport(props: SendFormProps): ReactNode {
         cancel: null,
         disabledReason: null,
         problem,
-        run:
-          pages === null || type === null ? null : () => void run(type, pages),
+        run: canRun ? () => void run(type, pages) : null,
       }}
     />
   );
