@@ -50,6 +50,14 @@ export interface ServiceDeps {
   history?: Pick<HistoryService, "keep">;
   /** Air windows from an earlier entry in the list, shared with services that read them. */
   airWindows?: Pick<AirWindows, "windowOf" | "isInside">;
+  /** Data directory for auxiliary server files (such as search indexes); absent in tests that need none. */
+  dataDir?: string;
+  /** Base address people open Manent at, for links sent outside the app; absent when none. */
+  openUrl?: string;
+  /** API key for outbound email delivery; null or absent keeps email off. */
+  resendApiKey?: string | null;
+  /** Sender address for outbound email; null or absent uses the service default. */
+  resendFrom?: string | null;
 }
 
 /** What a service adds to the server. */
@@ -167,4 +175,18 @@ export function composeServices(deps: ServiceDeps): {
       {},
     ),
   };
+}
+
+function stopIfPresent(service: object | undefined): void {
+  if (service === undefined || !("stop" in service)) return;
+  const stop: unknown = Reflect.get(service, "stop");
+  if (typeof stop === "function") stop.call(service);
+}
+
+/** Stops every composed service that holds background work or open handles. */
+export function stopComposedServices(config: ComposedService["config"]): void {
+  stopIfPresent(config.prompter);
+  stopIfPresent(config.trash);
+  stopIfPresent(config.search);
+  stopIfPresent(config.notify);
 }

@@ -16,6 +16,12 @@ export type CapabilitySource = (
   grant: CapabilityGrant,
 ) => readonly Capability[];
 
+/** Refines the capabilities granted so far (for example, overriding role capabilities from a project table). */
+export type CapabilityOverride = (
+  grant: CapabilityGrant,
+  current: readonly Capability[],
+) => readonly Capability[];
+
 const isCapability = (value: string): value is Capability =>
   CAPABILITIES.some((capability) => capability === value);
 
@@ -28,7 +34,16 @@ export const CAPABILITY_SOURCES: readonly CapabilitySource[] = Object.freeze([
   roleCapabilities,
 ]);
 
-/** What every source grants, each capability once, in the order first granted. */
+/** Applied in order after CAPABILITY_SOURCES; append an override on its own line. */
+export const CAPABILITY_OVERRIDES: readonly CapabilityOverride[] =
+  Object.freeze([]);
+
+/** What every source grants, refined by overrides, each capability once, in the order first granted. */
 export function grantedCapabilities(grant: CapabilityGrant): Capability[] {
-  return [...new Set(CAPABILITY_SOURCES.flatMap((source) => source(grant)))];
+  let caps = [
+    ...new Set(CAPABILITY_SOURCES.flatMap((source) => source(grant))),
+  ];
+  for (const override of CAPABILITY_OVERRIDES)
+    caps = [...new Set(override(grant, caps))];
+  return caps;
 }

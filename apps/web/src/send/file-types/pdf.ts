@@ -30,6 +30,7 @@ function isoDay(at: number): string {
 /** Named for the script's title; rejects when the fonts or the writer fail. */
 async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
   const { docId, pages, title, now } = work;
+  if (pages === null) throw new TypeError(`no pages for ${docId}`);
   const front = liveFrontPages(docId) ?? [];
   const furniture = liveFurniture(docId);
   const created = now();
