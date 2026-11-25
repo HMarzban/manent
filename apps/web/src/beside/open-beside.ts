@@ -32,7 +32,7 @@ export function openBeside(
 ): void {
   guardWrite("beside");
   shown.set({ docId, kind, at });
-  panelsActions.close("side");
+  if (panelsActions.get().side.tab !== "tour") panelsActions.close("side");
 }
 
 /** Nothing is beside the page any more. */
