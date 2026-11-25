@@ -9,6 +9,7 @@ export const WORKSPACE_WORDS = Object.freeze({
     people: "People",
     notifications: "Notifications",
     api_keys: "API keys",
+    broadcast: "Broadcast",
   }),
   nothingSetUp: "Nothing is set up",
   needsConnection: "Changing these needs a connection.",
