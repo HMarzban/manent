@@ -28,20 +28,24 @@ tourScenario("together-note", async ({ page, scenario, step }) => {
   const excerpt = (
     await openPopover.locator("blockquote").textContent()
   )?.trim();
-  const blockId = await page.evaluate((text) => {
-    for (const marker of document.querySelectorAll("button.mn-marker")) {
-      const id = marker.getAttribute("data-block");
-      const block =
-        id === null ? null : document.querySelector(`[data-id="${id}"]`);
-      if (text && block?.textContent?.includes(text)) return id;
-    }
-    return null;
-  }, excerpt);
+  if (excerpt === undefined || excerpt === "")
+    throw new Error("comment popover holds no excerpt");
+  // locate the anchored block in the script and scroll it into view so virtualised gutter markers render its button
+  const block = page
+    .locator("[data-tour='page'] [data-id]")
+    .filter({ hasText: excerpt })
+    .first();
+  const blockId = await block.getAttribute("data-id");
   expect(blockId).not.toBeNull();
-  // return to the Tour tab so step 1 can be selected, then reopen the comment popover from its gutter marker
+  // dismiss the popover so it cannot cover the Tour tab or step 1 row, then reopen it from its gutter marker
+  await openPopover.getByRole("button", { name: "Close" }).click();
+  await expect(openPopover).toHaveCount(0);
   await side.getByRole("tab", { name: DOCUMENT_WORDS.tourTab }).click();
   await selectTourStep(page, scenario.promise, 1);
-  await page.locator(`button.mn-marker[data-block="${blockId}"]`).click();
+  await block.scrollIntoViewIfNeeded();
+  const marker = page.locator(`button.mn-marker[data-block="${blockId}"]`);
+  await expect(marker).toBeVisible();
+  await marker.click();
   const popover = await step(1);
   await popover.getByRole("button", { name: "Resolve", exact: true }).click();
   await popover.getByRole("button", { name: "Addressed", exact: true }).click();

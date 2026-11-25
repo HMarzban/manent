@@ -157,7 +157,7 @@ function parseDesktopNode(line: string): DesktopNode {
   return { nodeUrl, launchToken };
 }
 
-const tourTest = test.extend<object, { desktopNode: DesktopNode }>({
+const tourTest = test.extend<{ desktopNode: DesktopNode }>({
   desktopNode: [
     // Playwright reads what a fixture needs from its first parameter's names: this one needs none of them
     async ({ browserName: _browserName }, use) => {
@@ -190,7 +190,7 @@ const tourTest = test.extend<object, { desktopNode: DesktopNode }>({
         await rm(dataDir, { recursive: true, force: true });
       }
     },
-    { scope: "worker" },
+    { scope: "test" },
   ],
 });
 

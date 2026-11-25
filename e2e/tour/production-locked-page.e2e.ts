@@ -19,25 +19,30 @@ const speechOnPage = (page: Page, label: string): Promise<string> =>
     throw new Error(`no speech of Mrs. Adeyemi's after page ${start} begins`);
   }, label);
 
-/** The lock drawn level with the sheet that holds `block`. */
-async function lockBeside(page: Page, block: Locator): Promise<Locator> {
+/** The title of the lock drawn level with the sheet that holds `block`, or null until both are drawn. */
+async function lockTitleBeside(
+  page: Page,
+  block: Locator,
+): Promise<string | null> {
   const line = await block.boundingBox();
+  if (line === null) return null;
   const sheets = page.locator("[data-editor-host] .mn-sheet[data-page]");
   const boxes = await sheets.evaluateAll((all) =>
     all.map((sheet) => sheet.getBoundingClientRect().toJSON()),
   );
-  const sheet = boxes.find(
-    (box) => line !== null && box.top <= line.y && line.y < box.bottom,
-  );
+  const sheet = boxes.find((box) => box.top <= line.y && line.y < box.bottom);
+  if (sheet === undefined) return null;
   const locks = page.locator('[data-tour="page_lock"]');
-  const tops = await locks.evaluateAll((all) =>
-    all.map((lock) => lock.getBoundingClientRect().top),
+  const items = await locks.evaluateAll((all) =>
+    all.map((lock) => ({
+      top: lock.getBoundingClientRect().top,
+      title: lock.getAttribute("title"),
+    })),
   );
-  const at = tops.findIndex(
-    (top) => sheet !== undefined && sheet.top <= top && top < sheet.bottom,
+  return (
+    items.find((item) => sheet.top <= item.top && item.top < sheet.bottom)
+      ?.title ?? null
   );
-  if (at === -1) throw new Error("no lock is drawn beside the sheet");
-  return locks.nth(at);
 }
 
 tourScenario("production-locked-page", async ({ page, scenario, step }) => {
@@ -50,7 +55,16 @@ tourScenario("production-locked-page", async ({ page, scenario, step }) => {
   await page.keyboard.type(" Mind the third step, it gives.");
   await expect(block).toContainText("Mind the third step, it gives.");
   await step(1);
-  const lock = await lockBeside(page, block);
+  // keep page 18 centred so virtualised sheets and lock markers settle on it rather than an earlier off-screen lock
+  await block.evaluate((el) =>
+    el.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  await expect
+    .poll(() => lockTitleBeside(page, block), { timeout: 10_000 })
+    .toBe(locked);
+  const lock = page
+    .locator('[data-tour="page_lock"]')
+    .and(page.getByTitle(locked));
   await lock.hover();
   // the lock's sentence is its tooltip and description, and the page number is drawn from the page's label
   await expect(lock).toHaveAttribute("title", locked);
