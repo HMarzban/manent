@@ -9,6 +9,7 @@ import type { Message, MessageQueue, Subscribable } from "@manent/ui";
 import { sendPath } from "../screens/send/form-ids.ts";
 import type { Environment, PersonServices } from "../services/ports.ts";
 import type { CloseGuard } from "../services/sync/close-guard.ts";
+import { setActiveDesktopHost } from "./active-host.ts";
 import { installDesktopClose } from "./desktop-close.ts";
 import { watchRefusedFiles } from "./file-messages.ts";
 import type { DesktopHost } from "./host.ts";
@@ -104,6 +105,7 @@ export function answerShell(options: {
   pathname: () => string;
 }): () => void {
   const { host, environment } = options;
+  setActiveDesktopHost(host);
   const shown = environment.personServices;
   const messages = shownMessages(shown);
   // the open script is the one Export writes
@@ -131,6 +133,7 @@ export function answerShell(options: {
     }),
   ];
   return () => {
+    setActiveDesktopHost(null);
     for (const stop of stops) stop();
   };
 }

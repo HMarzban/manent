@@ -8,5 +8,10 @@
       "electrobun/main/*": ["./.hutch/devkit/api/sdks/main/entries/*.ts"]
     }
   },
-  "include": ["src/**/*.ts", "electrobun.config.ts", "hutch.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "electrobun.config.ts",
+    "hutch.config.ts",
+    "../../packages/formats/src/pdf-text/pdf-worker.d.ts"
+  ]
 }
