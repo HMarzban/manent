@@ -70,9 +70,9 @@ export function createDocumentSource(
       workspaceId: null,
     }).then((outcome) => {
       inflight.delete(trimmed);
-      cache.set(trimmed, outcome.ok ? outcome.results : []);
-      if (latestQuery === trimmed && outcome.ok && outcome.results.length > 0)
-        onUpdate();
+      if (!outcome.ok) return;
+      cache.set(trimmed, outcome.results);
+      if (latestQuery === trimmed && outcome.results.length > 0) onUpdate();
     });
   };
 

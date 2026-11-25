@@ -154,10 +154,6 @@ function HeaderFooterRowBody(props: {
     const label = presetLabel(next, isHeader);
     if (next === "custom") {
       setCustomOpen(true);
-      announce(label, () => {
-        setCustomOpen(false);
-        writeHeaderSlots(store, settingKey, before);
-      });
       return;
     }
     const triple = isHeader

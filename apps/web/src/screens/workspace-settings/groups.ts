@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { ApiKeysGroup } from "./api-keys-group.tsx";
 import { NotificationsGroup } from "./notifications-group.tsx";
 import { PeopleGroup } from "./people-group.tsx";
+import type { WorkspaceApi } from "./workspace-api.ts";
 
 export const WORKSPACE_SETTINGS_GROUPS = [
   "people",
@@ -17,6 +18,7 @@ export interface WorkspaceSettingsGroupProps {
   workspaceId: string;
   canChange: boolean;
   online: boolean;
+  api?: WorkspaceApi;
 }
 
 export const GROUP_COMPONENTS: Readonly<

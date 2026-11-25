@@ -191,6 +191,7 @@ export function useSeriesData(
 
   useEffect(() => {
     let shown = true;
+    setServerAccess(null);
     const person = readPerson(tabStorage);
     const token = person?.userId === userId ? person.token : null;
     const docId = indexDocId("project", projectId);
@@ -373,13 +374,18 @@ export function useSeriesData(
     return [{ userId, name: fullNameOf(userId) }];
   }, [people, userId]);
 
+  const tabPerson = readPerson(tabStorage);
+  const signedIn = tabPerson?.userId === userId && tabPerson.token !== null;
+  const effectiveAccess =
+    online() && signedIn ? (serverAccess ?? false) : (serverAccess ?? true);
+
   return {
     index,
     workspaceId,
     seasons,
     episodes,
     targetPages,
-    canEdit: indexWritable && (serverAccess ?? true),
+    canEdit: indexWritable && effectiveAccess,
     people: resolvedPeople,
     lastEditedByDoc,
     placeByDoc,

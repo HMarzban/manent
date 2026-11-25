@@ -94,6 +94,7 @@ function checkIcon(active: boolean): ReactNode {
 function ProjectMenuItems(props: { readonly id: string }): ReactNode {
   const services = useServices();
   const { now } = useEnvironment();
+  const inPrivateView = useLibraryAddress().view === "private";
   const workspaceId = useResolvedWorkspaceId();
   const moveState = useCommandState("library.moveToFolder");
   const foldersSource = useMemo(
@@ -149,33 +150,35 @@ function ProjectMenuItems(props: { readonly id: string }): ReactNode {
   return createElement(
     Fragment,
     null,
-    createElement(
-      DropdownMenuSub,
-      null,
-      createElement(
-        DropdownMenuSubTrigger,
-        { disabled: !moveState.enabled },
-        LIBRARY_FILES_WORDS.moveToFolder,
-      ),
-      createElement(
-        DropdownMenuSubContent,
-        null,
-        createElement(
-          DropdownMenuItem,
-          { onClick: () => moveTo(null) },
-          LIBRARY_FILES_WORDS.noFolder,
-          checkIcon(currentFolderId === null),
-        ),
-        ...sortedPaths.map(({ id, label }) =>
+    inPrivateView
+      ? null
+      : createElement(
+          DropdownMenuSub,
+          null,
           createElement(
-            DropdownMenuItem,
-            { key: id, onClick: () => moveTo(id) },
-            label,
-            checkIcon(currentFolderId === id),
+            DropdownMenuSubTrigger,
+            { disabled: !moveState.enabled },
+            LIBRARY_FILES_WORDS.moveToFolder,
+          ),
+          createElement(
+            DropdownMenuSubContent,
+            null,
+            createElement(
+              DropdownMenuItem,
+              { onClick: () => moveTo(null) },
+              LIBRARY_FILES_WORDS.noFolder,
+              checkIcon(currentFolderId === null),
+            ),
+            ...sortedPaths.map(({ id, label }) =>
+              createElement(
+                DropdownMenuItem,
+                { key: id, onClick: () => moveTo(id) },
+                label,
+                checkIcon(currentFolderId === id),
+              ),
+            ),
           ),
         ),
-      ),
-    ),
     createElement(
       DropdownMenuItem,
       {

@@ -15,7 +15,7 @@ import {
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { SearchFilterMenu } from "../../search/filter-menu.tsx";
 import { offlineSearchWorkspace } from "../../search/offline-search.ts";
@@ -114,7 +114,18 @@ export function SearchResults(props: LibraryViewProps): ReactNode {
   const parsed = useMemo(() => parseClientQuery(query), [query]);
 
   const token = readPerson(environment.tabStorage)?.token ?? null;
-  const online = environment.online();
+  const [online, setOnline] = useState(() => environment.online());
+  useEffect(() => {
+    const syncOnline = (): void => setOnline(environment.online());
+    syncOnline();
+    if (typeof window === "undefined") return;
+    window.addEventListener("online", syncOnline);
+    window.addEventListener("offline", syncOnline);
+    return () => {
+      window.removeEventListener("online", syncOnline);
+      window.removeEventListener("offline", syncOnline);
+    };
+  }, [environment]);
   const workspaces = useWorkspaces(
     services.api,
     services.userId,

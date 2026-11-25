@@ -19,6 +19,7 @@ import {
   useSetting,
   useSettingsStore,
 } from "@manent/ui";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import {
@@ -147,8 +148,12 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
         />
       </div>
       {invalid ? (
-        <p role="alert" className="text-meta text-attention">
-          {LAYOUT_SETTINGS_WORDS.linesRangeError(maxLines)}
+        <p role="alert" className="flex items-start gap-1 text-meta text-fg">
+          <TriangleExclamationPointIcon
+            aria-hidden="true"
+            className="mt-0.5 size-3.5 shrink-0 text-attention"
+          />
+          <span>{LAYOUT_SETTINGS_WORDS.linesRangeError(maxLines)}</span>
         </p>
       ) : null}
       {exceedsPaper ? (

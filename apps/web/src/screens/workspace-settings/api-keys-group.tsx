@@ -7,7 +7,14 @@ import {
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   createApiKeysApi,
@@ -59,7 +66,10 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
     ReadonlyMap<string, string>
   >(() => new Map());
 
+  const activeWorkspaceRef = useRef<string | null>(workspaceId);
+
   useEffect(() => {
+    activeWorkspaceRef.current = workspaceId;
     setNameInput("");
     setCreating(false);
     setCreateRefusal(null);
@@ -67,10 +77,15 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
     setConfirmingId(null);
     setRevokingId(null);
     setRevokeRefusals(new Map());
+    return () => {
+      activeWorkspaceRef.current = null;
+    };
   }, [workspaceId]);
 
   const reload = useCallback(async (): Promise<void> => {
-    const answer = await api.list(workspaceId);
+    const targetWorkspaceId = workspaceId;
+    const answer = await api.list(targetWorkspaceId);
+    if (activeWorkspaceRef.current !== targetWorkspaceId) return;
     holder.set(
       answer.ok
         ? { keys: answer.value.keys, loadError: false }
@@ -105,9 +120,11 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   const handleCreate = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (!canChange || createDisabled) return;
+    const targetWorkspaceId = workspaceId;
     setCreating(true);
     setCreateRefusal(null);
-    void api.create(workspaceId, trimmedName).then(async (answer) => {
+    void api.create(targetWorkspaceId, trimmedName).then(async (answer) => {
+      if (activeWorkspaceRef.current !== targetWorkspaceId) return;
       setCreating(false);
       if (!answer.ok) {
         setCreateRefusal(API_KEYS_WORDS.couldNotCreate);
@@ -130,9 +147,11 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   const handleConfirmRevoke = useCallback(
     (entry: ApiKeyView): void => {
       if (!canChange || !online) return;
+      const targetWorkspaceId = workspaceId;
       setRevokingId(entry.id);
       setRevokeRefusal(entry.id, null);
-      void api.revoke(workspaceId, entry.id).then(async (answer) => {
+      void api.revoke(targetWorkspaceId, entry.id).then(async (answer) => {
+        if (activeWorkspaceRef.current !== targetWorkspaceId) return;
         setRevokingId(null);
         if (!answer.ok) {
           setRevokeRefusal(entry.id, API_KEYS_WORDS.couldNotRevoke(entry.name));
@@ -203,7 +222,7 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
             {WORKSPACE_WORDS.needsConnection}
           </p>
         ) : null}
-        {loadError ? (
+        {online && loadError ? (
           <InlineRefusal
             sentence={
               keys === null

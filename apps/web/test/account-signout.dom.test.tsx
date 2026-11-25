@@ -401,3 +401,84 @@ test("ChooseScreen unfolds AI pledge in place and still routes to /join/$token a
   expect(navSpy).toHaveBeenCalledWith({ href: "/join/share-token-42" });
   navSpy.mockRestore();
 });
+
+test("sign out opens the guard prompt instead of signing out when reading waiting changes rejects, and clears stale prompts on person switch", async () => {
+  const storage = fakeTabStorage();
+  writePerson(storage, SAM);
+  const usePerson = createPersonStore(storage);
+  const environment = testEnvironment();
+  const route = createNavigation({ routeId: "/", href: "/", search: {} });
+  const failingServices: PersonServices = {
+    ...testServices({ userId: SAM.userId, environment }),
+    waitingDocuments: async () => {
+      throw new Error("indexeddb unavailable");
+    },
+  };
+  const handlers = createHandlers({
+    services: failingServices,
+    api: fakeApi(),
+    usePerson,
+    router: route.navigation,
+    dom: QUIET_DOM,
+    shellState: environment.shellState.get,
+    frame: environment.frame,
+    visitUndo: environment.visitUndo,
+    desktop: null,
+    nodeCloud: null,
+    language: environment.language,
+    now: environment.now,
+    storage: environment.storage,
+  });
+
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  const timing = { now: environment.now, schedule: environment.schedule };
+  const renderFor = (svc: PersonServices, name: string): void => {
+    root!.render(
+      <EnvironmentProvider environment={environment}>
+        <ServicesProvider services={svc}>
+          <TimingProvider timing={timing}>
+            <SettingsProvider store={svc.settings}>
+              <CommandsProvider
+                service={svc.commands}
+                resolved={svc.resolved}
+                platform="mac"
+              >
+                <PersonMenu name={name} />
+              </CommandsProvider>
+            </SettingsProvider>
+          </TimingProvider>
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    );
+  };
+
+  act(() => renderFor(failingServices, SAM.name));
+
+  await act(async () => {
+    handlers["app.signOut"]();
+    for (
+      let i = 0;
+      i < 50 && document.body.querySelector("[role='alertdialog']") === null;
+      i++
+    )
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+
+  // Kept session intact and opened protective guard prompt without an Export link
+  expect(usePerson.getState().person).toEqual(SAM);
+  expect(route.visited).toEqual([]);
+  const dialog = document.body.querySelector("[role='alertdialog']");
+  expect(dialog).not.toBeNull();
+  expect(dialog!.textContent).toContain("Sign out with 1 change waiting?");
+  expect(dialog!.textContent).not.toContain("Export a copy");
+
+  // Switching to another person's services clears the stale prompt
+  const danaServices = testServices({ userId: "dana", environment });
+  await act(async () => {
+    renderFor(danaServices, "Dana Reyes");
+    await Promise.resolve();
+  });
+  expect(document.body.querySelector("[role='alertdialog']")).toBeNull();
+});

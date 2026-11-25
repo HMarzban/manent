@@ -11,22 +11,19 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
+import { readPerson } from "../../session.ts";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { pageTitle } from "../../text.ts";
 import { isCommandId } from "../preferences/search-index.ts";
 import { GROUP_COMPONENTS, WORKSPACE_SETTINGS_GROUPS } from "./groups.ts";
 import type { WorkspaceSettingsGroup } from "./groups.ts";
-import {
-  createWorkspaceApi,
-  sessionTokenOf,
-  workspacePeopleHolder,
-} from "./workspace-api.ts";
+import { createWorkspaceApi, workspacePeopleHolder } from "./workspace-api.ts";
 
 const firstName = (name: string): string => name.split(" ")[0] ?? name;
 
@@ -127,6 +124,7 @@ export function WorkspaceSettingsScreen(props: {
   const activeGroup: WorkspaceSettingsGroup =
     WORKSPACE_SETTINGS_GROUPS.find((entry) => entry === group) ?? "people";
   const services = useServices();
+  const environment = useEnvironment();
   const navigate = useNavigate();
   const online = useWorkspaceOnline();
   const workspacesQuery = useWorkspaces(services.api, services.userId, true);
@@ -143,14 +141,27 @@ export function WorkspaceSettingsScreen(props: {
   const api = useMemo(
     () =>
       createWorkspaceApi({
-        fetch,
-        token: () => sessionTokenOf(services.userId),
+        fetch: globalThis.fetch,
+        token: () => {
+          const person = readPerson(environment.tabStorage);
+          return person?.userId === services.userId ? person.token : null;
+        },
       }),
-    [services.userId],
+    [environment.tabStorage, services.userId],
   );
 
+  const activeWorkspaceRef = useRef<string | null>(workspaceId);
+  useEffect(() => {
+    activeWorkspaceRef.current = workspaceId;
+    return () => {
+      activeWorkspaceRef.current = null;
+    };
+  }, [workspaceId]);
+
   const refreshPeople = useCallback(async (): Promise<void> => {
-    const answer = await api.people(workspaceId);
+    const targetWorkspaceId = workspaceId;
+    const answer = await api.people(targetWorkspaceId);
+    if (activeWorkspaceRef.current !== targetWorkspaceId) return;
     if (answer.ok) {
       holder.set({ people: answer.value.people, loadError: false });
     } else if (answer.code === "forbidden") {
@@ -306,6 +317,7 @@ export function WorkspaceSettingsScreen(props: {
               workspaceId={workspaceId}
               canChange={canChange}
               online={online}
+              api={api}
             />
           </div>
         </main>

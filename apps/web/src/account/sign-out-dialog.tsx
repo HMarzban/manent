@@ -6,11 +6,17 @@ import {
   TimingProvider,
   useSubscribable,
 } from "@manent/ui";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { registerSignOutHost, signOutPrompt } from "./sign-out-store.ts";
+import { useServices } from "../services/context.tsx";
+import {
+  closeSignOutPrompt,
+  registerSignOutHost,
+  signOutPrompt,
+} from "./sign-out-store.ts";
 import type { SignOutPrompt } from "./sign-out-store.ts";
 
 type ExportStatus =
@@ -88,8 +94,12 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
             </p>
           ) : null}
           {status.kind === "refused" ? (
-            <p role="alert" className="text-ui text-attention">
-              {status.text}
+            <p role="alert" className="flex items-start gap-1 text-ui text-fg">
+              <TriangleExclamationPointIcon
+                aria-hidden="true"
+                className="mt-0.5 size-3.5 shrink-0 text-attention"
+              />
+              <span>{status.text}</span>
             </p>
           ) : null}
         </div>
@@ -98,11 +108,17 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
   );
 }
 
-/** Renders the sign-out guard dialog when active; mounted inside PersonMenu and AccountPane. */
+/** Renders the sign-out guard dialog when active for the current person; mounted inside PersonMenu and AccountPane. */
 export function SignOutDialogHost(): ReactNode {
+  const services = useServices();
   const active = useSubscribable(signOutPrompt);
   useEffect(() => registerSignOutHost(), []);
-  return active === null ? null : <SignOutGuardDialog active={active} />;
+  useEffect(() => {
+    const current = signOutPrompt.get();
+    if (current !== null && current.services !== services) closeSignOutPrompt();
+  }, [services]);
+  if (active === null || active.services !== services) return null;
+  return <SignOutGuardDialog active={active} />;
 }
 
 let fallbackRoot: Root | null = null;
