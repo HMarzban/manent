@@ -55,6 +55,8 @@ export interface SceneExtras {
   marks(blockId: string): readonly SceneMark[];
   /** The text a source gives in place of the scene's length, else its length in pages; null when it has neither. */
   length(row: OutlineRow): string | null;
+  /** Tooltip explaining the length readout in pages; null for timed durations or when absent. */
+  lengthTitle?(row: OutlineRow): string | null;
 }
 
 /** What a scene's row or card draws of it beside its heading, and the menu it opens. */
@@ -64,7 +66,7 @@ export interface SceneParts {
   items: readonly SceneRowItem[];
 }
 
-export function useSceneExtras(docId: string): SceneExtras {
+export function useSceneExtras(docId: string, format?: string): SceneExtras {
   const marks = useSources(SCENE_MARK_SOURCES, docId);
   const lengths = useSources(SCENE_LENGTH_SOURCES, docId);
   return useMemo(
@@ -78,35 +80,77 @@ export function useSceneExtras(docId: string): SceneExtras {
           const text = source.get(row.blockId);
           if (text !== undefined) return text;
         }
-        return row.eighths === null ? null : SCENES_WORDS.length(row.eighths);
+        if (row.eighths === null) return null;
+        return format === "manuscript"
+          ? SCENES_WORDS.chapterPages(row.eighths)
+          : SCENES_WORDS.length(row.eighths);
+      },
+      lengthTitle(row) {
+        for (const source of lengths) {
+          if (source.get(row.blockId) !== undefined) return null;
+        }
+        return row.eighths === null
+          ? null
+          : SCENES_WORDS.lengthPages(row.eighths);
       },
     }),
-    [marks, lengths],
+    [marks, lengths, format],
   );
 }
 
 type PersonMark = Extract<SceneMark, { kind: "person" }>;
-type TitleMark = Exclude<SceneMark, { kind: "revised" | "person" }>;
+type MetaMark = Exclude<SceneMark, { kind: "revised" | "person" }>;
 
 export const isPersonMark = (mark: SceneMark): mark is PersonMark =>
   mark.kind === "person";
 
-const isTitleMark = (mark: SceneMark): mark is TitleMark =>
+export const isMetaMark = (mark: SceneMark): mark is MetaMark =>
   mark.kind !== "revised" && mark.kind !== "person";
 
-/** A mark drawn after the heading. */
-function Mark(props: { mark: TitleMark }): ReactNode {
+/** A quiet tag drawn in the row's meta line or beneath a card's heading. */
+function Mark(props: { mark: MetaMark }): ReactNode {
   const { mark } = props;
   switch (mark.kind) {
     case "count":
       return (
-        <span className="text-meta text-fg-muted tabular-nums">
+        <span className="mn-tag shrink-0 tabular-nums">
           {mark.count} {mark.label}
         </span>
       );
     case "text":
-      return <span className="text-meta text-fg-muted">{mark.label}</span>;
+      return <span className="mn-tag shrink-0">{mark.label}</span>;
   }
+}
+
+/** Assignment and open-comment tags for a scene, rendered outside the truncated heading line. */
+export function SceneMetaMarks(props: {
+  marks: readonly SceneMark[];
+}): ReactNode {
+  const meta = props.marks.filter(isMetaMark);
+  if (meta.length === 0) return null;
+  return (
+    <>
+      {meta.map((mark, index) => (
+        <Mark key={index} mark={mark} />
+      ))}
+    </>
+  );
+}
+
+/** The second line of a scene row: assignment and comment tags beside any synopsis; undefined when both are absent. */
+export function sceneRowMeta(
+  marks: readonly SceneMark[],
+  synopsis: string,
+): ReactNode | undefined {
+  if (!marks.some(isMetaMark)) return synopsis === "" ? undefined : synopsis;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <SceneMetaMarks marks={marks} />
+      {synopsis === "" ? null : (
+        <span className="min-w-0 truncate">{synopsis}</span>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -140,28 +184,17 @@ export function ScenePeople(props: { marks: readonly SceneMark[] }): ReactNode {
   );
 }
 
-/** A scene's heading, read as revised when it is marked so, then its marks other than the people in it. */
+/** A scene's heading, read as revised when it is marked so. */
 export function SceneTitle(props: {
   heading: string;
   marks: readonly SceneMark[];
 }): ReactNode {
   const { heading, marks } = props;
-  const after = marks
-    .filter(isTitleMark)
-    .map((mark, index) => <Mark key={index} mark={mark} />);
+  if (!marks.some((mark) => mark.kind === "revised")) return heading;
   return (
     <>
-      {marks.some((mark) => mark.kind === "revised") ? (
-        <>
-          <span aria-hidden="true">{heading}</span>
-          <span className="sr-only">{DOCUMENT_WORDS.revisedName(heading)}</span>
-        </>
-      ) : (
-        heading
-      )}
-      {after.length === 0 ? null : (
-        <span className="ms-2 inline-flex gap-1 align-middle">{after}</span>
-      )}
+      <span aria-hidden="true">{heading}</span>
+      <span className="sr-only">{DOCUMENT_WORDS.revisedName(heading)}</span>
     </>
   );
 }

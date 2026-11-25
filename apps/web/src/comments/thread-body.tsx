@@ -6,11 +6,9 @@ import {
   COMMENTS_WORDS,
   DIALOG_WORDS,
   Input,
-  SHARING_WORDS,
   Segmented,
 } from "@manent/ui";
 import type { Choice } from "@manent/settings";
-import { XIcon } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
@@ -107,33 +105,40 @@ export function ThreadBody(props: {
     onClose();
   };
 
+  const resolveButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        if (inRoundOutcome) setResolving(true);
+        else confirmResolve();
+      }}
+    >
+      {COMMENTS_WORDS.resolve}
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Avatar
-            name={authorFull}
-            initials={initialsOf(authorFull)}
-            colour={null}
-            size="sm"
-            decorative
-          />
-          <span className="truncate text-meta text-fg-muted">
-            {COMMENTS_WORDS.threadHeader(
-              authorFull,
+    <div className="flex flex-col gap-3 p-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <Avatar
+          name={authorFull}
+          initials={initialsOf(authorFull)}
+          colour={null}
+          size="md"
+          decorative
+        />
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-ui font-semibold text-fg">
+            {authorFull}
+          </span>
+          <span className="truncate text-meta text-fg-muted tabular-nums">
+            {COMMENTS_WORDS.metaLine(
               dayTimeLabel(thread.createdAt, currentNow),
               place,
             )}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={SHARING_WORDS.close}
-          onClick={onClose}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
       </div>
       {flagText === null ? null : (
         <div>
@@ -144,7 +149,7 @@ export function ThreadBody(props: {
         <p className="text-meta text-fg-muted">{COMMENTS_WORDS.textRemoved}</p>
       ) : null}
       {thread.anchor !== null && thread.anchor.quote !== "" ? (
-        <blockquote className="border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-comment-quote line-clamp-2 pl-2 text-meta text-fg-muted">
           {thread.anchor.quote}
         </blockquote>
       ) : null}
@@ -157,24 +162,36 @@ export function ThreadBody(props: {
       )}
       {replies.length === 0 ? null : (
         <ul className="flex flex-col gap-2 border-t border-line pt-2">
-          {replies.map((reply) => (
-            <li
-              key={reply.createdAt + reply.authorUserId}
-              className="flex flex-col gap-1"
-            >
-              <span className="text-meta text-fg-muted">
-                {COMMENTS_WORDS.authorMeta(
-                  fullNameFor(reply.authorUserId, state.people),
-                  dayTimeLabel(reply.createdAt, currentNow),
-                )}
-              </span>
-              <BodyText
-                body={reply.body}
-                mentionedUserIds={reply.mentionedUserIds}
-                people={state.people}
-              />
-            </li>
-          ))}
+          {replies.map((reply) => {
+            const replyAuthor = fullNameFor(reply.authorUserId, state.people);
+            return (
+              <li
+                key={reply.createdAt + reply.authorUserId}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Avatar
+                    name={replyAuthor}
+                    initials={initialsOf(replyAuthor)}
+                    colour={null}
+                    size="sm"
+                    decorative
+                  />
+                  <span className="truncate text-meta font-medium text-fg">
+                    {replyAuthor}
+                  </span>
+                  <span className="shrink-0 text-meta text-fg-muted tabular-nums">
+                    {dayTimeLabel(reply.createdAt, currentNow)}
+                  </span>
+                </div>
+                <BodyText
+                  body={reply.body}
+                  mentionedUserIds={reply.mentionedUserIds}
+                  people={state.people}
+                />
+              </li>
+            );
+          })}
         </ul>
       )}
       {thread.state.kind === "resolved" ? (
@@ -207,6 +224,7 @@ export function ThreadBody(props: {
             mentions
             people={state.people}
             peopleState={state.peopleState}
+            leadingAction={resolving ? undefined : resolveButton}
             onLoadPeople={() =>
               void commentsActions.loadPeople(docId, services.userId)
             }
@@ -255,20 +273,7 @@ export function ThreadBody(props: {
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="flex justify-start">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (inRoundOutcome) setResolving(true);
-                  else confirmResolve();
-                }}
-              >
-                {COMMENTS_WORDS.resolve}
-              </Button>
-            </div>
-          )}
+          ) : null}
         </div>
       ) : null}
     </div>

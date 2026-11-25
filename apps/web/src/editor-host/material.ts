@@ -61,6 +61,16 @@ const hosts = new Map<EditorView, MaterialHost>();
 
 const noop = (): void => {};
 
+const refuseCuttingWholeScript = (host: MaterialHost): void => {
+  host.messages.push({
+    id: "cuts_refused",
+    text: MATERIAL_WORDS.cannotCutOnly,
+    actions: [],
+    lifetime: "brief",
+    ownWork: true,
+  });
+};
+
 /** Opens the alternates popover under the speech the caret of `docId`'s page is in; false when it is in none. */
 export function showAlternatesIn(docId: string, focus: Focus): boolean {
   const editor = liveEditor(docId);
@@ -69,12 +79,28 @@ export function showAlternatesIn(docId: string, focus: Focus): boolean {
   );
 }
 
+/** True when cutting `blockIds` would delete every block in `doc`, which would violate ProseMirror's `section+` schema. */
+export function wouldEmptyScript(
+  doc: Parameters<typeof scriptBody>[0],
+  blockIds: readonly string[],
+): boolean {
+  const total = (scriptBody(doc).materialize().content ?? []).reduce(
+    (sum, section) => sum + (section.content?.length ?? 0),
+    0,
+  );
+  return total > 0 && new Set(blockIds).size >= total;
+}
+
 /** Moves every element covered by the selection of `docId`'s open page to cuts in one transaction. */
 export function moveSelectionToCutsIn(docId: string): boolean {
   const editor = liveEditor(docId);
   const host = editor === null ? undefined : hosts.get(editor.view);
   if (editor === null || !editor.editable || host === undefined) return false;
   return moveSelectionToCuts(editor.view, (blockIds) => {
+    if (wouldEmptyScript(editor.doc, blockIds)) {
+      refuseCuttingWholeScript(host);
+      return false;
+    }
     const moved = moveToCuts(editor.doc, {
       blockIds,
       authorUserId: host.userId,
@@ -107,9 +133,9 @@ export function moveSceneToCutsIn(
   );
   const start = blocks.findIndex((block) => block.attrs?.id === headingId);
   if (start === -1) return false;
+  const headingType = String(blocks[start]?.attrs?.type);
   const locked = productionContextActions.get(docId)?.locked === true;
-  if (locked && NUMBERED_HEADINGS.has(String(blocks[start]?.attrs?.type)))
-    return false;
+  if (locked && NUMBERED_HEADINGS.has(headingType)) return false;
   const next = blocks.findIndex(
     (block, index) =>
       index > start && SCENE_ENDS.has(String(block.attrs?.type)),
@@ -121,6 +147,10 @@ export function moveSceneToCutsIn(
       typeof block.attrs?.id === "string" ? [block.attrs.id] : [],
     );
   if (blockIds.length === 0) return false;
+  if (new Set(blockIds).size >= blocks.length) {
+    refuseCuttingWholeScript(host);
+    return false;
+  }
   const moved = moveToCuts(editor.doc, {
     blockIds,
     authorUserId: host.userId,
@@ -133,7 +163,9 @@ export function moveSceneToCutsIn(
     text:
       sceneNumber !== null
         ? MATERIAL_WORDS.movedSceneToCuts(sceneNumber)
-        : MATERIAL_WORDS.movedToCuts(blockIds.length),
+        : headingType === "chapter"
+          ? MATERIAL_WORDS.movedChapterToCuts
+          : MATERIAL_WORDS.movedToCuts(blockIds.length),
     actions: [UNDO],
     lifetime: "reverse",
     ownWork: false,

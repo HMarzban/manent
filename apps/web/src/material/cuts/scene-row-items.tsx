@@ -1,6 +1,7 @@
 // A scene's row menu entry for Move to cuts: hidden for non-editors and on numbered scenes in a locked script.
 import { scriptBody } from "@manent/crdt";
 import { DropdownMenuItem, MATERIAL_WORDS } from "@manent/ui";
+import { ScissorsIcon } from "lucide-react";
 import { useCallback, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { liveEditor } from "../../editor-host/live-editor.ts";
@@ -59,6 +60,7 @@ export function CutSceneItem(props: {
   if (!canEdit || (locked && numbered)) return null;
   return (
     <DropdownMenuItem
+      className="text-ui"
       onClick={() =>
         void import("../../editor-host/material.ts").then(
           ({ moveSceneToCutsIn }) =>
@@ -66,6 +68,7 @@ export function CutSceneItem(props: {
         )
       }
     >
+      <ScissorsIcon aria-hidden="true" className="size-icon text-fg-muted" />
       {MATERIAL_WORDS.moveToCuts}
     </DropdownMenuItem>
   );

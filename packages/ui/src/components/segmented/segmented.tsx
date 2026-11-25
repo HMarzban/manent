@@ -4,12 +4,16 @@ import { cn } from "cn";
 import type { KeyboardEvent, ReactNode } from "react";
 import { ToggleGroup, ToggleGroupItem } from "../stock/toggle-group.tsx";
 
+interface SegmentedOption extends Choice<string> {
+  icon?: ReactNode;
+}
+
 interface SegmentedProps {
   label: string;
   /** "sm" is 24 high, for the demo bar; otherwise 28. */
   size?: "default" | "sm";
   value: string;
-  options: readonly Choice<string>[];
+  options: readonly SegmentedOption[];
   disabled?: boolean;
   onChange(value: string): void;
 }
@@ -75,10 +79,11 @@ export function Segmented({
           value={option.value}
           className={cn(
             // pressed: the selected fill and the full-strength word, never hover's fill
-            "text-ui text-fg-muted aria-pressed:bg-selected aria-pressed:text-fg",
+            "gap-1.5 text-ui text-fg-muted aria-pressed:bg-selected aria-pressed:text-fg",
             size === "sm" ? "h-control-sm" : "h-control",
           )}
         >
+          {option.icon}
           {option.label}
         </ToggleGroupItem>
       ))}

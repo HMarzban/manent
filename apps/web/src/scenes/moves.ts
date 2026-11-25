@@ -13,6 +13,7 @@ import {
 } from "@manent/ui";
 import type { Message, MessageQueue, SortableListHandle } from "@manent/ui";
 import {
+  createContext,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -74,9 +75,20 @@ function landingAfter(
   from: number,
   to: number,
 ): string | null {
+  const blocks = scriptBlocks(doc);
   const others = rows.filter((_row, index) => index !== from);
+  if (from > to) {
+    const after = others[to];
+    if (after === undefined) return null;
+    const afterIdx = blocks.findIndex(
+      (block) => block.attrs?.id === after.blockId,
+    );
+    if (afterIdx <= 0) return null;
+    const prevId = blocks[afterIdx - 1]?.attrs?.id;
+    return typeof prevId === "string" ? prevId : null;
+  }
   const before = others[to - 1];
-  return before === undefined ? null : lastBlockOf(scriptBlocks(doc), before);
+  return before === undefined ? null : lastBlockOf(blocks, before);
 }
 
 const movedMessage = (text: string): Message => ({
@@ -148,6 +160,7 @@ export function moveSceneTo(options: {
   messages: MessageQueue;
 }): void {
   const { docId, rows, from, to, messages } = options;
+  if (from === to) return;
   const row = rows[from];
   const editor = liveEditor(docId);
   if (row?.kind !== "scene" || editor === null || !editor.editable) return;
@@ -178,18 +191,21 @@ export function rowLabel(row: OutlineRow): string {
     row.number === null
       ? row.heading
       : PLACE_WORDS.scene(row.number, row.heading);
-  // a scene of one page has no name of its own yet: it is called by its place only
-  return row.eighths === null || row.eighths === EIGHTHS_PER_PAGE
-    ? place
+  if (row.eighths === null) return place;
+  return row.eighths === EIGHTHS_PER_PAGE
+    ? SCENE_MOVE_WORDS.namedOnePage(place)
     : SCENE_MOVE_WORDS.named(place, SCENES_WORDS.length(row.eighths));
 }
 
-/** The shown list of scenes, as the move commands and the row menu's Move reach it. */
+/** The rows currently shown by the active movable scenes list or card grid, for the Move row menu. */
+export const SceneRowsContext = createContext<readonly OutlineRow[] | null>(
+  null,
+);
+
+/** The shown list of scenes, as the move commands reach it. */
 interface SceneMover {
   /** Moves the focused scene by `by` places; false when no scene of the list is focused. */
   move(by: number): boolean;
-  /** Picks up the scene whose heading is `headingId` for a move by the arrow keys. */
-  start(headingId: string): void;
 }
 
 let shown: SceneMover | null = null;
@@ -197,10 +213,6 @@ let shown: SceneMover | null = null;
 /** False when no list of scenes is shown, or none of its scenes is focused. */
 export function moveFocusedScene(by: number): boolean {
   return shown?.move(by) ?? false;
-}
-
-export function startSceneMove(headingId: string): void {
-  shown?.start(headingId);
 }
 
 const MOVE_COMMANDS: readonly string[] = Object.freeze([
@@ -282,24 +294,6 @@ export function useSceneMoves(options: {
         if (current[index]?.kind !== "scene") return false;
         list.current?.move(index, by);
         return true;
-      },
-      start(headingId) {
-        const item = [
-          ...(area.current?.querySelectorAll("[data-sortable-id]") ?? []),
-        ].find((node) => node.getAttribute("data-sortable-id") === headingId);
-        const handle = item === undefined ? null : handleIn(item);
-        if (handle === null) return;
-        // after the menu has closed and given focus back to its handle
-        setTimeout(() => {
-          handle.focus();
-          handle.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: " ",
-              code: "Space",
-              bubbles: true,
-            }),
-          );
-        }, 0);
       },
     };
     shown = mover;

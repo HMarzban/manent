@@ -1,5 +1,6 @@
 // Thread and writer-note rows rendered inside the Comments tab list.
 import { Avatar, COMMENTS_WORDS } from "@manent/ui";
+import { StickyNoteIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import {
@@ -63,7 +64,7 @@ export function ThreadRow(props: {
       onClick={onOpen}
       className={baseClass}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <Avatar
           name={authorFull}
           initials={initialsOf(authorFull)}
@@ -71,13 +72,17 @@ export function ThreadRow(props: {
           size="sm"
           decorative
         />
-        <span className="min-w-0 truncate text-meta text-fg-muted">
-          {COMMENTS_WORDS.threadHeader(
-            authorFull,
-            dayTimeLabel(thread.createdAt, now),
-            place,
-          )}
-        </span>
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-ui font-semibold text-fg">
+            {authorFull}
+          </span>
+          <span className="truncate text-meta text-fg-muted tabular-nums">
+            {COMMENTS_WORDS.metaLine(
+              dayTimeLabel(thread.createdAt, now),
+              place,
+            )}
+          </span>
+        </div>
       </div>
       {flagText === null ? null : (
         <div className="mt-2">
@@ -90,7 +95,7 @@ export function ThreadRow(props: {
         </p>
       ) : null}
       {thread.anchor !== null && thread.anchor.quote !== "" ? (
-        <blockquote className="mt-2 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-comment-quote mt-2 line-clamp-2 pl-2 text-meta text-fg-muted">
           {thread.anchor.quote}
         </blockquote>
       ) : null}
@@ -105,21 +110,36 @@ export function ThreadRow(props: {
       )}
       {replies.length === 0 ? null : (
         <ul className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
-          {replies.map((reply) => (
-            <li key={reply.createdAt + reply.authorUserId}>
-              <span className="text-meta text-fg-muted">
-                {COMMENTS_WORDS.authorMeta(
-                  fullNameFor(reply.authorUserId, state.people),
-                  dayTimeLabel(reply.createdAt, now),
-                )}
-              </span>
-              <BodyText
-                body={reply.body}
-                mentionedUserIds={reply.mentionedUserIds}
-                people={state.people}
-              />
-            </li>
-          ))}
+          {replies.map((reply) => {
+            const replyAuthor = fullNameFor(reply.authorUserId, state.people);
+            return (
+              <li
+                key={reply.createdAt + reply.authorUserId}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Avatar
+                    name={replyAuthor}
+                    initials={initialsOf(replyAuthor)}
+                    colour={null}
+                    size="sm"
+                    decorative
+                  />
+                  <span className="truncate text-meta font-medium text-fg">
+                    {replyAuthor}
+                  </span>
+                  <span className="shrink-0 text-meta text-fg-muted tabular-nums">
+                    {dayTimeLabel(reply.createdAt, now)}
+                  </span>
+                </div>
+                <BodyText
+                  body={reply.body}
+                  mentionedUserIds={reply.mentionedUserIds}
+                  people={state.people}
+                />
+              </li>
+            );
+          })}
         </ul>
       )}
     </button>
@@ -131,10 +151,14 @@ export function NoteRow(props: {
   removed: boolean;
   active: boolean;
   now: number;
+  place?: string | null;
   onOpen(): void;
 }): ReactNode {
-  const { entry, removed, active, now, onOpen } = props;
+  const { entry, removed, active, now, place = null, onOpen } = props;
   const { note } = entry;
+  const noteTime = note.at !== null ? dayTimeLabel(note.at, now) : null;
+  const noteMeta =
+    noteTime !== null ? COMMENTS_WORDS.metaLine(noteTime, place) : place;
   return (
     <button
       type="button"
@@ -146,24 +170,43 @@ export function NoteRow(props: {
           : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle active:bg-control"
       }
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        <StickyNoteIcon
+          aria-hidden="true"
+          className="size-icon shrink-0 text-fg-muted"
+        />
         <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
-        {note.writerName !== null && note.at !== null ? (
-          <span className="min-w-0 truncate text-meta text-fg-muted">
-            {COMMENTS_WORDS.authorMeta(
-              note.writerName,
-              dayTimeLabel(note.at, now),
-            )}
-          </span>
-        ) : null}
       </div>
+      {note.writerName !== null ? (
+        <div className="mt-2 flex min-w-0 items-center gap-2">
+          <Avatar
+            name={note.writerName}
+            initials={initialsOf(note.writerName)}
+            colour={null}
+            size="sm"
+            decorative
+          />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-ui font-semibold text-fg">
+              {note.writerName}
+            </span>
+            {noteMeta !== null ? (
+              <span className="truncate text-meta text-fg-muted tabular-nums">
+                {noteMeta}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : noteMeta !== null ? (
+        <p className="mt-1 text-meta text-fg-muted tabular-nums">{noteMeta}</p>
+      ) : null}
       {removed ? (
         <p className="mt-2 text-meta text-fg-muted">
           {COMMENTS_WORDS.textRemoved}
         </p>
       ) : null}
       {note.anchor !== null && note.anchor.quote !== "" ? (
-        <blockquote className="mt-2 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-note-quote mt-2 line-clamp-2 pl-2 text-meta text-fg-muted">
           {note.anchor.quote}
         </blockquote>
       ) : null}
