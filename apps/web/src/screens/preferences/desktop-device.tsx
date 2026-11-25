@@ -1,5 +1,6 @@
 // This device in the desktop app: what the node stores and the folder it keeps it in, then About with the app's version.
 import {
+  BusyButton,
   Button,
   DESKTOP_WORDS,
   PREFERENCES_WORDS,
@@ -10,8 +11,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { desktopDeviceRows } from "../../desktop/device-rows.ts";
 import type { DesktopDeviceRows } from "../../desktop/device-rows.ts";
+import { exportEverythingOnDevice } from "../../desktop/export-everything.ts";
 import type { DesktopHost } from "../../desktop/host.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import { readPerson } from "../../session.ts";
 import { About } from "./device-about.tsx";
 import { Group } from "./device-group.tsx";
 
@@ -33,11 +36,20 @@ function ActionRow(props: {
   );
 }
 
+interface ExportState {
+  readonly picking: boolean;
+  readonly count: number | null;
+}
+
+const IDLE_EXPORT: ExportState = { picking: false, count: null };
+
 export interface DesktopDevice {
   rows: DesktopDeviceRows;
   loadingUsage: boolean;
+  exportState: ExportState;
   showLibrary(): void;
   showFolder(): void;
+  exportEverything(): void;
   checkForUpdates(): void;
 }
 
@@ -46,17 +58,22 @@ export interface DesktopDevice {
  * window's last word on updates, each outcome said politely as it comes.
  */
 function useDesktopDevice(host: DesktopHost): DesktopDevice {
-  const { dom, updateState } = useEnvironment();
-  const { commands } = useServices();
+  const { dom, now, tabStorage, updateState } = useEnvironment();
+  const services = useServices();
+  const { commands, messages } = services;
   const [usage, setUsage] = useState<
     { scripts: number; bytes: number } | null | undefined
   >(undefined);
+  const [exportState, setExportState] = useState<ExportState>(IDLE_EXPORT);
   const mounted = useRef(true);
   const requestId = useRef(0);
+  const exportAbort = useRef<AbortController | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      exportAbort.current?.abort();
+      exportAbort.current = null;
     };
   }, []);
   const readUsage = useCallback(() => {
@@ -74,6 +91,46 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
     setUsage(undefined);
     readUsage();
   }, [readUsage]);
+  const exportEverything = useCallback(() => {
+    if (exportAbort.current !== null) return;
+    const controller = new AbortController();
+    exportAbort.current = controller;
+    setExportState({ picking: true, count: null });
+    void exportEverythingOnDevice({
+      host,
+      services,
+      token: readPerson(tabStorage)?.token ?? null,
+      now,
+      signal: controller.signal,
+      onCount(count) {
+        if (mounted.current && exportAbort.current === controller)
+          setExportState({ picking: true, count });
+      },
+    }).then((outcome) => {
+      if (exportAbort.current === controller) exportAbort.current = null;
+      if (mounted.current) setExportState(IDLE_EXPORT);
+      if (outcome.kind === "exported") {
+        messages.push({
+          id: "export_everything",
+          text: PREFERENCES_WORDS.exportedProjects(
+            outcome.count,
+            outcome.folder,
+          ),
+          actions: [],
+          lifetime: "brief",
+          ownWork: false,
+        });
+      } else if (outcome.kind === "refused") {
+        messages.push({
+          id: "export_everything_refused",
+          text: PREFERENCES_WORDS.exportEverythingRefused,
+          actions: [],
+          lifetime: "brief",
+          ownWork: false,
+        });
+      }
+    });
+  }, [host, messages, now, services, tabStorage]);
   const update = useSubscribable(updateState);
   const rows = desktopDeviceRows({ host, usage: usage ?? null, update });
   const { line } = rows.update;
@@ -86,11 +143,13 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
   return {
     rows,
     loadingUsage: usage === undefined,
+    exportState,
     showLibrary: () => void commands.run("app.library", "control"),
     showFolder() {
       host.send({ v: 1, t: "show_folder" });
       readUsage();
     },
+    exportEverything,
     checkForUpdates() {
       updateState.set("checking");
       host.send({ v: 1, t: "check_for_updates" });
@@ -120,7 +179,14 @@ function StoredRowsSkeleton(): ReactNode {
 
 /** What the node stores, and the folder it keeps it in; placeholder rows until the node answers. */
 function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
-  const { rows, loadingUsage, showLibrary, showFolder } = props.device;
+  const {
+    rows,
+    loadingUsage,
+    exportState,
+    showLibrary,
+    showFolder,
+    exportEverything,
+  } = props.device;
   return (
     <Group heading={PREFERENCES_WORDS.storedHere}>
       {rows.stored === null ? (
@@ -141,6 +207,20 @@ function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
             action={PREFERENCES_WORDS.showFolder}
             onAction={showFolder}
           />
+          <div className="flex min-h-row items-center">
+            <BusyButton
+              variant="outline"
+              size="sm"
+              label={PREFERENCES_WORDS.exportEverything}
+              busyLabel={
+                exportState.count === null
+                  ? null
+                  : PREFERENCES_WORDS.exportingProjects(exportState.count)
+              }
+              disabled={exportState.picking}
+              onClick={exportEverything}
+            />
+          </div>
         </>
       )}
     </Group>

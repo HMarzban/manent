@@ -1,9 +1,15 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
+import { soloLeader } from "@manent/sync-client";
+import {
+  createMemoryNetwork,
+  createMemoryStore,
+} from "@manent/sync-client/testing";
 import { SettingsProvider, TimingProvider, createValue } from "@manent/ui";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
+import type { Api } from "../src/api.ts";
 import { desktopDeviceRows } from "../src/desktop/device-rows.ts";
 import type { DesktopHost } from "../src/desktop/host.ts";
 import { answerShell } from "../src/desktop/shell-channel.ts";
@@ -13,13 +19,20 @@ import {
   ServicesProvider,
 } from "../src/services/context.tsx";
 import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
-import type { ShellState } from "../src/services/ports.ts";
+import type { PersonServices, ShellState } from "../src/services/ports.ts";
+import { createPersonSync } from "../src/services/sync/create-sync.ts";
+import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
+import { writePerson } from "../src/session.ts";
 import { DATA_DIR, fakeHost } from "./desktop.fixtures.ts";
 import type { FakeHost } from "./desktop.fixtures.ts";
 import {
+  MemoryStorage,
   QUIET_DOM,
+  V1,
   createClock,
   createNavigation,
+  fakeApi,
+  fixedRandom,
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
@@ -27,9 +40,11 @@ import {
 withDom();
 
 const noop = (): void => {};
+const realFetch = globalThis.fetch;
 let mounted: Root | null = null;
 let stopAnswering = noop;
 afterEach(() => {
+  globalThis.fetch = realFetch;
   act(() => mounted?.unmount());
   mounted = null;
   stopAnswering();
@@ -44,8 +59,12 @@ afterEach(() => {
 async function devicePane(options: {
   host: FakeHost | null;
   announced?: string[];
+  nowStart?: number;
+  token?: string;
+  api?: Api;
 }): Promise<{
   container: HTMLElement;
+  services: PersonServices;
   visited: string[];
   advance(ms: number): void;
   close(): void;
@@ -58,8 +77,18 @@ async function devicePane(options: {
     addEventListener: noop,
     removeEventListener: noop,
   }));
-  const clock = createClock(0);
+  const clock = createClock(options.nowStart ?? 0);
   const { host } = options;
+  const tabStorage = options.token === undefined ? null : new MemoryStorage();
+  if (tabStorage !== null && options.token !== undefined)
+    writePerson(tabStorage, {
+      token: options.token,
+      userId: "sam",
+      name: "Sam Okafor",
+    });
+  const storage = new MemoryStorage();
+  let draw = 0;
+  const baseRandom = fixedRandom();
   const environment = testEnvironment({
     where: {
       platform: "mac",
@@ -68,6 +97,8 @@ async function devicePane(options: {
       system: "macOS",
     },
     desktop: host,
+    storage,
+    tabStorage,
     now: clock.now,
     schedule: clock.schedule,
     dom: { ...QUIET_DOM, announce: (text) => options.announced?.push(text) },
@@ -75,6 +106,32 @@ async function devicePane(options: {
       ...INITIAL_SHELL_STATE,
       screen: "preferences",
     }),
+    startSync: (person, deviceId) =>
+      createPersonSync({
+        person,
+        baseUrl: "http://manent.test",
+        deviceId,
+        build: "test",
+        versions: V1,
+        minServer: V1,
+        ports: {
+          transport: createMemoryNetwork({ random: () => 0 }).transport(
+            person.userId,
+          ),
+          store: createMemoryStore(person.userId),
+          leader: soloLeader(deviceId),
+          clock: { now: clock.now, schedule: clock.schedule },
+          random: {
+            ...baseRandom,
+            bytes: (length) => new Uint8Array(length).fill(++draw),
+          },
+          frames: { request: (fn) => clock.schedule(fn, 16) },
+        },
+        memory: createDeviceMemory({ local: storage, session: null }),
+        onlineEvents: null,
+        visible: () => true,
+        now: clock.now,
+      }),
   });
   const route = createNavigation({
     routeId: "/preferences/$pane",
@@ -91,6 +148,7 @@ async function devicePane(options: {
     userId: "sam",
     environment,
     router: route.navigation,
+    ...(options.api === undefined ? {} : { api: options.api }),
   });
   const container = document.createElement("div");
   document.body.append(container);
@@ -113,6 +171,7 @@ async function devicePane(options: {
   await open();
   return {
     container,
+    services,
     visited: route.visited,
     advance: (ms) => act(() => clock.advance(ms)),
     close() {
@@ -190,7 +249,7 @@ test("This device on desktop says what is stored and where, and which version ru
       "Export everything on this device…",
       "Kept in this browser. It may clear Manent's data.",
     ].map((text) => texts(container, text).length),
-  ).toEqual([0, 0]);
+  ).toEqual([1, 0]);
 });
 
 test("Show in Library goes to the Library, and Show folder asks the shell and reads the storage again", async () => {
@@ -329,4 +388,181 @@ test("the rows follow what the node stores and each answer of the update check",
     { busy: false, line: "Manent is up to date." },
     { busy: false, line: "Couldn't check for updates. Try again later." },
   ]);
+});
+
+test("Export everything on this device stays silent when the person cancels the folder picker", async () => {
+  const host = desktopHost({
+    storage: async () => ({ scripts: 2, bytes: 1_000_000 }),
+  });
+  let exportPosts = 0;
+  globalThis.fetch = Object.assign(
+    async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/api/local/export-file")) exportPosts += 1;
+      return new Response(null, { status: 204 });
+    },
+    { preconnect: () => {} },
+  );
+  const { container, services } = await devicePane({ host });
+  await act(async () => {});
+  act(() => button(container, "Export everything on this device…").click());
+  expect(host.sent).toEqual([{ v: 1, t: "choose_directory" }]);
+  await act(async () => {
+    host.emit({ v: 1, t: "directory_chosen", path: null });
+    await Promise.resolve();
+  });
+  expect([
+    exportPosts,
+    services.messages.current(),
+    button(container, "Export everything on this device…").getAttribute(
+      "aria-disabled",
+    ),
+  ]).toEqual([0, null, "false"]);
+});
+
+test("Export everything on this device posts each project archive sequentially and reports the folder", async () => {
+  const host = desktopHost({
+    storage: async () => ({ scripts: 2, bytes: 2_000_000 }),
+  });
+  const nov17 = new Date(2026, 10, 17, 12, 0, 0).getTime();
+  const api = fakeApi({
+    me: async () => ({
+      ok: true,
+      me: {
+        userId: "sam",
+        name: "Sam Okafor",
+        workspaces: [
+          { id: "studio", name: "Lanternfield", role: "owner", seeding: null },
+        ],
+      },
+    }),
+  });
+  const { container, services } = await devicePane({
+    host,
+    nowStart: nov17,
+    token: "tok-export",
+    api,
+  });
+  await services.ready;
+  await services.library.createProject("studio", "film");
+  await services.library.createProject("sam", "film");
+  await act(async () => {});
+
+  const requests: {
+    url: string;
+    auth: string | null;
+    body: { folder: string; subfolder: string; name: string; bytes: string };
+  }[] = [];
+  let releaseFirst: (() => void) | null = null;
+  const firstArrived = Promise.withResolvers<void>();
+  globalThis.fetch = Object.assign(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (!url.endsWith("/api/local/export-file"))
+        return new Response(null, { status: 404 });
+      const headers = new Headers(init?.headers);
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        folder: string;
+        subfolder: string;
+        name: string;
+        bytes: string;
+      };
+      requests.push({ url, auth: headers.get("authorization"), body });
+      if (requests.length === 1) {
+        firstArrived.resolve();
+        await new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+      }
+      return new Response(null, { status: 204 });
+    },
+    { preconnect: () => {} },
+  );
+
+  act(() => button(container, "Export everything on this device…").click());
+  await act(async () => {
+    host.emit({ v: 1, t: "directory_chosen", path: "/Users/sam/Exports" });
+    await firstArrived.promise;
+  });
+
+  const busy = button(container, "Exporting 2 projects…");
+  expect(busy.getAttribute("aria-disabled")).toBe("true");
+  expect(requests.length).toBe(1);
+
+  await act(async () => {
+    releaseFirst?.();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+
+  expect(requests.length).toBe(2);
+  expect(requests.map((entry) => [entry.url, entry.auth])).toEqual([
+    ["/api/local/export-file", "Bearer tok-export"],
+    ["/api/local/export-file", "Bearer tok-export"],
+  ]);
+  expect(
+    requests.map((entry) => [
+      entry.body.folder,
+      entry.body.subfolder,
+      entry.body.name,
+    ]),
+  ).toEqual([
+    ["/Users/sam/Exports", "Manent export 17 Nov 2026", "Untitled film.zip"],
+    [
+      "/Users/sam/Exports",
+      "Manent export 17 Nov 2026",
+      "Untitled film (2).zip",
+    ],
+  ]);
+  for (const entry of requests) {
+    const zipBytes = Uint8Array.fromBase64(entry.body.bytes);
+    expect(zipBytes.slice(0, 4)).toEqual(
+      new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
+    );
+  }
+  expect(services.messages.current()?.text).toBe(
+    "Exported 2 projects to 'Manent export 17 Nov 2026'.",
+  );
+  expect(
+    button(container, "Export everything on this device…").getAttribute(
+      "aria-disabled",
+    ),
+  ).toBe("false");
+});
+
+test("Export everything on this device reports refusal when writing fails", async () => {
+  const host = desktopHost({
+    storage: async () => ({ scripts: 1, bytes: 1_000_000 }),
+  });
+  const { container, services } = await devicePane({
+    host,
+    token: "tok-export",
+  });
+  await services.ready;
+  await services.library.createProject("sam", "film");
+  await act(async () => {});
+
+  globalThis.fetch = Object.assign(
+    async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (!url.endsWith("/api/local/export-file"))
+        return new Response(null, { status: 404 });
+      return Response.json({ error: "unreachable" }, { status: 500 });
+    },
+    { preconnect: () => {} },
+  );
+
+  act(() => button(container, "Export everything on this device…").click());
+  await act(async () => {
+    host.emit({ v: 1, t: "directory_chosen", path: "/Users/sam/Exports" });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+
+  expect(services.messages.current()?.text).toBe(
+    "Couldn't export everything. Try again.",
+  );
+  expect(
+    button(container, "Export everything on this device…").getAttribute(
+      "aria-disabled",
+    ),
+  ).toBe("false");
 });
