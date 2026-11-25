@@ -161,10 +161,34 @@ test("a group with no scenario listed is not drawn", async () => {
   const listed = TOUR.groups.filter((group) =>
     TOUR.scenarios.some((s) => s.group === group && isShown(s)),
   );
-  expect(listed.length).toBeLessThan(TOUR.groups.length);
   expect(
     [...container.querySelectorAll("h2")].map((h) => h.textContent),
   ).toEqual(listed);
+  act(() => mounted?.unmount());
+  mounted = null;
+  document.body.replaceChildren();
+
+  // a group with no scenarios or only hidden scenarios is omitted
+  const synthetic = {
+    groups: ["Write", "Work together", "Go offline"] as const,
+    scenarios: [
+      SCENARIO,
+      {
+        ...SCENARIO,
+        id: "hidden-together",
+        group: "Work together" as const,
+        hidden: "not yet",
+      },
+    ],
+  };
+  const filtered = await render(
+    <ServicesProvider services={services}>
+      <TourPanel tour={synthetic} />
+    </ServicesProvider>,
+  );
+  expect(
+    [...filtered.querySelectorAll("h2")].map((h) => h.textContent),
+  ).toEqual(["Write"]);
   services.dispose();
 });
 

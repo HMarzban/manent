@@ -150,12 +150,16 @@ function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
   };
 }
 
-function defaultOpenGroup(doneSet: ReadonlySet<string>): TourGroup | null {
+function defaultOpenGroup(
+  shownGroups: readonly TourGroup[],
+  listed: readonly TourScenario[],
+  doneSet: ReadonlySet<string>,
+): TourGroup | null {
   return (
-    SHOWN_GROUPS.find((group) =>
-      LISTED.some((s) => s.group === group && !doneSet.has(s.id)),
+    shownGroups.find((group) =>
+      listed.some((s) => s.group === group && !doneSet.has(s.id)),
     ) ??
-    SHOWN_GROUPS[0] ??
+    shownGroups[0] ??
     null
   );
 }
@@ -173,9 +177,10 @@ function matchesFilter(
 function nextScenarioAfter(
   currentId: string,
   pool: readonly TourScenario[],
+  listed: readonly TourScenario[],
   doneSet: ReadonlySet<string>,
 ): TourScenario | null {
-  const list = pool.length > 0 ? pool : LISTED;
+  const list = pool.length > 0 ? pool : listed;
   const atIndex = list.findIndex((s) => s.id === currentId);
   const tail = atIndex === -1 ? list : list.slice(atIndex + 1);
   return (
@@ -185,8 +190,28 @@ function nextScenarioAfter(
   );
 }
 
+export interface TourCatalog {
+  readonly groups: readonly TourGroup[];
+  readonly scenarios: readonly TourScenario[];
+}
+
 /** Lists only the scenarios `isShown` passes, and draws no group that lists none. Never takes focus. */
-export function TourPanel(): ReactNode {
+export function TourPanel(props?: {
+  readonly docId?: string | null;
+  readonly tour?: TourCatalog;
+}): ReactNode {
+  const tour = props?.tour ?? TOUR;
+  const listed = useMemo(
+    () => (tour === TOUR ? LISTED : tour.scenarios.filter(isShown)),
+    [tour],
+  );
+  const shownGroups = useMemo(
+    () =>
+      tour === TOUR
+        ? SHOWN_GROUPS
+        : tour.groups.filter((group) => listed.some((s) => s.group === group)),
+    [tour, listed],
+  );
   const services = useServices();
   const { where, now, storage, storageEvents, tabStorage } = useEnvironment();
   const setUp = useScenarioSetUp();
@@ -221,7 +246,8 @@ export function TourPanel(): ReactNode {
 
   // the ids of the scenarios done, as one string: a snapshot equal while nothing changes
   const doneSnapshot = useSyncExternalStore(progress.subscribe, () =>
-    LISTED.filter((s) => progress.done(s.id))
+    listed
+      .filter((s) => progress.done(s.id))
       .map((s) => s.id)
       .join(" "),
   );
@@ -232,25 +258,30 @@ export function TourPanel(): ReactNode {
 
   const [filter, setFilter] = useState<TourFilter>("all");
   const [openGroups, setOpenGroups] = useState<ReadonlySet<TourGroup>>(() => {
-    const initial = defaultOpenGroup(doneSet);
+    const initial = defaultOpenGroup(shownGroups, listed, doneSet);
     return initial === null ? new Set() : new Set([initial]);
   });
 
   const selected =
     selectedId === null
       ? null
-      : (LISTED.find((s) => s.id === selectedId) ?? null);
+      : (listed.find((s) => s.id === selectedId) ?? null);
   const activeScenario =
     active === null
       ? null
-      : (LISTED.find((s) => s.id === active.scenarioId) ?? null);
+      : (listed.find((s) => s.id === active.scenarioId) ?? null);
   const visibleList = useMemo(
-    () => LISTED.filter((s) => matchesFilter(s, filter, doneSet)),
-    [filter, doneSet],
+    () => listed.filter((s) => matchesFilter(s, filter, doneSet)),
+    [listed, filter, doneSet],
   );
 
   if (selected !== null) {
-    const nextScenario = nextScenarioAfter(selected.id, visibleList, doneSet);
+    const nextScenario = nextScenarioAfter(
+      selected.id,
+      visibleList,
+      listed,
+      doneSet,
+    );
     const done = doneSet.has(selected.id);
     return (
       <div className="flex flex-col gap-3 p-3">
@@ -269,7 +300,7 @@ export function TourPanel(): ReactNode {
               {selected.group}
             </h2>
           </div>
-          <TourProgressBar done={doneSet.size} total={LISTED.length} />
+          <TourProgressBar done={doneSet.size} total={listed.length} />
         </div>
         <TourScenarioRow
           key={selected.id}
@@ -300,8 +331,8 @@ export function TourPanel(): ReactNode {
 
   return (
     <TourHub
-      groups={SHOWN_GROUPS}
-      listed={LISTED}
+      groups={shownGroups}
+      listed={listed}
       visible={visibleList}
       doneSet={doneSet}
       filter={filter}
