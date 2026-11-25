@@ -709,3 +709,148 @@ test("stepping through annotations on a block preserves focus on the switcher bu
   release();
   stopEditor();
 });
+
+test("mixed block popover displays one-click pills for every comment and note on the line", async () => {
+  const docId = "doc-popover-strip";
+  const commentsDoc = createDoc();
+  const scriptDoc = createDoc();
+  const anchor = textAnchorAt(
+    { id: "b-1", text: "Not every object goes home." },
+    4,
+    9,
+  );
+  startThread(
+    commentsDoc,
+    {
+      threadId: "t-1",
+      itemId: "i-1",
+      anchor,
+      roundId: null,
+      authorUserId: "u-dana",
+      body: "First comment on this line.",
+      mentionedUserIds: [],
+    },
+    () => 1_700_000_000_000,
+  );
+  startThread(
+    commentsDoc,
+    {
+      threadId: "t-2",
+      itemId: "i-2",
+      anchor,
+      roundId: null,
+      authorUserId: "u-leo",
+      body: "Second comment on this line.",
+      mentionedUserIds: [],
+    },
+    () => 1_700_000_010_000,
+  );
+  jsonMap(scriptDoc, NOTES_MAP).set("n-1", {
+    v: 1,
+    anchor,
+    text: "Private note on the same line.",
+    writerName: "Dana Reyes",
+    at: 1_700_000_020_000,
+  });
+
+  const handle = {
+    doc: () => commentsDoc,
+    on: () => () => {},
+    readOnly: fixedSub(null),
+    close: () => Promise.resolve(),
+  };
+  const services = {
+    userId: "u-dana",
+    documents: {
+      open: () => ({
+        status: fixedSub({
+          access: "edit",
+          server: "synced",
+          network: "online",
+          neverSynced: false,
+          waiting: 0,
+        }),
+      }),
+      close() {},
+    },
+    library: {
+      documentProject: () => fixedSub("proj-1"),
+    },
+    openComments: () => Promise.resolve(handle),
+    onDevice: () => Promise.resolve(new Set<string>()),
+  } as unknown as PersonServices;
+
+  const stopEditor = registerLiveEditor({
+    docId,
+    doc: scriptDoc,
+    editable: true,
+    pagination: () => null,
+    zoom: () => 1,
+    frontPages: () => null,
+  } as unknown as LiveEditor);
+  const release = commentsActions.retain(docId, services);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  function Harness() {
+    const [mode, setMode] = useState<PopoverMode>({
+      kind: "thread",
+      id: "t-1",
+      blockIds: ["t-1", "t-2", "n-1"],
+      place: { left: 40, top: 40 },
+    });
+    return (
+      <CommentPopover
+        docId={docId}
+        mode={mode}
+        services={services}
+        writerName="Dana Reyes"
+        now={() => 1_700_000_120_000}
+        onSwitchMode={setMode}
+        onClose={() => {}}
+      />
+    );
+  }
+
+  const view = render(<Harness />);
+  const pills = () => [
+    ...view.container.querySelectorAll<HTMLButtonElement>(
+      ".mn-annotation-pill",
+    ),
+  ];
+
+  expect(
+    pills().map((btn) => ({
+      text: btn.textContent,
+      kind: btn.dataset["kind"],
+      current: btn.getAttribute("aria-current"),
+    })),
+  ).toEqual([
+    { text: "Comment 1", kind: "comment", current: "true" },
+    { text: "Comment 2", kind: "comment", current: null },
+    { text: "Note", kind: "note", current: null },
+  ]);
+
+  // One click on Note jumps directly past Comment 2 to the private writer note.
+  act(() => pills()[2]!.click());
+  expect([
+    view.container.querySelector('[role="dialog"]')?.getAttribute("aria-label"),
+    view.container.textContent?.includes("Writers only"),
+    view.container.textContent?.includes("Private note on the same line."),
+    view.container.textContent?.includes("3 of 3"),
+    pills()[2]!.getAttribute("aria-current"),
+  ]).toEqual(["Note", true, true, true, "true"]);
+
+  // One click on Comment 2 switches straight to the second comment.
+  act(() => pills()[1]!.click());
+  expect([
+    view.container.querySelector('[role="dialog"]')?.getAttribute("aria-label"),
+    view.container.textContent?.includes("Second comment on this line."),
+    view.container.textContent?.includes("2 of 3"),
+    pills()[1]!.getAttribute("aria-current"),
+  ]).toEqual(["Comment", true, true, "true"]);
+
+  view.unmount();
+  release();
+  stopEditor();
+});

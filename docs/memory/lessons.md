@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Theme CSS styled legacy mark attributes instead of what the schema emitted
+
+- Date: 2026-11-25
+
+### What happened
+
+`@manent/schema` emitted `<span data-color="...">`, `<mark data-highlight="...">`, and `<span class="caps">` for text colour, highlight, and all-caps marks, while `packages/ui/src/theme.css` only styled `[data-ink="..."]` and `[data-hl="..."]` and defined no `.caps` rule at all. Selecting any text colour or all-caps did nothing visually, and every highlight colour fell back to the browser's default bright yellow `<mark>` fill with black text.
+
+### How it was caught
+
+By selecting text in the live editor and applying text colours, highlights, and secondary formatting through the selection bubble menu.
+
+### Rule
+
+Every DOM attribute or class emitted by `MARK_SPECS` in `@manent/schema` must have a matching, tested rule in `packages/ui/src/theme.css` (and `PAGE_CSS` where layout depends on it), and `<mark>` elements must reset browser default `color` (`color: inherit`) so dark paper and combined text colours stay legible.
+
+### Enforced by
+
+`tools/test/theme.test.ts` and `packages/editor/test/page-styles.test.ts`, which assert rules for all five `[data-color]` values, all five `[data-highlight]` values, `mark[data-highlight]`, `.caps`, and `strong`, plus ≥ 4.5:1 AA contrast across every colour/highlight combination.
+
 ## Putting secondary badges inside a truncated heading clipped them and hid menu updates
 
 - Date: 2026-11-25

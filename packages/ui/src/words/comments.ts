@@ -94,6 +94,15 @@ export const COMMENTS_WORDS = {
   },
   positionOf: (current: number, total: number): string =>
     `${formatCount(current)} of ${formatCount(total)}`,
+  blockAnnotations: "Comments and notes on this line",
+  blockItemLabel: (
+    kind: "comment" | "note",
+    indexInKind: number,
+    countOfKind: number,
+  ): string => {
+    const noun = kind === "note" ? "Note" : "Comment";
+    return countOfKind > 1 ? `${noun} ${formatCount(indexInKind + 1)}` : noun;
+  },
   previous: "Previous",
   next: "Next",
   metaLine: (dayTime: string, place: string | null): string =>

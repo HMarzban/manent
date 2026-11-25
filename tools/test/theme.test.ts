@@ -371,3 +371,63 @@ test("the theme compiles: no palette, no off-scale size, inert dark:, and the to
   ])
     expect(css).toContain(present);
 }, 30_000);
+
+const hasThemeRule = (
+  selectorPart: string,
+  property: string,
+  valuePart: string,
+): boolean =>
+  theme.rules.some(
+    (r) =>
+      r.selector !== null &&
+      r.selector.includes(selectorPart) &&
+      r.declarations.some(
+        (d) => d.property === property && d.value.includes(valuePart),
+      ),
+  );
+
+test("schema-emitted inline marks (data-color, data-highlight, .caps, strong) are styled and every colour/highlight pair passes AA", () => {
+  const colours = ["red", "orange", "green", "blue", "violet"] as const;
+  const highlights = ["yellow", "green", "pink", "orange", "violet"] as const;
+
+  for (const name of colours)
+    expect(
+      hasThemeRule(
+        `[data-color="${name}"]`,
+        "color",
+        `var(--page-text-${name})`,
+      ),
+    ).toBe(true);
+  for (const name of highlights)
+    expect(
+      hasThemeRule(
+        `[data-highlight="${name}"]`,
+        "background-color",
+        `var(--page-hl-${name})`,
+      ),
+    ).toBe(true);
+  expect([
+    hasThemeRule("mark[data-highlight]", "color", "inherit"),
+    hasThemeRule(".mn-page-view .caps", "text-transform", "uppercase"),
+    hasThemeRule(".mn-page-view strong", "font-weight", "700"),
+  ]).toEqual([true, true, true]);
+
+  const low: string[] = [];
+  for (const variant of VARIANTS) {
+    const at =
+      variant.paper === "white"
+        ? { ...variant, scheme: theme.whitePageScheme ?? variant.scheme }
+        : variant;
+    const paper = resolveToken(theme, "--page-paper", at);
+    for (const h of highlights) {
+      const bg = resolveToken(theme, `--page-hl-${h}`, at);
+      for (const c of colours) {
+        const fg = resolveToken(theme, `--page-text-${c}`, at);
+        const ratio = contrastRatio(fg, bg, paper);
+        if (ratio < 4.5)
+          low.push(`${c}/${h}@${at.scheme}/${at.contrast}=${ratio.toFixed(2)}`);
+      }
+    }
+  }
+  expect(low).toEqual([]);
+});

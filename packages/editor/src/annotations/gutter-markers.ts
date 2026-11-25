@@ -170,10 +170,9 @@ function markerOf(
   button.className = "mn-marker";
   button.dataset["block"] = marker.blockId;
   button.dataset["kind"] = marker.kind;
-  button.setAttribute(
-    "aria-label",
-    actions.label(marker.comments, marker.notes),
-  );
+  const label = actions.label(marker.comments, marker.notes);
+  button.setAttribute("aria-label", label);
+  button.title = label;
   button.setAttribute("aria-pressed", String(marker.open));
   if (marker.kind === "comment") {
     button.append(markerIcon(doc, "comment"));

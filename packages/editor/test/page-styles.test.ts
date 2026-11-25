@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   BLOCK_SLACK_CELLS,
+  ENGINE_VERSION,
   FONT_FACE_KEYS,
   WRAP_MODE,
+  engineFor,
+  paginate,
   profileFor,
 } from "@manent/pagination";
 import {
@@ -12,6 +15,7 @@ import {
   profileCss,
   toUnicodeRange,
 } from "../src/index.ts";
+import { blockAttrs } from "../src/pagination/block-attrs.ts";
 
 /** The declarations of the one rule with exactly that selector, trimmed. */
 function rule(css: string, selector: string): string[] {
@@ -212,4 +216,50 @@ test("font faces", () => {
         f.source.includes(`courier-prime-${f.key}`),
     ),
   ).toBe(true);
+});
+
+test("all-caps mark is uppercased in PAGE_CSS and overridden alignment updates --el-slack-left", () => {
+  expect(rule(PAGE_CSS, ".caps")).toEqual(["text-transform: uppercase"]);
+
+  const engine = engineFor(ENGINE_VERSION)!;
+  const blocks = [
+    {
+      id: "b-center",
+      type: "dialogue",
+      kind: null,
+      text: "Centred line.",
+      styles: null,
+      dual: null,
+      num: null,
+      align: "center" as const,
+      indent: null,
+      width: null,
+      spaceBefore: null,
+      noContd: false,
+    },
+    {
+      id: "b-right",
+      type: "action",
+      kind: null,
+      text: "Right line.",
+      styles: null,
+      dual: null,
+      num: null,
+      align: "right" as const,
+      indent: null,
+      width: null,
+      spaceBefore: null,
+      noContd: false,
+    },
+  ];
+  const p = paginate(blocks, sp);
+  const rows = new Set(Object.values(sp.elements));
+  const ctx = { p, engine, firsts: new Set<number>(), rows };
+  expect([
+    blockAttrs(ctx, 0)?.["style"],
+    blockAttrs(ctx, 1)?.["style"],
+  ]).toEqual([
+    "--el-indent: 10; --el-width: 35; --el-before: 0; --el-slack-left: 0.25; text-align: center",
+    "--el-indent: 0; --el-width: 60; --el-before: 1; --el-slack-left: 0.5; text-align: right",
+  ]);
 });

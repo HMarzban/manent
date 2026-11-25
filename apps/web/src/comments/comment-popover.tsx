@@ -11,6 +11,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { PersonServices } from "../services/ports.ts";
 import { useComments } from "../state/comments.store.ts";
+import { AnnotationStrip, blockItemsOf } from "./annotation-strip.tsx";
 import type { PopoverMode } from "./comments-types.ts";
 import { CommentCompose, NoteBody, NoteCompose } from "./popover-bodies.tsx";
 import { ThreadBody } from "./thread-body.tsx";
@@ -175,10 +176,23 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
       ? mode.blockIds.filter(
           (id) =>
             id === mode.id ||
-            state.threads[id] !== undefined ||
+            state.threads[id]?.state.kind === "open" ||
             (state.canEdit && state.notes.some((n) => n.id === id)),
         )
       : [];
+  const blockItems =
+    mode.kind === "thread" && activeBlockIds.length > 1
+      ? blockItemsOf(activeBlockIds, state)
+      : [];
+  const selectBlockItem = (id: string): void => {
+    if (mode.kind !== "thread" || id === mode.id) return;
+    onSwitchMode({
+      kind: "thread",
+      id,
+      blockIds: activeBlockIds,
+      place: mode.place,
+    });
+  };
   const switcherIndex =
     mode.kind === "thread" ? activeBlockIds.indexOf(mode.id) : -1;
   const switcher: SwitcherState | null =
@@ -187,22 +201,16 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
           index: switcherIndex,
           total: activeBlockIds.length,
           onPrevious: () =>
-            onSwitchMode({
-              kind: "thread",
-              id: activeBlockIds[
+            selectBlockItem(
+              activeBlockIds[
                 (switcherIndex - 1 + activeBlockIds.length) %
                   activeBlockIds.length
               ]!,
-              blockIds: activeBlockIds,
-              place: mode.place,
-            }),
+            ),
           onNext: () =>
-            onSwitchMode({
-              kind: "thread",
-              id: activeBlockIds[(switcherIndex + 1) % activeBlockIds.length]!,
-              blockIds: activeBlockIds,
-              place: mode.place,
-            }),
+            selectBlockItem(
+              activeBlockIds[(switcherIndex + 1) % activeBlockIds.length]!,
+            ),
         }
       : null;
 
@@ -274,6 +282,13 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
         switcher={switcher}
         onClose={onClose}
       />
+      {blockItems.length > 1 && mode.kind === "thread" ? (
+        <AnnotationStrip
+          items={blockItems}
+          activeId={mode.id}
+          onSelect={selectBlockItem}
+        />
+      ) : null}
       {body}
     </div>
   );

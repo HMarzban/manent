@@ -1860,7 +1860,29 @@ button:not(:disabled, [aria-disabled="true"]):active
   outline: var(--page-line) dashed var(--page-ink-muted);
   outline-offset: 1px;
 }
-.mn-link {
+.mn-page-view strong,
+.mn-plain strong {
+  font-weight: 700;
+}
+.mn-page-view em,
+.mn-plain em {
+  font-style: italic;
+}
+.mn-page-view u,
+.mn-plain u {
+  text-decoration-line: underline;
+}
+.mn-page-view s,
+.mn-plain s {
+  text-decoration-line: line-through;
+}
+.mn-page-view .caps,
+.mn-plain .caps {
+  text-transform: uppercase;
+}
+.mn-link,
+.mn-page-view a[href],
+.mn-plain a[href] {
   color: var(--page-link);
   text-decoration: underline solid var(--page-line);
 }
@@ -1870,57 +1892,45 @@ button:not(:disabled, [aria-disabled="true"]):active
 } /* To review: a bar in the left margin */
 
 /* the writer's colours: the document stores the name, never a value */
-[data-ink="red"] {
+:is([data-ink="red"], [data-color="red"]) {
   color: var(--page-text-red);
 }
-[data-ink="orange"] {
+:is([data-ink="orange"], [data-color="orange"]) {
   color: var(--page-text-orange);
 }
-[data-ink="green"] {
+:is([data-ink="green"], [data-color="green"]) {
   color: var(--page-text-green);
 }
-[data-ink="blue"] {
+:is([data-ink="blue"], [data-color="blue"]) {
   color: var(--page-text-blue);
 }
-[data-ink="violet"] {
+:is([data-ink="violet"], [data-color="violet"]) {
   color: var(--page-text-violet);
 }
-[data-hl="yellow"] {
+mark[data-highlight] {
+  color: inherit;
+}
+:is([data-hl="yellow"], [data-highlight="yellow"]) {
   background-color: var(--page-hl-yellow);
 }
-[data-hl="green"] {
+:is([data-hl="green"], [data-highlight="green"]) {
   background-color: var(--page-hl-green);
 }
-[data-hl="pink"] {
+:is([data-hl="pink"], [data-highlight="pink"]) {
   background-color: var(--page-hl-pink);
 }
-[data-hl="orange"] {
+:is([data-hl="orange"], [data-highlight="orange"]) {
   background-color: var(--page-hl-orange);
 }
-[data-hl="violet"] {
+:is([data-hl="violet"], [data-highlight="violet"]) {
   background-color: var(--page-hl-violet);
 }
 
-/* under any fill, text is ink: a fill and a text colour never have to pass together */
-:is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  )
-  :is([data-ink], .mn-link, .mn-note),
-:is([data-ink], .mn-link, .mn-note)
-  :is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  ),
-[data-hl][data-ink] {
+/* under system fills, text is ink so search, review and presence marks stay clear */
+:is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel)
+  :is([data-ink], [data-color], .mn-link, .mn-note),
+:is([data-ink], [data-color], .mn-link, .mn-note)
+  :is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel) {
   color: var(--page-ink);
 }
 
@@ -2056,6 +2066,42 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 }
 .mn-note-quote {
   border-inline-start: 2px dashed var(--line-strong);
+}
+/* Multi-annotation line switcher strip inside CommentPopover */
+.mn-annotation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  padding-inline: 0.5rem;
+  border-radius: var(--shape-control);
+  border: 1px solid var(--line);
+  background-color: var(--bg-raised);
+  color: var(--fg-muted);
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+.mn-annotation-pill:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
+.mn-annotation-pill[data-kind="note"] {
+  border-style: dashed;
+  background-color: var(--bg-subtle);
+}
+.mn-annotation-pill[data-kind="note"]:hover {
+  background-color: var(--bg-control);
+}
+.mn-annotation-pill[aria-current="true"] {
+  background-color: var(--bg-selected);
+  border-color: var(--line-strong);
+  color: var(--fg);
 }
 
 /* The editor's element picker and completion list: the menu surface, drawn by
@@ -2319,6 +2365,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   .mn-minimap-tick {
     transform: none !important;
   }
+  .mn-annotation-pill,
   .mn-swatch,
   .mn-progress-fill,
   .mn-tour-progress-fill {
@@ -2370,7 +2417,8 @@ html[data-switching] *::after {
   [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
   :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
-  .mn-card[aria-current]:not([aria-current="false"]) {
+  .mn-card[aria-current]:not([aria-current="false"]),
+  .mn-annotation-pill[aria-current="true"] {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;

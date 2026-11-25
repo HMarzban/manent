@@ -912,3 +912,18 @@ test("roving tabindex moves across bar buttons with arrow keys, Home, End and Es
   });
   expect(ui.pageFocusCalls()).toBe(1);
 });
+
+test("selectionchange while focus is inside the toolbar keeps the bubble menu mounted for keyboard formatting", async () => {
+  const ui = mountToolbar();
+  ui.selectWithPointer();
+  expect(ui.toolbar()).not.toBe(null);
+
+  const bold = ui
+    .toolbar()
+    ?.querySelector<HTMLButtonElement>("[data-tour='format.bold']");
+  await act(async () => {
+    bold?.focus();
+    document.dispatchEvent(new Event("selectionchange"));
+  });
+  expect(ui.toolbar()).not.toBe(null);
+});
