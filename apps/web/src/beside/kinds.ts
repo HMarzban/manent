@@ -1,6 +1,7 @@
 // What can open beside the page, one line per kind; a feature appends its own line at the end.
 import type { ComponentType } from "react";
 import { SOURCE_BESIDE } from "../copies/start-from/source-beside.tsx";
+import { INK_PLAYER_BESIDE } from "../ink/player/ink-player.tsx";
 import { outlineBesideKind } from "../outline-doc/outline-beside.tsx";
 import { ROOM_LOG_BESIDE_KIND } from "../room-log/beside-kind.ts";
 import { STORY_BESIDE_KIND } from "../rundown/beside.ts";
@@ -77,4 +78,5 @@ export const BESIDE_KINDS: readonly BesideKind[] = [
   outlineBesideKind,
   ROOM_LOG_BESIDE_KIND,
   STORY_BESIDE_KIND,
+  INK_PLAYER_BESIDE,
 ];

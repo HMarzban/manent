@@ -48,6 +48,32 @@ function BesideContent(props: {
   );
 }
 
+function OutputBesideOf(props: {
+  kind: BesideKind;
+  open: BesideOpen;
+}): ReactNode {
+  const { kind, open } = props;
+  const { dom } = useEnvironment();
+  const title = kind.title(open.docId);
+  const { Body } = kind;
+  return (
+    <BesideFrame
+      kind={kind.id}
+      title={title}
+      status={null}
+      onClose={() => {
+        closeBeside();
+        dom.focusPage();
+      }}
+      lines={null}
+    >
+      <div {...{ [BESIDE_BODY]: "" }} className="contents">
+        <Body docId={open.docId} at={open.at} />
+      </div>
+    </BesideFrame>
+  );
+}
+
 function BesideOf(props: { kind: BesideKind; open: BesideOpen }): ReactNode {
   const { kind, open } = props;
   const { dom } = useEnvironment();
@@ -75,11 +101,11 @@ function BesideOf(props: { kind: BesideKind; open: BesideOpen }): ReactNode {
 export function BesidePanel(props: { open: BesideOpen }): ReactNode {
   const kind = BESIDE_KINDS.find((entry) => entry.id === props.open.kind);
   // a kind's title reads through hooks, so each kind and document is drawn afresh
-  return kind === undefined ? null : (
-    <BesideOf
-      key={`${kind.id}:${props.open.docId}`}
-      kind={kind}
-      open={props.open}
-    />
+  if (kind === undefined) return null;
+  const key = `${kind.id}:${props.open.docId}`;
+  return kind.hasStatus ? (
+    <BesideOf key={key} kind={kind} open={props.open} />
+  ) : (
+    <OutputBesideOf key={key} kind={kind} open={props.open} />
   );
 }
