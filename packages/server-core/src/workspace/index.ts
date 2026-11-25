@@ -1,0 +1,2 @@
+// Workspace authority exports.
+export {};
