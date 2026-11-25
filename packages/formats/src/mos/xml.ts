@@ -19,13 +19,13 @@ const NOT_XML_CHAR = new RegExp(
 const ESCAPE_PATTERN = new RegExp('[&<>"\\t\\n\\r]', "g");
 const LINE_BREAKS = /\r\n?/g;
 
-const PREDEFINED: Readonly<Record<string, string>> = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-};
+const PREDEFINED: ReadonlyMap<string, string> = new Map([
+  ["amp", "&"],
+  ["lt", "<"],
+  ["gt", ">"],
+  ["quot", '"'],
+  ["apos", "'"],
+]);
 const FORBIDDEN_ATTRS = new Set(["__proto__", "constructor", "prototype"]);
 const TEXT_ESCAPES: Readonly<Record<string, string>> = {
   "&": "&amp;",
@@ -84,7 +84,7 @@ function decodeEntities(raw: string): string {
       if (!isXmlCodePoint(cp)) fail(`illegal XML code point ${cp}`);
       out += String.fromCodePoint(cp);
     } else {
-      const resolved = PREDEFINED[ref];
+      const resolved = PREDEFINED.get(ref);
       if (resolved === undefined) fail(`unknown XML entity &${ref};`);
       out += resolved;
     }

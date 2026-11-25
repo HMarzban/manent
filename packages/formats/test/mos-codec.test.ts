@@ -129,10 +129,12 @@ test("MOS XML parser structurally rejects DOCTYPE, ENTITY, PIs, depth > 64, > 1 
     );
   }
 
-  // Unknown entity reference rejected
-  expect(() => parseMosXml("<mos><roID>&custom;</roID></mos>")).toThrow(
-    expect.objectContaining({ code: "malformed" }),
-  );
+  // Unknown and Object.prototype entity references rejected
+  for (const ref of ["custom", "__proto__", "constructor", "toString"]) {
+    expect(() => parseMosXml(`<mos><roID>&${ref};</roID></mos>`)).toThrow(
+      expect.objectContaining({ code: "malformed" }),
+    );
+  }
 
   // Prototype pollution attribute rejected
   expect(() => parseMosXml('<mos __proto__="x"/>')).toThrow(
