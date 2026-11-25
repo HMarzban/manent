@@ -55,5 +55,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   range,
   api, directly, except, given, saw,
   most, something,
-  less
+  less,
+  anything, create, lets, program, programs, revoke, revoked, such
 `);
