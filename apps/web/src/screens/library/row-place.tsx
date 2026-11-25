@@ -107,6 +107,7 @@ export function RowMenu(props: {
               variant="ghost"
               size="icon-sm"
               aria-label={DOCUMENT_WORDS.rowMenuName(props.title)}
+              className="[[data-row-menu]_&]:[@media(hover:hover)]:opacity-0 [[data-row-menu]:hover_&]:opacity-100 [[data-row-menu]:focus-within_&]:opacity-100 hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 data-popup-open:opacity-100"
             />
           }
         >

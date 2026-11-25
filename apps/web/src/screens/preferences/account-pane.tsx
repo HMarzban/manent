@@ -33,22 +33,24 @@ export function AccountPane(): ReactNode {
   const signedOut = useCommandState("app.signInToSync").visible;
   const synced = useSubscribable(services.privateIndexSynced());
   return (
-    <>
+    <div className="flex flex-col divide-y divide-line">
       {demo ? <DemoPerson /> : null}
       {signedOut ? (
-        <div className="flex flex-col items-start gap-2">
-          <p className="text-ui">{PREFERENCES_WORDS.accountNotSignedIn}</p>
+        <div className="flex min-h-row-2 items-center justify-between gap-4 py-2">
+          <p className="text-ui text-fg-muted">
+            {PREFERENCES_WORDS.accountNotSignedIn}
+          </p>
           <CommandButton id="app.signInToSync" variant="outline" />
         </div>
       ) : (
-        <div className="flex flex-col items-start gap-2">
-          <p className="text-ui">
+        <div className="flex min-h-row-2 items-center justify-between gap-4 py-2">
+          <p className="text-ui text-fg-muted">
             {PREFERENCES_WORDS.accountSaved(synced ? "synced" : "waiting")}
           </p>
           <CommandButton id="app.signOut" variant="outline" />
         </div>
       )}
       <SignOutDialogHost />
-    </>
+    </div>
   );
 }

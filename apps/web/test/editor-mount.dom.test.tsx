@@ -743,7 +743,7 @@ test("Preferences shows the layout engine", () => {
   const lines = [...(about?.querySelectorAll("p") ?? [])]
     .slice(0, 2)
     .map((p) => p.textContent);
-  expect(lines).toEqual(["Manent 0.0.0", "Layout engine 1"]);
+  expect(lines).toEqual(["Manent — preview", "Layout engine 1"]);
 });
 
 test("bare mode starts read-only with no presence publishing and mn-front-field reacts to editable changes", async () => {

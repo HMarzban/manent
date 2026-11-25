@@ -12,6 +12,7 @@ import {
   SEND_WORDS,
   SettingRow,
   SettingsProvider,
+  cn,
   createValue,
   useSubscribable,
 } from "@manent/ui";
@@ -205,11 +206,19 @@ export function ProjectSettingsScreen(): ReactNode {
             {SEND_WORDS.back(placeName)}
           </Button>
           <h1 tabIndex={-1} className="truncate text-heading outline-none">
-            {PROJECT_WORDS.heading}
+            {project === null
+              ? PROJECT_WORDS.heading
+              : `${project.title} · ${PROJECT_WORDS.heading}`}
           </h1>
         </header>
         <div className="min-h-0 flex-1 overflow-auto p-6">
-          <div className="flex max-w-content flex-col gap-8">
+          <div
+            className={cn(
+              "mx-auto flex w-full max-w-content flex-col gap-8",
+              !owner &&
+                "[&_[data-tour^='setting:']_button[data-slot='button'][disabled]]:hidden",
+            )}
+          >
             <Group
               group="format_style"
               lines={[

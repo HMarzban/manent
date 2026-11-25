@@ -290,7 +290,7 @@ export function NotificationsGroup(
         ) : null}
         {ordered === null ? null : !canChange ? (
           allOff ? (
-            <p className="text-ui text-fg-muted">
+            <p className="rounded-surface border border-line bg-raised p-4 text-ui text-fg-muted">
               {WORKSPACE_WORDS.nothingSetUp}
             </p>
           ) : (

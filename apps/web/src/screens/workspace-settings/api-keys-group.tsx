@@ -281,7 +281,7 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
           />
         ) : null}
         {keys === null ? null : keys.length === 0 ? (
-          <p className="text-ui text-fg-muted">
+          <p className="rounded-surface border border-line bg-raised p-4 text-ui text-fg-muted">
             {WORKSPACE_WORDS.nothingSetUp}
           </p>
         ) : (

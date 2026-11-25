@@ -85,7 +85,7 @@ function ExcerptText(props: {
     [props.excerpt, props.words, props.phrases],
   );
   return (
-    <span className="line-clamp-2 text-meta text-fg-muted">
+    <span className="block min-w-0 line-clamp-2 break-words whitespace-normal text-meta text-fg-muted">
       {runs.map((run, index) =>
         run.matched ? (
           <mark
@@ -331,7 +331,7 @@ export function SearchResults(props: LibraryViewProps): ReactNode {
                       void navigate({ href: `/s/${hit.docId}` })
                     }
                   >
-                    <span className="flex min-w-0 flex-col gap-0.5 py-2">
+                    <span className="flex min-w-0 flex-col gap-0.5 py-2 whitespace-normal">
                       <span className="truncate font-semibold text-fg">
                         {hit.title}
                       </span>

@@ -15,7 +15,7 @@ export const DEVICE_SETTINGS = Object.freeze([
     default: "100" as const,
     label: "Interface size",
     description:
-      "Text and controls around the page. The page has its own zoom, in View ▾.",
+      "Text and controls around the page. The page has its own zoom, in the View menu.",
     noun: null,
     surfaces: [
       { in: "preferences", section: "device", order: 10 },
