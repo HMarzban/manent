@@ -80,6 +80,32 @@ test("every command but the generated ones has a handler, and only the productio
   );
 });
 
+test("Benchmark report opens the static report page in a new tab", () => {
+  const { deps } = depsAt({ routeId: "/", href: "/", search: {} });
+  const opened: unknown[][] = [];
+  const priorWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      open: (...args: unknown[]) => {
+        opened.push(args);
+        return null;
+      },
+    },
+  });
+  try {
+    createHandlers(deps)["app.benchmarkReport"]();
+    expect(opened).toEqual([
+      ["/benchmark-report.html", "_blank", "noopener,noreferrer"],
+    ]);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: priorWindow,
+    });
+  }
+});
+
 test("Preferences pressed inside Preferences goes back", () => {
   const { deps, visited } = depsAt({
     routeId: "/preferences/$pane",

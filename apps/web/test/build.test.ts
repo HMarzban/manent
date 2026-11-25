@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import { buildWeb } from "../build.ts";
 import { BOOT_SCRIPT } from "../src/boot/boot-script.ts";
+import { renderBenchmarkReportHtml } from "../src/build/benchmark-html.ts";
 
 const trees = createTempTrees("manent-web-build-");
 afterAll(() => trees.removeAll());
@@ -237,4 +238,30 @@ test("the document screen and palette chunks hold none of the editor's code", as
       ),
     ]).toEqual([suffix, [], false]);
   }
+}, 30_000);
+
+test("the build emits a standalone benchmark report page outside the precache manifest", async () => {
+  const { outDir, built } = await productionBuild();
+  expect(built.ok).toBe(true);
+  const reportHtml = await Bun.file(
+    join(outDir, "benchmark-report.html"),
+  ).text();
+  const sw = await Bun.file(join(outDir, "sw.js")).text();
+  expect(reportHtml).toContain("<title>Benchmark report</title>");
+  expect(reportHtml).toContain(
+    '<h1 id="benchmark-report">Benchmark report</h1>',
+  );
+  expect(sw).not.toContain('"/benchmark-report.html"');
+  const rendered = renderBenchmarkReportHtml(
+    "# Benchmark report\n\n## Budgets\n\n| Scenario | p95 |\n|---|---|\n| `typing-120` | 12.3 ms |\n\nSee [raw](runs/a.json) and <script>alert(1)</script>.\n",
+  );
+  expect(rendered).toContain('<h2 id="budgets">Budgets</h2>');
+  expect(rendered).toContain(
+    "<table><thead><tr><th>Scenario</th><th>p95</th></tr></thead>",
+  );
+  expect(rendered).toContain(
+    "<td><code>typing-120</code></td><td>12.3 ms</td>",
+  );
+  expect(rendered).toContain('<a href="runs/a.json">raw</a>');
+  expect(rendered).not.toContain("<script>");
 }, 30_000);

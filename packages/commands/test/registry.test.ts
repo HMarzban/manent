@@ -788,6 +788,7 @@ test("the handler table names every command but the generated ones", () => {
     "app.preferences": noop,
     "app.shortcuts": noop,
     "app.aiPledge": noop,
+    "app.benchmarkReport": noop,
     "app.nextRegion": noop,
     "app.previousRegion": noop,
     "app.library": noop,

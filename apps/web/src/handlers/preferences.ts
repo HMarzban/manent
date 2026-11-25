@@ -26,6 +26,7 @@ export function preferencesHandlers(
   | "app.preferences"
   | "app.shortcuts"
   | "app.aiPledge"
+  | "app.benchmarkReport"
   | "edit.undo"
   | "edit.redo"
   | "settings.undo"
@@ -55,6 +56,9 @@ export function preferencesHandlers(
     // the pledge is read under This device's About
     "app.aiPledge": () =>
       router.navigate(preferencesHref("device", returnPlace(router.here()))),
+    "app.benchmarkReport": () => {
+      window.open("/benchmark-report.html", "_blank", "noopener,noreferrer");
+    },
     // the page's and a field's own undo take the key before this runs; an undo with nothing to undo says nothing
     "edit.undo"() {
       if (onPreferences()) visitUndo.current?.undo();
