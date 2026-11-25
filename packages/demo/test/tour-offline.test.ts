@@ -9,7 +9,7 @@ import {
 const NOT_PASSING = "its end-to-end test does not pass yet";
 const OFFLINE = TOUR.scenarios.filter((s) => s.group === "Go offline");
 
-test("Go offline shows three scenarios, hides three whose test does not pass yet, and waits for the sign-out guard", () => {
+test("Go offline shows four scenarios and hides three whose test does not pass yet", () => {
   expect(OFFLINE.map((s) => [s.id, s.waitsFor, s.hidden])).toEqual([
     ["offline-write", null, null],
     ["offline-overlap", null, NOT_PASSING],
@@ -17,7 +17,7 @@ test("Go offline shows three scenarios, hides three whose test does not pass yet
     ["offline-slow", null, null],
     ["offline-server-stopped", null, null],
     ["offline-reorganised", null, NOT_PASSING],
-    ["offline-sign-out", "sign_out_guard", null],
+    ["offline-sign-out", null, null],
   ]);
 });
 

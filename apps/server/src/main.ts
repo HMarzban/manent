@@ -33,13 +33,13 @@ import type {
 import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, indexDocId } from "@manent/sync-protocol";
-import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
+import type { DemoControls } from "@manent/sync-protocol";
 import { inProcessServer } from "./demo/in-process.ts";
 import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
 import { readServerRenderPdf } from "./production.ts";
-import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
+import { createHeavyState, resumeStaging } from "./seed/adopt.ts";
 import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
 import { onServeError } from "./serve-error.ts";
@@ -234,33 +234,6 @@ async function isHeavyWaiting(dataDir: string): Promise<boolean> {
 }
 
 /**
- * While `waiting`, `seeding` tells /api/me how far Lanternfield Studios' seed has come, and none of
- * its homes is ready until `adopted` is called.
- */
-function createHeavyState(waiting: boolean, dataDir: string, live: Storage) {
-  const adoption = adoptionOf(dataDir, live);
-  let seeding: WorkspaceRef["seeding"] = waiting
-    ? { done: 0, total: HEAVY_TOTAL, failed: false }
-    : null;
-  return {
-    seeding: (workspaceId: string) =>
-      workspaceId === "heavy" ? seeding : null,
-    isHomeReady: (home: string) =>
-      seeding === null || !adoption.homes.has(home),
-    progress(done: number, total: number) {
-      seeding = { done, total, failed: false };
-    },
-    failed() {
-      if (seeding !== null) seeding = { ...seeding, failed: true };
-    },
-    async adopted() {
-      await adoptStaging(adoption);
-      seeding = null;
-    },
-  };
-}
-
-/**
  * Listens on loopback, then on the LAN host on the port loopback bound, and
  * only then builds the server, so that its hosts name that port. `env.port`
  * 0 asks the system for a free port. Stopping finishes every write, closes
@@ -295,7 +268,11 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const sync = openSync(env.dataDir);
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
-  const heavy = createHeavyState(waiting, env.dataDir, storage);
+  const heavy = createHeavyState(
+    waiting,
+    adoptionOf(env.dataDir, storage),
+    HEAVY_TOTAL,
+  );
   const composed = composeServices({
     storage,
     sync: () => serving.sync!,
@@ -328,14 +305,15 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     ...composed.config,
   });
   built = serving;
+  const live = {
+    server: inProcessServer(serving, urlHost("127.0.0.1", port)),
+    sessions: config.auth.sessions,
+    storage,
+    sync: serving.sync!,
+    clock,
+  };
   const services = createDemoServices({
-    live: {
-      server: inProcessServer(serving, urlHost("127.0.0.1", port)),
-      sessions: config.auth.sessions,
-      storage,
-      sync: serving.sync!,
-      clock,
-    },
+    live,
     time: () => seedTimeAt(Date.now()),
     random: Math.random,
   });
@@ -353,7 +331,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
         // the demo's supervisor, which may stop and start this server, keeps the seed until it ends
         owner: env.control === null ? process.pid : process.ppid,
         onProgress: heavy.progress,
-        onDone: () => heavy.adopted().then(startPresence),
+        onDone: () =>
+          heavy
+            .adopted(live, () => composed.config.search?.catchUpNow())
+            .then(startPresence),
         onFailed(reason) {
           console.error(reason);
           heavy.failed();

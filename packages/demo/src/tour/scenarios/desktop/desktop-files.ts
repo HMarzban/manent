@@ -13,18 +13,26 @@ export const DESKTOP_FILES: TourScenario = {
   },
   steps: [
     {
-      text: "Choose Open… in File and pick pigeon-post.fountain.",
+      text: "Choose Open… in the File menu and open Pigeon Post.fountain.",
       highlight: "file.open",
     },
     {
-      text: "Drop low-tide-blue.fdx on the window.",
-      highlight: "page",
+      text: "Drop Low Tide Blue.fdx on the window.",
+      highlight: "message_slot",
+    },
+    {
+      text: "Drop Every Key But One first draft.pdf on the window.",
+      highlight: "message_slot",
+    },
+    {
+      text: "Drop The Keeper's Logbook.ink on the window.",
+      highlight: "message_slot",
     },
   ],
   check:
-    "Pigeon Post opens with its notes, sections and synopses, and the FDX keeps its locked pages and Blue marks.",
-  evidence: ["Pigeon Post"],
-  fresh: false,
-  waitsFor: "imports",
+    "Each file opens as a new script and the message slot says what came in, ending with \"Imported 'The Keeper's Logbook': 71 lines, 5 knots.\"",
+  evidence: ["Imported 'The Keeper's Logbook': 71 lines, 5 knots."],
+  fresh: true,
+  waitsFor: null,
   hidden: null,
 };

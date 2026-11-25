@@ -13,12 +13,12 @@ export const LONG_GO_TO: TourScenario = {
     shell: "any",
   },
   steps: [
-    { text: "Go to page 1,873.", highlight: "status:page" },
-    { text: "The readout says where you are.", highlight: "status:page" },
+    { text: "Choose Go to and type 1873.", highlight: "app.goTo" },
+    { text: "Press Enter.", highlight: "status:page" },
   ],
-  check: 'The readout reads "Page 1,873".',
-  evidence: ["Page 1,873"],
+  check: 'The page readout reads "Page 1873 of 2,000".',
+  evidence: ["Page 1873 of 2,000"],
   fresh: false,
-  waitsFor: "go_to_page",
+  waitsFor: null,
   hidden: null,
 };
