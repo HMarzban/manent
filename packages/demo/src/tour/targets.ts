@@ -70,6 +70,7 @@ export const TOUR_TARGETS = [
   "ink:problems",
   "status:goal",
   "details:numbers",
+  "setting:script.engineVersion",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];
