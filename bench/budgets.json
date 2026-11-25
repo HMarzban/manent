@@ -673,6 +673,13 @@
       "stat": "max",
       "budget": 600000,
       "hardFail": 1200000
+    },
+    {
+      "scenario": "server.power-loss",
+      "metric": "acked_lost",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 0
     }
   ]
 }

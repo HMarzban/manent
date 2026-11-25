@@ -88,6 +88,7 @@ Interface | Facts and outline published per keystroke; the palette's search | �
 Server | One keystroke through the write path, 120 / 2,000 pages | ≤ 2 ms | > 20 ms | scenarios server.push-cost push_ms_120, server.push-cost push_ms_2000 | Do less in the write path before the acknowledgement.
 Server | Memory growth over the 8-hour soak; every bot holding the same text at its end | ≤ 10 %; 0 | > 30 %; > 0 | scenarios server.soak memory_growth_percent, server.soak diverged | Find what the server keeps for a connection after it closes; find the update one bot never received.
 Production | Revision marks per keystroke, 120 pages with 12 revisions | ≤ 0.5 ms | > 2 ms | scenarios production.marks marks_ms | Derive marks for the visible pages only.
+Durability | Acknowledged updates lost across simulated power cuts | 0 | any | scenarios server.power-loss acked_lost | Acknowledge an update only after the disk has confirmed it.
 `;
 
 const BUDGETS: readonly Budget[] = BUDGETS_FILE.budgets.map((row) => {
