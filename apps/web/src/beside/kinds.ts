@@ -1,6 +1,7 @@
 // What can open beside the page, one line per kind; a feature appends its own line at the end.
 import type { ComponentType } from "react";
 import { SOURCE_BESIDE } from "../copies/start-from/source-beside.tsx";
+import { peekSource } from "../copies/start-from/source-cache.ts";
 import { INK_PLAYER_BESIDE } from "../ink/player/ink-player.tsx";
 import { outlineBesideKind } from "../outline-doc/outline-beside.tsx";
 import { ROOM_LOG_BESIDE_KIND } from "../room-log/beside-kind.ts";
@@ -46,7 +47,8 @@ function otherScripts(
   here: BesideHere,
 ): readonly { docId: string; label: string }[] {
   const { library } = here.services;
-  const seen = new Set([here.docId]);
+  const source = peekSource(here.docId);
+  const seen = new Set(source ? [here.docId, source.docId] : [here.docId]);
   // `title` stands in for a script whose own title the index does not hold yet
   const once = (docId: string | null, title: string) => {
     if (docId === null || seen.has(docId)) return [];

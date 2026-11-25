@@ -125,6 +125,9 @@ export const commentsActions = {
       if (waitingUi !== undefined) emitCommentsUi(entry);
     }
     entry.refs += 1;
+    if (entry.state.peopleState === "idle") {
+      void commentsActions.loadPeople(docId, services.userId);
+    }
     let released = false;
     return () => {
       if (released) return;

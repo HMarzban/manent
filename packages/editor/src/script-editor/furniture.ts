@@ -145,6 +145,7 @@ function usesSection(
 }
 
 const NO_SECTIONS: readonly (string | null)[] = Object.freeze([]);
+const DURATION_DEBOUNCE_MS = 250;
 
 /** Reads Variety total duration from timingPlugin's incremental state when enabled; null otherwise. */
 function timingPluginDuration(state: EditorState): number | null {
@@ -217,21 +218,45 @@ export function createFurnitureSync(options: {
   let lastFormat: FormatId | null = null;
   let lastDuration: number | null = null;
   let lastSnapshot: PageFurnitureOptions | null = null;
+  let cancelDurationTimer: (() => void) | null = null;
 
-  const durationFor = (state: EditorState): number | null => {
+  const clearDurationTimer = (): void => {
+    cancelDurationTimer?.();
+    cancelDurationTimer = null;
+  };
+
+  const durationFor = (
+    state: EditorState,
+    immediate: boolean,
+    onDebounced?: () => void,
+  ): number | null => {
     const fmt = options.format();
-    if (fmt !== "variety") return null;
+    if (fmt !== "variety") {
+      clearDurationTimer();
+      return null;
+    }
     const fromPlugin = timingPluginDuration(state);
     if (fromPlugin !== null) {
+      clearDurationTimer();
       lastDoc = state.doc;
       lastFormat = fmt;
       lastDuration = fromPlugin;
       return fromPlugin;
     }
-    if (state.doc !== lastDoc || fmt !== lastFormat) {
+    if (state.doc === lastDoc && fmt === lastFormat) return lastDuration;
+    if (immediate || lastDuration === null || fmt !== lastFormat) {
+      clearDurationTimer();
       lastDoc = state.doc;
       lastFormat = fmt;
       lastDuration = durationOfDoc(state.doc, fmt);
+      return lastDuration;
+    }
+    if (onDebounced !== undefined) {
+      clearDurationTimer();
+      cancelDurationTimer = options.timers.schedule(() => {
+        cancelDurationTimer = null;
+        onDebounced();
+      }, DURATION_DEBOUNCE_MS);
     }
     return lastDuration;
   };
@@ -267,15 +292,21 @@ export function createFurnitureSync(options: {
   const read = (state: EditorState): PageFurnitureOptions => {
     const header = parseSlots(options.script.get("script.header"));
     const footer = parseSlots(options.script.get("script.footer"));
-    return snapshot(state, durationFor(state), header, footer, true);
+    return snapshot(state, durationFor(state, true), header, footer, true);
   };
 
-  const sync = (state: EditorState): void => {
+  const syncWithMode = (
+    state: EditorState,
+    immediate: boolean,
+    onDebounced?: () => void,
+  ): void => {
     const frame = options.scaffold();
     if (frame === null) return;
     const header = parseSlots(options.script.get("script.header"));
     const footer = parseSlots(options.script.get("script.footer"));
-    const duration = usesDuration(header, footer) ? durationFor(state) : null;
+    const duration = usesDuration(header, footer)
+      ? durationFor(state, immediate, onDebounced)
+      : null;
     const next = snapshot(
       state,
       duration,
@@ -288,14 +319,23 @@ export function createFurnitureSync(options: {
     frame.setFurniture(next);
   };
 
+  const sync = (state: EditorState): void => syncWithMode(state, true);
+
   return {
     read,
     sync,
     plugin: () =>
       new Plugin({
-        view() {
+        view(initialView) {
+          let active = true;
+          let latestView = initialView;
+          const flushDuration = (): void => {
+            if (!active) return;
+            syncWithMode(latestView.state, true);
+          };
           return {
             update(view, prev) {
+              latestView = view;
               if (
                 view.state.doc === prev.doc &&
                 paginationKey.getState(view.state)?.pagination ===
@@ -304,7 +344,11 @@ export function createFurnitureSync(options: {
                   productionOf(prev)?.view.active.name
               )
                 return;
-              sync(view.state);
+              syncWithMode(view.state, false, flushDuration);
+            },
+            destroy() {
+              active = false;
+              clearDurationTimer();
             },
           };
         },

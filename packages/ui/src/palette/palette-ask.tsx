@@ -8,10 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { KeyboardEvent, ReactNode, RefObject } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { keyLabel } from "../commands-react/key-labels.ts";
-import { Kbd } from "../components/stock/kbd.tsx";
 import { PALETTE_WORDS } from "../words/palette.ts";
+import { KeyHint } from "./palette-footer.tsx";
 import { matchedRuns, matchesQuery } from "./palette-rank.ts";
 
 export interface PaletteAsk {
@@ -29,8 +29,9 @@ export interface PaletteAskViewProps {
 
 const OPENER = '[data-tour="app.palette"]';
 
-function useOutsidePress(
-  surface: RefObject<HTMLElement | null>,
+/** Calls `close` on a press outside `surface`, as on any popover, but not on the palette's own control. */
+export function useOutsidePress(
+  surface: { current: HTMLElement | null },
   close: () => void,
 ): void {
   const latest = useRef(close);
@@ -76,20 +77,6 @@ function choiceRuns(
       ? [{ text: choice.slice(at + trimmed.length), matched: false }]
       : []),
   ];
-}
-
-function KeyHint(props: {
-  readonly keys: readonly string[];
-  readonly word: string;
-}): ReactNode {
-  return (
-    <span className="flex items-center gap-1">
-      {props.keys.map((key) => (
-        <Kbd key={key}>{key}</Kbd>
-      ))}
-      <span className="text-meta text-fg-muted">{props.word}</span>
-    </span>
-  );
 }
 
 function AskFooter(props: {
@@ -281,6 +268,7 @@ export function PaletteAskView(props: PaletteAskViewProps): ReactNode {
               key={`${index}\0${choice}`}
               id={`${listId}-${index}`}
               role="option"
+              aria-selected={index === highlighted}
               data-highlighted={index === highlighted ? "" : undefined}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => submitValue(choice)}

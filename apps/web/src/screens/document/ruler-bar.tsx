@@ -224,7 +224,7 @@ function RulerBarContent(props: {
   );
   const projectOwner =
     knownOwner ??
-    (probedOwner?.projectId === projectId ? probedOwner.owner : true);
+    (probedOwner?.projectId === projectId ? probedOwner.owner : false);
   const canWriteStyle = projectId !== null && projectOwner;
   const frame = usePageFrame(docId);
   const [rulerMod, setRulerMod] = useState<RulerElementModule | null>(

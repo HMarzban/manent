@@ -1,5 +1,10 @@
 // Speech synthesis runner for Read aloud: caret following and clean stop on Stop, Escape, navigation, edit, or end.
-import { ORIGIN_LOAD, ORIGIN_REMOTE, scriptBody } from "@manent/crdt";
+import {
+  ORIGIN_LOAD,
+  ORIGIN_REMOTE,
+  ORIGIN_SYSTEM,
+  scriptBody,
+} from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import { WRITING_TOOLS_WORDS, messageFor } from "@manent/ui";
 import {
@@ -172,7 +177,12 @@ export function startReadAloud(deps: HandlerDeps): void {
     );
     cleanups.push(
       editor.doc.subscribe((_update, origin) => {
-        if (origin !== ORIGIN_REMOTE && origin !== ORIGIN_LOAD) stop(true);
+        if (
+          origin !== ORIGIN_REMOTE &&
+          origin !== ORIGIN_LOAD &&
+          origin !== ORIGIN_SYSTEM
+        )
+          stop(true);
       }),
     );
   }

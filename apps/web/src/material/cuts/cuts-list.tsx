@@ -128,9 +128,11 @@ export function CutsList(props: { docId: string }): ReactNode {
   const [filter, setFilter] = useState("");
 
   const liveBlocks = useMemo(
-    () => readLiveSceneBlocks(docId),
-    // re-read live blocks whenever cuts or outline change
-    [docId, cuts, outlineRows],
+    () =>
+      cuts.length === 0 || outlineRows.length > 0
+        ? NO_BLOCKS
+        : readLiveSceneBlocks(docId),
+    [docId, cuts.length, outlineRows.length],
   );
 
   const headings = useMemo(

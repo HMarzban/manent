@@ -30,20 +30,26 @@ function Choice(props: {
   commandId: CommandId;
 }): ReactNode {
   const { commands } = useServices();
-  const { visible } = useCommandState(props.commandId);
+  const { visible, enabled, whyNot } = useCommandState(props.commandId);
   if (!visible) return null;
   return (
     <DropdownMenuRadioItem
       value={props.position}
+      disabled={!enabled}
+      title={!enabled && whyNot !== null ? whyNot : undefined}
       className="items-start text-ui"
-      onClick={() => void commands.run(props.commandId, "control")}
+      onClick={() => {
+        if (enabled) void commands.run(props.commandId, "control");
+      }}
     >
       <span className="flex flex-col gap-0.5">
         <span className="font-medium">
           {WRITING_WORDS.positions[props.position]}
         </span>
         <span className="text-meta text-fg-muted">
-          {WRITING_WORDS.positionLines[props.position]}
+          {!enabled && whyNot !== null
+            ? whyNot
+            : WRITING_WORDS.positionLines[props.position]}
         </span>
       </span>
     </DropdownMenuRadioItem>

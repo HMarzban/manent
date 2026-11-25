@@ -195,7 +195,24 @@ function createCompileClient(docId: string): InkCompileClient {
     return compiled;
   };
 
-  const sendAction = async (
+  const sendRpc = async <T>(
+    request: Omit<InkWorkerRequest, "id">,
+    fallback: T,
+    pick: (res: InkWorkerResponse) => T | undefined,
+  ): Promise<T> => {
+    if (disposed) return fallback;
+    try {
+      const res = await transport.send({
+        ...request,
+        id: ++nextId,
+      } as InkWorkerRequest);
+      return pick(res) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const sendAction = (
     request:
       | { readonly kind: "restart" }
       | { readonly kind: "choose"; readonly index: number }
@@ -206,11 +223,10 @@ function createCompileClient(docId: string): InkCompileClient {
           readonly value: InkVariableValue;
         }
       | { readonly kind: "restore"; readonly saved: string },
-  ): Promise<InkActionResult> => {
-    if (disposed) return NO_STORY_ACTION;
-    const res = await transport.send({ ...request, id: ++nextId });
-    return res.kind === "action" ? res.result : NO_STORY_ACTION;
-  };
+  ): Promise<InkActionResult> =>
+    sendRpc(request, NO_STORY_ACTION, (res) =>
+      res.kind === "action" ? res.result : undefined,
+    );
 
   return {
     snapshot: () => snap,
@@ -246,40 +262,39 @@ function createCompileClient(docId: string): InkCompileClient {
       return runCompile(source);
     },
     restart: () => sendAction({ kind: "restart" }),
-    async proceed() {
-      if (disposed) return NO_STORY_STEP;
-      const res = await transport.send({ id: ++nextId, kind: "proceed" });
-      return res.kind === "step"
-        ? {
-            result: res.result,
-            choices: res.choices,
-            variables: res.variables,
-            ended: res.ended,
-            fault: res.fault,
-          }
-        : NO_STORY_STEP;
-    },
-    async choices() {
-      if (disposed) return { choices: [], ended: true, fault: NO_STORY_FAULT };
-      const res = await transport.send({ id: ++nextId, kind: "choices" });
-      return res.kind === "choices"
-        ? { choices: res.choices, ended: res.ended, fault: res.fault }
-        : { choices: [], ended: true, fault: NO_STORY_FAULT };
-    },
+    proceed: () =>
+      sendRpc({ kind: "proceed" }, NO_STORY_STEP, (res) =>
+        res.kind === "step"
+          ? {
+              result: res.result,
+              choices: res.choices,
+              variables: res.variables,
+              ended: res.ended,
+              fault: res.fault,
+            }
+          : undefined,
+      ),
+    choices: () =>
+      sendRpc(
+        { kind: "choices" },
+        { choices: [], ended: true, fault: NO_STORY_FAULT },
+        (res) =>
+          res.kind === "choices"
+            ? { choices: res.choices, ended: res.ended, fault: res.fault }
+            : undefined,
+      ),
     choose: (index) => sendAction({ kind: "choose", index }),
     goTo: (knot) => sendAction({ kind: "goTo", knot }),
-    async variables() {
-      if (disposed) return [];
-      const res = await transport.send({ id: ++nextId, kind: "variables" });
-      return res.kind === "variables" ? res.variables : [];
-    },
+    variables: () =>
+      sendRpc({ kind: "variables" }, [], (res) =>
+        res.kind === "variables" ? res.variables : undefined,
+      ),
     setVariable: (name, value) =>
       sendAction({ kind: "setVariable", name, value }),
-    async save() {
-      if (disposed) return null;
-      const res = await transport.send({ id: ++nextId, kind: "save" });
-      return res.kind === "saved" ? res.saved : null;
-    },
+    save: () =>
+      sendRpc({ kind: "save" }, null, (res) =>
+        res.kind === "saved" ? res.saved : undefined,
+      ),
     restore: (saved) => sendAction({ kind: "restore", saved }),
     dispose() {
       disposed = true;

@@ -1,6 +1,18 @@
 // The Board's commands: adding storylines and cards, linking a card to a scene, and moving the focused card.
+import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
 import type { CommandDefinition } from "../define.ts";
+import { isWorkspaceWritable, workspaceReason } from "./library.ts";
+
+const canEditBoard = (ctx: CommandContext): boolean =>
+  isWorkspaceWritable(ctx) && ctx.role !== "viewer" && ctx.role !== "commenter";
+
+const boardEditReason = (ctx: CommandContext): string =>
+  !isWorkspaceWritable(ctx)
+    ? workspaceReason(ctx)
+    : ctx.role === "viewer" || ctx.role === "commenter"
+      ? "needs edit access to this board"
+      : "";
 
 const boardCommand = <const Id extends string>(
   id: Id,
@@ -15,8 +27,8 @@ const boardCommand = <const Id extends string>(
   scope: "surface:board",
   keys: { mac: keys, windows: keys, linux: keys },
   keysFixed: false,
-  when: null,
-  whyNot: null,
+  when: canEditBoard,
+  whyNot: boardEditReason,
   visible: (ctx) => ctx.screen === "board",
   checked: null,
   passThrough: null,

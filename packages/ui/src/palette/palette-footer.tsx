@@ -25,7 +25,10 @@ function enterWord(keyed: Entry | null): string | null {
   return keyed.row.enabled ? ENTER_WORDS[keyed.row.kind] : null;
 }
 
-function Pair(props: { keys: readonly string[]; word: string }): ReactNode {
+export function KeyHint(props: {
+  readonly keys: readonly string[];
+  readonly word: string;
+}): ReactNode {
   return (
     <span className="flex items-center gap-1">
       {props.keys.map((key) => (
@@ -50,15 +53,15 @@ export function PaletteFooter(props: {
       aria-hidden="true"
       className="flex min-h-row shrink-0 items-center gap-4 border-t border-line px-3 @max-[30rem]:hidden pointer-coarse:hidden"
     >
-      <Pair
+      <KeyHint
         keys={[label("ArrowUp"), label("ArrowDown")]}
         word={PALETTE_WORDS.keys.move}
       />
-      {enter === null ? null : <Pair keys={[label("Enter")]} word={enter} />}
+      {enter === null ? null : <KeyHint keys={[label("Enter")]} word={enter} />}
       {inMenu ? (
-        <Pair keys={[label("Backspace")]} word={PALETTE_WORDS.keys.back} />
+        <KeyHint keys={[label("Backspace")]} word={PALETTE_WORDS.keys.back} />
       ) : null}
-      <Pair keys={[label("Escape")]} word={PALETTE_WORDS.keys.close} />
+      <KeyHint keys={[label("Escape")]} word={PALETTE_WORDS.keys.close} />
     </div>
   );
 }

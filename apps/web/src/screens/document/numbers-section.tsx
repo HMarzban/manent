@@ -113,7 +113,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
       <h3 className="text-ui font-semibold text-fg">
         {WRITING_TOOLS_WORDS.numbers}
       </h3>
-      <dl className="flex flex-col gap-1.5 text-ui">
+      <dl className="flex flex-col gap-2 text-ui">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">{WRITING_TOOLS_WORDS.numbersPages}</dt>
           <dd className="text-fg tabular-nums">{formatCount(numbers.pages)}</dd>
@@ -140,7 +140,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
       </dl>
 
       {locked && lockedScenes.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <h4 className="text-meta font-semibold text-fg">
             {WRITING_TOOLS_WORDS.numbersEighths}
           </h4>
@@ -164,7 +164,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         <h4 className="text-meta font-semibold text-fg">
           {WRITING_TOOLS_WORDS.numbersDialogueByCharacter}
         </h4>

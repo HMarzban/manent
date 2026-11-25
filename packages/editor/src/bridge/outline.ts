@@ -116,7 +116,7 @@ export function sceneAt(outline: OutlineIndex, block: number): string | null {
 }
 
 const FUNCTION_KNOT = /^function\s/;
-const EDGE_EQUALS = /^=+|=$/g;
+const EDGE_EQUALS = /^=+|=+$/g;
 
 /** Removes comment ranges from a line so trailing comments are never part of a knot or stitch name. */
 function withoutComments(text: string, ranges: readonly SourceRange[]): string {

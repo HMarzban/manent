@@ -12,7 +12,7 @@ import {
 } from "./comments-format.ts";
 import type { ThreadEntry } from "./comments-filter.ts";
 import type { ScriptCommentsState, StoredNote } from "./comments-types.ts";
-import { BodyText } from "./thread-body.tsx";
+import { BodyText, itemKeysByRef } from "./thread-body.tsx";
 
 export function ThreadRow(props: {
   entry: ThreadEntry;
@@ -48,6 +48,7 @@ export function ThreadRow(props: {
   }
 
   const [first, ...replies] = items;
+  const keyByItem = replies.length === 0 ? null : itemKeysByRef(state.items);
   const authorFull = fullNameFor(thread.authorUserId, state.people);
   const place = anchorPlaceLabel(thread.anchor, state.blockScenes);
   const flagText = flaggedLabel(
@@ -110,13 +111,13 @@ export function ThreadRow(props: {
       )}
       {replies.length === 0 ? null : (
         <ul className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
-          {replies.map((reply) => {
+          {replies.map((reply, index) => {
             const replyAuthor = fullNameFor(reply.authorUserId, state.people);
+            const replyKey =
+              keyByItem?.get(reply) ??
+              `${index}:${reply.createdAt}:${reply.authorUserId}`;
             return (
-              <li
-                key={reply.createdAt + reply.authorUserId}
-                className="flex flex-col gap-1"
-              >
+              <li key={replyKey} className="flex flex-col gap-1">
                 <div className="flex min-w-0 items-center gap-1.5">
                   <Avatar
                     name={replyAuthor}

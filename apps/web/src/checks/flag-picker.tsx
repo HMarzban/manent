@@ -19,12 +19,54 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import type { PersonServices } from "../services/ports.ts";
 import { fullNameOf } from "../services/sync/index-entries.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import { fetchFlaggablePeople, writeCheckFlag } from "./flag-write.ts";
 import type { FlaggablePerson } from "./flag-write.ts";
 
 const PLACEHOLDER_OPTIONS = 3;
+const PEOPLE_CACHE_TTL_MS = 30_000;
+
+interface CachedPeople {
+  readonly at: number;
+  readonly promise: Promise<readonly FlaggablePerson[] | null>;
+}
+
+const peopleCacheByServices = new WeakMap<
+  PersonServices,
+  Map<string, CachedPeople>
+>();
+
+/** Shares one in-flight/recent `/api/share/people` lookup across every Flag control on the same script. */
+function loadSharedFlaggablePeople(
+  services: PersonServices,
+  docId: string,
+  now: () => number,
+): Promise<readonly FlaggablePerson[] | null> {
+  let byDoc = peopleCacheByServices.get(services);
+  if (byDoc === undefined) {
+    byDoc = new Map();
+    peopleCacheByServices.set(services, byDoc);
+  }
+  const currentNow = now();
+  const cached = byDoc.get(docId);
+  if (cached !== undefined && currentNow - cached.at < PEOPLE_CACHE_TTL_MS) {
+    return cached.promise;
+  }
+  const promise = fetchFlaggablePeople(docId, services.userId)
+    .then((found) => {
+      if (found === null && byDoc.get(docId)?.promise === promise)
+        byDoc.delete(docId);
+      return found;
+    })
+    .catch(() => {
+      if (byDoc.get(docId)?.promise === promise) byDoc.delete(docId);
+      return null;
+    });
+  byDoc.set(docId, { at: currentNow, promise });
+  return promise;
+}
 
 function FlagPickerSkeleton(): ReactNode {
   return (
@@ -114,7 +156,7 @@ export function FlagControl(props: {
     if (!canFlag) return;
     const seq = ++loadSeq.current;
     setLoading(true);
-    void fetchFlaggablePeople(docId, services.userId)
+    void loadSharedFlaggablePeople(services, docId, now)
       .then((found) => {
         if (!mounted.current || loadSeq.current !== seq) return;
         setPeople(found ?? []);
@@ -125,7 +167,7 @@ export function FlagControl(props: {
         setPeople([]);
         setLoading(false);
       });
-  }, [canFlag, docId, services.userId]);
+  }, [canFlag, docId, services, now]);
 
   const existing = activeFlagFor(checkKey, flags, threads);
   if (existing !== null) {
@@ -162,7 +204,7 @@ export function FlagControl(props: {
         randomId,
       });
     } finally {
-      setWriting(false);
+      if (mounted.current) setWriting(false);
     }
   };
 
