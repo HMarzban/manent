@@ -138,7 +138,7 @@ function SceneLine(props: {
   );
 }
 
-/** An act heads the scenes after it; a section groups them and is never printed. */
+/** An act or knot heads the entries after it; a stitch indents under its knot; a section groups scenes. */
 function OutlineLine(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
   const { row } = props;
   const { editor } = useServices();
@@ -146,20 +146,23 @@ function OutlineLine(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   if (row.kind === "scene")
     return <SceneLine row={row} parts={props.parts} goTo={goTo} />;
+  const textClass =
+    row.kind === "act" || row.kind === "knot"
+      ? "font-semibold"
+      : row.kind === "stitch"
+        ? "pl-4"
+        : "text-fg-muted italic";
   return (
-    <Row onActivate={goTo}>
-      <span
-        className={
-          row.kind === "act" ? "font-semibold" : "text-fg-muted italic"
-        }
-      >
-        {row.heading}
-      </span>
+    <Row current={row.current} onActivate={goTo}>
+      <span className={textClass}>{row.heading}</span>
     </Row>
   );
 }
 
-/** The rows of `outline` shown under `filter`: the scenes whose heading or synopsis matches it; every row while it is empty. */
+const isFilterableKind = (kind: OutlineRow["kind"]): boolean =>
+  kind === "scene" || kind === "knot" || kind === "stitch";
+
+/** The rows of `outline` shown under `filter`: matching scenes, knots and stitches; every row while it is empty. */
 function listedRows(
   outline: OutlineSelectors | null,
   filter: string,
@@ -171,7 +174,7 @@ function listedRows(
     if (
       row !== null &&
       (filter === "" ||
-        (row.kind === "scene" &&
+        (isFilterableKind(row.kind) &&
           matchesQuery(filter, [row.heading, row.synopsis])))
     )
       rows.push(row);
@@ -221,12 +224,13 @@ function MovableRows(props: {
   );
 }
 
-/** The listed rows as the view shows them: movable for a person who can edit. Read here, so the panel catches a failed read. */
+/** The listed rows as the view shows them: movable for a person who can edit (never for Ink knots). */
 function OutlineRows(props: {
   view: ScenesView;
   filter: string;
   label: string;
   canEdit: boolean;
+  movable: boolean;
   parts: SceneParts;
 }): ReactNode {
   const rows = useListedRows(props.filter);
@@ -237,7 +241,7 @@ function OutlineRows(props: {
   const renderRow = (row: OutlineRow): ReactNode => (
     <OutlineLine row={row} parts={props.parts} />
   );
-  return props.canEdit ? (
+  return props.movable ? (
     <MovableRows docId={props.parts.docId} rows={rows} renderRow={renderRow} />
   ) : (
     <div className="min-h-0 flex-1">
@@ -259,6 +263,7 @@ function ScenesList(props: { docId: string }): ReactNode {
   const { library } = useServices();
   const { platform } = useCommands();
   const format = useFormat(docId);
+  const isInk = format === "ink";
   const kindSource = useMemo(
     () => library.documentKind(docId),
     [library, docId],
@@ -271,7 +276,10 @@ function ScenesList(props: { docId: string }): ReactNode {
   const parts: SceneParts = { docId, extras, items };
   const [filter, setFilter] = useState("");
   const { view, setView } = useScenesView();
-  const viewSwitch = <ScenesSwitch view={view} onChange={setView} />;
+  const activeView: ScenesView = isInk ? "list" : view;
+  const viewSwitch = isInk ? null : (
+    <ScenesSwitch view={view} onChange={setView} />
+  );
   return (
     <SurfaceState
       surface="left_panel"
@@ -296,18 +304,21 @@ function ScenesList(props: { docId: string }): ReactNode {
               />
             </div>
             <OutlineRows
-              view={view}
+              view={activeView}
               filter={filter}
               label={DOCUMENT_WORDS.leftTab(format)}
               canEdit={canEdit}
+              movable={canEdit && !isInk}
               parts={parts}
             />
           </div>
         ),
         empty: () => (
           <div className="flex h-full min-h-0 flex-col">
-            <div className="p-2">{viewSwitch}</div>
-            {view === "cards" && canEdit ? (
+            {viewSwitch === null ? null : (
+              <div className="p-2">{viewSwitch}</div>
+            )}
+            {activeView === "cards" && canEdit ? (
               <div className="p-2">
                 <BlankCard docId={docId} />
               </div>
