@@ -61,6 +61,7 @@ export function PeopleList(props: {
       align="end"
       data-tour="people_list"
       aria-label={SELECTION_WORDS.hereNow}
+      className="min-w-52"
     >
       {PEOPLE_LIST_HEAD.length === 0 ? null : (
         <>
@@ -74,9 +75,11 @@ export function PeopleList(props: {
       )}
       <DropdownMenuGroup>
         <DropdownMenuLabel>{SELECTION_WORDS.hereNow}</DropdownMenuLabel>
-        {people.map((person) => (
-          <PersonRow key={person.userId} docId={docId} person={person} />
-        ))}
+        <div className="max-h-72 overflow-y-auto">
+          {people.map((person) => (
+            <PersonRow key={person.userId} docId={docId} person={person} />
+          ))}
+        </div>
         {people.length > 0 && viewers === 0 ? null : (
           <p className="px-2 py-1 text-ui text-fg-muted">
             {viewers === 0

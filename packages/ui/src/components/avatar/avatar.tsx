@@ -1,25 +1,37 @@
-// A person as a circle of their initials, in their colour inside a script and a ring everywhere else; and the
-// people on a document as a row of them. The one motion that repeats is an avatar's while its person types.
+// A person as a circle of their initials over a deterministic geometric motif, in their colour inside a script
+// and warm archival tones everywhere else; and the people on a document as a cohesive stack.
+// The one motion that repeats is an avatar's while its person types.
 import { cn } from "cn";
 import { PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { DOCUMENT_WORDS } from "../../words/document.ts";
+import { AvatarArt } from "./avatar-art.tsx";
 
 export type AvatarSize = "sm" | "md" | "lg";
 
 const CIRCLE =
-  "mn-avatar inline-flex shrink-0 items-center justify-center rounded-full";
+  "mn-avatar relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full leading-none select-none";
 const SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
   sm: "size-avatar-sm text-micro",
   md: "size-avatar text-micro",
   lg: "size-avatar-lg text-title",
 });
-/** `apart`: at most three avatars 4 px apart; `overlapping`: at most two, the second under the edge of the first. */
+const MORE_SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
+  sm: "h-avatar-sm min-w-avatar-sm px-1 text-micro",
+  md: "h-avatar min-w-avatar px-2 text-micro",
+  lg: "h-avatar-lg min-w-avatar-lg px-2 text-meta",
+});
+const PLUS_SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
+  sm: "size-3",
+  md: "size-icon",
+  lg: "size-icon-lg",
+});
+/** `apart`: at most three avatars in a cohesive title-bar stack; `overlapping`: at most two, compact for tight rows. */
 type StackLayout = "apart" | "overlapping";
 const LAYOUTS: Readonly<
   Record<StackLayout, { shown: number; className: string }>
 > = Object.freeze({
-  apart: { shown: 3, className: "gap-1" },
+  apart: { shown: 3, className: "mn-avatar-stack" },
   overlapping: { shown: 2, className: "mn-avatar-overlap" },
 });
 // up and down while the person types; under reduced motion the theme stills it, and the initials are underlined
@@ -54,9 +66,17 @@ export function Avatar({
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative ? "true" : undefined}
       data-who={colour ?? undefined}
+      data-new={initials === null ? "" : undefined}
       className={cn(CIRCLE, SIZES[size], moving && MOVING)}
     >
-      {initials ?? <PlusIcon aria-hidden="true" />}
+      {initials === null ? (
+        <PlusIcon aria-hidden="true" className={PLUS_SIZES[size]} />
+      ) : (
+        <>
+          <AvatarArt seed={name} />
+          <span className="mn-avatar-initials relative z-10">{initials}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -69,7 +89,7 @@ interface StackPerson {
   colour: number | null;
 }
 
-/** The avatars `layout` shows, then a circle counting the rest; nothing for no one. */
+/** The avatars `layout` shows, then a pill counting the rest; nothing for no one. */
 export function AvatarStack({
   people,
   size,
@@ -102,7 +122,7 @@ export function AvatarStack({
           role="img"
           aria-label={DOCUMENT_WORDS.moreAvatarsName(more)}
           data-more
-          className={cn(CIRCLE, SIZES[size])}
+          className={cn(CIRCLE, MORE_SIZES[size])}
         >
           {DOCUMENT_WORDS.moreAvatars(more)}
         </span>
