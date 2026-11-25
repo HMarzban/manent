@@ -202,9 +202,12 @@ test("relay mode returns 404 for trash, search, workspace, notifications, public
         workspaceId: "studio",
       }),
     ).toEqual([404, { error: "not_found" }]);
+    // Function-mode relay (local-node) still serves /api/search offline from its own search index (not 404)
     expect(
-      await partial.request("GET", "/api/search?q=hello&workspaceId=studio"),
-    ).toEqual([404, { error: "not_found" }]);
+      (
+        await partial.request("GET", "/api/search?q=hello&workspaceId=studio")
+      )[0],
+    ).not.toBe(404);
     expect(
       await partial.request("GET", "/api/workspace/people?workspaceId=studio"),
     ).toEqual([404, { error: "not_found" }]);
