@@ -67,5 +67,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report,
   counting, figure, per,
   best, inside, narrow, year,
-  benchmark
+  benchmark,
+  alone, encoding, software, windows-1252
 `);

@@ -18,6 +18,7 @@ import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { useFileDrop } from "../import/file-drop.ts";
 import { loadApart } from "../load-apart.ts";
+import { PrompterFilesHost } from "../prompter-files/prompter-files-host.tsx";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { TrashConfirmDialog } from "../screens/library/trash-view.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -338,6 +339,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                     </SurfaceBoundary>
                     <GlobalKeys />
                     <TrashConfirmDialog />
+                    <PrompterFilesHost />
                     <TourFloatingHost />
                   </>
                 )}
