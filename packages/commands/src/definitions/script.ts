@@ -27,6 +27,23 @@ const whyNotReadAloud = (ctx: CommandContext): string => {
   return "isn't part of the Ink format";
 };
 
+const onPagedScript = (ctx: CommandContext): boolean =>
+  ctx.docOpen && ctx.docKind === "script" && ctx.format !== "ink";
+
+const whyNotPagedScript = (ctx: CommandContext): string => {
+  if (!ctx.docOpen) return "needs a document open";
+  if (ctx.docKind !== "script") return "works on a script";
+  return "isn't part of the Ink format";
+};
+
+const canStartSprint = (ctx: CommandContext): boolean =>
+  onPagedScript(ctx) && !ctx.sprintRunning;
+
+const whyNotStartSprint = (ctx: CommandContext): string =>
+  ctx.sprintRunning
+    ? "isn't available while a sprint is on"
+    : whyNotPagedScript(ctx);
+
 export const SCRIPT_COMMANDS = defineCommands([
   {
     id: "script.renameCharacter",
@@ -77,6 +94,65 @@ export const SCRIPT_COMMANDS = defineCommands([
     when: (ctx) => ctx.readingAloud,
     whyNot: () => "isn't running",
     visible: (ctx) => ctx.readingAloud,
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { hidden: "the state bar's action" },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "script.goal",
+    label: "Goal",
+    group: "script",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: onPagedScript,
+    whyNot: whyNotPagedScript,
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [{ menu: "script", group: "script", order: 50, submenu: null }],
+    palette: {
+      keywords: ["writing goal", "daily", "target", "pages", "words"],
+    },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "sprint.start",
+    label: "Start sprint",
+    group: "script",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: canStartSprint,
+    whyNot: whyNotStartSprint,
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["timer", "writing sprint", "countdown", "minutes"] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "sprint.end",
+    label: "End",
+    group: "script",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.sprintRunning,
+    whyNot: () => "isn't running",
+    visible: (ctx) => ctx.sprintRunning,
     checked: null,
     passThrough: null,
     menus: [],
