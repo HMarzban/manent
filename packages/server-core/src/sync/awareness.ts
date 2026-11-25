@@ -69,8 +69,10 @@ export function createAwarenessHub(ports: {
       presence.sending = false;
       const entries = [...presence.batch.values()];
       presence.batch.clear();
-      const frame = frameOf(room, entries);
-      for (const peer of room.editors.keys()) peer.send(frame);
+      if (entries.length > 0 && room.editors.size > 0) {
+        const frame = frameOf(room, entries);
+        for (const peer of room.editors.keys()) peer.send(frame);
+      }
       if (presence.present.size === 0) rooms.delete(room);
     }, limits.awarenessBatchMs);
   };

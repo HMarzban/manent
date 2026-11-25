@@ -31,6 +31,8 @@ export interface SimulatedPerson {
   start(): void;
   stop(): Promise<void>;
   readonly events: readonly SimulatedPersonEvent[];
+  /** When the person last typed in the script; null before their first keystroke. */
+  lastTypedAt(): number | null;
 }
 
 interface PersonOptions {
@@ -43,22 +45,20 @@ interface PersonOptions {
   markers: boolean;
   lines?: readonly WriterLine[];
   keepBlocks?: () => number;
+  /** False on long-lived live demo writers so `events` never grows unboundedly in server memory. */
+  recordEvents?: boolean;
 }
 
 const HOUR_MS = 3_600_000;
-/** Every this many bursts of words ends with Enter. */
 const ENTER_EVERY = 4;
-/** Every this many keystrokes is a Backspace over the character before, typed again after. */
 const CORRECTION_EVERY = 20;
 const MOVE_BLOCKS = [5, 25] as const;
-/** Blocks to a pasted page, as in a generated script. */
 const PASTE_BLOCKS_PER_PAGE = 25;
 
 type Key =
   | { type: "text"; text: string; marker: string | null }
   | { type: "enter"; element: string };
 
-/** The block the person writes in, and its element. */
 interface Place {
   blockId: string;
   element: string;
@@ -100,14 +100,12 @@ class Person implements SimulatedPerson {
   private offline = false;
   private place: Place | null = null;
   private burst: Burst | null = null;
-  /** The region, whose last block becomes each block typed after it, so that a scene grows with its writing. */
   private region: Region | null;
-  /** The region's block ids as last read. */
   private inRegion: readonly string[] = [];
   private keystrokes = 0;
   private bursts = 0;
+  private typedAt: number | null = null;
   private readonly presence: WriterPresence | null;
-  /** Followed only while the person keeps to a number of blocks. */
   private readonly own: OwnLines | null;
 
   constructor(options: PersonOptions) {
@@ -118,8 +116,10 @@ class Person implements SimulatedPerson {
     this.ids = seededIdSource(this.rng);
     this.keyMs = 1000 / options.profile.keysPerSecond;
     this.region = options.region;
-    const keep = options.keepBlocks;
-    this.own = keep === undefined ? null : new OwnLines(keep);
+    this.own =
+      options.keepBlocks === undefined
+        ? null
+        : new OwnLines(options.keepBlocks);
     this.presence = options.profile.presence
       ? createWriterPresence(options)
       : null;
@@ -166,12 +166,19 @@ class Person implements SimulatedPerson {
     this.schedule(timer, waitMs, fn);
   }
 
+  lastTypedAt(): number | null {
+    return this.typedAt;
+  }
+
   private record(
     type: SimulatedPersonEvent["type"],
     blockId: string | null,
     marker: string | null = null,
   ): void {
-    this.events.push({ type, at: this.options.clock.now(), blockId, marker });
+    const at = this.options.clock.now();
+    if (type === "typed") this.typedAt = at;
+    if (this.options.recordEvents !== false)
+      this.events.push({ type, at, blockId, marker });
   }
 
   /** One transaction; false when the block it writes to is gone. */
@@ -384,16 +391,8 @@ class Person implements SimulatedPerson {
 }
 
 /**
- * A person who writes at `profile`'s rates once started: bursts of keystrokes
- * at `keysPerSecond`, one transaction a key, in the block they are in. A burst
- * is the next of `lines`, each of its blocks new, after a block where it does
- * not cut a speech in two, when lines are given; otherwise seeded words. With
- * `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed as one key. With
- * `keepBlocks`, it keeps as many of its blocks as that gives, or one line's: it
- * deletes its oldest lines as it starts one that would pass it, and every line
- * when it stops, each block only while it reads as it was typed. Every
- * timer goes through `clock` and every draw through `random`, so one seed
- * gives one run. RangeError for an empty `lines` or an empty line.
+ * A simulated writer typing bursts at `profile`'s rates, one CRDT transaction per keystroke.
+ * Deterministic for one `clock` and `random`; throws RangeError for empty `lines`.
  */
 export function createSimulatedPerson(options: PersonOptions): SimulatedPerson {
   return new Person(options);

@@ -20,7 +20,11 @@ import { blockNear, currentIndex } from "../cursors/place.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
-import type { CursorPlace, RemoteCursor } from "../script-editor/ports.ts";
+import type {
+  CursorPlace,
+  Frames,
+  RemoteCursor,
+} from "../script-editor/ports.ts";
 
 export interface MarginPeopleOptions {
   /** Other people's cursors as presence reports them, at most 20 and only those with a caret; an empty list draws nobody. */
@@ -36,6 +40,8 @@ export interface MarginPeopleOptions {
   onScenes(scenes: ReadonlyMap<string, readonly ScenePerson[]>): void;
   /** Whose cursors the page draws, set again at each presence report and whenever `subscribe` says it changed. */
   shown: { get(): ShownCursors; subscribe(listener: () => void): () => void };
+  /** Coalesces gutter redraws to at most once a frame when provided. */
+  frames?: Frames;
 }
 
 /** A person in a scene, and whether they are typing: their caret moved within MOVING_MS. */
@@ -219,6 +225,17 @@ const scenesKeyOf = (scenes: ReadonlyMap<string, readonly ScenePerson[]>) =>
     ]),
   );
 
+// only visual geometry and labels: never movedAt or intra-block offset, so typing inside a line never rebuilds DOM
+const markersKeyOf = (zoom: number, spots: readonly Spot[]): string =>
+  `${zoom}|${spots
+    .map(
+      (s) =>
+        `${s.top}:${s.left}:${s.people
+          .map((p) => `${p.userId}:${p.initials}:${p.colour}:${p.name}`)
+          .join(",")}`,
+    )
+    .join(";")}`;
+
 function marginPeopleView(
   view: EditorView,
   options: MarginPeopleOptions,
@@ -227,6 +244,8 @@ function marginPeopleView(
   let drawn: HTMLElement[] = [];
   let markersKey = "";
   let scenesKey = scenesKeyOf(new Map());
+  let cancelFrame: (() => void) | null = null;
+  let destroyed = false;
   const tellScenes = (scenes: ReadonlyMap<string, readonly ScenePerson[]>) => {
     const next = scenesKeyOf(scenes);
     if (next === scenesKey) return;
@@ -246,17 +265,19 @@ function marginPeopleView(
           people,
           cursorsKey.getState(view.state)?.found ?? NONE_FOUND,
         );
-  const draw = () => {
+  const drawNow = () => {
+    cancelFrame = null;
+    if (destroyed || view.isDestroyed) return;
     const frame = view.dom.parentElement;
     const pages = paginationKey.getState(view.state);
     const index = currentIndex(view.state);
     const placed = placedIn(index);
     tellScenes(scenesIn(index, placed));
     const spots =
-      frame === null || pages === undefined
+      frame === null || pages === undefined || placed.length === 0
         ? []
         : spotsOf(frame, pages, placed);
-    const next = JSON.stringify([options.zoom(), spots]);
+    const next = markersKeyOf(options.zoom(), spots);
     if (next === markersKey) return;
     markersKey = next;
     for (const marker of drawn) marker.remove();
@@ -266,8 +287,12 @@ function marginPeopleView(
         : spots.map((spot) => markerOf(frame.ownerDocument, spot, options));
     frame?.append(...drawn);
   };
+  const draw = () => {
+    if (destroyed) return;
+    if (options.frames === undefined) drawNow();
+    else cancelFrame ??= options.frames.request(drawNow);
+  };
   // the filter is a transaction, so it starts after the view is made and updates on every report or filter change
-  let destroyed = false;
   const show = () => {
     if (!destroyed && !view.isDestroyed)
       setShownCursors(view, options.shown.get());
@@ -303,10 +328,13 @@ function marginPeopleView(
     },
     destroy() {
       destroyed = true;
+      cancelFrame?.();
+      cancelFrame = null;
       stop();
       stopShown();
       sheets.disconnect();
       for (const marker of drawn) marker.remove();
+      drawn = [];
       tellScenes(new Map());
     },
   };

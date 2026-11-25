@@ -180,6 +180,7 @@ export async function startWriter(
       region: scene,
       markers: false,
       keepBlocks: options.keepBlocks,
+      recordEvents: false,
       // a group's writers start LINE_STRIDE lines apart, so that no two of its scenes open alike
       lines: linesFrom(
         lines,
@@ -190,8 +191,7 @@ export async function startWriter(
     return {
       userId,
       scene,
-      editedAt: () =>
-        person.events.findLast((e) => e.type === "typed")?.at ?? null,
+      editedAt: () => person.lastTypedAt(),
       async stop() {
         await person.stop();
         await settled(handle, live.clock);

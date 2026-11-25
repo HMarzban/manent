@@ -72,6 +72,7 @@ export function marginPeoplePlugin(context: EditorPluginContext): Plugin {
     },
     name: joinNames,
     zoom: () => context.zoom(),
+    frames: context.frames,
     onScenes: (scenes) =>
       showPeopleInScenes(
         docId,
