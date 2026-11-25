@@ -1,7 +1,7 @@
 // The side position: the present tabs of a side panel's list, at the width the person chose, with an edge to resize it.
 import type { SideTab } from "@manent/commands";
 import { DOCUMENT_WORDS, PanelTabs } from "@manent/ui";
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { panelsActions, usePanel } from "../state/panels.store.ts";
 import {
@@ -99,10 +99,22 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
 export function SidePosition(props: {
   docId: string | null;
   tabs: readonly PanelTab<SideTab>[];
+  /** True when the caller already wraps SidePosition in its own overlay/scrim. */
+  overlayManaged?: boolean;
 }): ReactNode {
-  const { docId, tabs } = props;
+  const { docId, tabs, overlayManaged = false } = props;
   const { tab, widthPx } = usePanel("side");
-  const narrowOverlay = useNarrowPanelOverlay();
+  const narrowViewport = useNarrowPanelOverlay();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [outerOverlay, setOuterOverlay] = useState(false);
+  useLayoutEffect(() => {
+    if (overlayManaged || !narrowViewport) {
+      setOuterOverlay(false);
+      return;
+    }
+    const parent = rootRef.current?.parentElement ?? null;
+    setOuterOverlay(parent?.closest("[data-overlay]") !== null);
+  }, [overlayManaged, narrowViewport, tab]);
   // screens pass a list fixed when it loads, so each tab's hook runs in the same order every render
   const present = tabs
     .map((entry) => ({ entry, ...entry.useTab(docId) }))
@@ -111,6 +123,7 @@ export function SidePosition(props: {
   const current = present.find((t) => t.entry.id === tab);
   if (current === undefined) return null;
   const { Tab } = current.entry;
+  const narrowOverlay = narrowViewport && !overlayManaged && !outerOverlay;
   const panel = (
     <ShellRegion
       region="side_panel"
@@ -136,9 +149,14 @@ export function SidePosition(props: {
       </div>
     </ShellRegion>
   );
-  if (!narrowOverlay) return panel;
+  if (!narrowOverlay)
+    return (
+      <div ref={rootRef} className="contents">
+        {panel}
+      </div>
+    );
   return (
-    <div data-overlay="">
+    <div ref={rootRef} data-overlay="">
       <div
         aria-hidden="true"
         className="fixed inset-0 z-20 bg-scrim animate-in fade-in-0 duration-(--dur-fast) ease-out"

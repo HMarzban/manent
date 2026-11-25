@@ -116,6 +116,37 @@ test("SidePosition uses rem-scaled width on desktop and overlays with dismissibl
   });
 });
 
+test("SidePosition skips its own scrim when already wrapped by an outer overlay", async () => {
+  panelsActions.open("side", "tour");
+  const tabs = [
+    {
+      id: "tour" as const,
+      useTab: () => ({ present: true, label: "Tour" }),
+      Tab: () => <p>Tour body</p>,
+    },
+  ];
+  Object.defineProperty(window, "innerWidth", {
+    value: 375,
+    configurable: true,
+  });
+  const host = document.createElement("div");
+  document.body.append(host);
+  mounted = createRoot(host);
+  await act(async () => {
+    mounted?.render(
+      <div data-overlay="">
+        <SidePosition docId={null} tabs={tabs} />
+      </div>,
+    );
+  });
+  expect(host.querySelectorAll("[data-overlay]").length).toBe(1);
+  expect(host.querySelector(".bg-scrim")).toBeNull();
+  Object.defineProperty(window, "innerWidth", {
+    value: 1024,
+    configurable: true,
+  });
+});
+
 test("DemoBar stays single-row with h-demobar and hides person name below sm", async () => {
   await import("../src/demo/demo-bar-controls.tsx");
   const host = document.createElement("div");
