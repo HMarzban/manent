@@ -997,6 +997,10 @@ test("the handler table names every command but the generated ones", () => {
     "script.numbers": noop,
     "script.reports": noop,
     "view.focusMode": noop,
+    "graphics.insertImage": noop,
+    "graphics.insertLowerThird": noop,
+    "graphics.insertOts": noop,
+    "graphics.insertFullScreen": noop,
     "production.includeInSides": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(

@@ -4,6 +4,7 @@ import {
   liveFrontPages,
   liveFurniture,
 } from "../../editor-host/live-editor.ts";
+import { loadPdfAssetsForDoc } from "../pdf-assets.ts";
 import { loadPdfFonts } from "../pdf-fonts.ts";
 import { PAGED_FORMATS, fileName } from "../script-file.ts";
 import type {
@@ -34,8 +35,9 @@ async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
   const front = liveFrontPages(docId) ?? [];
   const furniture = liveFurniture(docId);
   const created = now();
-  const [fonts, { writePdf }] = await Promise.all([
+  const [fonts, assets, { writePdf }] = await Promise.all([
     loadPdfFonts(fetchBytes),
+    loadPdfAssetsForDoc(docId, pages),
     import("@manent/formats"),
   ]);
   // a copy over an ArrayBuffer of its own, which a Blob takes
@@ -51,6 +53,7 @@ async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
       revisionLabel: furniture.revisionLabel ?? null,
       day: furniture.day ?? isoDay(created),
       durationMs: furniture.durationMs,
+      assets,
     }),
   );
   return { bytes, name: fileName(title, ".pdf") };

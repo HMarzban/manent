@@ -53,6 +53,7 @@ import { accountHandlers } from "./account.ts";
 import { inkHandlers } from "./ink.ts";
 import { scriptHandlers } from "./script.ts";
 import { focusModeHandlers } from "./focus-mode.ts";
+import { graphicsHandlers } from "./graphics.ts";
 import { productionOutputsHandlers } from "./production-outputs.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
@@ -146,6 +147,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...inkHandlers(deps),
     ...scriptHandlers(deps),
     ...focusModeHandlers(deps),
+    ...graphicsHandlers(deps),
     ...productionOutputsHandlers(deps),
   };
 }
