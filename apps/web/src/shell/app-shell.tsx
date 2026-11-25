@@ -15,6 +15,7 @@ import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { useFileDrop } from "../import/file-drop.ts";
 import { loadApart } from "../load-apart.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
+import { TrashConfirmDialog } from "../screens/library/trash-view.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { readDeviceId } from "../services/device-id.ts";
 import {
@@ -292,6 +293,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                       </Suspense>
                     </SurfaceBoundary>
                     <GlobalKeys />
+                    <TrashConfirmDialog />
                   </>
                 )}
               </PeopleContext>

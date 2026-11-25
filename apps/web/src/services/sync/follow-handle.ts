@@ -11,6 +11,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import { historyEvents } from "../../history/history-events.ts";
+import { watchTrashHandle } from "../../library/trash-api.ts";
 import type { PersonSync } from "./create-sync.ts";
 import { nameOf } from "./index-entries.ts";
 import { toStatusFacts } from "./status-facts.ts";
@@ -191,6 +192,14 @@ export function followHandle(options: Following, open: Opened): () => void {
       messages: options.messages,
       nameOf,
       viewerUserId: sync.userId,
+    }),
+    watchTrashHandle({
+      docId,
+      handle,
+      userId: sync.userId,
+      title: () => options.titles(docId),
+      messages: options.messages,
+      nameOf,
     }),
     groupWaiting(options, open),
     options.opened(docId, handle),
