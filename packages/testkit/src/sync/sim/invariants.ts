@@ -1,7 +1,7 @@
 // The invariants a settled world keeps, judged against the log and the devices' own stores, and
 // when a device that is not synced is rightly held back.
 import { ORIGIN_LOAD, createDoc, loadDoc } from "@manent/crdt";
-import type { SideState } from "@manent/sync-client";
+import type { RecoveredItem, SideState } from "@manent/sync-client";
 import type { MemoryStorage } from "@manent/storage/testing";
 import { gateDocument } from "@manent/sync-protocol";
 import { DOC, linesOf } from "./device.ts";
@@ -97,11 +97,15 @@ export async function storeFault(device: Device): Promise<string | null> {
 }
 
 /**
- * Kept by a device that held it: in its Recovered text (with `cause`, only for
- * that cause), or still in its document while it has not synced, to be set
- * aside when it does.
+ * Kept by a device that held it: in its Recovered text (when `causes` is given,
+ * only for one of those causes), or still in its document while it has not
+ * synced, to be set aside when it does.
  */
-function isKept(books: Books, marker: string, cause: "merge" | null): boolean {
+function isKept(
+  books: Books,
+  marker: string,
+  causes: ReadonlySet<RecoveredItem["cause"]> | null,
+): boolean {
   return [...(books.holders.get(marker) ?? [])].some(
     (device) =>
       (!device.handle.status.get().synced &&
@@ -110,11 +114,16 @@ function isKept(books: Books, marker: string, cause: "merge" | null): boolean {
         .get()
         .some(
           (item) =>
-            (cause === null || item.cause === cause) &&
+            (causes === null || causes.has(item.cause)) &&
             item.text.includes(marker),
         ),
   );
 }
+
+const MERGED_CAUSES: ReadonlySet<RecoveredItem["cause"]> = new Set([
+  "merge",
+  "overlap",
+]);
 
 /** In a recovered version of the device that typed it. */
 function isInRecoveredVersion(
@@ -170,7 +179,7 @@ export function firstBroken(world: {
   const text = log.lines.join("\n");
   const gone = (marker: string): boolean =>
     !text.includes(marker) && !books.removed.has(marker);
-  const lost = world.restored ? null : "merge";
+  const lost = world.restored ? null : MERGED_CAUSES;
   for (const marker of books.acked)
     if (gone(marker) && !isKept(books, marker, lost))
       return `I1: ${marker} was acknowledged and is not in the log`;

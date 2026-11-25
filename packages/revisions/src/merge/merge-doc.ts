@@ -74,7 +74,7 @@ function outcomeOf(
 ): Outcome {
   if (base === null) {
     if (theirs === null) return { kind: "insert" };
-    return isSame(mine, theirs) ? NOTHING : { kind: "replace", block: mine };
+    return isSame(mine, theirs) ? NOTHING : { kind: "overlap", theirs };
   }
   if (isSame(mine, base)) return NOTHING;
   if (theirs === null) return SET_ASIDE;

@@ -55,18 +55,17 @@ test("each row of the merge table", () => {
     ops: [
       { op: "replace", block: b(B, "TWO") },
       { op: "insert", after: B, block: b(N, "new") },
-      { op: "replace", block: b(E, "mine") },
       { op: "replace", block: b(F, "cold rain falls hard") },
       { op: "delete", id: D },
     ],
-    overlaps: [],
+    overlaps: [{ blockId: E, mine: b(E, "mine"), theirs: b(E, "theirs") }],
     setAside: [{ blockId: C, nearBlockId: N, text: "three!" }],
-    applied: 5,
+    applied: 4,
     result: doc(
       b(A, "one"),
       b(B, "TWO"),
       b(N, "new"),
-      b(E, "mine"),
+      b(E, "theirs"),
       b(F, "cold rain falls hard"),
     ),
   });
