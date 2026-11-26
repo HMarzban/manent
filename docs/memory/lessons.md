@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Running xvfb-run as PID 1 inside Docker deadlocks its Xvfb readiness signal
+
+- Date: 2026-11-26
+
+### What happened
+
+`dockerRunArgs` in `bench/tiers/tiers.ts` started client benchmark containers with `docker run --rm … xvfb-run -a bun bench/run.ts --inside …` and no `--init`. Inside Linux containers, PID 1 ignores unhandled signals, so `xvfb-run`'s `SIGUSR1` readiness handshake from `Xvfb` never completed and the `D-modest` container sat idle at 0 % CPU without ever launching `bun`.
+
+### How it was caught
+
+By inspecting `docker stats` and `docker exec … ps -ef` on a `D-modest` container that had written no results after ninety minutes.
+
+### Rule
+
+Always pass `--init` to `docker run` for benchmark containers so a lightweight init process owns PID 1, forwards signals cleanly to `xvfb-run`, and reaps child browser processes.
+
+### Enforced by
+
+`bench/test/tiers.test.ts` (asserting `docker run --rm --init` on both client and server container invocations).
+
 ## Strip FORCE_COLOR in subprocess CLI tests run under bun test --parallel
 
 - Date: 2026-11-26

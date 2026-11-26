@@ -120,6 +120,7 @@ export function dockerRunArgs(
     "docker",
     "run",
     "--rm",
+    "--init",
     `--cpus=${cpus}`,
     `--memory=${memory}`,
     `--memory-swap=${memory}`,

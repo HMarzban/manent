@@ -36,7 +36,7 @@ const TIER_TABLE = [
 ];
 
 const D_MODEST_RUN =
-  "docker run --rm --cpus=2 --memory=4g --memory-swap=4g --shm-size=1g --env MANENT_BENCH_TIER=D-modest --env MANENT_BENCH_THROTTLE=4 --volume /r:/repo/bench/results manent-bench:abc xvfb-run -a bun bench/run.ts --inside --filter typing";
+  "docker run --rm --init --cpus=2 --memory=4g --memory-swap=4g --shm-size=1g --env MANENT_BENCH_TIER=D-modest --env MANENT_BENCH_THROTTLE=4 --volume /r:/repo/bench/results manent-bench:abc xvfb-run -a bun bench/run.ts --inside --filter typing";
 
 const NOT_INSTALLED =
   "Docker is not installed, so the Docker tiers are recorded as not measured. Install Docker and run bun run bench again to measure them.";
@@ -84,7 +84,7 @@ test("a tier's container is started with its caps and its throttle", () => {
       args: [],
     }).join(" "),
   ).toBe(
-    "docker run --rm --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --volume /r:/repo/bench/results --volume /t:/repo/bench/corpus/traces:ro --volume /c:/repo/bench/corpus/cache:ro i bun bench/run.ts --inside",
+    "docker run --rm --init --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --volume /r:/repo/bench/results --volume /t:/repo/bench/corpus/traces:ro --volume /c:/repo/bench/corpus/cache:ro i bun bench/run.ts --inside",
   );
 });
 
@@ -377,7 +377,7 @@ test("a Docker tier runs in its container, built once, and keeps the file the co
   expect(runs).toHaveLength(2);
   expect(runs[0]).toMatch(
     new RegExp(
-      "^run --rm --cpus=1 --memory=1g .* manent-bench:[0-9a-f]{12} bun bench/run.ts --inside --quick --prove --filter server/ --command ",
+      "^run --rm --init --cpus=1 --memory=1g .* manent-bench:[0-9a-f]{12} bun bench/run.ts --inside --quick --prove --filter server/ --command ",
     ),
   );
   expect(runs[1]).toContain("--inside --quick --prove --command ");
