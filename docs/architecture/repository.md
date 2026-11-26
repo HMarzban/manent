@@ -106,6 +106,8 @@ e2e/
 tools/
 ├── demo/                   the launcher behind make demo, and its supervisor
 ├── check-*.ts              the gate's checks: tracked files, boundaries, records, Tour, interface rules, colours, glossary
+├── e2e-parallel.ts         runs Chromium, Firefox and WebKit Playwright suites concurrently on isolated ports and build folders
+├── build-server-release.ts compiles all six release server binaries and archives apps/web/dist concurrently
 ├── boundaries.config.ts    which workspace may import which
 ├── records.config.ts       the rules of the public documents
 ├── unicode/                generates the page engine's tables from vendored Unicode data

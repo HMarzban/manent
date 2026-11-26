@@ -5,7 +5,7 @@ Rules for everyone who changes this repository, human or AI agent.
 ## The gate
 
 - The toolchain is Bun 1.4.4: never npm, yarn, pnpm or npx.
-- `bun run verify` is the one gate: formatting, types, lint, tracked files, package boundaries, project records, the Tour, unit tests. A change is finished when it passes cleanly; `bun run format` fixes formatting.
+- `bun run verify` is the one gate: `verify:checks` (parallel static checks) then `test:unit` (`bun test --parallel`). While iterating, use `bun run verify:checks`, `bun test --parallel <paths>`, `bun run test:e2e:parallel` and `bun run format`.
 
 ## Boundaries
 

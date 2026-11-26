@@ -24,8 +24,8 @@ bun run verify
 1. Create a branch from `main`.
 2. Write the test first and watch it fail for the reason you expect. Then make it pass.
 3. Keep the change to what it needs: no unused export, option or file, and nothing said twice.
-4. Run `bun run verify` until it passes cleanly. `bun run format` fixes formatting.
-5. If the change touches the browser, run the end-to-end tests that cover it ([Testing](docs/development/testing.md)).
+4. Use `bun run verify:checks` (concurrent static checks) and `bun test --parallel <paths>` while iterating, then run `bun run verify` until it passes cleanly before pushing. `bun run format` fixes formatting.
+5. If the change touches the browser, run the end-to-end tests that cover it — or `bun run test:e2e:parallel` to run Chromium, Firefox and WebKit concurrently ([Testing](docs/development/testing.md)).
 6. Add one entry to [CHANGELOG.md](CHANGELOG.md) under Unreleased, for a reader who did not see the work.
 7. If the change alters what works, update the README's status table and [the architecture overview](docs/architecture/overview.md) in the same change.
 8. Commit as `<type>(<scope>): <summary>`, where the type is `feat`, `fix` or `chore` and the scope is the workspace. See [Commits](docs/development/standards.md#commits).
@@ -34,7 +34,7 @@ Then open a pull request. The template asks what changed, why, and how you check
 
 ## How a change is reviewed
 
-- **CI.** The workflow runs `bun run verify`, the end-to-end tests in Chromium, Firefox and WebKit, and the fresh-clone test, on Ubuntu, macOS and Windows. It does not pass on `main` yet; until it does, the reviewer runs `bun run verify` and the end-to-end tests that cover the change locally, and says so in the review.
+- **CI.** The workflow cancels superseded non-`main` runs, caches Bun dependencies, and fans out five parallel jobs (`checks`, `verify`, `e2e` across Chromium, Firefox and WebKit in parallel, `clone`, and `demo`) on Ubuntu, macOS and Windows. Until it passes on every system, the reviewer runs `bun run verify` and the end-to-end tests that cover the change locally, and says so in the review.
 - **Does it do what it says?** The reviewer reads the change against the issue or the description: every stated behaviour is there and tested, and nothing else is.
 - **Is it clean?** The reviewer checks [AGENTS.md](AGENTS.md) and the [coding standards](docs/development/standards.md): the layer rules, names, comments, the interface's words, tests that assert exact values, no defensive code for what the types already rule out, nothing duplicated.
 - **Are the records kept?** A changelog entry; a decision record where a decision was made; a lesson where a mistake revealed a class of mistakes.

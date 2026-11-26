@@ -14,9 +14,10 @@ Manent has four kinds of test. The unit tests run in the gate (`bun run verify`)
 ## Unit tests
 
 ```sh
-bun run test:unit                                   # all of them, as the gate runs them
-bun test --isolate packages/schema                  # one workspace
-bun test --isolate packages/schema/test/validate.test.ts   # one file
+bun run verify:checks                                     # all seven static checks in parallel
+bun run test:unit                                         # all unit tests in parallel, as the gate runs them
+bun test --parallel packages/schema                       # one workspace (implies --isolate)
+bun test --isolate packages/schema/test/validate.test.ts  # one file
 ```
 
 - A test lives in `<workspace>/test/` and imports from `bun:test`.

@@ -28,7 +28,7 @@ The build stages the web app, the server program, the demo's seed and the third-
 | `bun run desktop:headless`                    | Runs the local node with no window, serving the web app as the desktop page                                                            |
 | `bun tools/desktop/check-size.ts <installer>` | Prints the installer's size against its budget of 250 MB; fails above 400 MB                                                           |
 
-`.github/workflows/desktop.yml` builds, installs and smoke-tests the app on macOS, Windows and Linux whenever the desktop code changes, and `.github/workflows/release.yml` builds and publishes the installers for a tag that starts with `v`. A release also carries the server on its own, compiled into one `manent-<system>-<arch>` file for macOS, Linux and Windows on Intel and Arm, with the web app it serves in `manent-web.tar.gz`.
+`.github/workflows/desktop.yml` builds, installs and smoke-tests the app on macOS, Windows and Linux whenever the desktop code changes (cancelling superseded non-`main` runs and caching `~/.bun/install/cache`), and `.github/workflows/release.yml` builds and publishes the installers for a tag that starts with `v`. A release also carries the server on its own, compiled concurrently via `tools/build-server-release.ts` into one `manent-<system>-<arch>` file for macOS, Linux and Windows on Intel and Arm alongside `manent-web.tar.gz`.
 
 ## What the app does
 
