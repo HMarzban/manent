@@ -387,16 +387,32 @@ test("ChooseScreen unfolds AI pledge in place and still routes to /join/$token a
   expect(pledgeBtn.getAttribute("aria-expanded")).toBe("true");
   expect(host.textContent).toContain("generates no scenes");
 
-  // Choosing Sam preserves /join/$token navigation
-  const samCard = [...host.querySelectorAll("button")].find((b) =>
-    b.textContent?.includes("Sam Okafor"),
-  )!;
+  // Choosing Sam preserves /join/$token navigation (wait for async choices query under parallel load)
+  const findSamCard = (): HTMLButtonElement | undefined =>
+    [...host!.querySelectorAll("button")].find((b) =>
+      b.textContent?.includes("Sam Okafor"),
+    );
+  const deadline = Date.now() + 4_000;
+  let samCard = findSamCard();
+  while (samCard === undefined && Date.now() < deadline) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    samCard = findSamCard();
+  }
+  expect(samCard).toBeDefined();
   const navSpy = spyOn(router, "navigate");
   await act(async () => {
-    samCard.click();
+    samCard!.click();
     await Promise.resolve();
     await Promise.resolve();
   });
+  const chooseDeadline = Date.now() + 4_000;
+  while (chosen.length === 0 && Date.now() < chooseDeadline) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
   expect(chosen).toEqual([SAM]);
   expect(navSpy).toHaveBeenCalledWith({ href: "/join/share-token-42" });
   navSpy.mockRestore();
