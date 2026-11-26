@@ -147,21 +147,22 @@
             "sameAs": ["https://github.com/HMarzban/manent"],
             "featureList": [
               "Every keystroke saved on your device first; writing, search, drafts, restore and export work offline",
-              "Live co-writing with named carets, Follow, shared comments in review rounds, Writers-only notes, suggestions and private copies with Hand in",
+              "Live co-writing with named carets, Follow, passive Scenes Ghost Follow (dashed ghost rail and Back to … strip in List and Cards views), shared comments in review rounds, Writers-only notes, suggestions and private copies with Hand in",
               "Identical page breaks on every device and in the PDF, with versioned layout engines pinned per script",
               "Production revisions: locked pages and scenes, A-pages, colours, asterisks, Sides PDF, Try on a copy first, Issue and Recall",
-              "Full revision history: every session, named draft and issue kept, with Changes since, Who wrote this and single-scene restore",
-              "Eight script formats — screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink — plus Show and News rundowns",
+              "Full revision history for scripts and rundowns: every session, named draft and issue kept, with Changes since, Who wrote this, single-scene restore, and Rundown History (In the grid, Side by side, As it was, non-colour diff badges, and whole-rundown or single-row restore with 'Before restore' backups and air-window safety)",
+              "Eight script formats — screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink — plus Show and News rundowns with reusable templates (Save template… as project default or shared workspace template, pure stripping of dates, timings, previous values, comments and revision marks, fresh ID minting on New rundown / New script, and Project settings → Templates)",
+              "Inline images and broadcast chyrons (Image, Lower third, Over the shoulder, Full screen) with adjustable line height, editable on-page captions, zero-dialog image picking, offline-first project asset storage, and PDF, FDX, Fountain, Project Archive and MOS export support",
               "FDX and Fountain in and out; text-based PDF, Word (.docx) and plain text import; older .fdr files recognised with steps to save as .fdx",
               "Project Archive (.zip) export, Game Script JSON and XML line-data exports, and Animation Pickup lines CSV",
               "Live Web Worker Ink compiler with inline problem markers and an interactive Ink player Beside with replay and live Variables editing",
               "Series Board with storylines, companion outlines and room logs Beside the script, Names and facts, pre-send Checks, bare Room window with Take keys and watermarked Reader links",
-              "Variety and podcast read-rate timing, T=m:ss bracket durations, collaborative rundowns, live Prompter window and desktop Prompter files folder",
+              "Variety and podcast read-rate timing, T=m:ss bracket durations, collaborative Show and News rundowns with live read-only Can view and Can comment grids, remote-scrolled Prompter window with server-arbitrated operator scroll leases (Take control, Take over, Stop controlling), docked rundown transport strip, Follow / Free scroll and feed-loss pause, direct MOS 2.8.5 and Autoscript WinPlus-IP bridge (Workspace settings → Broadcast and Desktop LAN MOS relay; verified against a deterministic mock MOS prompter and not yet tested on physical studio hardware), and desktop Prompter files folder",
               "Full-text workspace and offline desktop search, nested folders, personal Favourites, Private folder and 30-day recoverable Trash",
               "Writing tools: single-undo Rename character, Focus mode, Read aloud, daily goals and sprints, Script numbers and CSV/PDF reports",
               "Workspace settings, per-project Can also permissions, read-only /api/v1/ REST API with workspace API keys, and Webhook, Slack and email notifications",
               "Whole manuscripts of 2,000 pages in one document",
-              "Desktop app for Mac, Windows and Linux with Export everything on this device and macOS manent:// links, plus self-hosted server",
+              "Desktop app for Mac, Windows and Linux with Export everything on this device, Desktop LAN MOS relay and macOS manent:// links, plus self-hosted server",
               "No AI writing features, and no training on your scripts"
             ]
           },
@@ -226,7 +227,7 @@
                 "name": "Can my whole room use it together?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Run Manent's server on a machine your room can reach, and everyone writes in the same script, with roles for who can edit, comment or only read, plus per-project Can also permissions (for issuing revisions, locking pages, editing rundowns or sending to the prompter) and watermarked reader links."
+                  "text": "Yes. Run Manent's server on a machine your room can reach, and everyone writes in the same script or follows a live Show or News rundown, with roles for who can edit, comment or only read (including live read-only Can view and Can comment rundown grids), plus per-project Can also permissions (for issuing revisions, locking pages, editing rundowns or sending to the prompter) and watermarked reader links."
                 }
               },
               {
@@ -242,7 +243,7 @@
                 "name": "What won't Manent do?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Let you write on a phone; there, scripts are for reading. Talk to MOS or drive a particular maker's prompter directly; it writes prompter files and a live feed instead. Lay out right-to-left or wide scripts exactly; their text is kept, not laid out. Do scheduling, budgets or call sheets; it hands those tools a clean file."
+                  "text": "Let you write on a phone; there, scripts are for reading. Run studio video playout or graphics switchers; it drives remote-scrolled Prompter windows and talks directly to external prompters over MOS 2.8.5 and Autoscript WinPlus-IP (plus Desktop LAN MOS relay), verified against a deterministic mock MOS prompter and not yet tested on physical studio hardware. Lay out right-to-left or wide scripts exactly; their text is kept, not laid out. Do scheduling, budgets or call sheets; it hands those tools a clean file."
                 }
               },
               {
@@ -258,7 +259,7 @@
                 "name": "Can we self-host Manent and connect it to our studio tools?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Manent's server is one Bun and SQLite process (also published as a standalone binary with each release) that you can run on your own machine or private network. Workspace owners can create revocable, read-only mk_ API keys for the /api/v1/ REST API — listing folders, reading script lines, exporting .fdx or fetching compiled Ink JSON without ever exposing Trash or Private scripts — and turn on outbox-backed comment and @mention notifications to a custom webhook, Slack incoming webhook or Resend email."
+                  "text": "Yes. Manent's server is one Bun and SQLite process (also published as a standalone binary with each release) that you can run on your own machine or private network. Workspace owners can create revocable, read-only mk_ API keys for the /api/v1/ REST API — listing folders, reading script lines, exporting .fdx or fetching compiled Ink JSON without ever exposing Trash or Private scripts — turn on outbox-backed comment and @mention notifications to a custom webhook, Slack incoming webhook or Resend email, and configure Workspace settings → Broadcast for MOS 2.8.5 and Autoscript WinPlus-IP external prompters (or use the Desktop LAN MOS relay on local studio networks; verified against a deterministic mock MOS prompter, not yet tested on physical studio hardware)."
                 }
               }
             ]
@@ -932,7 +933,9 @@
               <h3>Names on every caret</h3>
               <p>
                 See who is where: on the page, in the margin initials and in the
-                Scene List or Cards view, with Writer assignment and Progress.
+                Scenes List or Cards view — with Writer assignment, Progress,
+                and passive <b>Ghost Follow</b> tracking your viewport with a
+                dashed ghost rail and a one-click <b>Back to …</b> strip.
               </p>
             </li>
             <li>
@@ -1744,26 +1747,47 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>17:20</b> Build a Show or News <b>rundown</b>, one fresh
-                    document per story opened <b>Beside</b> the grid. Variety
-                    and Podcast scripts time themselves from
-                    <b>Read rate</b> plus <code>T=m:ss</code> Bracket durations,
-                    with <b>Exclude from timing</b> and selection <b>Time</b>.
+                    <b>17:20</b> Start a Show or News <b>rundown</b> from a
+                    reusable template (<b>Save template…</b> as project default
+                    or shared workspace template, cleanly stripped of dates,
+                    timings, previous values, comments and revision marks, with
+                    fresh IDs minted on <b>New rundown</b> /
+                    <b>New script</b> and managed in
+                    <b>Project settings → Templates</b>). Open each story
+                    <b>Beside</b> the grid, drop in inline graphics and
+                    broadcast chyrons (<code>Image</code>,
+                    <code>Lower third</code>, <code>Over the shoulder</code>,
+                    <code>Full screen</code>) with editable on-page captions and
+                    offline-first asset storage, and time scripts live from
+                    <b>Read rate</b> plus <code>T=m:ss</code> brackets.
                   </li>
                   <li>
-                    <b>17:58</b> Rewrite A3. Server-computed <code>Dur</code>,
-                    <code>Cume</code>, <code>Start</code>, <code>Back</code> and
-                    over/under update live, every cell keeps its
-                    <b>Previous value</b> to restore, and the row reads "Changed
-                    — not on prompter" until sent.
+                    <b>17:58</b> Rewrite A3 while directors and researchers
+                    follow live in read-only <b>Can view</b> or
+                    <b>Can comment</b> rundown grids. Server-computed
+                    <code>Dur</code>, <code>Cume</code>, <code>Start</code>,
+                    <code>Back</code> and over/under update live, every cell
+                    keeps its <b>Previous value</b>, full
+                    <b>Rundown History</b> compares <b>In the grid</b>,
+                    <b>Side by side</b> or <b>As it was</b> with non-colour diff
+                    badges and single-row or whole-rundown restore (keeping a
+                    <code>'Before restore'</code> backup), and edited rows read
+                    "Changed — not on prompter" until sent.
                   </li>
                   <li>
-                    <b>18:06</b> Outside the air window, quiet 2-second
-                    auto-sends keep rehearsal current. Inside the air window,
-                    the <b>Prompter window</b> (with Text size, Dark and Mirror)
-                    changes only when someone clicks <b>Send to prompter</b> —
-                    with one-click <b>Send previous</b> and 3-second
-                    <code>Feed lost</code> detection.
+                    <b>18:06</b> Inside the air window, the remote-scrolled
+                    <b>Prompter window</b> (with server-arbitrated operator
+                    scroll leases — <b>Take control</b>, <b>Take over</b>,
+                    <b>Stop controlling</b> — a docked rundown transport strip,
+                    <b>Follow</b> / <b>Free scroll</b>, clean pause on 3-second
+                    <code>Feed lost</code>, Text size, Dark and Mirror) changes
+                    only when someone clicks <b>Send to prompter</b>, with
+                    one-click <b>Send previous</b>. Direct external prompter
+                    output speaks <b>MOS 2.8.5</b> and
+                    <b>Autoscript WinPlus-IP</b> via Workspace settings →
+                    Broadcast or the <b>Desktop LAN MOS relay</b> (verified
+                    against a deterministic mock MOS prompter; physical studio
+                    hardware not yet tested).
                   </li>
                 </ol>
               </div>
@@ -2011,11 +2035,15 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-list-ordered" /></svg
                     ></span>
-                    <h4>Timing and six exports</h4>
+                    <h4>Templates, chyrons &amp; six exports</h4>
                     <p>
-                      Read-rate timing, <code>T=m:ss</code> brackets, front and
-                      back times, plus Rundown PDF, Two-column Variety PDF, All
-                      scripts PDF, Prompter text, Brackets list and JSON.
+                      Reusable Show and News templates, inline
+                      <code>Image</code> / <code>Lower third</code> /
+                      <code>Over the shoulder</code> /
+                      <code>Full screen</code> blocks, read-rate timing,
+                      <code>T=m:ss</code> brackets, live <b>Can view</b> grids,
+                      plus Rundown PDF, Two-column Variety PDF, All scripts PDF,
+                      Prompter text, Brackets list and JSON.
                     </p>
                   </li>
                   <li>
@@ -2023,10 +2051,13 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-monitor-play" /></svg
                     ></span>
-                    <h4>A prompter that waits to be sent</h4>
+                    <h4>Remote-scrolled prompter &amp; air window</h4>
                     <p>
                       Manual sends inside the air window, <b>Send previous</b>,
-                      Mirror and Dark modes, and a 1-second heartbeat.
+                      server-arbitrated scroll leases (<b>Take control</b> /
+                      <b>Take over</b> / <b>Stop controlling</b>), docked
+                      transport strip, <b>Follow</b> / <b>Free scroll</b>,
+                      feed-loss pause, Mirror, Dark and a 1-second heartbeat.
                     </p>
                   </li>
                   <li>
@@ -2034,11 +2065,14 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-hard-drive" /></svg
                     ></span>
-                    <h4>Files when the network drops</h4>
+                    <h4>MOS 2.8.5, WinPlus-IP &amp; local files</h4>
                     <p>
-                      The desktop app writes <code>run-order.txt</code> and
-                      <code>NN-&lt;slug&gt;.txt</code> (UTF-8 or Windows-1252)
-                      directly to a local folder.
+                      Direct <b>MOS 2.8.5</b> and
+                      <b>Autoscript WinPlus-IP</b> bridge plus
+                      <b>Desktop LAN MOS relay</b> (verified against a
+                      deterministic mock MOS prompter; studio hardware not yet
+                      tested), and local <code>run-order.txt</code> /
+                      <code>NN-&lt;slug&gt;.txt</code> files when networks drop.
                     </p>
                   </li>
                 </ul>
@@ -2386,7 +2420,11 @@
                         <use href="assets/icons.svg#i-list" /></svg
                     ></span>
                     <h4>Chapters beside the page</h4>
-                    <p>Jump, reorder and see each chapter's length.</p>
+                    <p>
+                      Jump, reorder, see each chapter's length, and track your
+                      reading position with passive <b>Ghost Follow</b> and its
+                      <b>Back to …</b> strip.
+                    </p>
                   </li>
                   <li>
                     <span class="m-card-icon"
@@ -3250,7 +3288,12 @@
               <kbd data-shortcut="Ctrl+Shift+S">⌘⇧S</kbd>, see every line you've
               changed since, and bring back one scene or the whole script. A
               restore can always be undone, and "Who wrote this?" answers for
-              any line.
+              any line. Show and News rundowns keep full
+              <b>Rundown History</b> too — compare <b>In the grid</b>,
+              <b>Side by side</b> or <b>As it was</b> with non-colour diff
+              badges, and restore a single row or the whole rundown with an
+              automatic <code>'Before restore'</code> backup and air-window
+              safety.
             </p>
           </div>
           <p class="quiet-line handoff">
@@ -3486,7 +3529,9 @@
                 PDF, Sides PDF, <code>.fdx</code>, Fountain, Game Script JSON
                 and XML, Ink (<code>.ink</code> and compiled JSON), CSV and PDF
                 reports, or a whole Project Archive (<code>.zip</code>) —
-                offline, whenever you like.
+                carrying inline images and broadcast chyrons (with adjustable
+                line height, editable on-page captions, zero-dialog picking and
+                offline-first project asset storage) offline, whenever you like.
               </p>
             </li>
             <li>
@@ -3560,12 +3605,16 @@
                 ><svg class="m-icon" aria-hidden="true">
                   <use href="assets/icons.svg#i-lock" /></svg
               ></span>
-              <h3>Workspace settings and "Can also" permissions</h3>
+              <h3>Workspace settings, templates and "Can also"</h3>
               <p>
-                Manage workspace members, owners and defaults in one place.
-                Grant per-project <b>Can also</b> capabilities — issuing
-                revisions, locking page numbers, editing rundowns, sending to
-                the prompter or deleting — without handing over full ownership.
+                Manage workspace members, owners, defaults and Broadcast MOS
+                2.8.5 / Autoscript WinPlus-IP settings in one place, alongside
+                reusable Show and News templates in
+                <b>Project settings → Templates</b>. Grant live read-only
+                <b>Can view</b> / <b>Can comment</b> rundown access or
+                per-project <b>Can also</b> capabilities — issuing revisions,
+                locking page numbers, editing rundowns, sending to the prompter
+                or deleting — without handing over full ownership.
               </p>
             </li>
             <li>
@@ -3599,10 +3648,12 @@
                 ><svg class="m-icon" aria-hidden="true">
                   <use href="assets/icons.svg#i-archive" /></svg
               ></span>
-              <h3>Desktop links and full local backup</h3>
+              <h3>Desktop links, LAN MOS relay and full local backup</h3>
               <p>
                 Open scripts directly from <code>manent://</code> links on
-                macOS, write local Prompter folders when networks drop, and run
+                macOS, bridge local studio prompters with the
+                <b>Desktop LAN MOS relay</b>, write local Prompter folders when
+                networks drop, and run
                 <b>Export everything on this device…</b> at any time to save
                 every local script to disk.
               </p>
@@ -3876,11 +3927,13 @@
               </summary>
               <p>
                 Yes. Run Manent's server on a machine your room can reach, and
-                everyone writes in the same script, with roles for who can edit,
-                comment or only read, plus per-project <b>Can also</b>
-                permissions (for issuing revisions, locking pages, editing
-                rundowns or sending to the prompter) and watermarked reader
-                links.
+                everyone writes in the same script or follows a live Show or
+                News rundown, with roles for who can edit, comment or only read
+                (including live read-only <b>Can view</b> and
+                <b>Can comment</b> rundown grids), plus per-project
+                <b>Can also</b> permissions (for issuing revisions, locking
+                pages, editing rundowns or sending to the prompter) and
+                watermarked reader links.
               </p>
             </details>
             <details>
@@ -3909,8 +3962,13 @@
                   Let you write on a phone; there, scripts are for reading.
                 </li>
                 <li>
-                  Talk to MOS or drive a particular maker's prompter directly;
-                  it writes prompter files and a live feed instead.
+                  Run studio video playout or graphics switchers; it drives
+                  remote-scrolled Prompter windows and talks directly to
+                  external prompters over <b>MOS 2.8.5</b> and
+                  <b>Autoscript WinPlus-IP</b> (plus a
+                  <b>Desktop LAN MOS relay</b>), verified against a
+                  deterministic mock MOS prompter and not yet tested on physical
+                  studio hardware.
                 </li>
                 <li>
                   Lay out right-to-left or wide scripts exactly; their text is
@@ -3960,9 +4018,14 @@
                 create revocable, read-only <code>mk_</code> API keys for the
                 <code>/api/v1/</code> REST API — listing folders, reading script
                 lines, exporting <code>.fdx</code> or fetching compiled Ink JSON
-                without ever exposing Trash or Private scripts — and turn on
+                without ever exposing Trash or Private scripts — turn on
                 outbox-backed comment and <code>@mention</code> notifications to
-                a custom webhook, Slack incoming webhook or Resend email.
+                a custom webhook, Slack incoming webhook or Resend email, and
+                configure <b>Workspace settings → Broadcast</b> for
+                <b>MOS 2.8.5</b> and <b>Autoscript WinPlus-IP</b> external
+                prompters (or use the <b>Desktop LAN MOS relay</b> on local
+                studio networks; verified against a deterministic mock MOS
+                prompter, not yet tested on physical studio hardware).
               </p>
             </details>
           </div>
@@ -3988,8 +4051,8 @@
             <h2 id="download-title">Write your first page tonight.</h2>
             <p class="sub">
               For Mac, Windows and Linux. Every script lives on your own disk,
-              with offline full-text search, Prompter folder output,
-              <code>manent://</code> links on macOS and
+              with offline full-text search, Desktop LAN MOS relay, Prompter
+              folder output, <code>manent://</code> links on macOS and
               <b>Export everything on this device…</b> — everything works with
               no network.
             </p>

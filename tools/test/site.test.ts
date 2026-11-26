@@ -482,3 +482,69 @@ test("site.js never links to non-existent .AppImage or .exe release artifacts", 
   expect(js).not.toMatch(/Manent-windows\.exe\b/);
   expect(js).not.toMatch(/Manent-mac\.dmg\b/);
 });
+
+test("neither index.html nor compare.html contains stale MOS refusal claims", async () => {
+  const staleMos = new RegExp(
+    String.raw`talk to mos|drive a particular maker`,
+    "i",
+  );
+  const [indexMain = ""] = await textOf(index, "main");
+  const [compareMain = ""] = await textOf(compare, "main");
+  expect(staleMos.test(index)).toBe(false);
+  expect(staleMos.test(indexMain)).toBe(false);
+  expect(staleMos.test(compare)).toBe(false);
+  expect(staleMos.test(compareMain)).toBe(false);
+
+  const indexGraph = graphOf(readJsonLd(index));
+  const faq = indexGraph.find((n) => n["@type"] === "FAQPage")!;
+  const wont = (
+    faq.mainEntity as { name: string; acceptedAnswer: { text: string } }[]
+  ).find((q) => q.name === "What won't Manent do?");
+  expect(wont).toBeDefined();
+  expect(wont!.acceptedAnswer.text).toContain("MOS 2.8.5");
+  expect(wont!.acceptedAnswer.text).toContain("Autoscript WinPlus-IP");
+  expect(wont!.acceptedAnswer.text).toContain("Desktop LAN MOS relay");
+  expect(wont!.acceptedAnswer.text).toContain("mock MOS prompter");
+});
+
+test("index.html and compare.html reflect Stage 5 and Ghost Follow capabilities", async () => {
+  const indexGraph = graphOf(readJsonLd(index));
+  const app = indexGraph.find((n) => n["@type"] === "SoftwareApplication")!;
+  const features = (app.featureList as string[]).join("\n");
+  const [indexMain = ""] = await textOf(index, "main");
+  const [compareMain = ""] = await textOf(compare, "main");
+
+  expect(page.measured.length).toBe(3);
+
+  for (const needle of [
+    "MOS 2.8.5",
+    "Autoscript WinPlus-IP",
+    "Desktop LAN MOS relay",
+    "mock MOS prompter",
+    "Take control",
+    "Take over",
+    "Stop controlling",
+    "Free scroll",
+    "Lower third",
+    "Over the shoulder",
+    "Full screen",
+    "Save template…",
+    "Project settings → Templates",
+    "Can view",
+    "In the grid",
+    "Side by side",
+    "As it was",
+    "Ghost Follow",
+    "Back to …",
+  ]) {
+    expect(features, `JSON-LD featureList includes "${needle}"`).toContain(
+      needle,
+    );
+    expect(indexMain, `index.html <main> includes "${needle}"`).toContain(
+      needle,
+    );
+    expect(compareMain, `compare.html <main> includes "${needle}"`).toContain(
+      needle,
+    );
+  }
+});
