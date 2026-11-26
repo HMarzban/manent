@@ -151,6 +151,18 @@ async function signInForWorkspace(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
 }
 
+/** Opens a News script as Dana so `template.save` (`Save template…`) is visible in the palette. */
+async function openNewsScriptForTemplate(page: Page): Promise<void> {
+  await signedInAs(
+    page,
+    "dana",
+    `${docPath("medium/lannick-one-news/stories/01")}?panels=closed`,
+  );
+  await expect(editorOf(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(editorOf(page)).toBeFocused();
+}
+
 /** Has Dana present 204 on a speech while Sam opens 204 so Pitch… opens pitch_field. */
 async function openPitchRoom(page: Page): Promise<() => Promise<void>> {
   const browser = page.context().browser();
@@ -285,16 +297,16 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
   },
   project_settings: {
     at: DOC,
-    drawn: `div:has(> header > h1:text-is("${PROJECT_WORDS.heading}"))`,
-    first: `div:has(> header > h1:text-is("${PROJECT_WORDS.heading}"))`,
+    drawn: `div:has(> header > h1:has-text("${PROJECT_WORDS.heading}"))`,
+    first: `div:has(> header > h1:has-text("${PROJECT_WORDS.heading}"))`,
     close: SEND_WORDS.back(OTHER_TITLE),
     name: null,
     ready: openProjectScript,
   },
   workspace_settings: {
     at: "/",
-    drawn: `div:has(> header > h1:text-is("${WORKSPACE_WORDS.title}"))`,
-    first: `div:has(> header > h1:text-is("${WORKSPACE_WORDS.title}"))`,
+    drawn: `div:has(> header > h1:has-text("${WORKSPACE_WORDS.title}"))`,
+    first: `div:has(> header > h1:has-text("${WORKSPACE_WORDS.title}"))`,
     close: WORKSPACE_WORDS.backToLibrary,
     name: null,
     ready: signInForWorkspace,
@@ -338,11 +350,22 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     close: null,
     name: null,
   },
+  save_template_dialog: {
+    at: DOC,
+    drawn: POPUP,
+    first: `${POPUP} input`,
+    close: null,
+    name: null,
+    ready: openNewsScriptForTemplate,
+    seen: { signedIn: true, projectKind: "news", role: "owner" },
+  },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
 const CONTROLLED: readonly CommandId[] = [
   "app.palette",
+  "app.syncCentre",
+  "alternate.show",
   "demo.tour",
   "library.newProject",
   "room.pitch",

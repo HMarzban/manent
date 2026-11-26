@@ -334,6 +334,17 @@ test("every state's words are the design's", async ({ page }) => {
         ]);
         continue;
       }
+      if (name.startsWith("side_panel · ")) {
+        const disclosure = section.getByRole("button", {
+          name: DOCUMENT_WORDS.scriptSettingsHeading,
+          exact: true,
+        });
+        if (
+          (await disclosure.count()) > 0 &&
+          (await disclosure.getAttribute("aria-expanded")) === "false"
+        )
+          await disclosure.click();
+      }
       for (const sentence of words)
         await expect(section, name).toContainText(sentence);
     }

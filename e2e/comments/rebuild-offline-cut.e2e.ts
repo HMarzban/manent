@@ -35,13 +35,20 @@ test("an offline cut survives Reorganise with no Recovered text", async ({
   const blockId = await lineId(sam, SECOND_SCENE_ACTION);
   const blockEl = sam.locator(`[data-editor-host] [data-id="${blockId}"]`);
   await blockEl.scrollIntoViewIfNeeded();
-  const box = await blockEl.boundingBox();
+  const box = await blockEl.evaluate((el) => {
+    const range = el.ownerDocument.createRange();
+    if (el.firstChild !== null) range.selectNodeContents(el.firstChild);
+    else range.selectNodeContents(el);
+    const rect = range.getBoundingClientRect();
+    return rect.width > 0
+      ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      : null;
+  });
   if (box === null) throw new Error("cut target line has no layout box");
-  const y = box.y + box.height / 2;
-  await sam.mouse.move(box.x + 4, y);
-  await sam.mouse.down();
-  await sam.mouse.move(box.x + Math.min(120, box.width - 4), y, { steps: 8 });
-  await sam.mouse.up();
+  await sam.mouse.dblclick(
+    box.x + Math.min(20, box.width / 2),
+    box.y + box.height / 2,
+  );
   await settled(sam);
 
   const toolbar = sam.getByRole("toolbar", { name: SELECTION_WORDS.toolbar });

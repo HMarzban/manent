@@ -61,7 +61,20 @@ const hosts = new Map<EditorView, MaterialHost>();
 
 const noop = (): void => {};
 
-const refuseCuttingWholeScript = (host: MaterialHost): void => {
+const pushUndoMessage = (
+  messages: MaterialHost["messages"],
+  id: string,
+  text: string,
+): void =>
+  messages.push({
+    id,
+    text,
+    actions: [UNDO],
+    lifetime: "reverse",
+    ownWork: false,
+  });
+
+const refuseCuttingWholeScript = (host: MaterialHost): void =>
   host.messages.push({
     id: "cuts_refused",
     text: MATERIAL_WORDS.cannotCutOnly,
@@ -69,7 +82,6 @@ const refuseCuttingWholeScript = (host: MaterialHost): void => {
     lifetime: "brief",
     ownWork: true,
   });
-};
 
 /** Opens the alternates popover under the speech the caret of `docId`'s page is in; false when it is in none. */
 export function showAlternatesIn(docId: string, focus: Focus): boolean {
@@ -85,36 +97,47 @@ export function wouldEmptyScript(
   blockIds: readonly string[],
 ): boolean {
   const total = (scriptBody(doc).materialize().content ?? []).reduce(
-    (sum, section) => sum + (section.content?.length ?? 0),
+    (sum, s) => sum + (s.content?.length ?? 0),
     0,
   );
   return total > 0 && new Set(blockIds).size >= total;
 }
 
+function editableHost(docId: string) {
+  const editor = liveEditor(docId);
+  const host = editor ? hosts.get(editor.view) : undefined;
+  return editor?.editable && host ? { editor, host } : null;
+}
+
+function moveBlocksToCuts(
+  editor: NonNullable<ReturnType<typeof liveEditor>>,
+  host: MaterialHost,
+  blockIds: readonly string[],
+) {
+  return moveToCuts(editor.doc, {
+    blockIds,
+    authorUserId: host.userId,
+    now: Date.now,
+    ids: randomBlockId,
+  });
+}
+
 /** Moves every element covered by the selection of `docId`'s open page to cuts in one transaction. */
 export function moveSelectionToCutsIn(docId: string): boolean {
-  const editor = liveEditor(docId);
-  const host = editor === null ? undefined : hosts.get(editor.view);
-  if (editor === null || !editor.editable || host === undefined) return false;
+  const active = editableHost(docId);
+  if (active === null) return false;
+  const { editor, host } = active;
   return moveSelectionToCuts(editor.view, (blockIds) => {
     if (wouldEmptyScript(editor.doc, blockIds)) {
       refuseCuttingWholeScript(host);
       return false;
     }
-    const moved = moveToCuts(editor.doc, {
-      blockIds,
-      authorUserId: host.userId,
-      now: Date.now,
-      ids: randomBlockId,
-    });
-    if (!moved.ok) return false;
-    host.messages.push({
-      id: "material_cut",
-      text: MATERIAL_WORDS.movedToCuts(blockIds.length),
-      actions: [UNDO],
-      lifetime: "reverse",
-      ownWork: false,
-    });
+    if (!moveBlocksToCuts(editor, host, blockIds).ok) return false;
+    pushUndoMessage(
+      host.messages,
+      "material_cut",
+      MATERIAL_WORDS.movedToCuts(blockIds.length),
+    );
     return true;
   });
 }
@@ -125,73 +148,61 @@ export function moveSceneToCutsIn(
   headingId: string,
   sceneNumber: string | null,
 ): boolean {
-  const editor = liveEditor(docId);
-  const host = editor === null ? undefined : hosts.get(editor.view);
-  if (editor === null || !editor.editable || host === undefined) return false;
+  const active = editableHost(docId);
+  if (active === null) return false;
+  const { editor, host } = active;
   const blocks = (scriptBody(editor.doc).materialize().content ?? []).flatMap(
-    (section) => section.content ?? [],
+    (s) => s.content ?? [],
   );
-  const start = blocks.findIndex((block) => block.attrs?.id === headingId);
+  const start = blocks.findIndex((b) => b.attrs?.id === headingId);
   if (start === -1) return false;
   const headingType = String(blocks[start]?.attrs?.type);
-  const locked = productionContextActions.get(docId)?.locked === true;
-  if (locked && NUMBERED_HEADINGS.has(headingType)) return false;
+  if (
+    productionContextActions.get(docId)?.locked === true &&
+    NUMBERED_HEADINGS.has(headingType)
+  )
+    return false;
   const next = blocks.findIndex(
-    (block, index) =>
-      index > start && SCENE_ENDS.has(String(block.attrs?.type)),
+    (b, i) => i > start && SCENE_ENDS.has(String(b.attrs?.type)),
   );
-  const end = next === -1 ? blocks.length : next;
   const blockIds = blocks
-    .slice(start, end)
-    .flatMap((block) =>
-      typeof block.attrs?.id === "string" ? [block.attrs.id] : [],
-    );
+    .slice(start, next === -1 ? blocks.length : next)
+    .flatMap((b) => (typeof b.attrs?.id === "string" ? [b.attrs.id] : []));
   if (blockIds.length === 0) return false;
   if (new Set(blockIds).size >= blocks.length) {
     refuseCuttingWholeScript(host);
     return false;
   }
-  const moved = moveToCuts(editor.doc, {
-    blockIds,
-    authorUserId: host.userId,
-    now: Date.now,
-    ids: randomBlockId,
-  });
-  if (!moved.ok) return false;
-  host.messages.push({
-    id: "material_cut",
-    text:
-      sceneNumber !== null
-        ? MATERIAL_WORDS.movedSceneToCuts(sceneNumber)
-        : headingType === "chapter"
-          ? MATERIAL_WORDS.movedChapterToCuts
-          : MATERIAL_WORDS.movedToCuts(blockIds.length),
-    actions: [UNDO],
-    lifetime: "reverse",
-    ownWork: false,
-  });
+  if (!moveBlocksToCuts(editor, host, blockIds).ok) return false;
+  pushUndoMessage(
+    host.messages,
+    "material_cut",
+    sceneNumber !== null
+      ? MATERIAL_WORDS.movedSceneToCuts(sceneNumber)
+      : headingType === "chapter"
+        ? MATERIAL_WORDS.movedChapterToCuts
+        : MATERIAL_WORDS.movedToCuts(blockIds.length),
+  );
   return true;
 }
 
 /** Restores the cut `cutId` in `docId`'s open page in one transaction and says so in the message slot. */
 export function restoreCutIn(docId: string, cutId: string): boolean {
-  const editor = liveEditor(docId);
-  const host = editor === null ? undefined : hosts.get(editor.view);
-  if (editor === null || !editor.editable || host === undefined) return false;
+  const active = editableHost(docId);
+  if (active === null) return false;
+  const { editor, host } = active;
   const entry = jsonMap(editor.doc, CUTS_MAP).get(cutId);
   if (!isCut(entry)) return false;
   const restored = restoreCut(editor.doc, { cutId, ids: randomBlockId });
   if (!restored.ok) return false;
-  host.messages.push({
-    id: "material_restored",
-    text: MATERIAL_WORDS.restoredFromCuts(
+  pushUndoMessage(
+    host.messages,
+    "material_restored",
+    MATERIAL_WORDS.restoredFromCuts(
       entry.blocks.length,
       restored.placed === "end",
     ),
-    actions: [UNDO],
-    lifetime: "reverse",
-    ownWork: false,
-  });
+  );
   return true;
 }
 
@@ -208,30 +219,18 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
   let root: AlternatesRoot | null = null;
   let view: EditorView | null = null;
 
-  const alternatesOf = (): Readonly<Record<string, unknown>> =>
-    doc === null ? {} : jsonMap(doc, ALTERNATES_MAP).entries();
-  const cutsOf = (): Readonly<Record<string, unknown>> =>
-    doc === null ? {} : jsonMap(doc, CUTS_MAP).entries();
+  const mapEntries = (name: typeof ALTERNATES_MAP | typeof CUTS_MAP) =>
+    doc === null ? {} : jsonMap(doc, name).entries();
+  const alternatesOf = () => mapEntries(ALTERNATES_MAP);
+  const cutsOf = () => mapEntries(CUTS_MAP);
   const readAlternates = (entries: Readonly<Record<string, unknown>>): void => {
     bySpeech = alternatesBySpeech(entries);
-    counts = new Map(
-      [...bySpeech].map(([blockId, kept]) => [blockId, kept.length]),
-    );
+    counts = new Map([...bySpeech].map(([id, kept]) => [id, kept.length]));
   };
-  const readCutEntries = (entries: Readonly<Record<string, unknown>>): void => {
-    cuts = readCuts(entries);
-  };
-  // after the change that told it: no interface store is written while the editor applies one; a page with nothing
-  // active leaves the store clean
   const publish = (): void =>
     queueMicrotask(() => {
       if (doc === null) return;
-      if (
-        caret === null &&
-        counts.size === 0 &&
-        !hasSelection &&
-        cuts.length === 0
-      )
+      if (!caret && counts.size === 0 && !hasSelection && cuts.length === 0)
         return materialActions.leave(docId, alternatesOf);
       materialActions.follow(docId, {
         caretInSpeech: caret !== null,
@@ -243,6 +242,7 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
       });
     });
 
+  let returnFocus: HTMLElement | null = null;
   const close = (): void => {
     if (shown === null) return;
     shown = null;
@@ -251,8 +251,11 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
     window.removeEventListener("resize", draw);
   };
   const closeToPage = (): void => {
+    const target = returnFocus;
+    returnFocus = null;
     close();
-    view?.focus();
+    if (target?.isConnected) target.focus({ preventScroll: true });
+    else view?.focus();
   };
 
   const swap = (swapIn: SwapIn): void => {
@@ -277,13 +280,11 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
       chosen === null || chosen.authorUserId === services.userId
         ? null
         : nameOf(chosen.authorUserId);
-    services.messages.push({
-      id: "alternate_swapped",
-      text: MATERIAL_WORDS.swapped(writer),
-      actions: [UNDO],
-      lifetime: "reverse",
-      ownWork: false,
-    });
+    pushUndoMessage(
+      services.messages,
+      "alternate_swapped",
+      MATERIAL_WORDS.swapped(writer),
+    );
   };
 
   function draw(): void {
@@ -315,6 +316,8 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
 
   const show = (blockId: string, focus: Focus): void => {
     if (shown === null) {
+      const a = document.activeElement;
+      returnFocus = a instanceof HTMLElement && a !== document.body ? a : null;
       document.addEventListener("scroll", draw, true);
       window.addEventListener("resize", draw);
     }
@@ -326,31 +329,29 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
     follow(page, changed) {
       view = page;
       let stopMap = noop;
-      // the page's editor is registered once it is made, after this plugin's view
       const attach = (): void => {
         const editor = liveEditor(docId);
-        if (editor === null || editor.view !== page || editor.doc === doc)
+        if (!editor?.editable || editor.view !== page || editor.doc === doc)
           return;
-        if (!editor.editable) return;
         stopMap();
         doc = editor.doc;
         const alternatesMap = jsonMap(doc, ALTERNATES_MAP);
         const cutsMap = jsonMap(doc, CUTS_MAP);
         readAlternates(alternatesMap.entries());
-        readCutEntries(cutsMap.entries());
-        const stopAlternates = alternatesMap.subscribe(() => {
+        cuts = readCuts(cutsMap.entries());
+        const stopA = alternatesMap.subscribe(() => {
           readAlternates(alternatesMap.entries());
           changed();
           publish();
           draw();
         });
-        const stopCuts = cutsMap.subscribe(() => {
-          readCutEntries(cutsMap.entries());
+        const stopC = cutsMap.subscribe(() => {
+          cuts = readCuts(cutsMap.entries());
           publish();
         });
         stopMap = () => {
-          stopAlternates();
-          stopCuts();
+          stopA();
+          stopC();
         };
         changed();
         publish();
@@ -381,7 +382,10 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
       text: MATERIAL_WORDS.marker(count),
       name: MATERIAL_WORDS.markerName(count),
     }),
-    onOpen: (blockId) => show(blockId, "list"),
+    onOpen: (blockId) => {
+      if (blockId === caret) services.commands.run("alternate.show", "control");
+      else show(blockId, "list");
+    },
     onCaretSpeech(blockId) {
       caret = blockId;
       publish();

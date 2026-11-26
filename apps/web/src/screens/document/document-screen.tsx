@@ -190,17 +190,27 @@ function NoAccess(props: {
   const title = useDocumentTitle(docId);
   const router = useRouter();
   const { tabStorage } = useEnvironment();
-  const { library, ready } = useServices();
-  const [libraryReady, setLibraryReady] = useState(false);
+  const { library, onDevice, ready } = useServices();
+  const [localCheck, setLocalCheck] = useState<"pending" | "held" | "absent">(
+    "pending",
+  );
   useEffect(() => {
     let live = true;
-    void ready.then(() => {
-      if (live) setLibraryReady(true);
-    });
+    setLocalCheck("pending");
+    void ready
+      .then(() => onDevice([docId]))
+      .then(
+        (held) => {
+          if (live) setLocalCheck(held.has(docId) ? "held" : "absent");
+        },
+        () => {
+          if (live) setLocalCheck("absent");
+        },
+      );
     return () => {
       live = false;
     };
-  }, [ready]);
+  }, [docId, ready, onDevice]);
   const titleSource = useMemo(
     () => library.documentTitle(docId),
     [library, docId],
@@ -210,7 +220,7 @@ function NoAccess(props: {
   const indexedKind = useSubscribable(kindSource);
   const person = readPerson(tabStorage);
   const missingLocal =
-    libraryReady &&
+    localCheck === "absent" &&
     person !== null &&
     person.token === null &&
     facts.neverSynced &&

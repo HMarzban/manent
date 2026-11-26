@@ -248,6 +248,12 @@ test("the Ruler stays over the caret's block when the paper or the format moves 
   await page
     .getByRole("button", { name: READOUT_WORDS.page("1", 1), exact: true })
     .click();
+  await page
+    .getByRole("button", {
+      name: DOCUMENT_WORDS.scriptSettingsHeading,
+      exact: true,
+    })
+    .click();
   await showRuler(page);
   await expect.poll(() => aligned(caretBlock)).toEqual([true, true]);
 

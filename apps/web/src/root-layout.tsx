@@ -94,7 +94,11 @@ export function RootLayout(props: {
   return (
     <ServicesProvider services={services}>
       <AppShell>
-        {demoBar && <ShellRegion region="demo_bar">{demoBar}</ShellRegion>}
+        {demoBar && (
+          <ShellRegion region="demo_bar" className="min-w-0">
+            {demoBar}
+          </ShellRegion>
+        )}
         <ScreenArea>
           <Outlet />
         </ScreenArea>

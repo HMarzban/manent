@@ -415,7 +415,7 @@ test("browser-only session opening an absent docId renders EmptyHeroCard with Ch
         <RouterProvider router={router} />
       </EnvironmentProvider>,
     );
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   expect(host.textContent).toContain(LIBRARY_WORDS.notOnDevice);
