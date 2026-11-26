@@ -11,7 +11,11 @@
     <title>Manent — Open-source script writing app that works offline</title>
     <meta
       name="description"
-      content="Write film, TV, stage, books, games and news alone or with your room, online or off. Every word kept, the same pages everywhere. Free and open source."
+      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
+    />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
     />
     <link rel="canonical" href="https://hmarzban.github.io/manent/" />
     <meta name="color-scheme" content="light dark" />
@@ -30,6 +34,8 @@
       type="image/svg+xml"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='2' width='22' height='28' rx='2' fill='%23FFFFFF' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M10 10h12M10 15h9M14 20h8' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M23 17v8' stroke='%232450BE' stroke-width='2.5'/%3E%3C/svg%3E"
     />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Manent" />
@@ -39,13 +45,14 @@
     />
     <meta
       property="og:description"
-      content="A free, open-source script writing app. Write with your whole room, live or offline, keep every word, and get the same pages on every device and in the PDF."
+      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
     />
     <meta property="og:url" content="https://hmarzban.github.io/manent/" />
     <meta
       property="og:image"
       content="https://hmarzban.github.io/manent/og.png"
     />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
@@ -53,7 +60,20 @@
       content="The words Write anywhere. Lose nothing. beside a screenshot of a screenplay page in Manent's demo."
     />
     <meta property="og:locale" content="en_GB" />
+
     <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Manent — Write anywhere. Lose nothing."
+    />
+    <meta
+      name="twitter:description"
+      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hmarzban.github.io/manent/og.png"
+    />
     <meta
       name="twitter:image:alt"
       content="The words Write anywhere. Lose nothing. beside a screenshot of a screenplay page in Manent's demo."
@@ -78,16 +98,39 @@
         "@context": "https://schema.org",
         "@graph": [
           {
+            "@type": "Organization",
+            "@id": "https://hmarzban.github.io/manent/#org",
+            "name": "Manent",
+            "url": "https://hmarzban.github.io/manent/",
+            "sameAs": ["https://github.com/HMarzban/manent"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://hmarzban.github.io/manent/#website",
+            "url": "https://hmarzban.github.io/manent/",
+            "name": "Manent",
+            "description": "Free, open-source screenwriting and script writing app that works offline and live with your room.",
+            "inLanguage": "en-GB",
+            "publisher": {
+              "@id": "https://hmarzban.github.io/manent/#org"
+            }
+          },
+          {
             "@type": "SoftwareApplication",
             "@id": "https://hmarzban.github.io/manent/#app",
             "name": "Manent",
-            "description": "A free, open-source script writing app for film, TV, the stage, books, games and the newsroom. Write alone or with your whole room, online or with no signal; every word is saved on your device first, and every page matches the PDF.",
+            "alternateName": "Manent script writing app",
+            "description": "A free, open-source screenwriting and script writing app for film, TV, the stage, books, games and the newsroom. Write alone or with your whole room, online or with no signal; every word is saved on your device first, and every page matches the PDF.",
             "url": "https://hmarzban.github.io/manent/",
             "image": "https://hmarzban.github.io/manent/og.png",
+            "screenshot": "https://hmarzban.github.io/manent/og.png",
             "applicationCategory": "BusinessApplication",
             "applicationSubCategory": "Screenwriting software",
             "operatingSystem": "macOS, Windows, Linux, Web browser",
+            "softwareVersion": "0.1.0",
+            "dateModified": "2026-11-26",
             "downloadUrl": "https://github.com/HMarzban/manent/releases",
+            "releaseNotes": "https://github.com/HMarzban/manent/releases",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -95,19 +138,30 @@
               "priceCurrency": "USD"
             },
             "license": "https://www.apache.org/licenses/LICENSE-2.0",
+            "author": {
+              "@id": "https://hmarzban.github.io/manent/#org"
+            },
+            "publisher": {
+              "@id": "https://hmarzban.github.io/manent/#org"
+            },
             "sameAs": ["https://github.com/HMarzban/manent"],
             "featureList": [
-              "Every keystroke saved on the device first; writing, drafts, restore and export work offline",
-              "Live co-writing with named carets, comments and suggestions",
-              "The same page breaks on every device and in the PDF",
-              "Production revisions: locked pages and scenes, colours, asterisks, Issue and Recall",
-              "Every session, named draft and issue kept, with Changes since and restore",
-              "Screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink, plus news rundowns",
-              "FDX and Fountain in and out; .fdr, PDF, .docx and plain text import",
-              "A season index and notes in rounds for writers' rooms",
-              "Rundowns that time themselves and a prompter that changes only when sent",
+              "Every keystroke saved on your device first; writing, search, drafts, restore and export work offline",
+              "Live co-writing with named carets, Follow, shared comments in review rounds, Writers-only notes, suggestions and private copies with Hand in",
+              "Identical page breaks on every device and in the PDF, with versioned layout engines pinned per script",
+              "Production revisions: locked pages and scenes, A-pages, colours, asterisks, Sides PDF, Try on a copy first, Issue and Recall",
+              "Full revision history: every session, named draft and issue kept, with Changes since, Who wrote this and single-scene restore",
+              "Eight script formats — screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink — plus Show and News rundowns",
+              "FDX and Fountain in and out; text-based PDF, Word (.docx) and plain text import; older .fdr files recognised with steps to save as .fdx",
+              "Project Archive (.zip) export, Game Script JSON and XML line-data exports, and Animation Pickup lines CSV",
+              "Live Web Worker Ink compiler with inline problem markers and an interactive Ink player Beside with replay and live Variables editing",
+              "Series Board with storylines, companion outlines and room logs Beside the script, Names and facts, pre-send Checks, bare Room window with Take keys and watermarked Reader links",
+              "Variety and podcast read-rate timing, T=m:ss bracket durations, collaborative rundowns, live Prompter window and desktop Prompter files folder",
+              "Full-text workspace and offline desktop search, nested folders, personal Favourites, Private folder and 30-day recoverable Trash",
+              "Writing tools: single-undo Rename character, Focus mode, Read aloud, daily goals and sprints, Script numbers and CSV/PDF reports",
+              "Workspace settings, per-project Can also permissions, read-only /api/v1/ REST API with workspace API keys, and Webhook, Slack and email notifications",
               "Whole manuscripts of 2,000 pages in one document",
-              "Desktop app for Mac, Windows and Linux",
+              "Desktop app for Mac, Windows and Linux with Export everything on this device and macOS manent:// links, plus self-hosted server",
               "No AI writing features, and no training on your scripts"
             ]
           },
@@ -124,6 +178,22 @@
             }
           },
           {
+            "@type": "VideoObject",
+            "@id": "https://hmarzban.github.io/manent/#demo-video",
+            "name": "Two windows, one script, and no signal — Manent demo",
+            "description": "A real recording of Manent in 30 seconds: live typing between two windows, cutting the network to write offline while waiting changes queue locally, and syncing cleanly on reconnect.",
+            "thumbnailUrl": "https://hmarzban.github.io/manent/media/demo-recording-poster.webp",
+            "contentUrl": "https://hmarzban.github.io/manent/media/demo-recording.mp4",
+            "encodingFormat": "video/mp4",
+            "uploadDate": "2026-11-21T00:00:00Z",
+            "duration": "PT30S",
+            "inLanguage": "en-GB",
+            "isAccessibleForFree": true,
+            "publisher": {
+              "@id": "https://hmarzban.github.io/manent/#org"
+            }
+          },
+          {
             "@type": "FAQPage",
             "@id": "https://hmarzban.github.io/manent/#faq",
             "mainEntity": [
@@ -132,7 +202,7 @@
                 "name": "Does it really work with no connection?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Writing, drafts, Changes since, restore and export all work offline, and everything waiting goes out when you're back. In a browser, Manent tells you plainly when a script lives only in that browser; the desktop app keeps every script on your disk."
+                  "text": "Yes. Writing, drafts, Changes since, restore, export and desktop full-text search all work offline, and everything waiting goes out when you're back. In a browser, Manent tells you plainly when a script lives only in that browser; the desktop app keeps every script on your disk and lets you run Export everything on this device… whenever you want a full local archive."
                 }
               },
               {
@@ -156,7 +226,7 @@
                 "name": "Can my whole room use it together?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Run Manent's server on a machine your room can reach, and everyone writes in the same script, with roles for who can edit, comment or only read."
+                  "text": "Yes. Run Manent's server on a machine your room can reach, and everyone writes in the same script, with roles for who can edit, comment or only read, plus per-project Can also permissions (for issuing revisions, locking pages, editing rundowns or sending to the prompter) and watermarked reader links."
                 }
               },
               {
@@ -173,6 +243,22 @@
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Let you write on a phone; there, scripts are for reading. Talk to MOS or drive a particular maker's prompter directly; it writes prompter files and a live feed instead. Lay out right-to-left or wide scripts exactly; their text is kept, not laid out. Do scheduling, budgets or call sheets; it hands those tools a clean file."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I move my scripts from Final Draft, Fountain, Word or PDF?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Drop a Final Draft .fdx, Fountain (.fountain), Word (.docx), text-based PDF or plain-text file straight onto the Library, or use Import… — it works in the browser and offline on desktop. Manent keeps notes, dual dialogue, scene numbers and revision marks from .fdx and Fountain, and tells you in one line what came across and whether the page count changed. Older Final Draft .fdr files aren't read directly; if you drop one in, Manent recognises it and shows how to save it as .fdx in Final Draft 8 or later. You can export back to .fdx, Fountain, PDF or a whole Project Archive zip at any time."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can we self-host Manent and connect it to our studio tools?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Manent's server is one Bun and SQLite process (also published as a standalone binary with each release) that you can run on your own machine or private network. Workspace owners can create revocable, read-only mk_ API keys for the /api/v1/ REST API — listing folders, reading script lines, exporting .fdx or fetching compiled Ink JSON without ever exposing Trash or Private scripts — and turn on outbox-backed comment and @mention notifications to a custom webhook, Slack incoming webhook or Resend email."
                 }
               }
             ]
@@ -295,8 +381,8 @@
             </h1>
             <p class="lede">
               Write alone or with your whole room — online, or on a train with
-              no signal. Every word is saved on your device first, and every
-              page matches the PDF.
+              no signal. Every word is saved on your device first, every page
+              matches the PDF, and your scripts stay yours.
             </p>
             <div class="actions">
               <a
@@ -340,8 +426,8 @@
               or read any shared draft on your phone.
             </p>
             <p class="quiet-line">
-              Free and open source · No account · No AI writing · Mac, Windows,
-              Linux
+              Free and open source · No account · No AI writing · Desktop app
+              &amp; self-hosted server
             </p>
             <p class="quiet-line handoff">
               <a href="#never-lose">See how nothing gets lost ↓</a>
@@ -719,9 +805,10 @@
               </div>
               <div class="prose">
                 <p>
-                  Follow the showrunner through a rewrite, or pitch an alternate
-                  line and let whoever is driving decide. Your undo only ever
-                  undoes your own typing.
+                  Follow the showrunner through a rewrite, open an outline or
+                  room log <b>Beside</b> your script, or pitch an alternate line
+                  directly into the Room window. Your undo only ever undoes your
+                  own typing.
                 </p>
               </div>
             </div>
@@ -844,19 +931,20 @@
               ></span>
               <h3>Names on every caret</h3>
               <p>
-                See who is where: on the page, in the margin and in the scene
-                list.
+                See who is where: on the page, in the margin initials and in the
+                Scene List or Cards view, with Writer assignment and Progress.
               </p>
             </li>
             <li>
               <span class="m-card-icon"
                 ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg#i-pencil-line" /></svg
+                  <use href="assets/icons.svg#i-messages-square" /></svg
               ></span>
-              <h3>Comments and suggestions</h3>
+              <h3>Comments, rounds and Writers-only Notes</h3>
               <p>
-                Comment on a line or a scene, or suggest a change your co-writer
-                accepts in one click.
+                Keep shared Comments with <code>@mentions</code> in named review
+                rounds, separate from private <code>[[</code> Writers-only
+                Notes, or write as one-click Suggestions.
               </p>
             </li>
             <li>
@@ -864,9 +952,23 @@
                 ><svg class="m-icon" aria-hidden="true">
                   <use href="assets/icons.svg#i-eye-off" /></svg
               ></span>
-              <h3>Write privately, then hand in</h3>
+              <h3>Write privately, then Hand in</h3>
               <p>
-                Your pass at a scene stays yours until you give it to the room.
+                Take a private copy across your devices and merge it back in one
+                step — with an automatic "Before hand-in" version kept in
+                History.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-presentation" /></svg
+              ></span>
+              <h3>Room window and watermarked readers</h3>
+              <p>
+                Put the script on the room's big screen with <b>Take keys</b>
+                and an ambient Mini-Map, or send watermarked reader links that
+                open on a phone and log opens in History.
               </p>
             </li>
           </ul>
@@ -1202,17 +1304,20 @@
                 <ol class="beats">
                   <li>
                     <b>Tonight</b> Write the scene the way you see it. Tab and
-                    Enter keep the format, and the pages look the way a reader
-                    expects.
+                    Enter keep the format, <b>Focus mode</b> clears the chrome,
+                    and <b>Read aloud</b> lets you hear the rhythm of a scene.
                   </li>
                   <li>
-                    <b>Friday</b> Name the draft and send a PDF with the
-                    reader's name on every page.
+                    <b>Friday</b> Run pre-send <b>Checks</b> to catch new names
+                    or near-duplicate locations, name the draft, and send a
+                    watermarked PDF or reader link with each reader's name on
+                    every page.
                   </li>
                   <li>
-                    <b>Notes day</b> Open Changes since and see every line you
-                    rewrote since the draft they read. When it sells, lock it
-                    and issue Blue in the same file.
+                    <b>Notes day</b> Open <b>Changes since</b> to see every line
+                    rewritten since the draft they read, rename a character
+                    across the whole script in one undo, or lock pages and issue
+                    Blue in the same file.
                   </li>
                 </ol>
               </div>
@@ -1347,8 +1452,8 @@
                     ></span>
                     <h4>Tab and Enter</h4>
                     <p>
-                      Scene heading, action, character, dialogue, without
-                      reaching for the mouse.
+                      Scene heading, action, character, dialogue — plus
+                      Alternate lines, Cuts and single-undo Rename character.
                     </p>
                   </li>
                   <li>
@@ -1358,17 +1463,21 @@
                     ></span>
                     <h4>Send a draft</h4>
                     <p>
-                      PDF, FDX or a watermarked copy, with a record of who got
-                      which.
+                      PDF, FDX or a watermarked reader link, with a record in
+                      History of who opened which draft.
                     </p>
                   </li>
                   <li>
                     <span class="m-card-icon"
                       ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg#i-git-compare" /></svg
+                        <use href="assets/icons.svg#i-scroll-text" /></svg
                     ></span>
-                    <h4>Changes since</h4>
-                    <p>Exactly what you rewrote since the draft they read.</p>
+                    <h4>Numbers and reports</h4>
+                    <p>
+                      Scene counts, estimated runtime, eighths when locked, and
+                      one-click CSV or PDF character, scene and location
+                      reports.
+                    </p>
                   </li>
                 </ul>
               </div>
@@ -1387,15 +1496,21 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>Mon</b> Break story on the board and give each writer
-                    their scenes.
+                    <b>Mon</b> Break story on the <b>Series Board</b> with
+                    Storylines, keep a shared outline and room log <b>Beside</b>
+                    the episode, and assign each writer their scenes in List or
+                    Cards view.
                   </li>
                   <li>
-                    <b>Wed</b> Studio notes arrive as a round, pinned to the
-                    draft they read.
+                    <b>Wed</b> Studio and Network comments arrive in structured
+                    <b>rounds</b>, separate from Writers-only Notes.
+                    <b>Names and facts</b> keep characters, sets and terms
+                    consistent across the season.
                   </li>
                   <li>
-                    <b>22:41</b> The coordinator issues Blue. Nobody stops
+                    <b>22:41</b> Put the episode on the big screen in the
+                    <b>Room window</b> with <b>Take keys</b> and pitched lines,
+                    then let the coordinator issue Blue while nobody stops
                     typing.
                   </li>
                 </ol>
@@ -1428,7 +1543,7 @@
                             <span class="mv-av" data-who="2">DR</span>
                           </div>
                           <div class="mv-lib">
-                            <nav class="mv-side">
+                            <div class="mv-side">
                               <span>Continue</span><span>Favourites</span
                               ><span>Private</span>
                               <span class="mv-group">Projects</span>
@@ -1438,7 +1553,7 @@
                               <span class="mv-in2 mv-side-on">Episodes (6)</span
                               ><span class="mv-in2">Board</span>
                               <span>▸ The Late Desk</span><span>Trash</span>
-                            </nav>
+                            </div>
                             <div class="mv-eps">
                               <div class="mv-eps-head">
                                 <b>Harbour Lights · Season 1</b
@@ -1585,8 +1700,9 @@
                     ></span>
                     <h4>One season, one index</h4>
                     <p>
-                      Every episode with its writer, stage, due date and pages
-                      over target.
+                      Every episode with its writer, stage, due date, open
+                      comment count and pages over target, plus the Series
+                      Board.
                     </p>
                   </li>
                   <li>
@@ -1594,18 +1710,21 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-presentation" /></svg
                     ></span>
-                    <h4>Present to the room</h4>
-                    <p>One driver on the big screen; "Take keys" hands over.</p>
+                    <h4>Room window and Take keys</h4>
+                    <p>
+                      Bare big-screen view with a Mini-Map outline; one driver
+                      at a time, pitching alternates live.
+                    </p>
                   </li>
                   <li>
                     <span class="m-card-icon"
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-messages-square" /></svg
                     ></span>
-                    <h4>Notes in rounds</h4>
+                    <h4>Rounds, Notes and Checks</h4>
                     <p>
-                      Studio, Network, Table read: each note pinned to its line,
-                      open or addressed.
+                      Studio, Network and Table read rounds pinned to each line,
+                      private Writers-only Notes, and pre-send Checks.
                     </p>
                   </li>
                 </ul>
@@ -1625,17 +1744,26 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>17:20</b> Build the show as a rundown, one small document
-                    per story. Each story times itself as you type.
+                    <b>17:20</b> Build a Show or News <b>rundown</b>, one fresh
+                    document per story opened <b>Beside</b> the grid. Variety
+                    and Podcast scripts time themselves from
+                    <b>Read rate</b> plus <code>T=m:ss</code> Bracket durations,
+                    with <b>Exclude from timing</b> and selection <b>Time</b>.
                   </li>
                   <li>
-                    <b>17:58</b> Rewrite A3. Its row reads "Changed — not on
-                    prompter" until you send it.
+                    <b>17:58</b> Rewrite A3. Server-computed <code>Dur</code>,
+                    <code>Cume</code>, <code>Start</code>, <code>Back</code> and
+                    over/under update live, every cell keeps its
+                    <b>Previous value</b> to restore, and the row reads "Changed
+                    — not on prompter" until sent.
                   </li>
                   <li>
-                    <b>18:06</b> On air, the prompter changes only when someone
-                    sends. If its feed drops, it says when: "Feed lost 18:12:04
-                    — showing last received".
+                    <b>18:06</b> Outside the air window, quiet 2-second
+                    auto-sends keep rehearsal current. Inside the air window,
+                    the <b>Prompter window</b> (with Text size, Dark and Mirror)
+                    changes only when someone clicks <b>Send to prompter</b> —
+                    with one-click <b>Send previous</b> and 3-second
+                    <code>Feed lost</code> detection.
                   </li>
                 </ol>
               </div>
@@ -1883,10 +2011,11 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-list-ordered" /></svg
                     ></span>
-                    <h4>A rundown that times itself</h4>
+                    <h4>Timing and six exports</h4>
                     <p>
-                      Duration, front and back times, and the over or under, to
-                      the second.
+                      Read-rate timing, <code>T=m:ss</code> brackets, front and
+                      back times, plus Rundown PDF, Two-column Variety PDF, All
+                      scripts PDF, Prompter text, Brackets list and JSON.
                     </p>
                   </li>
                   <li>
@@ -1896,7 +2025,8 @@
                     ></span>
                     <h4>A prompter that waits to be sent</h4>
                     <p>
-                      Every row says On prompter, or Changed — not on prompter.
+                      Manual sends inside the air window, <b>Send previous</b>,
+                      Mirror and Dark modes, and a 1-second heartbeat.
                     </p>
                   </li>
                   <li>
@@ -1904,10 +2034,11 @@
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-hard-drive" /></svg
                     ></span>
-                    <h4>Files when the network fails</h4>
+                    <h4>Files when the network drops</h4>
                     <p>
-                      The desktop app writes the run order and story text to a
-                      folder.
+                      The desktop app writes <code>run-order.txt</code> and
+                      <code>NN-&lt;slug&gt;.txt</code> (UTF-8 or Windows-1252)
+                      directly to a local folder.
                     </p>
                   </li>
                 </ul>
@@ -1931,13 +2062,15 @@
                     setting get front pages of their own.
                   </li>
                   <li>
-                    <b>Before rehearsal</b> Name the day's draft and print
-                    today's new pages, every change marked.
+                    <b>Before rehearsal</b> Hear dialogue aloud with
+                    <b>Read aloud</b>, collect director comments in rounds, name
+                    the day's draft and print today's new pages with every
+                    change marked.
                   </li>
                   <li>
                     <b>Adapting a book</b> "Start a stage play from this…" opens
-                    the book beside your play, chapter by chapter. The adapting
-                    stays yours.
+                    the book <b>Beside</b> your play, chapter by chapter. The
+                    adapting stays yours.
                   </li>
                 </ol>
               </div>
@@ -2091,13 +2224,15 @@
                     page.
                   </li>
                   <li>
-                    <b>On the train</b> No connection, no difference. Focus mode
-                    keeps only the paragraph in front of you.
+                    <b>On the train</b> No connection, no difference.
+                    <b>Focus mode</b> hides both panels and remembers your
+                    preference per device; <b>daily goals and timed sprints</b>
+                    track your pace quietly.
                   </li>
                   <li>
                     <b>Months later</b> Open last spring's chapter twelve as it
-                    was, and bring back the whole chapter or just the scene you
-                    liked.
+                    was, restore a chapter or a single scene, or hear a passage
+                    back with <b>Read aloud</b>.
                   </li>
                 </ol>
               </div>
@@ -2259,7 +2394,10 @@
                         <use href="assets/icons.svg#i-history" /></svg
                     ></span>
                     <h4>Every version kept</h4>
-                    <p>Restore a chapter, a scene or the whole book.</p>
+                    <p>
+                      Restore a chapter, a scene or the whole book, with daily
+                      goals, sprints and word counts in Details.
+                    </p>
                   </li>
                 </ul>
               </div>
@@ -2278,46 +2416,186 @@
                 <ol class="beats">
                   <li>
                     <b>Writing</b> Emote, Camera and Engine direction sit beside
-                    the usual elements, and branching lines colour as you type.
+                    the usual elements; choices, gathers, conditions and tags
+                    colour as you type.
                   </li>
                   <li>
-                    <b>Testing</b> Write Ink as plain source. It compiles as you
-                    type, and the player beside it lets you choose, go back and
-                    watch the variables change.
+                    <b>Testing</b> Write Ink as plain source. A Web Worker
+                    compiles as you type with inline problem underlines, and the
+                    live <b>Ink player Beside</b> lets you pick choices, replay
+                    paths, see visited gutter marks and edit <b>Variables</b>
+                    live.
                   </li>
                   <li>
-                    <b>Shipping</b> Export line data as JSON or XML with stable
-                    IDs. For animation, number every line, move through Record,
-                    Animatic and Conformed, and export the pickups.
+                    <b>Shipping</b> Export Game Script line data as
+                    <b>JSON or XML</b> with stable block IDs, export
+                    whole-project <code>.ink</code> or compiled Ink JSON, or —
+                    for animation — move through Record, Animatic and Conformed
+                    and export <b>Pickup lines CSV</b>.
                   </li>
                 </ol>
               </div>
               <figure>
-                <div
-                  class="ink"
-                  role="img"
-                  aria-label="Ink source for The Keeper's Logbook: a knot called night_watch with a variable and two choices. Beside it, the player shows the story so far, the variable, and the two choices numbered 1 and 2."
-                >
-                  <pre aria-hidden="true"><span class="k">VAR</span> oil = 3
-
-<span class="k">=== night_watch ===</span>
-The lamp gutters. The log lies open at the last page.
-<span class="k">*</span> [Trim the wick]
-    <span class="k">~</span> oil = oil - 1
-    <span class="k">-&gt;</span> trimmed
-<span class="k">*</span> [Write the time in the log]
-    <span class="c">// the keeper's hand is steady</span>
-    <span class="k">-&gt;</span> logged</pre>
-                  <div class="player" aria-hidden="true">
-                    <p>The lamp gutters. The log lies open at the last page.</p>
-                    <ol>
-                      <li>Trim the wick</li>
-                      <li>Write the time in the log</li>
-                    </ol>
+                <div class="stage">
+                  <div
+                    class="mv mv-ink"
+                    data-cycle="10"
+                    role="img"
+                    aria-label="The Keeper's Logbook.ink open in Manent with its Web Worker compiler reporting 0 problems and the live Ink Player open Beside. Choice 1, Trim the wick, is selected; the visited mark lights up in the source gutter, the story advances, and the oil variable updates from 3 to 2 in the Variables drawer."
+                  >
+                    <div class="mv-crop">
+                      <div class="mv-stage">
+                        <div class="mv-win">
+                          <div class="mv-tb">
+                            <span>‹ Library</span
+                            ><span class="mv-title"
+                              >The Keeper's Logbook.ink</span
+                            ><span class="mv-status"
+                              ><span class="mv-dev">Saved</span
+                              ><span class="mv-srv"
+                                ><span>Synced</span></span
+                              ></span
+                            ><span class="mv-film-draft mv-push"
+                              >Compiled · 0 problems</span
+                            >
+                          </div>
+                          <div class="mv-ink-split">
+                            <div class="mv-ink-src" aria-hidden="true">
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">1</span
+                                ><span
+                                  ><span class="mv-ink-kw">VAR</span> oil =
+                                  3</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">2</span
+                                ><span>&nbsp;</span>
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter"
+                                  ><i class="mv-ink-dot" data-at="0.6"></i
+                                  >3</span
+                                ><span class="mv-ink-knot"
+                                  >=== night_watch ===</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">4</span
+                                ><span
+                                  >The lamp gutters. The log lies open.</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter"
+                                  ><i class="mv-ink-dot" data-at="3.6"></i
+                                  >5</span
+                                ><span class="mv-ink-choice"
+                                  >* [Trim the wick]</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">6</span
+                                ><span class="mv-ink-ind"
+                                  ><span class="mv-ink-kw">~</span> oil = oil -
+                                  1</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">7</span
+                                ><span class="mv-ink-ind"
+                                  ><span class="mv-ink-kw">-&gt;</span>
+                                  trimmed</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">8</span
+                                ><span class="mv-ink-choice"
+                                  >* [Write the time in the log]</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">9</span
+                                ><span class="mv-ink-ind mv-ink-cmt"
+                                  >// the keeper's hand is steady</span
+                                >
+                              </div>
+                              <div class="mv-ink-line">
+                                <span class="mv-ink-gutter">10</span
+                                ><span class="mv-ink-ind"
+                                  ><span class="mv-ink-kw">-&gt;</span>
+                                  logged</span
+                                >
+                              </div>
+                            </div>
+                            <div class="mv-ink-side" aria-hidden="true">
+                              <div class="mv-ink-head">
+                                <b>Player</b><span>Replay</span
+                                ><span class="mv-push">Variables</span>
+                              </div>
+                              <div class="mv-ink-out">
+                                <p>The lamp gutters. The log lies open.</p>
+                                <div
+                                  class="mv-ink-choices mv-gone"
+                                  data-off="3.6"
+                                >
+                                  <span
+                                    class="mv-ink-btn mv-press"
+                                    data-at="3.2"
+                                    data-off="3.6"
+                                    >1. Trim the wick</span
+                                  >
+                                  <span class="mv-ink-btn"
+                                    >2. Write the time in the log</span
+                                  >
+                                </div>
+                                <p class="mv-fade mv-gone" data-at="3.6">
+                                  The flame steadies. One notch lower on the
+                                  glass.
+                                </p>
+                                <div
+                                  class="mv-ink-choices mv-gone"
+                                  data-at="3.6"
+                                >
+                                  <span class="mv-ink-btn"
+                                    >1. Check the harbour bell</span
+                                  >
+                                </div>
+                              </div>
+                              <div class="mv-ink-vars">
+                                <span>Variables</span>
+                                <span
+                                  class="mv-ink-var-val mv-gone"
+                                  data-off="3.6"
+                                  >oil = 3</span
+                                >
+                                <span
+                                  class="mv-ink-var-val mv-flash mv-gone"
+                                  data-at="3.6"
+                                  >oil = 2</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mv-bar">
+                            <span>Ink · 0 problems</span
+                            ><span class="mv-stack"
+                              ><span class="mv-cut" data-off="3.6"
+                                >Visited: 2 knots</span
+                              ><span class="mv-cut" data-at="3.6"
+                                >Visited: 3 knots</span
+                              ></span
+                            ><span class="mv-push">Export .ink / JSON</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <figcaption class="figure-note">
-                  Write the branch, then play it, without leaving the page.
+                  Compiles in a Web Worker as you type: pick a choice in the
+                  player Beside, watch visited marks light up and Variables
+                  update.
                 </figcaption>
               </figure>
               <div class="uses">
@@ -2327,10 +2605,11 @@ The lamp gutters. The log lies open at the last page.
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-git-branch" /></svg
                     ></span>
-                    <h4>Branching lines</h4>
+                    <h4>Branching lines &amp; animation pickups</h4>
                     <p>
-                      Choices, gathers, conditions and tags, recognised as you
-                      type.
+                      Choices, gathers, conditions and tags recognised as you
+                      type, plus Animation Pickup lines CSV since the newest
+                      Record draft.
                     </p>
                   </li>
                   <li>
@@ -2338,8 +2617,11 @@ The lamp gutters. The log lies open at the last page.
                       ><svg class="m-icon" aria-hidden="true">
                         <use href="assets/icons.svg#i-play" /></svg
                     ></span>
-                    <h4>Ink, with its player</h4>
-                    <p>It compiles as you type and plays beside the source.</p>
+                    <h4>Ink compiler &amp; live player Beside</h4>
+                    <p>
+                      Web Worker compile with inline problems, replayable
+                      choices, visited gutter marks and live Variables editing.
+                    </p>
                   </li>
                   <li>
                     <span class="m-card-icon"
@@ -2348,8 +2630,9 @@ The lamp gutters. The log lies open at the last page.
                     ></span>
                     <h4>Line data with stable IDs</h4>
                     <p>
-                      JSON and XML your engine, voice team and localisation can
-                      read.
+                      Game Script JSON and XML, whole-project <code>.ink</code>
+                      and compiled Ink JSON your engine, voice booth and
+                      localisation can read.
                     </p>
                   </li>
                 </ul>
@@ -2614,12 +2897,15 @@ The lamp gutters. The log lies open at the last page.
           </figure>
           <div class="prose after-figure">
             <p>
-              Lock the script once. From then on, text that overflows a page
-              makes 12A and 12B, and a new scene between 12 and 13 becomes 12A.
-              Every changed line gets its asterisk, and loses it again if you
-              undo the change. Issue Blue and Manent stamps every revised page,
-              records who got it and starts Pink. Anyone offline is told when
-              they're back:
+              Not ready to commit? <b>Try it on a copy first</b> previews your
+              page locks and colour order beside the original without touching
+              it, and <b>Update layout engine</b> lets you opt in to pagination
+              updates explicitly before locking. Once locked, text that
+              overflows page 12 makes 12A and 12B, and a new scene between 12
+              and 13 becomes 12A. Every changed line gets its asterisk, and
+              loses it again if you undo. Issue Blue and Manent stamps every
+              revised page, records who got it and starts Pink. Anyone offline
+              is told when they're back:
             </p>
             <p class="receipt">
               <svg class="m-icon" aria-hidden="true">
@@ -2644,7 +2930,7 @@ The lamp gutters. The log lies open at the last page.
             <li data-chip="cherry">Cherry</li>
           </ul>
           <p class="small-print">The standard order, or your own.</p>
-          <ul class="points">
+          <ul class="points points-grid-3">
             <li>
               <span class="m-card-icon"
                 ><svg class="m-icon" aria-hidden="true">
@@ -2684,7 +2970,20 @@ The lamp gutters. The log lies open at the last page.
               ></span>
               <h3>Omitted scenes and sides</h3>
               <p>
-                OMITTED keeps its number; the scenes you pick export as sides.
+                OMITTED keeps its number. Pick any scene range and export
+                <b>Sides PDF</b> — whole locked pages with other scenes' lines
+                struck through.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-copy" /></svg
+              ></span>
+              <h3>Try lock on a copy first</h3>
+              <p>
+                Preview locked page breaks and revision colours beside the live
+                script before locking the real one.
               </p>
             </li>
           </ul>
@@ -2977,14 +3276,18 @@ The lamp gutters. The log lies open at the last page.
                   Bring your scripts. Take them with you.
                 </h2>
                 <p class="sub">
-                  Drop in an .fdx, a .fountain or an old .fdr, and it opens as a
-                  script, with one line saying exactly what came across.
+                  Drop in an <code>.fdx</code>, a <code>.fountain</code>, a Word
+                  <code>.docx</code>, a text-based PDF or plain text, and it
+                  opens as a script — with one line saying exactly what came
+                  across.
                 </p>
               </div>
               <div class="prose">
                 <p>
                   If the page count differs from the app it came from, that line
-                  says so. Nothing is dropped without a word.
+                  says so. Nothing is dropped without a word. Older Final Draft
+                  <code>.fdr</code> files are recognised straight away, with
+                  clear steps to save them as <code>.fdx</code>.
                 </p>
               </div>
             </div>
@@ -2994,7 +3297,7 @@ The lamp gutters. The log lies open at the last page.
                   class="mv mv-files"
                   data-cycle="12"
                   role="img"
-                  aria-label="A Fountain file, an FDX file and an older .fdr script are dropped on the Manent window one after another. Each opens as a script, and the status bar says in one line what came across."
+                  aria-label="A Fountain file, an FDX file and a Word .docx script are dropped on the Manent window one after another. Each opens as a script, and the status bar says in one line what came across."
                 >
                   <div class="mv-crop">
                     <div class="mv-stage">
@@ -3121,8 +3424,8 @@ The lamp gutters. The log lies open at the last page.
                               Revision marks kept</span
                             >
                             <span class="mv-fade" data-at="9.4"
-                              >Imported 47 pages, 33 scenes from .fdr · 48 pages
-                              in the original app</span
+                              >Imported 47 pages, 33 scenes from Word ·
+                              Formatting kept</span
                             >
                           </span>
                         </div>
@@ -3145,8 +3448,8 @@ The lamp gutters. The log lies open at the last page.
                         class="mv-file"
                         data-at="8"
                         data-off="9.4"
-                        data-ext="FDR"
-                        ><b>slack-water.fdr</b></span
+                        data-ext="DOCX"
+                        ><b>slack-water.docx</b></span
                       >
                     </div>
                   </div>
@@ -3166,8 +3469,11 @@ The lamp gutters. The log lies open at the last page.
               ></span>
               <h3>In</h3>
               <p>
-                FDX and Fountain with notes, dual dialogue, scene numbers and
-                revision marks; .fdr, PDF, .docx and plain text too.
+                Final Draft <code>.fdx</code> and Fountain with notes, dual
+                dialogue, scene numbers and revision marks; text-based PDF, Word
+                (<code>.docx</code>) and plain text too — all offline. Older
+                <code>.fdr</code> files are recognised with steps to convert via
+                <code>.fdx</code>.
               </p>
             </li>
             <li>
@@ -3177,7 +3483,9 @@ The lamp gutters. The log lies open at the last page.
               ></span>
               <h3>Out</h3>
               <p>
-                FDX, Fountain, PDF, Ink or the whole project in one file,
+                PDF, Sides PDF, <code>.fdx</code>, Fountain, Game Script JSON
+                and XML, Ink (<code>.ink</code> and compiled JSON), CSV and PDF
+                reports, or a whole Project Archive (<code>.zip</code>) —
                 offline, whenever you like.
               </p>
             </li>
@@ -3189,17 +3497,129 @@ The lamp gutters. The log lies open at the last page.
               <h3>Paste and go</h3>
               <p>
                 Paste Fountain or plain text and it becomes script elements,
-                with one undo back.
+                with one undo back. On desktop,
+                <b>Export everything on this device…</b> backs up your whole
+                local disk in one archive.
               </p>
             </li>
           </ul>
           <p class="quiet-line handoff">
+            <a href="#teams">Running a studio or busy room? See team tools ↓</a>
+          </p>
+        </div>
+      </section>
+
+      <section class="section" id="teams" aria-labelledby="teams-title">
+        <div class="wrap">
+          <p class="eyebrow">
+            <svg class="m-icon" aria-hidden="true">
+              <use href="assets/icons.svg#i-server" />
+            </svg>
+            Teams, library and pipelines
+          </p>
+          <div class="section-head">
+            <h2 id="teams-title">
+              Built for busy rooms — and the tools around them.
+            </h2>
+            <p class="sub">
+              Find a line across forty projects in a second, give each colleague
+              only the permissions they need, and wire your workspace straight
+              into studio tools.
+            </p>
+          </div>
+          <ul class="points points-grid-3">
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-library" /></svg
+              ></span>
+              <h3>Full-text search, folders and 30-day Trash</h3>
+              <p>
+                Search every script from the Library or <code>⌘K</code> with
+                <code>type:</code>, <code>folder:</code>, <code>after:</code>,
+                <code>before:</code> and quoted phrases — including offline on
+                the desktop local node. Organise into nested folders, personal
+                Favourites, a Private folder and 30-day recoverable Trash.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-pen-line" /></svg
+              ></span>
+              <h3>Writing tools that stay out of your way</h3>
+              <p>
+                Rename a character across cues, dialogue and action in one undo.
+                Switch on <b>Focus mode</b>, listen with <b>Read aloud</b>,
+                track daily goals and timed sprints, or export CSV and PDF
+                character, scene, location and Animation pickup reports.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-lock" /></svg
+              ></span>
+              <h3>Workspace settings and "Can also" permissions</h3>
+              <p>
+                Manage workspace members, owners and defaults in one place.
+                Grant per-project <b>Can also</b> capabilities — issuing
+                revisions, locking page numbers, editing rundowns, sending to
+                the prompter or deleting — without handing over full ownership.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-code-xml" /></svg
+              ></span>
+              <h3>Read-only Public REST API (/api/v1/)</h3>
+              <p>
+                Issue revocable <code>mk_</code> workspace API keys (stored only
+                as SHA-256 hashes, scoped strictly to live workspace scripts —
+                never Private or Trash) to read folders, script lines,
+                <code>.fdx</code> exports and compiled Ink JSON over HTTP.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-send" /></svg
+              ></span>
+              <h3>Webhook, Slack and email notifications</h3>
+              <p>
+                Outbox-backed comment and <code>@mention</code> notifications
+                with automatic retries to any custom HTTP webhook, Slack
+                incoming webhook or Resend email address — never firing for
+                Private scripts.
+              </p>
+            </li>
+            <li>
+              <span class="m-card-icon"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-archive" /></svg
+              ></span>
+              <h3>Desktop links and full local backup</h3>
+              <p>
+                Open scripts directly from <code>manent://</code> links on
+                macOS, write local Prompter folders when networks drop, and run
+                <b>Export everything on this device…</b> at any time to save
+                every local script to disk.
+              </p>
+            </li>
+          </ul>
+          <p class="quiet-line handoff">
+            <a
+              href="https://github.com/HMarzban/manent/blob/main/docs/guide/api.md"
+              >Read the Public API &amp; notifications guide →</a
+            >
+            ·
             <a href="#yours">And whatever you write stays yours ↓</a>
           </p>
         </div>
       </section>
 
-      <section class="section" id="yours" aria-labelledby="yours-title">
+      <section class="section band" id="yours" aria-labelledby="yours-title">
         <div class="wrap">
           <p class="eyebrow">
             <svg class="m-icon" aria-hidden="true">
@@ -3373,7 +3793,7 @@ The lamp gutters. The log lies open at the last page.
             </p>
             <p class="quiet-line">
               <a href="compare.html#named-desktop"
-                >See every app, checked 21 November 2026 →</a
+                >See every app, checked 26 November 2026 →</a
               >
             </p>
           </div>
@@ -3383,7 +3803,7 @@ The lamp gutters. The log lies open at the last page.
         </div>
       </section>
 
-      <section class="section band" id="faq" aria-labelledby="faq-title">
+      <section class="section" id="faq" aria-labelledby="faq-title">
         <div class="wrap">
           <p class="eyebrow">
             <svg class="m-icon" aria-hidden="true">
@@ -3405,10 +3825,13 @@ The lamp gutters. The log lies open at the last page.
                 </svg>
               </summary>
               <p>
-                Yes. Writing, drafts, Changes since, restore and export all work
-                offline, and everything waiting goes out when you're back. In a
-                browser, Manent tells you plainly when a script lives only in
-                that browser; the desktop app keeps every script on your disk.
+                Yes. Writing, drafts, Changes since, restore, export and desktop
+                full-text search all work offline, and everything waiting goes
+                out when you're back. In a browser, Manent tells you plainly
+                when a script lives only in that browser; the desktop app keeps
+                every script on your disk and lets you run
+                <b>Export everything on this device…</b> whenever you want a
+                full local archive.
               </p>
             </details>
             <details open>
@@ -3454,7 +3877,10 @@ The lamp gutters. The log lies open at the last page.
               <p>
                 Yes. Run Manent's server on a machine your room can reach, and
                 everyone writes in the same script, with roles for who can edit,
-                comment or only read.
+                comment or only read, plus per-project <b>Can also</b>
+                permissions (for issuing revisions, locking pages, editing
+                rundowns or sending to the prompter) and watermarked reader
+                links.
               </p>
             </details>
             <details>
@@ -3496,6 +3922,49 @@ The lamp gutters. The log lies open at the last page.
                 </li>
               </ul>
             </details>
+            <details>
+              <summary>
+                How do I move my scripts from Final Draft, Fountain, Word or
+                PDF?<svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-chevron-down" />
+                </svg>
+              </summary>
+              <p>
+                Drop a Final Draft <code>.fdx</code>, Fountain
+                (<code>.fountain</code>), Word (<code>.docx</code>), text-based
+                PDF or plain-text file straight onto the Library, or use
+                <b>Import…</b> — it works in the browser and offline on desktop.
+                Manent keeps notes, dual dialogue, scene numbers and revision
+                marks from <code>.fdx</code> and Fountain, and tells you in one
+                line what came across and whether the page count changed. Older
+                Final Draft <code>.fdr</code> files aren't read directly; if you
+                drop one in, Manent recognises it and shows how to save it as
+                <code>.fdx</code> in Final Draft 8 or later. You can export back
+                to <code>.fdx</code>, Fountain, PDF or a whole Project Archive
+                zip at any time.
+              </p>
+            </details>
+            <details>
+              <summary>
+                Can we self-host Manent and connect it to our studio tools?<svg
+                  class="m-icon"
+                  aria-hidden="true"
+                >
+                  <use href="assets/icons.svg#i-chevron-down" />
+                </svg>
+              </summary>
+              <p>
+                Yes. Manent's server is one Bun and SQLite process (also
+                published as a standalone binary with each release) that you can
+                run on your own machine or private network. Workspace owners can
+                create revocable, read-only <code>mk_</code> API keys for the
+                <code>/api/v1/</code> REST API — listing folders, reading script
+                lines, exporting <code>.fdx</code> or fetching compiled Ink JSON
+                without ever exposing Trash or Private scripts — and turn on
+                outbox-backed comment and <code>@mention</code> notifications to
+                a custom webhook, Slack incoming webhook or Resend email.
+              </p>
+            </details>
           </div>
           <p class="quiet-line handoff">
             <a href="#download">Ready when you are. Get Manent ↓</a>
@@ -3519,8 +3988,10 @@ The lamp gutters. The log lies open at the last page.
             <h2 id="download-title">Write your first page tonight.</h2>
             <p class="sub">
               For Mac, Windows and Linux. Every script lives on your own disk,
-              and everything works with no network: writing, drafts, restore and
-              export.
+              with offline full-text search, Prompter folder output,
+              <code>manent://</code> links on macOS and
+              <b>Export everything on this device…</b> — everything works with
+              no network.
             </p>
             <div class="get-phone" data-get-phone hidden>
               <button
@@ -3585,8 +4056,8 @@ The lamp gutters. The log lies open at the last page.
             </p>
             <details class="disclosure first-launch">
               <summary>
-                First launch: your computer asks once whether to open an app
-                from the internet. Here's what to click.<svg
+                First launch: your computer asks once whether to open an
+                unsigned app. Here's what to do.<svg
                   class="m-icon"
                   aria-hidden="true"
                 >
@@ -3595,24 +4066,31 @@ The lamp gutters. The log lies open at the last page.
               </summary>
               <ul>
                 <li data-launch="mac">
-                  <b>Mac.</b> Open Manent from Applications. If macOS says it
-                  can't check the app, open System Settings, then Privacy &amp;
-                  Security, scroll down and click Open Anyway. You do this once.
+                  <b>Mac (Apple Silicon or Intel <code>.dmg</code>).</b> Open
+                  the disk image, drag Manent into Applications, and launch it.
+                  If macOS says it can't check the app, open System Settings →
+                  Privacy &amp; Security, scroll down and click
+                  <b>Open Anyway</b>. You do this once.
                 </li>
                 <li data-launch="windows">
-                  <b>Windows.</b> If a blue "Windows protected your PC" box
-                  appears, click More info, then Run anyway. You do this once.
+                  <b>Windows (<code>-setup.zip</code>).</b> Unpack the ZIP file
+                  first, then run the setup programme inside. If a blue "Windows
+                  protected your PC" dialog appears, click <b>More info</b>,
+                  then <b>Run anyway</b>. You do this once.
                 </li>
                 <li data-launch="linux">
-                  <b>Linux.</b> If your file manager won't start it, open the
-                  file's Properties and allow it to run as a program.
+                  <b>Linux (<code>.tar.gz</code>).</b> Unpack the archive (for
+                  example <code>tar -xzf Manent-*.tar.gz</code>) and run the
+                  extracted installer or launch <code>Manent</code> from the
+                  unpacked folder. Manent needs GTK 3 and the Ayatana
+                  app-indicator library installed.
                 </li>
               </ul>
               <p>
                 <b>Why it asks.</b> Manent's installers aren't signed with a
-                paid developer certificate yet, so your system asks before the
-                first launch. Every line of the source that builds them is
-                public.
+                paid developer certificate yet, so your operating system asks
+                before the first launch. Every line of the source that builds
+                them is public on GitHub.
               </p>
             </details>
             <details class="disclosure developers">
@@ -3678,7 +4156,7 @@ bun run demo</pre>
                           ><svg
                             class="m-icon"
                             aria-hidden="true"
-                            data-for="error"
+                            data-for="problem"
                           >
                             <use href="assets/icons.svg#i-circle-alert" /></svg
                         ></span>
@@ -3794,7 +4272,12 @@ bun run demo</pre>
       </section>
     </main>
 
-    <dialog class="watch" id="watch" aria-labelledby="watch-title">
+    <dialog
+      class="watch"
+      id="watch"
+      aria-labelledby="watch-title"
+      aria-modal="true"
+    >
       <div class="watch-body">
         <div class="watch-head">
           <h2 id="watch-title">Two windows, one script, and no signal</h2>
@@ -3919,6 +4402,13 @@ bun run demo</pre>
           <li>
             <a class="m-link" href="https://github.com/HMarzban/manent"
               >Source on GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
+              >Documentation</a
             >
           </li>
           <li>

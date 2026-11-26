@@ -171,8 +171,12 @@ video {
   z-index: 10;
 }
 
-.skip:focus {
+.skip:focus,
+.skip:focus-visible {
   top: 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
 }
 
 .wrap {
@@ -521,6 +525,12 @@ video {
   gap: 1.25rem 1.75rem;
 }
 
+@media (min-width: 56rem) {
+  .points-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* ---------- figures: the scenes ---------- */
 
 .figure-note {
@@ -742,7 +752,7 @@ video {
   max-width: var(--measure);
 }
 
-.beats b {
+.beats li > b:first-child {
   display: block;
   font-family: var(--sans);
   font-size: 0.875rem;
@@ -1194,7 +1204,7 @@ video {
 }
 
 .first-launch b {
-  color: var(--code-fg);
+  color: var(--fg);
 }
 
 /* ---------- the recording, in a dialog: opened from [data-watch] ---------- */
@@ -1607,6 +1617,7 @@ div.m-note-card p + p {
 .closing {
   background: var(--code-bg);
   color: var(--code-fg);
+  --fg: var(--code-fg);
   --fg-muted: var(--code-muted);
 }
 
@@ -1898,5 +1909,184 @@ html:has(.jump) {
     :is(.faq, .disclosure) summary .m-icon {
       transition: transform var(--m-dur-base) var(--m-ease-settle);
     }
+  }
+}
+
+/* ---------- high contrast & forced colours ---------- */
+
+@media (prefers-contrast: more) {
+  :root {
+    --fg-muted: #2f2c27;
+    --line: #6b655c;
+    --line-strong: #1f1d1a;
+    --accent: #13399a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg-muted: #ded8cd;
+      --line: #8c867c;
+      --line-strong: #efece6;
+      --accent: #adc5ff;
+    }
+  }
+
+  a {
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 0.1em;
+  }
+
+  :focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+@media (forced-colors: active) {
+  /* preserve WGA revision paper colour chips */
+  .colours li::before {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+
+  .skip:focus,
+  .skip:focus-visible {
+    border: 2px solid Highlight;
+  }
+
+  .button,
+  .copy,
+  .m-motion-toggle {
+    border: 2px solid ButtonText;
+  }
+
+  .button:hover,
+  .jump a[aria-current],
+  [role="tab"][aria-selected="true"] {
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+    box-shadow: none;
+  }
+
+  [role="tab"][aria-selected="true"] {
+    border-top: 3px solid Highlight;
+  }
+
+  .m-tab-indicator {
+    background: Highlight;
+  }
+
+  .compare-marks .us,
+  .compare-table .us {
+    border-inline: 2px solid Highlight;
+  }
+
+  .compare-marks thead .us,
+  .compare-table thead .us {
+    border-top: 3px solid Highlight;
+    box-shadow: none;
+  }
+
+  .pledge {
+    border-left: 4px solid Highlight;
+  }
+
+  .revisions {
+    border-left: 6px solid Highlight;
+  }
+
+  .m-caret {
+    background: Highlight;
+  }
+}
+
+/* ---------- print ---------- */
+
+@media print {
+  :root {
+    --desk: #ffffff;
+    --desk-deep: #ffffff;
+    --raised: #ffffff;
+    --paper: #ffffff;
+    --fg: #000000;
+    --fg-muted: #333333;
+    --line: #999999;
+    --line-strong: #333333;
+    --accent: #000000;
+    --accent-soft: #f0f0f0;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .skip,
+  .masthead,
+  .jump,
+  .actions,
+  .handoff,
+  .watch,
+  .m-motion-toggle,
+  .copy-row,
+  [data-get-phone] {
+    display: none !important;
+  }
+
+  .section {
+    padding-block: 1.5rem;
+  }
+
+  .closing {
+    background: #ffffff;
+    color: #000000;
+    --fg: #000000;
+    --fg-muted: #333333;
+    border-top: 1px solid #333333;
+  }
+
+  .closing .sub,
+  .closing .quiet-line {
+    color: #333333;
+  }
+
+  .closing a:not(.button) {
+    color: #000000;
+  }
+
+  .compare-table thead th {
+    position: static;
+    background: #ffffff;
+  }
+
+  .sheet-table {
+    border-color: #666666;
+  }
+
+  .points li,
+  .pledge,
+  .faq details,
+  .compare-table tr,
+  figure {
+    break-inside: avoid;
+  }
+
+  .m-note-card {
+    position: static !important;
+    box-shadow: none;
+    max-width: none;
+  }
+
+  /* reveal all tab panels when printing index.html */
+  .tabs [role="tablist"] {
+    display: none;
+  }
+
+  .tabs .panel[hidden] {
+    display: grid !important;
+    margin-top: 1.5rem;
   }
 }

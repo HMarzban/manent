@@ -87,6 +87,14 @@ jobs:
           channel=stable
           if [[ "$GITHUB_REF_NAME" == *-canary ]]; then channel=canary; fi
           echo "CHANNEL=$channel" >> "$GITHUB_ENV"
+      - name: Add stable unversioned download aliases
+        if: env.CHANNEL == 'stable'
+        run: |
+          shopt -s nullglob
+          for f in artifacts/Manent-*-stable-macos-arm64.dmg; do cp "$f" artifacts/Manent-macos-arm64.dmg; done
+          for f in artifacts/Manent-*-stable-macos-x64.dmg; do cp "$f" artifacts/Manent-macos-x64.dmg; done
+          for f in artifacts/Manent-*-stable-windows-x64-setup.zip; do cp "$f" artifacts/Manent-windows-x64-setup.zip; done
+          for f in artifacts/Manent-*-stable-linux-x64.tar.gz; do cp "$f" artifacts/Manent-linux-x64.tar.gz; done
       - name: Create the release with the installers and the server
         run: |
           bun -e 'import { RELEASE_NOTES } from "./tools/desktop/release-notes.ts"; await Bun.write("release-notes.md", RELEASE_NOTES);'
