@@ -7,6 +7,7 @@ export * from "./changes/index.ts";
 export * from "./complete/index.ts";
 export * from "./cursors/index.ts";
 export * from "./elements/index.ts";
+export * from "./graphics/index.ts";
 export * from "./identity/index.ts";
 export * from "./ink/index.ts";
 export * from "./keys/index.ts";

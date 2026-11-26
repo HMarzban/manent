@@ -5,6 +5,8 @@ import type { Node } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
+import { blockNodeView, graphicSelectionPlugin } from "../graphics/index.ts";
+import type { GraphicAssetPort } from "../graphics/index.ts";
 import {
   faceDescriptors,
   loadScriptFonts,
@@ -108,6 +110,7 @@ export function mountPageView(
     readonly editable?: () => boolean;
     readonly spelling?: () => boolean;
     readonly furniture?: PageFurnitureOptions;
+    readonly graphics?: GraphicAssetPort;
   },
 ): { view: EditorView; scaffold: PageScaffold; destroy(): void } {
   const { ports, dispatchTransaction, spelling } = options;
@@ -178,6 +181,7 @@ export function mountPageView(
         plugins: [
           ...(options.before ?? []),
           ...plugins,
+          graphicSelectionPlugin(),
           labelSyncPlugin,
           ...(options.plugins ?? []),
         ],
@@ -193,7 +197,10 @@ export function mountPageView(
             ? "false"
             : spellcheckFor(paginationKey.getState(state)!.index.blocks.length),
       }),
-      nodeViews: { section: sectionNodeView(engine) },
+      nodeViews: {
+        section: sectionNodeView(engine),
+        block: blockNodeView(options.graphics),
+      },
       transformPasted: sanitizedSlice,
       transformPastedText: sanitizeText,
     });

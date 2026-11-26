@@ -22,6 +22,8 @@ import { CURSOR_CSS } from "../cursors/cursor-css.ts";
 import { slotElement } from "../elements/slots.ts";
 import { loadFrontPages } from "../front-pages/load.ts";
 import type { FrontPagesHandle } from "../front-pages/load.ts";
+import { GRAPHIC_CSS, createGraphicCommands } from "../graphics/index.ts";
+import type { GraphicAssetPort, GraphicCommands } from "../graphics/index.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import type { LayoutView } from "../page/config.ts";
 import type { PageFurnitureOptions } from "../page/furniture/page-furniture.ts";
@@ -65,7 +67,7 @@ export interface EditorPluginHost {
   readonly frames: Frames;
 }
 
-export interface ScriptEditor {
+export interface ScriptEditor extends GraphicCommands {
   readonly view: EditorView;
   /** Null without pages (Ink). */
   readonly scaffold: PageScaffold | null;
@@ -128,6 +130,7 @@ export interface ScriptEditorOptions {
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
   /** The host's names, which autocomplete offers beside the script's; none when absent. */
   projectNames?: readonly string[];
+  graphics?: GraphicAssetPort;
 }
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */
@@ -142,7 +145,12 @@ function createLayer(doc: Document): HTMLElement {
   const layer = doc.createElement("div");
   layer.className = "mn-layer";
   const style = doc.createElement("style");
-  style.textContent = [LAYER_CSS, PLACEHOLDER_CSS, CURSOR_CSS].join("\n");
+  style.textContent = [
+    LAYER_CSS,
+    PLACEHOLDER_CSS,
+    CURSOR_CSS,
+    GRAPHIC_CSS,
+  ].join("\n");
   layer.append(style);
   return layer;
 }
@@ -180,11 +188,8 @@ function actionContext(
     editable: parts.editable,
     goTo(blockId, offset) {
       const at = { blockId, offset };
-      restorePlace(view, parts.ports, {
-        anchor: at,
-        head: at,
-        top: { blockId, offsetPx: -GO_TO_MARGIN_PX },
-      });
+      const top = { blockId, offsetPx: -GO_TO_MARGIN_PX };
+      restorePlace(view, parts.ports, { anchor: at, head: at, top });
       view.focus();
     },
     columnCells: () =>
@@ -244,9 +249,7 @@ function subscribe(
   ];
 }
 
-const hasStoredSceneNumbers = (
-  script: ScriptEditorOptions["script"],
-): boolean => {
+function hasStoredSceneNumbers(script: ScriptEditorOptions["script"]): boolean {
   const explain: unknown = Reflect.get(script, "explain");
   if (typeof explain !== "function") return true;
   const info: unknown = explain.call(script, "script.sceneNumbers");
@@ -255,7 +258,7 @@ const hasStoredSceneNumbers = (
     info !== null &&
     Reflect.get(info, "modified") === true
   );
-};
+}
 
 const readScriptLayout = (script: ScriptEditorOptions["script"]) =>
   readLayoutSettings((key) =>
@@ -278,10 +281,9 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const format = (): FormatId => formatOf(layout.format);
   const currentEngine = (): Engine => {
     const raw = script.get("script.engineVersion");
-    if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1) {
-      return engineFor(raw) ?? engineFor(1)!;
-    }
-    return options.layoutEngine;
+    return typeof raw === "number" && Number.isInteger(raw) && raw >= 1
+      ? (engineFor(raw) ?? engineFor(1)!)
+      : options.layoutEngine;
   };
   const profile = (): PageProfile | null =>
     profileFromSettings(currentEngine(), { ...layout, scenesNumbered });
@@ -366,6 +368,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   return {
     view,
     scaffold,
+    ...createGraphicCommands(view, options.ids, () => editableNow),
     run: (action) => runAction(view, action, actions),
     pagination: () => paginationKey.getState(view.state)?.pagination ?? null,
     place: () => savedPlaceOf(view, ports),
@@ -384,7 +387,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     pageAt: (top) => pageAtHeight(view, top),
     furniture: () => furnitureSync.read(view.state),
     destroy() {
-      for (const unsubscribe of subscriptions) unsubscribe();
+      subscriptions.forEach((fn) => fn());
       front?.destroy();
       pages?.destroy();
       mounted.destroy();
