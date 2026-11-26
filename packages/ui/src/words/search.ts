@@ -19,7 +19,7 @@ export const SEARCH_WORDS = Object.freeze({
   offlineNotice:
     "Offline, search finds titles only, without the Changed filter.",
   tooLong: "Couldn't search: a search holds at most 500 characters.",
-  filterButton: "Filter ▾",
+  filterButton: "Filter",
   filterGroups: Object.freeze({
     kind: "Kind",
     changed: "Changed",

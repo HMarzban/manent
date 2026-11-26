@@ -72,7 +72,7 @@ export function SearchField(): ReactNode {
   };
 
   return (
-    <div className="relative flex w-popover min-w-0 shrink-4 items-center">
+    <div className="relative flex min-w-0 flex-1 items-center sm:w-popover sm:flex-none sm:shrink-4">
       <SearchIcon
         aria-hidden="true"
         className="pointer-events-none absolute start-2.5 size-icon text-fg-muted"

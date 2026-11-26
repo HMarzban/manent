@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
   SEARCH_WORDS,
 } from "@manent/ui";
+import { ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { folderPathNames } from "../services/sync/folders.ts";
@@ -94,6 +95,11 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
         }
       >
         {SEARCH_WORDS.filterButton}
+        <ChevronDownIcon
+          aria-hidden="true"
+          data-icon="inline-end"
+          className="size-icon text-fg-muted"
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"

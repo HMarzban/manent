@@ -7,6 +7,11 @@ import {
   MessageSlot,
   Row,
   SHARING_WORDS,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
@@ -271,13 +276,47 @@ export function WorkspaceSettingsScreen(props: {
           {WORKSPACE_WORDS.backToLibrary}
         </Button>
         <h1 tabIndex={-1} className="truncate text-heading outline-none">
-          {WORKSPACE_WORDS.title}
+          {workspaceRef === null
+            ? WORKSPACE_WORDS.title
+            : `${workspaceRef.name} · ${WORKSPACE_WORDS.title}`}
         </h1>
       </header>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row sm:overflow-hidden">
+        <div className="border-b border-line p-4 sm:hidden">
+          <Select
+            items={WORKSPACE_SETTINGS_GROUPS.map((id) => ({
+              value: id,
+              label: WORKSPACE_WORDS.groups[id],
+            }))}
+            value={activeGroup}
+            onValueChange={(value) => {
+              const next = WORKSPACE_SETTINGS_GROUPS.find(
+                (entry) => entry === value,
+              );
+              if (next !== undefined)
+                void navigate({
+                  href: `/w/${encodeURIComponent(workspaceId)}/settings/${next}`,
+                });
+            }}
+          >
+            <SelectTrigger
+              aria-label={WORKSPACE_WORDS.title}
+              className="h-control text-ui"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WORKSPACE_SETTINGS_GROUPS.map((id) => (
+                <SelectItem key={id} value={id}>
+                  {WORKSPACE_WORDS.groups[id]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <nav
           aria-label={WORKSPACE_WORDS.title}
-          className="flex shrink-0 flex-col gap-1 border-b border-line p-4 sm:w-panel-left sm:border-e sm:border-b-0 sm:px-2"
+          className="hidden shrink-0 flex-col gap-1 border-e border-line px-2 py-4 sm:flex sm:w-panel-left"
         >
           {WORKSPACE_SETTINGS_GROUPS.map((id) => {
             const current = id === activeGroup;

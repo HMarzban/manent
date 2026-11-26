@@ -362,30 +362,37 @@ test("Show and News projects list rundowns by date with nested stories, plain ro
   expect(tourList?.textContent).toContain("Rows");
   expect(tourList?.textContent).toContain("Last edited");
 
+  const collapsedRows = [
+    ...(tourList?.querySelectorAll<HTMLElement>(".mn-row") ?? []),
+  ];
+  expect(collapsedRows.map((r) => r.textContent)).toEqual([
+    expect.stringContaining("Mon 18 Jan 2027"),
+    expect.stringContaining("Wed 18 Nov"),
+  ]);
+  expect(collapsedRows[1]?.textContent).toContain("18:00");
+  expect(collapsedRows[1]?.textContent).toContain("1 row");
+  expect(tourList?.textContent).not.toContain("Loose script never shown");
+
+  // Disclosure chevron expands and collapses nested stories without opening the rundown
+  const toggle = tourList?.querySelector<HTMLButtonElement>(
+    'button[aria-expanded="false"]',
+  );
+  expect(toggle).not.toBeNull();
+  await act(async () => toggle?.click());
+  expect(router.state.location.pathname).toBe("/");
   const rows = [...(tourList?.querySelectorAll<HTMLElement>(".mn-row") ?? [])];
   expect(rows.map((r) => r.textContent)).toEqual([
     expect.stringContaining("Mon 18 Jan 2027"),
     expect.stringContaining("Wed 18 Nov"),
     expect.stringContaining("01 Tolle Exchange library: council votes yes"),
   ]);
-  expect(rows[1]?.textContent).toContain("18:00");
-  expect(rows[1]?.textContent).toContain("1 row");
   expect(rows[2]?.textContent).toContain("Row 1");
-  expect(tourList?.textContent).not.toContain("Loose script never shown");
 
   // Every row is activatable (pointer cursor / hover per R-X)
   expect(rows.every((row) => row.hasAttribute("tabindex"))).toBe(true);
 
-  // Disclosure chevron collapses and expands nested stories without opening the rundown
-  const toggle = tourList?.querySelector<HTMLButtonElement>(
-    'button[aria-expanded="true"]',
-  );
-  expect(toggle).not.toBeNull();
   await act(async () => toggle?.click());
-  expect(router.state.location.pathname).toBe("/");
   expect(tourList?.querySelectorAll(".mn-row").length).toBe(2);
-  await act(async () => toggle?.click());
-  expect(tourList?.querySelectorAll(".mn-row").length).toBe(3);
 
   // Command slot `library` powers `rundown.new`
   expect(rundownActions.slot("library")?.new).toBeFunction();

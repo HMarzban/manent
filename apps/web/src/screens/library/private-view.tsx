@@ -9,9 +9,10 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { XIcon } from "lucide-react";
+import { LockIcon, XIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectKind } from "../../services/ports.ts";
 import {
@@ -113,28 +114,37 @@ export function PrivateView(_props: LibraryViewProps): ReactNode {
     void navigate({ href: `/s/${docId}` });
   };
 
+  const empty = privateProjects.length === 0;
   return (
     <section
       aria-label={LIBRARY_FILES_WORDS.privateHeading}
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
-      <div className="flex flex-col gap-1">
-        <h2 className="text-heading">{LIBRARY_FILES_WORDS.privateHeading}</h2>
-        <p className="text-ui text-fg-muted">
-          {LIBRARY_FILES_WORDS.privateNote}
-        </p>
-      </div>
-      {pickerOpen ? <PrivateKindPicker open={open} /> : null}
-      {privateProjects.length === 0 ? (
-        <div className="flex flex-col items-start gap-4">
+      {empty && !pickerOpen ? null : (
+        <div className="flex flex-col gap-1">
+          <h2 className="text-heading">{LIBRARY_FILES_WORDS.privateHeading}</h2>
           <p className="text-ui text-fg-muted">
-            {LIBRARY_FILES_WORDS.privateEmpty}
+            {LIBRARY_FILES_WORDS.privateNote}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <CommandButton id="library.newScript" variant="outline" />
-            <CommandButton id="library.newProject" variant="outline" />
-          </div>
         </div>
+      )}
+      {pickerOpen ? <PrivateKindPicker open={open} /> : null}
+      {empty ? (
+        pickerOpen ? null : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-full flex-col items-center justify-center p-6">
+              <EmptyHeroCard
+                headingAs="h2"
+                icon={<LockIcon aria-hidden="true" className="size-5" />}
+                title={LIBRARY_FILES_WORDS.privateHeading}
+                description={LIBRARY_FILES_WORDS.privateEmpty}
+                actions={
+                  <CommandButton id="library.newScript" variant="outline" />
+                }
+              />
+            </div>
+          </div>
+        )
       ) : (
         <ProjectList
           projects={privateProjects}

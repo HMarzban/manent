@@ -311,7 +311,7 @@ test("each setting's help, values, places and effect are fixed", () => {
         { value: "200", label: "200 %" },
       ],
       description:
-        "Text and controls around the page. The page has its own zoom, in View ▾.",
+        "Text and controls around the page. The page has its own zoom, in the View menu.",
       noun: null,
       surfaces: [
         { in: "preferences", section: "device", order: 10 },

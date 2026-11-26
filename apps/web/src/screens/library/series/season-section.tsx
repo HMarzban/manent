@@ -95,7 +95,9 @@ export function SeasonSection(props: {
   return (
     <section aria-label={heading} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="min-w-0 flex-1 truncate text-title">{heading}</h2>
+        <h2 className="min-w-44 basis-full truncate text-title @md:basis-auto @md:flex-1">
+          {heading}
+        </h2>
         <Button
           variant="ghost"
           size="sm"

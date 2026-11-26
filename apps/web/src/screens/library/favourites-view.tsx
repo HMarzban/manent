@@ -7,8 +7,10 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { StarIcon } from "lucide-react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectKind } from "../../services/ports.ts";
 import type { FavouriteEntry } from "../../services/sync/favourites.ts";
@@ -108,12 +110,22 @@ export function FavouritesView(props: LibraryViewProps): ReactNode {
       aria-label={LIBRARY_FILES_WORDS.favouritesHeading}
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
-      <h2 className="text-heading">{LIBRARY_FILES_WORDS.favouritesHeading}</h2>
       {empty ? (
-        <p className="text-ui text-fg-muted">
-          {LIBRARY_FILES_WORDS.favouritesEmpty}
-        </p>
-      ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col items-center justify-center p-6">
+            <EmptyHeroCard
+              headingAs="h2"
+              icon={<StarIcon aria-hidden="true" className="size-5" />}
+              title={LIBRARY_FILES_WORDS.favouritesHeading}
+              description={LIBRARY_FILES_WORDS.favouritesEmpty}
+            />
+          </div>
+        </div>
+      ) : (
+        <h2 className="text-heading">
+          {LIBRARY_FILES_WORDS.favouritesHeading}
+        </h2>
+      )}
       {favProjects.length > 0 ? (
         <div className="flex min-h-0 flex-col gap-2">
           <h3 className="mn-group-label">

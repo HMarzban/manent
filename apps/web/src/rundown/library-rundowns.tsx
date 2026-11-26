@@ -51,7 +51,7 @@ import type {
 const VIRTUAL_LIMIT = 100;
 const COL_AIR = "w-16 shrink-0 tabular-nums";
 const COL_ROWS = "hidden w-20 shrink-0 tabular-nums @lg:block";
-const COL_STORY_ROW = "w-20 shrink-0 tabular-nums";
+const COL_STORY_ROW = "hidden w-20 shrink-0 tabular-nums @lg:block";
 const COL_EDITED = "hidden w-col-edited shrink-0 truncate @xl:block";
 const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((i) =>
   i.targets.includes("project"),
@@ -179,6 +179,7 @@ function StoryListRow(props: {
         <span className="min-w-0 flex-1 truncate ps-8 text-ui text-fg">
           {story.title}
         </span>
+        <span aria-hidden="true" className={COL_AIR} />
         <span className={cn(COL_STORY_ROW, "text-meta text-fg-muted")}>
           {story.rowNumber === null
             ? RUNDOWN_WORDS.dash
@@ -228,7 +229,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const data = useRundownsData(project.projectId);
   const newCmd = useCommandState("rundown.new");
   const [creating, setCreating] = useState(false);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
 
@@ -259,7 +260,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
 
   const markActive = () => setActiveLibraryProject(project.projectId);
   const toggleExpanded = (docId: string) =>
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (!next.delete(docId)) next.add(docId);
       return next;
@@ -269,11 +270,11 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
     () =>
       data.rundowns.flatMap((item) => [
         { kind: "rundown" as const, item },
-        ...(collapsed.has(item.docId)
-          ? []
-          : item.stories.map((story) => ({ kind: "story" as const, story }))),
+        ...(expanded.has(item.docId)
+          ? item.stories.map((story) => ({ kind: "story" as const, story }))
+          : []),
       ]),
-    [data.rundowns, collapsed],
+    [data.rundowns, expanded],
   );
 
   const renderRow = (index: number): ReactNode => {
@@ -289,7 +290,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
     ) : (
       <RundownListRow
         item={entry.item}
-        expanded={!collapsed.has(entry.item.docId)}
+        expanded={expanded.has(entry.item.docId)}
         shell={shell}
         now={now}
         onToggle={() => toggleExpanded(entry.item.docId)}

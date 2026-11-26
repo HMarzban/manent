@@ -25,6 +25,13 @@ export function LibraryStatusBar(props: {
       region="status_bar"
       className="flex h-statusbar shrink-0 items-center gap-1 border-t border-line px-2 text-ui"
     >
+      {projects.length > 0 ? (
+        <span className="shrink-0 px-2 text-meta text-fg-muted tabular-nums">
+          {here < projects.length
+            ? LIBRARY_WORDS.onDevice(here, projects.length)
+            : LIBRARY_WORDS.workspaceLine(projects.length, null)}
+        </span>
+      ) : null}
       <MessageSlot
         queue={messages}
         run={(id) => {
@@ -32,11 +39,6 @@ export function LibraryStatusBar(props: {
         }}
         registered={isRegistered}
       />
-      {here < projects.length ? (
-        <span className="px-2 text-meta text-fg-muted tabular-nums">
-          {LIBRARY_WORDS.onDevice(here, projects.length)}
-        </span>
-      ) : null}
       <CommandsButton />
     </ShellRegion>
   );

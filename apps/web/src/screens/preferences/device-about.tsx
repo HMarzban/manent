@@ -15,6 +15,7 @@ import { Fact, Group } from "./device-group.tsx";
 declare const MANENT_VERSION: string | undefined;
 // every manifest in the repository starts at this version
 const UNVERSIONED = "0.0.0";
+const PREVIEW_VERSION = "Manent — preview";
 
 /** The version, its channel and Check for updates, with the check's outcome under it. */
 function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
@@ -47,10 +48,14 @@ export function About(props: { desktop: DesktopDevice | null }): ReactNode {
   const pledgeId = useId();
   const version =
     typeof MANENT_VERSION === "undefined" ? UNVERSIONED : MANENT_VERSION;
+  const versionLine =
+    version === UNVERSIONED
+      ? PREVIEW_VERSION
+      : PREFERENCES_WORDS.version(version);
   return (
     <Group heading={PREFERENCES_WORDS.about}>
       {props.desktop === null ? (
-        <p className="text-ui">{PREFERENCES_WORDS.version(version)}</p>
+        <p className="text-ui">{versionLine}</p>
       ) : (
         <DesktopVersion device={props.desktop} />
       )}

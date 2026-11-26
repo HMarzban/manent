@@ -245,7 +245,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       </h1>
       <ShellRegion
         region="title_bar"
-        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-2 border-b border-line px-2 py-1"
+        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-2 py-1 sm:gap-2"
       >
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
@@ -255,19 +255,23 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
           </div>
         )}
         <SearchField />
-        <span className="flex-1" />
-        <CommandButton id="file.import" variant="outline" />
-        <CommandButton id="library.newScript" variant="outline" />
-        <NewProjectPopover workspaceId={workspaceId} />
-        <PersonMenu name={person.name} />
+        <span className="hidden sm:block sm:flex-1" />
+        <div className="order-3 flex basis-full items-center gap-1.5 sm:order-none sm:contents">
+          <CommandButton id="file.import" variant="outline" />
+          <CommandButton id="library.newScript" variant="outline" />
+          <NewProjectPopover workspaceId={workspaceId} />
+        </div>
+        <div className="order-2 flex shrink-0 sm:order-none">
+          <PersonMenu name={person.name} />
+        </div>
       </ShellRegion>
-      <div className="@container flex min-h-0 flex-1">
+      <div className="@container relative flex min-h-0 flex-1">
         <LibraryNav
           workspaceId={workspaceId}
           current={viewId}
           projects={projects}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:mx-auto *:w-full *:max-w-content-wide">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-4 pt-4 pb-8 sm:px-6 sm:pt-6 *:mx-auto *:w-full *:max-w-content-wide">
           {shown?.seeding == null ? (
             <View
               workspaceId={workspaceId}

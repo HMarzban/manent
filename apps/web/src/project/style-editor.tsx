@@ -216,7 +216,7 @@ function ElementRow(props: {
           </Button>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="flex flex-col gap-1">
           <label htmlFor={capitalsId} className="text-meta text-fg-muted">
             {PROJECT_WORDS.styleFields.capitals}

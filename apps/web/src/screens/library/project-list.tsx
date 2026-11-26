@@ -21,18 +21,19 @@ type Segment =
     };
 
 function segmentsOf(projects: readonly ProjectItem[]): Segment[] {
-  const segments: Segment[] = [];
+  const plain: ProjectItem[] = [];
+  const views: Segment[] = [];
   for (const project of projects) {
     const custom = PROJECT_VIEWS.find((view) => view.kind === project.kind);
     if (custom !== undefined) {
-      segments.push({ kind: "view", project, View: custom.View });
+      views.push({ kind: "view", project, View: custom.View });
       continue;
     }
-    const prev = segments.at(-1);
-    if (prev?.kind === "plain") prev.projects.push(project);
-    else segments.push({ kind: "plain", projects: [project] });
+    plain.push(project);
   }
-  return segments;
+  return plain.length > 0
+    ? [{ kind: "plain", projects: plain }, ...views]
+    : views;
 }
 
 function PlainTable(props: {
