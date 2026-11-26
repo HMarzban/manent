@@ -4,9 +4,10 @@ import type { Clock, SyncClient } from "@manent/sync-client";
 import type { ErrorResponse, HttpErrorCode } from "@manent/sync-protocol";
 import { readPerson } from "../auth/people.ts";
 import { exportFilesRoutes } from "../export-files/routes.ts";
+import { mosLanRelayRoutes } from "../mos/routes.ts";
+import { prompterFilesRoutes } from "../prompter-files/routes.ts";
 import type { NodeRecords } from "../records/ports.ts";
 import type { ShellChannel } from "./shell-channel.ts";
-import { prompterFilesRoutes } from "../prompter-files/routes.ts";
 
 const NO_CLOCK: Clock = {
   now: () => 0,
@@ -111,6 +112,7 @@ export const LOCAL_ROUTES: readonly ((
   storageRoutes,
   connectionRoutes,
   prompterFilesRoutes,
+  mosLanRelayRoutes,
   exportFilesRoutes,
 ];
 
