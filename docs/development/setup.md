@@ -61,18 +61,19 @@ After a change to the web app, stop the demo and run `make demo` again: it rebui
 bun run verify
 ```
 
-One command decides whether a change is finished. It runs, in order:
+One command decides whether a change is finished. It runs the seven static checks concurrently via `verify:checks` (`bun run --parallel`) and stops before `test:unit` if any check does not pass:
 
-| Step           | Tool                        | Checks                                                                                               |
-| -------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `format:check` | `bun fmt --check`           | Formatting. `bun run format` fixes it                                                                |
-| `typecheck`    | `bun check`                 | Types, in strict mode                                                                                |
-| `lint`         | oxlint                      | Correctness and suspicious patterns; warnings fail                                                   |
-| `tracked`      | `tools/check-tracked.ts`    | Every tracked file is on the allow-list of the public tree                                           |
-| `boundaries`   | `tools/check-boundaries.ts` | Every import is allowed by `tools/boundaries.config.ts` (see [Layers](../architecture/layers.md))    |
-| `records`      | `tools/check-records.ts`    | The changelog, decision records, lessons, README and these documents keep their rules; links resolve |
-| `tour`         | `tools/check-tour.ts`       | Every Tour scenario has its end-to-end test, and every Tour test its scenario                        |
-| `test:unit`    | `bun test --isolate`        | Unit, property and DOM tests in `packages`, `apps`, `tools` and `bench`                              |
+| Step            | Tool                        | Checks                                                                                               |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `verify:checks` | `bun run --parallel`        | Runs all seven static checks below concurrently                                                      |
+| `format:check`  | `bun fmt --check`           | Formatting. `bun run format` fixes it                                                                |
+| `typecheck`     | `bun check`                 | Types, in strict mode                                                                                |
+| `lint`          | oxlint                      | Correctness and suspicious patterns; warnings fail                                                   |
+| `tracked`       | `tools/check-tracked.ts`    | Every tracked file is on the allow-list of the public tree                                           |
+| `boundaries`    | `tools/check-boundaries.ts` | Every import is allowed by `tools/boundaries.config.ts` (see [Layers](../architecture/layers.md))    |
+| `records`       | `tools/check-records.ts`    | The changelog, decision records, lessons, README and these documents keep their rules; links resolve |
+| `tour`          | `tools/check-tour.ts`       | Every Tour scenario has its end-to-end test, and every Tour test its scenario                        |
+| `test:unit`     | `bun test --parallel`       | Isolated multi-process unit, property and DOM tests in `bench`, `tools`, `packages` and `apps`       |
 
 Each step is also a script of its own, so `bun run lint` runs one. Some repository rules are unit tests and so run in the last step: the size limit of a source file (400 lines), the interface rules, the colour rule (every colour is a token in `packages/ui/src/theme.css`) and the glossary of interface words.
 

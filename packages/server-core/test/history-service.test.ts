@@ -588,32 +588,45 @@ test("versions on both sides of a rebuild are listed and open", async () => {
   expect(await blocksOf(listed[0]!.id)).toEqual(dana.blocks());
 });
 
-test("a log version is pinned for its first day and kept as a snapshot after", async () => {
-  const { sam, dana, clock, file, history, settle, versions, named, blocksOf } =
-    historyWorld();
-  await named("First draft", 1);
-  sam.join();
-  // auto version at seq 1,500; 10,000 more updates (checkpoints prune); advance one day; maintain()
-  sam.typeMany(SCENE_2_ACTION, 1_499);
-  const blocksAtSeq = sam.blocks();
-  sam.leave();
-  await settle();
-  const [v] = await versions();
-  expect(v?.position).toEqual({ generation: 1, seq: 1_500 });
-  expect(file.history.snapshotOf(v!.id)).toBeNull();
-  // an hour later, so that Dana's version does not thin Sam's away
-  clock.advance(3_600_000);
-  dana.join();
-  dana.typeMany(SCENE_5_ACTION, 10_000);
-  dana.leave();
-  await settle();
-  // the checkpoints after it were pruned to the newest three; the one its pin needs was kept
-  expect(file.checkpoints.atOrBefore(DOC, 1, 5_000)?.seq).toBe(1_500);
-  clock.advance(DAY_MS);
-  history.maintain(DOC);
-  expect(file.history.snapshotOf(v!.id)).not.toBeNull();
-  expect(await blocksOf(v!.id)).toEqual(blocksAtSeq);
-});
+test(
+  "a log version is pinned for its first day and kept as a snapshot after",
+  async () => {
+    const {
+      sam,
+      dana,
+      clock,
+      file,
+      history,
+      settle,
+      versions,
+      named,
+      blocksOf,
+    } = historyWorld();
+    await named("First draft", 1);
+    sam.join();
+    // auto version at seq 1,500; 10,000 more updates (checkpoints prune); advance one day; maintain()
+    sam.typeMany(SCENE_2_ACTION, 1_499);
+    const blocksAtSeq = sam.blocks();
+    sam.leave();
+    await settle();
+    const [v] = await versions();
+    expect(v?.position).toEqual({ generation: 1, seq: 1_500 });
+    expect(file.history.snapshotOf(v!.id)).toBeNull();
+    // an hour later, so that Dana's version does not thin Sam's away
+    clock.advance(3_600_000);
+    dana.join();
+    dana.typeMany(SCENE_5_ACTION, 10_000);
+    dana.leave();
+    await settle();
+    // the checkpoints after it were pruned to the newest three; the one its pin needs was kept
+    expect(file.checkpoints.atOrBefore(DOC, 1, 5_000)?.seq).toBe(1_500);
+    clock.advance(DAY_MS);
+    history.maintain(DOC);
+    expect(file.history.snapshotOf(v!.id)).not.toBeNull();
+    expect(await blocksOf(v!.id)).toEqual(blocksAtSeq);
+  },
+  { timeout: 20_000 },
+);
 
 test("a purged generation's versions still open", async () => {
   const { sam, dana, clock, file, service, history, settle, named, versions } =

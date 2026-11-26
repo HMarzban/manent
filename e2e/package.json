@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "bun --bun playwright test",
+    "install-browser": "bun --bun playwright install --with-deps",
     "install-browsers": "bun --bun playwright install --with-deps chromium firefox webkit",
     "test:tour": "playwright test --project tour --project tour-desktop"
   },

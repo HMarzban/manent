@@ -16,7 +16,9 @@ const trees = createTempTrees("manent demo ");
 afterAll(() => trees.removeAll());
 // each demo builds the web app here, never into apps/web/dist, which an e2e server may be serving
 const webDir = await trees.tree({});
-const demoEnv = { ...process.env, MANENT_WEB_DIR: webDir };
+// strip FORCE_COLOR from bun test --parallel workers so CLI stderr stays deterministic plain text
+const { FORCE_COLOR: _ignoredForceColor, ...baseEnv } = process.env;
+const demoEnv = { ...baseEnv, MANENT_WEB_DIR: webDir, NO_COLOR: "1" };
 // seeded once for the file and copied into each demo's folder, so that no test seeds more than once
 const seeded = await trees.tree({});
 // what that first seed of an empty folder answered

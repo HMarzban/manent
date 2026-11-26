@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   desktop:
     timeout-minutes: 60
@@ -37,10 +41,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-1.4.4-
       - if: runner.os == 'Linux'
         run: sudo apt-get install -y libgtk-3-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb
       - run: bun install --frozen-lockfile
-      - run: bun test ./packages/local-node/test/instance-lock.test.ts ./packages/local-node/test/open-store.test.ts
+      - run: bun test --parallel ./packages/local-node/test/instance-lock.test.ts ./packages/local-node/test/open-store.test.ts
       - run: bun run desktop:build --channel canary --version 0.0.1 --update-url http://127.0.0.1:47471/
       - run: bun run desktop:check
       - run: bun tools/desktop/check-size.ts apps/desktop/artifacts/Manent-0.0.1-canary-*

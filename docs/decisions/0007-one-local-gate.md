@@ -1,7 +1,7 @@
 # 0007. One gate: `bun run verify`
 
 - Date: 2026-11-17
-- Status: Accepted
+- Status: Superseded by 0077
 - Decided by: engineering lead
 
 ## Context

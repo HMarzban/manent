@@ -183,6 +183,14 @@ test("every file a root script runs exists", () => {
       new RegExp("\\bbun run ([a-z][\\w:-]*)", "g"),
     ))
       waiting.push(next!);
+    for (const [, group] of scripts[name]!.matchAll(
+      new RegExp(
+        "\\bbun run --(?:parallel|sequential) ([a-z][\\w:-]*(?:\\s+[a-z][\\w:-]*)*)",
+        "g",
+      ),
+    ))
+      for (const next of group!.trim().split(new RegExp("\\s+")))
+        waiting.push(next);
   }
   const files = new Set(
     [...reached].flatMap((name) =>

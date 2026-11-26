@@ -52,7 +52,7 @@ The evidence or event that would reopen this.
 - [0004. Bun is the only toolchain](0004-bun-is-the-only-toolchain.md)
 - [0005. One workspace, one lockfile, one version catalog](0005-one-workspace-one-catalog.md)
 - [0006. Package boundaries are an allow-list, checked from source text](0006-boundaries-are-an-allow-list.md)
-- [0007. One gate: `bun run verify`](0007-one-local-gate.md)
+- [0007. One gate: `bun run verify`](0007-one-local-gate.md) — superseded by 0077
 - [0008. Packages export factories, and importing a module does nothing](0008-factories-and-quiet-imports.md)
 - [0009. The first release is a demo that runs on one machine](0009-first-release-is-a-local-demo.md)
 - [0010. The demo has no passwords, so the server refuses to be reachable](0010-password-less-demo-stays-local.md)
@@ -122,3 +122,4 @@ The evidence or event that would reopen this.
 - [0074. Inline graphics use the single block node with content-addressed offline binary assets](0074-inline-graphics-and-offline-assets.md)
 - [0075. Reusable Show and News templates live in the workspace and project indexes](0075-reusable-show-templates.md)
 - [0076. Rundown viewers receive server-projected views and rundowns carry full version history](0076-rundown-viewer-and-full-history.md)
+- [0077. Parallel gate and CI job fan-out](0077-parallel-gate-and-ci-fan-out.md)

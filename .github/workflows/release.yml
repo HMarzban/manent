@@ -25,6 +25,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-1.4.4-
       - run: bun install --frozen-lockfile
       - name: Build the tag's version
         run: |
@@ -47,18 +53,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-1.4.4-
       - run: bun install --frozen-lockfile
-      - name: Compile the server for six targets
-        run: |
-          for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64 bun-windows-x64 bun-windows-arm64; do
-            bun build --compile --minify --bytecode --format=esm --target="$target" \
-              apps/server/src/main.ts apps/server/src/checkpoint-worker.ts \
-              --outfile "server/manent-${target#bun-}"
-          done
-      - name: Build the web app it serves, archived where the binary looks for it
-        run: |
-          bun apps/web/build.ts
-          tar -czf server/manent-web.tar.gz apps/web/dist
+      - name: Compile the six server targets and archive the web app in parallel
+        run: bun tools/build-server-release.ts server
       - uses: actions/upload-artifact@v4
         with:
           name: server

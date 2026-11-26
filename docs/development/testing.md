@@ -44,7 +44,14 @@ MANENT_FLAVOUR=test bun run --filter @manent/e2e test editor/flow --project chro
 
 The words after `test` filter by file path; `--project` is `chromium`, `firefox` or `webkit`.
 
-The fast way to run the whole suite is the three engines at once, each with its own demo: its own port, and its own folder for the built app (`MANENT_WEB_DIR`), because each demo empties that folder when it builds. Run each line in a terminal of its own:
+The fast way to run the whole suite is all three engines at once with `bun run test:e2e:parallel` (`tools/e2e-parallel.ts`), which starts Chromium, Firefox and WebKit concurrently on ports `4800`, `4810` and `4820` with isolated temporary build folders (`MANENT_WEB_DIR`) and cleans them up on exit. Extra Playwright filters pass straight through:
+
+```sh
+bun run test:e2e:parallel
+bun run test:e2e:parallel smoke
+```
+
+You can still run one engine at a time on a chosen port and folder:
 
 ```sh
 MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4800 bun run --filter @manent/e2e test --project chromium
@@ -52,7 +59,7 @@ MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4810 bun run -
 MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4820 bun run --filter @manent/e2e test --project webkit
 ```
 
-On an 18-core Mac the three took about 7 minutes together, as a rough guide. This also leaves `apps/web/dist` as it was, so `make demo` keeps its own build.
+On an 18-core Mac the three took about 7 minutes together, as a rough guide. Both ways leave `apps/web/dist` as it was, so `make demo` keeps its own build.
 
 | Folder             | What it covers                                                                                     |
 | ------------------ | -------------------------------------------------------------------------------------------------- |
@@ -96,7 +103,7 @@ Some tests take a count from the environment, so CI stays quick and a long run i
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request, on Ubuntu, macOS and Windows. Each runner installs Bun 1.4.4 and the dependencies from the lockfile, installs the browsers, then runs `bun run verify`, `bun run test:e2e` and `bun run test:clone`, stopping at the first that does not pass. A unit test pins the workflow, so a change to it is a deliberate one.
+`.github/workflows/ci.yml` runs on every push and pull request, cancelling superseded non-`main` runs and caching `~/.bun/install/cache`. It fans out five parallel jobs with Bun 1.4.4 and a frozen lockfile: `checks` (fast parallel static gate on Ubuntu with no browser download), `verify` (Ubuntu, macOS and Windows with Chromium only for benchmark tests), `e2e` (three OSes × three browser engines in parallel, each installing only its own browser), `clone` (three OSes, no browsers) and `demo` (three OSes, Chromium only, running `seed:check` and `test:demo`). A unit test pins the workflow, so a change to it is a deliberate one.
 
 CI does not pass on every system yet. Until it does, run `bun run verify` and the end-to-end tests that cover a change on your own machine.
 

@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Strip FORCE_COLOR in subprocess CLI tests run under bun test --parallel
+
+- Date: 2026-11-26
+
+### What happened
+
+Switching `test:unit` to `bun test --parallel` caused six stderr assertions in `tools/test/demo-cli.test.ts` to mismatch because parallel test workers propagated `FORCE_COLOR=1`, causing `tools/demo/cli.ts` to wrap plain refusal lines in ANSI red escape sequences.
+
+### How it was caught
+
+By running `bun test --parallel ./packages ./apps ./tools ./bench` across all 590 test files before wiring it into `package.json`.
+
+### Rule
+
+When a test spawns a CLI subprocess and asserts exact `stdout` or `stderr` text, strip `FORCE_COLOR` from the inherited environment and set `NO_COLOR: "1"` so output stays identical under serial and `--parallel` test workers.
+
+### Enforced by
+
+`tools/test/demo-cli.test.ts` (explicitly stripping `FORCE_COLOR` and setting `NO_COLOR: "1"` in `demoEnv`).
+
 ## Hover-revealed row menus must swap with trailing metadata instead of reserving a resting spacer
 
 - Date: 2026-11-26
