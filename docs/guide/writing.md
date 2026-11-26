@@ -105,8 +105,27 @@ Text pasted from another app comes in one paragraph to an element. Fountain or F
 
 ## Moving around
 
-The **Scenes** tab of the left panel lists the script's acts, sections and scenes, each with its length in eighths of a page; click one to go there. As you scroll away from where you are typing, **Ghost Follow** marks the scene currently in view with a subtle dashed indicator in both List and Cards views, gently keeps it in sight as long as you are not browsing the panel yourself, and shows a compact `Viewing …` / `Back to …` strip beneath the toolbar so one click returns to your caret. **Find** (Ctrl+F) and **Go to** (Ctrl+G) are described in [Keyboard shortcuts](keyboard-shortcuts.md#find-and-go-to).
+The **Scenes** tab of the left panel lists the script's acts, sections and scenes in List or Cards view, each with its length in eighths of a page, writer assignment and progress; click one to go there or reorder scenes by drag, keyboard or row menu. As you scroll away from where you are typing, **Ghost Follow** marks the scene currently in view with a subtle dashed indicator in both List and Cards views, gently keeps it in sight as long as you are not browsing the panel yourself, and shows a compact `Viewing …` / `Back to …` strip beneath the toolbar so one click returns to your caret. **Find** (Ctrl+F) and **Go to** (Ctrl+G) are described in [Keyboard shortcuts](keyboard-shortcuts.md#find-and-go-to).
 
-## Not in this build
+## Inline images and broadcast chyrons
 
-- Comments.
+Insert an inline graphic block anywhere on the page using **Insert image**, **Insert lower third**, **Insert over the shoulder** or **Insert full screen** from the command palette (Ctrl+K / ⌘K) or the element menu:
+
+- **Kinds and captions.** Choose between **Image**, **Lower third**, **Over the shoulder** and **Full screen**, and edit the graphic's caption directly on the page.
+- **Picking an image.** **Insert image** (or **Choose image…** on an empty graphic block) opens the system file picker straight away for PNG, JPEG or WebP files (up to 5 MB per file, 4,096 px wide or tall, and 200 MB per project).
+- **Details → Selection.** Adjust the block's **Height** in lines (so screen, print and PDF keep identical page breaks), add an optional **Cue tag** (for example `Cue 1`), write a **Description** for readers and screen readers, or **Replace image…** and **Remove image**.
+- **Offline caching and export.** Images are stored in the project's offline asset cache and sync when connected; an image not yet fetched on the current device shows **Not on this device yet** with **Try again**. Graphics render at their chosen height in PDF and print, round-trip in Project archives, and write cleanly to FDX, Fountain and prompter exports; see [Export and print](export-and-print.md).
+
+## Show and News templates
+
+Show and News projects support reusable templates for recurring rundowns and scripts:
+
+- **Save template…** (from **Title ▾** or the command palette) saves the open rundown or script as **This project's default** or **Shared in** your workspace. Saving a rundown template keeps rows, headers and columns while clearing dates, timings and previous values; saving a script template keeps structure and headings while clearing comments and revision marks. Each new document created from a template receives fresh block and row identifiers.
+- **Project settings → Templates** manages **Default rundown** and **Default script** (with **Clear** to start blank again), promotes any shared workspace template via **Use as this project's default**, or removes templates you no longer need.
+- **New rundown split menu.** Once a project default or shared workspace template exists, **New rundown** in the Library shows a split menu beside it offering the default template, each shared template and **Blank rundown**.
+
+## Tools while writing
+
+- **Alternate lines and Cuts.** Keep alternate readings on a speech behind a `1/n` marker (swap in one undo step), or move trimmed passages to **Cuts** and restore them later.
+- **Writing tools.** Open the command palette for **Rename character** (one undo across cues, dialogue and action), **Focus mode**, **Read aloud**, daily writing goals and timed sprints, or check **Details → Numbers** for scene counts, runtime and dialogue totals.
+- **Comments and notes.** Add private writers-only notes with `[[`, or share Comments and review rounds in the side panel; see [Working together](working-together.md).

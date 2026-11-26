@@ -124,6 +124,106 @@ Gate row-level History restore controls strictly on rows that exist in the basel
 
 `apps/web/test/rundown-history.dom.test.tsx`, which asserts that `changed`, `moved` and `removed` rows expose a row `Restore` button for editors while `added` and `same` rows do not.
 
+## Pin public documentation and release installer claims with automated tests
+
+- Date: 2026-11-26
+
+### What happened
+
+Public site pages and the README drifted out of sync with shipped code: download links constructed non-existent `.AppImage`, `.exe` and unversioned macOS `.dmg` filenames that differed from the desktop build outputs, landing-page and comparison copy claimed legacy `.fdr` files could be imported directly, prohibited words slipped into visible text, and the README listed Game Script line-data exports as CSV instead of XML.
+
+### How it was caught
+
+By a full audit of `site/` and public documentation against the release workflow, desktop build scripts and format exporters.
+
+### Rule
+
+Whenever public documentation or site scripts state supported file formats, release artefact filenames or wording constraints, add a deterministic test that checks those claims against the source of truth so future changes cannot drift silently.
+
+### Enforced by
+
+`tools/test/site.test.ts` (asserting zero prohibited words, zero false `.fdr` import claims and no dead `.AppImage`, `Manent-windows.exe` or `Manent-mac.dmg` links) and `tools/check-records.ts` (verifying README fixed sections, package statuses and public document links).
+
+## Preserve concurrent block restores as overlaps instead of silently replacing
+
+- Date: 2026-11-26
+
+### What happened
+
+In `mergeByBlock`, when a block had no common ancestor (`base === null`) because it had been removed earlier and both sides concurrently restored different wordings under the same block ID, `outcomeOf` returned `replace` and silently overwrote the remote side's block instead of preserving both wordings as an overlap for review.
+
+### How it was caught
+
+By the history fuzz simulation in `@manent/testkit`, which hit a data-preservation invariant violation when concurrent offline edits and version restores converged on the same block ID.
+
+### Rule
+
+In three-way block merging, whenever `base === null` and both `mine` and `theirs` are present with differing content, return an `overlap` outcome so neither writer's wording is silently discarded.
+
+### Enforced by
+
+`packages/revisions/test/merge-doc.test.ts` and `packages/testkit/test/history-fuzz.test.ts`, which verify that differing `base === null` blocks produce an `overlap` and pass the history fuzz invariants across concurrent restore sequences.
+
+## Upgrade stored create metadata when reopening a never-synced document with create options
+
+- Date: 2026-11-26
+
+### What happened
+
+Opening a never-synced document before its creation parameters were available persisted `meta.create = null` in `StoreJournal`. When the caller later reopened the same document passing a `create` payload, the journal kept the stale `create: null` metadata, preventing the client from creating the document on the server once connectivity was available.
+
+### How it was caught
+
+By investigating offline document creation and reopening flows in `packages/sync-client/src/session/journal.ts`.
+
+### Rule
+
+When opening a journal whose stored metadata still has `neverSynced === true` and `create === null`, upgrade and persist the newly supplied `create` metadata before starting sync so deferred creation succeeds once online.
+
+### Enforced by
+
+`packages/sync-client/test/client.test.ts`, which reopens a never-synced document with a `create` payload after an initial `create: null` open and verifies that `meta.create` is persisted and synced.
+
+## Guard asynchronous HTTP refreshes with a monotonic version counter against live socket events
+
+- Date: 2026-11-26
+
+### What happened
+
+`refreshDriver` fetched the current Room window driver over HTTP and wrote the response straight into the driver store. When a live WebSocket `CONTROL` (`driver_changed`) event or a local Take/Release transition landed while the HTTP request was still in flight, the slower HTTP response resolved afterward and overwrote the newer live driver state.
+
+### How it was caught
+
+By concurrency review of the Room window driver store in `apps/web/src/room/driver.ts` under overlapping HTTP refresh and socket control frames.
+
+### Rule
+
+Whenever client state combines initial or periodic HTTP fetches with live WebSocket control events or local mutations, maintain a monotonic version counter per entry, capture it before starting the fetch, and discard the HTTP response if the version advanced while the request was in flight.
+
+### Enforced by
+
+`apps/web/test/driver.dom.test.ts`, which races a delayed `refreshDriver` HTTP response against a live `driver_changed` control event and local take/release transitions, verifying that stale responses never overwrite newer state.
+
+## Validate CRDT trash fields and cross-workspace lookups against server-held state
+
+- Date: 2026-11-26
+
+### What happened
+
+Client pushes to workspace and private index CRDT maps could set, alter or re-insert server-owned `trashedAt` and `trashedByUserId` fields or delete trashed entries directly, and Trash and public API lookups risked trusting unverified index references across workspaces or tombstoned indexes.
+
+### How it was caught
+
+By security review of `packages/server-core/src/library/` and `packages/server-core/src/public-api/scope.ts` tracing untrusted CRDT index pushes and workspace-scoped lookups.
+
+### Rule
+
+Inspect every client CRDT push to workspace and private index maps to reject forged, altered or newly inserted server-only trash fields and deletions of trashed entries. Resolve workspace ownership and public API scope exclusively against live, non-tombstoned server-held directory state (`control.sqlite`), never scanning workspaces for `user:` homes or trusting client-claimed workspace IDs.
+
+### Enforced by
+
+`packages/server-core/test/trash-security.test.ts` and `packages/server-core/test/public-api-security.test.ts`, which verify that forged or re-inserted trash fields, client removals of trashed entries, tombstoned indexes and cross-workspace lookups are refused.
+
 ## Keep prompter feed hubs per service instance and re-check permissions inside the document queue
 
 - Date: 2026-11-25
