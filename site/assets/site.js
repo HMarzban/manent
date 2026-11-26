@@ -3,26 +3,38 @@
 // audience tabs. Each part acts only on the pages that have its elements.
 (() => {
   // ---------- Download: the file for the visitor's system ----------
-  // Each release publishes one file per system under these names. A system without a file, or a visitor whose
-  // system is not found, is sent to the releases page or to the list of systems instead.
+  // Flip DIRECT_DOWNLOADS to true once the first stable GitHub Release publishes the unversioned
+  // aliases from .github/workflows/release.yml. While false (or when an architecture has no direct
+  // installer), visitors land on the releases page instead of a dead link.
   const RELEASES = "https://github.com/HMarzban/manent/releases";
+  const DIRECT_DOWNLOADS = false;
   const SYSTEMS = [
-    { key: "mac", name: "Mac", file: "Manent-mac.dmg", pattern: /mac/i },
+    {
+      key: "mac",
+      name: "Mac",
+      files: { arm: "Manent-macos-arm64.dmg" },
+      pattern: /mac/i,
+    },
     {
       key: "windows",
       name: "Windows",
-      file: "Manent-windows.exe",
+      files: { x86: "Manent-windows-x64-setup.zip" },
+      defaultFile: "Manent-windows-x64-setup.zip",
       pattern: /win/i,
     },
     {
       key: "linux",
       name: "Linux",
-      file: "Manent-linux.AppImage",
+      files: { x86: "Manent-linux-x64.tar.gz" },
+      defaultFile: "Manent-linux-x64.tar.gz",
       pattern: /linux|x11|cros/i,
     },
   ];
-  const fileFor = ({ file }) =>
-    file ? `${RELEASES}/latest/download/${file}` : RELEASES;
+  const fileFor = (system, arch) => {
+    if (!DIRECT_DOWNLOADS || !system) return RELEASES;
+    const file = (arch && system.files?.[arch]) || system.defaultFile;
+    return file ? `${RELEASES}/latest/download/${file}` : `${RELEASES}/latest`;
+  };
 
   const platform =
     navigator.userAgentData?.platform || navigator.platform || "";
@@ -40,22 +52,34 @@
     .querySelector(".masthead [data-get]")
     .getAttribute("href");
 
-  for (const button of all("[data-get]")) {
-    const label = button.querySelector("[data-get-label]");
-    const system = button.querySelector("[data-system]");
-    if (handheld) {
-      button.href = downloads;
-      if (label) label.textContent = label.dataset.handheld;
-      if (system) system.textContent = system.dataset.handheld;
-    } else if (found) {
-      button.href = fileFor(found);
-      if (system) system.textContent = `for ${found.name}`;
-    } else button.href = downloads;
-  }
+  const applyDownloads = (arch) => {
+    for (const button of all("[data-get]")) {
+      const label = button.querySelector("[data-get-label]");
+      const system = button.querySelector("[data-system]");
+      if (handheld) {
+        button.href = downloads;
+        if (label) label.textContent = label.dataset.handheld;
+        if (system) system.textContent = system.dataset.handheld;
+      } else if (found) {
+        button.href = fileFor(found, arch);
+        if (system) system.textContent = `for ${found.name}`;
+      } else button.href = downloads;
+    }
 
-  for (const link of all("[data-download]")) {
-    const system = SYSTEMS.find(({ key }) => key === link.dataset.download);
-    link.href = fileFor(system);
+    for (const link of all("[data-download]")) {
+      const system = SYSTEMS.find(({ key }) => key === link.dataset.download);
+      link.href = fileFor(system, system === found ? arch : undefined);
+    }
+  };
+
+  applyDownloads(undefined);
+  if (found && navigator.userAgentData?.getHighEntropyValues) {
+    navigator.userAgentData
+      .getHighEntropyValues(["architecture"])
+      .then(({ architecture }) => {
+        if (architecture) applyDownloads(architecture.toLowerCase());
+      })
+      .catch(() => {});
   }
 
   for (const line of all("[data-get-phone]")) line.hidden = !handheld;
@@ -130,7 +154,7 @@
     });
     dialog.addEventListener("close", () => {
       video.pause();
-      openers.get(dialog).focus();
+      openers.get(dialog)?.focus();
     });
   }
 

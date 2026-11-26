@@ -145,7 +145,9 @@ test("every file each page loads is in the site folder", async () => {
         ...(href !== undefined &&
         (tag === "use" ||
           (tag === "link" &&
-            ["stylesheet", "preload"].includes(attributes.get("rel") ?? "")))
+            ["stylesheet", "preload", "icon", "apple-touch-icon"].includes(
+              attributes.get("rel") ?? "",
+            )))
           ? [href.split("#")[0]!]
           : []),
       ];
@@ -227,4 +229,256 @@ test("every length the landing page gives the recording is the length its captio
   const length = Number(minutes) * 60 + Number(seconds) + Number(millis) / 1000;
   const said = [...index.matchAll(/(\d+) seconds/g)].map(([, n]) => n);
   expect(new Set(said)).toEqual(new Set([String(Math.ceil(length))]));
+});
+
+const SITE_ORIGIN = "https://hmarzban.github.io/manent/";
+const BANNED_WORDS = new RegExp(
+  String.raw`\b(generation|rebuild|conflict|error|failed)\b`,
+  "i",
+);
+const FDR_IMPORT_CLAIM = new RegExp(
+  String.raw`\.fdr\s+files?\s+import|from\s+\.fdr|\.fdr,\s*PDF`,
+  "i",
+);
+
+const readJsonLd = (html: string): Record<string, unknown> => {
+  const raw = html.match(
+    new RegExp('<script type="application/ld\\+json">([\\s\\S]*?)</script>'),
+  )?.[1];
+  expect(raw).toBeDefined();
+  return JSON.parse(raw ?? "") as Record<string, unknown>;
+};
+
+const graphOf = (doc: Record<string, unknown>): Record<string, unknown>[] => {
+  expect(doc["@context"]).toBe("https://schema.org");
+  expect(Array.isArray(doc["@graph"])).toBe(true);
+  return doc["@graph"] as Record<string, unknown>[];
+};
+
+const metaValue = (
+  read: PageParts,
+  attr: "name" | "property",
+  key: string,
+): string | undefined =>
+  read.elements
+    .find(
+      ({ tag, attributes }) => tag === "meta" && attributes.get(attr) === key,
+    )
+    ?.attributes.get("content");
+
+const textOf = async (html: string, selector: string): Promise<string[]> => {
+  const out: string[] = [];
+  await new HTMLRewriter()
+    .on(selector, {
+      element: () => void out.push(""),
+      text: (t) => void (out[out.length - 1] += t.text),
+    })
+    .transform(new Response(html))
+    .text();
+  return out.map((s) => s.replace(/\s+/g, " ").trim());
+};
+
+test("robots.txt and sitemap.xml exist and point to the canonical pages", async () => {
+  const robots = await Bun.file(join(site, "robots.txt")).text();
+  expect(robots).toContain("User-agent: *");
+  expect(robots).toContain("Allow: /");
+  expect(robots).toContain(`Sitemap: ${SITE_ORIGIN}sitemap.xml`);
+
+  const sitemap = await Bun.file(join(site, "sitemap.xml")).text();
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, u]) => u);
+  expect(locs).toEqual([SITE_ORIGIN, `${SITE_ORIGIN}compare.html`]);
+  expect(sitemap).not.toContain("404.html");
+});
+
+test("every site page has valid titles, descriptions, canonical/robots directives, OpenGraph and Twitter cards", async () => {
+  const files: [string, string, PageParts, string | null][] = [
+    ["index.html", index, PAGES["index.html"]!, SITE_ORIGIN],
+    [
+      "compare.html",
+      compare,
+      PAGES["compare.html"]!,
+      `${SITE_ORIGIN}compare.html`,
+    ],
+    ["404.html", notFound, ALL[2]!, null],
+  ];
+
+  for (const [name, html, read, canonicalUrl] of files) {
+    const [title = ""] = await textOf(html, "title");
+    expect(title.length, `${name} <title> length`).toBeGreaterThan(0);
+    expect(title.length, `${name} <title> <= 60`).toBeLessThanOrEqual(60);
+
+    const desc = metaValue(read, "name", "description") ?? "";
+    expect(desc.length, `${name} description length`).toBeGreaterThanOrEqual(
+      50,
+    );
+    expect(desc.length, `${name} description <= 155`).toBeLessThanOrEqual(155);
+
+    const canonical = read.elements
+      .find(
+        ({ tag, attributes }) =>
+          tag === "link" && attributes.get("rel") === "canonical",
+      )
+      ?.attributes.get("href");
+
+    if (canonicalUrl === null) {
+      expect(canonical, `${name} has no canonical`).toBeUndefined();
+      expect(metaValue(read, "name", "robots")).toBe("noindex, follow");
+    } else {
+      expect(canonical, `${name} canonical`).toBe(canonicalUrl);
+      expect(metaValue(read, "property", "og:url")).toBe(canonicalUrl);
+    }
+
+    for (const prop of [
+      "og:type",
+      "og:site_name",
+      "og:title",
+      "og:description",
+      "og:image",
+      "og:image:width",
+      "og:image:height",
+      "og:image:alt",
+      "og:locale",
+    ]) {
+      expect(metaValue(read, "property", prop), `${name} ${prop}`).toBeTruthy();
+    }
+
+    for (const key of [
+      "twitter:card",
+      "twitter:title",
+      "twitter:description",
+      "twitter:image",
+      "twitter:image:alt",
+    ]) {
+      expect(metaValue(read, "name", key), `${name} ${key}`).toBeTruthy();
+    }
+
+    for (const imgUrl of [
+      metaValue(read, "property", "og:image"),
+      metaValue(read, "name", "twitter:image"),
+    ]) {
+      expect(imgUrl?.startsWith(SITE_ORIGIN), `${name} image origin`).toBe(
+        true,
+      );
+      const rel = imgUrl!.slice(SITE_ORIGIN.length);
+      expect(await Bun.file(join(site, rel)).exists(), `${name} ${rel}`).toBe(
+        true,
+      );
+    }
+  }
+});
+
+test("both index.html and compare.html carry complete, linked JSON-LD graphs", async () => {
+  const indexGraph = graphOf(readJsonLd(index));
+  const indexTypes = new Set(indexGraph.map((n) => n["@type"]));
+  for (const type of [
+    "Organization",
+    "WebSite",
+    "SoftwareApplication",
+    "SoftwareSourceCode",
+    "VideoObject",
+    "FAQPage",
+  ]) {
+    expect(indexTypes.has(type), `index.html JSON-LD missing ${type}`).toBe(
+      true,
+    );
+  }
+
+  const faq = indexGraph.find((n) => n["@type"] === "FAQPage")!;
+  const entities = faq.mainEntity as { name: string }[];
+  expect(entities.length).toBeGreaterThanOrEqual(8);
+  const visibleQuestions = await textOf(index, "#faq summary");
+  for (const q of entities) {
+    expect(visibleQuestions, "FAQ JSON-LD matches visible #faq").toContain(
+      q.name,
+    );
+  }
+
+  const video = indexGraph.find((n) => n["@type"] === "VideoObject")!;
+  const captions = await Bun.file(
+    join(site, "media", "demo-recording.vtt"),
+  ).text();
+  const [, minutes = "", seconds = "", millis = ""] =
+    [...captions.matchAll(/--> (\d+):(\d+)\.(\d+)/g)].at(-1) ?? [];
+  const durationSec = Math.ceil(
+    Number(minutes) * 60 + Number(seconds) + Number(millis) / 1000,
+  );
+  expect(video.duration).toBe(`PT${durationSec}S`);
+
+  const compareGraph = graphOf(readJsonLd(compare));
+  const compareTypes = new Set(compareGraph.map((n) => n["@type"]));
+  for (const type of ["WebPage", "BreadcrumbList", "SoftwareApplication"]) {
+    expect(compareTypes.has(type), `compare.html JSON-LD missing ${type}`).toBe(
+      true,
+    );
+  }
+  const indexApp = indexGraph.find(
+    (n) => n["@type"] === "SoftwareApplication",
+  )!;
+  const compareApp = compareGraph.find(
+    (n) => n["@type"] === "SoftwareApplication",
+  )!;
+  expect(compareApp["@id"]).toBe(indexApp["@id"]);
+});
+
+test("no site page contains banned words or false .fdr import claims", () => {
+  const htmlFiles: [string, string][] = [
+    ["index.html", index],
+    ["compare.html", compare],
+    ["404.html", notFound],
+  ];
+  const violations: string[] = [];
+  for (const [file, html] of htmlFiles) {
+    for (const [i, line] of html.split(/\r?\n/).entries()) {
+      const banned = BANNED_WORDS.exec(line)?.[0];
+      if (banned) violations.push(`${file}:${i + 1} banned word "${banned}"`);
+      const fdr = FDR_IMPORT_CLAIM.exec(line)?.[0];
+      if (fdr) violations.push(`${file}:${i + 1} false .fdr claim "${fdr}"`);
+    }
+  }
+  expect(violations).toEqual([]);
+});
+
+test("every site page has one h1, one main landmark, a skip link, and valid heading order", () => {
+  for (const [name, read] of [
+    ["index.html", PAGES["index.html"]!],
+    ["compare.html", PAGES["compare.html"]!],
+    ["404.html", ALL[2]!],
+  ] as const) {
+    const h1s = read.elements.filter(({ tag }) => tag === "h1");
+    const mains = read.elements.filter(
+      ({ tag, attributes }) =>
+        tag === "main" && attributes.get("id") === "main",
+    );
+    const skips = read.elements.filter(
+      ({ tag, attributes }) =>
+        tag === "a" &&
+        attributes.get("class") === "skip" &&
+        attributes.get("href") === "#main",
+    );
+    expect(h1s.length, `${name} h1 count`).toBe(1);
+    expect(mains.length, `${name} main#main count`).toBe(1);
+    expect(skips.length, `${name} skip link count`).toBe(1);
+
+    let prev = 0;
+    for (const { tag } of read.elements) {
+      if (!/^h[1-6]$/.test(tag)) continue;
+      const level = Number(tag[1]);
+      if (prev > 0) {
+        expect(
+          level,
+          `${name} skipped heading h${prev} -> h${level}`,
+        ).toBeLessThanOrEqual(prev + 1);
+      }
+      prev = level;
+    }
+  }
+  // No <nav> nested inside a role="img" vignette
+  expect(index).not.toContain('<nav class="mv-side">');
+});
+
+test("site.js never links to non-existent .AppImage or .exe release artifacts", async () => {
+  const js = await Bun.file(join(site, "assets", "site.js")).text();
+  expect(js).not.toMatch(/\.AppImage\b/);
+  expect(js).not.toMatch(/Manent-windows\.exe\b/);
+  expect(js).not.toMatch(/Manent-mac\.dmg\b/);
 });

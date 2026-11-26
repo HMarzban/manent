@@ -119,7 +119,7 @@
   // ---------- toast ----------
   const toaster = make("div", "m-toaster");
   toaster.role = "status";
-  const ICONS = { ok: "check", info: "info", error: "circle-alert" };
+  const ICONS = { ok: "check", info: "info", problem: "circle-alert" };
 
   const toast = (text, { tone = "ok", icon = ICONS[tone] } = {}) => {
     const item = make("div", "m-toast");
@@ -149,7 +149,7 @@
       clearTimeout(resets.get(button));
       button.dataset.state = state;
       if (said) said.textContent = message;
-      else toast(message, { tone: state === "done" ? "ok" : "error" });
+      else toast(message, { tone: state === "done" ? "ok" : "problem" });
       resets.set(
         button,
         setTimeout(() => {
@@ -169,7 +169,7 @@
       // no clipboard access (blocked, or an insecure page): select the words so a key press copies them
       if (source) getSelection().selectAllChildren(source);
       tell(
-        "error",
+        "problem",
         source ? "Selected: press Ctrl+C or ⌘C to copy" : "Could not copy",
         6000,
       );

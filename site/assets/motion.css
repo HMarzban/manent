@@ -188,7 +188,7 @@
 .m-copy:not([data-state]) .m-swap > [data-for="idle"],
 .m-copy[data-state="busy"] .m-swap > [data-for="busy"],
 .m-copy[data-state="done"] .m-swap > [data-for="done"],
-.m-copy[data-state="error"] .m-swap > [data-for="error"] {
+.m-copy[data-state="problem"] .m-swap > [data-for="problem"] {
   opacity: 1;
 }
 
@@ -200,7 +200,7 @@
   color: var(--ok);
 }
 
-.m-copy[data-state="error"] .m-swap {
+.m-copy[data-state="problem"] .m-swap {
   color: var(--attention);
 }
 
@@ -223,7 +223,7 @@
   color: var(--m-code-ok);
 }
 
-.code .m-copy[data-state="error"] .m-swap {
+.code .m-copy[data-state="problem"] .m-swap {
   color: var(--m-code-attention);
 }
 
@@ -402,7 +402,7 @@
   color: var(--accent);
 }
 
-.m-toast[data-tone="error"] .m-icon {
+.m-toast[data-tone="problem"] .m-icon {
   color: var(--attention);
 }
 
@@ -727,7 +727,7 @@
     .m-copy:not([data-state]) .m-swap > [data-for="idle"],
     .m-copy[data-state="busy"] .m-swap > [data-for="busy"],
     .m-copy[data-state="done"] .m-swap > [data-for="done"],
-    .m-copy[data-state="error"] .m-swap > [data-for="error"] {
+    .m-copy[data-state="problem"] .m-swap > [data-for="problem"] {
       transform: none;
     }
 
