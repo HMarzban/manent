@@ -44,6 +44,7 @@ import {
   useCornerMark,
   usePreviousValue,
 } from "./previous-value.tsx";
+import { PrompterControlBar } from "./prompter-control-bar.tsx";
 import { useRundownRows } from "./rows.tsx";
 import { buildGridColumns, buildGridRows } from "./rundown-cells.tsx";
 import { useRundownSession } from "./rundown-session.ts";
@@ -282,24 +283,30 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       <div
         ref={gridContainerRef}
         data-rundown-page=""
-        className="z-10 min-h-0 overflow-hidden bg-chrome"
+        className="z-10 flex min-h-0 flex-col overflow-hidden bg-chrome"
         style={PAGE_AREA}
       >
-        <SurfaceState
-          surface="rundown_grid"
-          state={surfaceState}
-          render={{
-            ready: () => gridElement,
-            offline: () => gridElement,
-            empty: () => <RundownEmpty canEdit={!readOnly} />,
-            loading: () => <RundownLoading />,
-            read_only: () => gridElement,
-            no_access: () => (
-              <RundownNoAccess title={displayTitle} notSent={status.notSent} />
-            ),
-            problem: (_state, reload) => <RundownProblem onReload={reload} />,
-          }}
-        />
+        <PrompterControlBar docId={docId} />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <SurfaceState
+            surface="rundown_grid"
+            state={surfaceState}
+            render={{
+              ready: () => gridElement,
+              offline: () => gridElement,
+              empty: () => <RundownEmpty canEdit={!readOnly} />,
+              loading: () => <RundownLoading />,
+              read_only: () => gridElement,
+              no_access: () => (
+                <RundownNoAccess
+                  title={displayTitle}
+                  notSent={status.notSent}
+                />
+              ),
+              problem: (_state, reload) => <RundownProblem onReload={reload} />,
+            }}
+          />
+        </div>
       </div>
       <SidePanel docId={docId} overlay={false} />
       <StatusBar

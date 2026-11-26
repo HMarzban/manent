@@ -56,7 +56,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
             variant={ACTION_VARIANTS[index]}
             size="sm"
             className="text-fg"
-            data-tour={action.commandId}
+            data-tour={action.tourTarget ?? action.commandId}
             onClick={() => run(action.commandId)}
           >
             {action.label}

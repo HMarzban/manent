@@ -6,6 +6,7 @@ import type {
 } from "../components/state-bar/state-line.ts";
 import { formatCount, joinNames } from "./format.ts";
 import { OUTLINE_WORDS } from "./outline.ts";
+import { PROMPTER_CONTROL_WORDS } from "./prompter-control.ts";
 
 /** A fact the state bar may say. Dates and times arrive formatted ("12 Nov", "Mon 22:41"); `over` is negative ("-0:48") when the rundown runs under. */
 export type StateFact =
@@ -46,6 +47,8 @@ export type StateFact =
   | { kind: "role_comment" }
   | { kind: "reader_draft"; name: string; date: string }
   | { kind: "prompter_send" }
+  | { kind: "prompter_ready" }
+  | { kind: "prompter_held"; name: string; canTakeOver: boolean }
   | { kind: "outline_start"; beats: number };
 
 type Kind = StateFact["kind"];
@@ -54,6 +57,8 @@ type Kind = StateFact["kind"];
 const RIGHT_ORDER: readonly Kind[] = [
   "viewing_version",
   "showing_changes",
+  "prompter_ready",
+  "prompter_held",
   "writing_privately",
   "writing_suggestions",
   "driving",
@@ -231,6 +236,26 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
       return line("", [
         { label: "Send to prompter", commandId: "prompter.send" },
       ]);
+    case "prompter_ready":
+      return line(PROMPTER_CONTROL_WORDS.prompterReady, [
+        {
+          label: PROMPTER_CONTROL_WORDS.takeControl,
+          commandId: "prompter.takeControl",
+          tourTarget: "prompter:take_control",
+        },
+      ]);
+    case "prompter_held":
+      return line(
+        PROMPTER_CONTROL_WORDS.controlsPrompter(fact.name),
+        fact.canTakeOver
+          ? [
+              {
+                label: PROMPTER_CONTROL_WORDS.takeOver,
+                commandId: "prompter.takeOver",
+              },
+            ]
+          : [],
+      );
     case "outline_start":
       return line(OUTLINE_WORDS.stateBar(fact.beats), [
         {

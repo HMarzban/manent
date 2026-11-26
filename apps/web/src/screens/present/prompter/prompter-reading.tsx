@@ -1,8 +1,15 @@
-// The prompter window's reading area: stories in run order, horizontal mirror, scroll anchoring and keyboard scroll.
+// The prompter window's reading area: eye-line chevron guide, stories in run order, horizontal mirror, rAF remote scroll and instant Free scroll override.
 import { PROMPTER_WINDOW_WORDS, Skeleton, SurfaceState } from "@manent/ui";
 import type { SurfaceRenderers, SurfaceStateValue } from "@manent/ui";
+import { ChevronRightIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { createRemoteScrollController } from "../../../prompter/remote-scroll.ts";
+import type {
+  PrompterFollowMode,
+  PrompterRemoteScroll,
+  RemoteScrollController,
+} from "../../../prompter/remote-scroll.ts";
 import type {
   PrompterBlockKind,
   PrompterReadingStory,
@@ -14,13 +21,22 @@ interface PrompterReadingProps {
   readonly stories: readonly PrompterReadingStory[];
   readonly textSize: PrompterTextSize;
   readonly mirror: boolean;
+  readonly remoteScroll?: PrompterRemoteScroll;
+  readonly followMode?: PrompterFollowMode;
+  readonly onFollowModeChange?: (mode: PrompterFollowMode) => void;
+  readonly clock?: {
+    readonly now: () => number;
+    readonly frame: (cb: () => void) => () => void;
+  };
 }
 
-interface TopAnchor {
-  readonly key: string;
-  readonly rowId: string;
-  readonly offsetFromTop: number;
-}
+const DEFAULT_CLOCK = Object.freeze({
+  now: (): number => Date.now(),
+  frame: (cb: () => void): (() => void) => {
+    const id = requestAnimationFrame(cb);
+    return () => cancelAnimationFrame(id);
+  },
+});
 
 const LINE_HEIGHT = 1.35;
 const STORY_GAP = "2.7em";
@@ -29,39 +45,44 @@ const BLOCK_SELECTOR = "[data-prompter-block]";
 const INTERACTIVE_SPACE_TARGET =
   'button, a, input, textarea, select, [role="switch"], [contenteditable="true"]';
 const TYPING_TARGET = 'input, textarea, select, [contenteditable="true"]';
+const GUIDE_STYLE: CSSProperties = Object.freeze({ top: "30%" });
 
 const BLOCK_STYLES: Readonly<Record<PrompterBlockKind, CSSProperties>> =
   Object.freeze({
-    character: Object.freeze({
+    character: {
       fontSize: "0.45em",
       lineHeight: 1.4,
       marginTop: "1.1em",
       marginBottom: "0.25em",
-    }),
-    parenthetical: Object.freeze({
+    },
+    parenthetical: {
       fontSize: "0.75em",
       lineHeight: LINE_HEIGHT,
       marginTop: "0.15em",
       marginBottom: "0.15em",
-    }),
-    dialogue: Object.freeze({
+    },
+    dialogue: {
       lineHeight: LINE_HEIGHT,
       marginTop: "0.1em",
       marginBottom: "0.1em",
-    }),
+    },
   });
-
 const FIRST_CHARACTER_STYLE: CSSProperties = Object.freeze({
   ...BLOCK_STYLES.character,
   marginTop: 0,
 });
-
 const BLOCK_CLASSES: Readonly<Record<PrompterBlockKind, string>> =
   Object.freeze({
     character: "font-semibold uppercase tracking-[0.06em] text-fg-muted",
     parenthetical: "italic font-normal text-fg-muted",
     dialogue: "font-medium text-fg",
   });
+
+interface TopAnchor {
+  readonly key: string;
+  readonly rowId: string;
+  readonly offsetFromTop: number;
+}
 
 function readTopAnchor(container: HTMLElement): TopAnchor | null {
   const top = container.getBoundingClientRect().top;
@@ -175,7 +196,8 @@ function StoriesBody(props: {
       fontSize: `${textSize}px`,
       maxWidth: COLUMN_MAX_WIDTH,
       gap: STORY_GAP,
-      paddingBottom: "50vh",
+      paddingTop: "30vh",
+      paddingBottom: "70vh",
       transform: mirror ? "scaleX(-1)" : undefined,
     }),
     [textSize, mirror],
@@ -183,7 +205,7 @@ function StoriesBody(props: {
   return (
     <div
       data-prompter-mirror={mirror ? "on" : "off"}
-      className="mx-auto flex w-full flex-col px-12 pt-12"
+      className="mx-auto flex w-full flex-col px-12"
       style={wrapperStyle}
     >
       {stories.map((story) => (
@@ -211,9 +233,53 @@ function StoriesBody(props: {
 }
 
 export function PrompterReading(props: PrompterReadingProps): ReactNode {
-  const { surfaceState, stories, textSize, mirror } = props;
+  const {
+    surfaceState,
+    stories,
+    textSize,
+    mirror,
+    remoteScroll,
+    followMode = "follow",
+    onFollowModeChange,
+    clock = DEFAULT_CLOCK,
+  } = props;
+  const { now, frame } = clock;
   const scrollRef = useRef<HTMLElement | null>(null);
   const anchorRef = useRef<TopAnchor | null>(null);
+  const linePxRef = useRef(textSize * LINE_HEIGHT);
+  linePxRef.current = textSize * LINE_HEIGHT;
+  const onModeChangeRef = useRef(onFollowModeChange);
+  onModeChangeRef.current = onFollowModeChange;
+  const controllerRef = useRef<RemoteScrollController | null>(null);
+
+  useEffect(() => {
+    const controller = createRemoteScrollController({
+      getContainer: () => scrollRef.current,
+      getLinePx: () => linePxRef.current,
+      now,
+      requestFrame: frame,
+      onModeChange: (next) => onModeChangeRef.current?.(next),
+    });
+    controllerRef.current = controller;
+    return () => {
+      controller.dispose();
+      controllerRef.current = null;
+    };
+  }, [now, frame]);
+
+  const feedLive =
+    surfaceState.kind === "ready" || surfaceState.kind === "read_only";
+
+  useEffect(() => {
+    const ctrl = controllerRef.current;
+    if (ctrl === null) return;
+    ctrl.setFeedLive(feedLive);
+    ctrl.setMode(followMode);
+    ctrl.setAnchor(
+      remoteScroll?.state ?? null,
+      remoteScroll?.clockOffsetMs ?? 0,
+    );
+  }, [feedLive, followMode, remoteScroll?.state, remoteScroll?.clockOffsetMs]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -221,17 +287,38 @@ export function PrompterReading(props: PrompterReadingProps): ReactNode {
     const onScroll = (): void => {
       anchorRef.current = readTopAnchor(container);
     };
+    const onOwnMove = (): void => {
+      controllerRef.current?.notifyOwnMove();
+    };
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
+    container.addEventListener("wheel", onOwnMove, { passive: true });
+    container.addEventListener("touchstart", onOwnMove, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      container.removeEventListener("wheel", onOwnMove);
+      container.removeEventListener("touchstart", onOwnMove);
+    };
   }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       const container = scrollRef.current;
       if (container === null) return;
+      if (
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !matchesSelector(event.target, TYPING_TARGET) &&
+        event.key.toLowerCase() === "f"
+      ) {
+        event.preventDefault();
+        controllerRef.current?.setMode("follow");
+        return;
+      }
       const move = scrollDelta(event, container, textSize);
       if (move === null) return;
       event.preventDefault();
+      controllerRef.current?.notifyOwnMove();
       if (move === "start") container.scrollTop = 0;
       else if (move === "end") container.scrollTop = container.scrollHeight;
       else container.scrollTop += move;
@@ -249,7 +336,7 @@ export function PrompterReading(props: PrompterReadingProps): ReactNode {
       return;
     }
     const previous = anchorRef.current;
-    if (previous !== null) {
+    if (previous !== null && controllerRef.current?.getMode() !== "follow") {
       const target = findAnchorNode(container, previous);
       if (target !== null) {
         const containerTop = container.getBoundingClientRect().top;
@@ -283,13 +370,28 @@ export function PrompterReading(props: PrompterReadingProps): ReactNode {
   );
 
   return (
-    <main
-      ref={scrollRef}
-      tabIndex={0}
-      aria-label={PROMPTER_WINDOW_WORDS.readingAreaLabel}
-      className="min-h-0 flex-1 overflow-y-auto bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-solid"
-    >
-      <SurfaceState surface="present" state={surfaceState} render={renderers} />
-    </main>
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {stories.length > 0 ? (
+        <div
+          aria-hidden="true"
+          style={GUIDE_STYLE}
+          className="mn-prompter-guide pointer-events-none absolute inset-x-0 z-10 flex -translate-y-1/2 items-center px-3 text-accent"
+        >
+          <ChevronRightIcon className="size-5 shrink-0" />
+        </div>
+      ) : null}
+      <main
+        ref={scrollRef}
+        tabIndex={0}
+        aria-label={PROMPTER_WINDOW_WORDS.readingAreaLabel}
+        className="min-h-0 flex-1 overflow-y-auto bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-solid"
+      >
+        <SurfaceState
+          surface="present"
+          state={surfaceState}
+          render={renderers}
+        />
+      </main>
+    </div>
   );
 }

@@ -111,6 +111,8 @@ export interface CommandContext {
     waiting: number;
     /** The rundown has synced at least once. */
     synced: boolean;
+    /** This tab currently holds the remote prompter operator lease. */
+    controlling?: boolean;
   } | null;
   /** The open document is in Trash. */
   inTrash: boolean;

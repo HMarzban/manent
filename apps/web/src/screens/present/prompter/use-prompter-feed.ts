@@ -1,8 +1,9 @@
-// Connects a prompter window to its rundown's live feed and persists the last received feed for offline opening.
+// Connects a prompter window to its rundown's live feed, remote scroll state and persists the last received feed for offline opening.
 import type { BlockJSON } from "@manent/schema";
 import type { PrompterHandle, PrompterStatus } from "@manent/sync-client";
-import type { PrompterRow } from "@manent/sync-protocol";
+import type { PrompterOperator, PrompterRow } from "@manent/sync-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PrompterRemoteScroll } from "../../../prompter/remote-scroll.ts";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import { projectPrompterStories } from "./prompter-blocks.ts";
 import type { PrompterReadingStory } from "./prompter-blocks.ts";
@@ -20,6 +21,8 @@ export interface PrompterFeedView {
   readonly hasFeed: boolean;
   readonly loadingSinceMs: number;
   readonly stories: readonly PrompterReadingStory[];
+  readonly operator: PrompterOperator | null;
+  readonly remoteScroll: PrompterRemoteScroll;
 }
 
 interface FeedSnapshot {
@@ -30,9 +33,15 @@ interface FeedSnapshot {
   readonly loadingSinceMs: number;
   readonly runOrder: readonly PrompterRow[];
   readonly stories: ReadonlyMap<string, readonly BlockJSON[]>;
+  readonly operator: PrompterOperator | null;
+  readonly remoteScroll: PrompterRemoteScroll;
 }
 
 const EMPTY_STORIES: ReadonlyMap<string, readonly BlockJSON[]> = new Map();
+const EMPTY_SCROLL: PrompterRemoteScroll = Object.freeze({
+  state: null,
+  clockOffsetMs: 0,
+});
 
 function initialSnapshot(
   storage: Storage | null,
@@ -49,6 +58,8 @@ function initialSnapshot(
     loadingSinceMs: nowMs,
     runOrder: cached?.runOrder ?? [],
     stories: cached === null ? EMPTY_STORIES : storiesToMap(cached.stories),
+    operator: null,
+    remoteScroll: EMPTY_SCROLL,
   };
 }
 
@@ -194,12 +205,29 @@ export function usePrompterFeed(rundownId: string): PrompterFeedView {
           return;
         }
         handle = opened;
+        const syncControl = (): void => {
+          if (closed) return;
+          const operator = opened.operator?.get() ?? null;
+          const remoteScroll = opened.scroll?.get() ?? EMPTY_SCROLL;
+          setSnapshot((prev) =>
+            prev.operator === operator && prev.remoteScroll === remoteScroll
+              ? prev
+              : { ...prev, operator, remoteScroll },
+          );
+        };
         unsubscribes = [
           opened.runOrder.subscribe(() => syncFromHandle(opened)),
           opened.stories.subscribe(() => syncFromHandle(opened)),
           opened.status.subscribe(() => syncFromHandle(opened)),
+          ...(opened.operator !== undefined
+            ? [opened.operator.subscribe(syncControl)]
+            : []),
+          ...(opened.scroll !== undefined
+            ? [opened.scroll.subscribe(syncControl)]
+            : []),
         ];
         syncFromHandle(opened);
+        syncControl();
       },
       () => {
         // sync could not start (e.g. offline): keep showing any cached feed under Feed lost
@@ -231,5 +259,7 @@ export function usePrompterFeed(rundownId: string): PrompterFeedView {
     hasFeed: active.hasFeed,
     loadingSinceMs: active.loadingSinceMs,
     stories: projected,
+    operator: active.operator,
+    remoteScroll: active.remoteScroll,
   };
 }

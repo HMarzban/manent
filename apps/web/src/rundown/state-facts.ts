@@ -1,19 +1,21 @@
-// State bar facts for an open rundown: "Air · Target · Over/Under" and the air-window notice.
+// State bar facts for an open rundown: "Air · Target · Over/Under", the air-window notice, and remote prompter control state.
 import { formatDuration, formatTime } from "@manent/ui";
 import type { StateFact } from "@manent/ui";
 import { useEffect, useReducer } from "react";
+import { usePrompterRuntime } from "../prompter/prompter-session.ts";
 import { useEnvironment } from "../services/context.tsx";
 import { useRundownView } from "./rundown-session.ts";
 
 const NO_FACTS: readonly StateFact[] = Object.freeze([]);
 
 /**
- * Emits `rundown_timing` (and `air_window` while `now` lies inside the air window) for an open rundown, scheduling a
- * timer at the next window boundary so the bar updates without polling.
+ * Emits `rundown_timing`, `air_window` (while inside the air window), and remote prompter control facts
+ * (`prompter_ready` / `prompter_held`) for an open rundown.
  */
 export function useRundownFacts(docId: string): readonly StateFact[] {
   const { now, schedule } = useEnvironment();
   const view = useRundownView(docId);
+  const prompter = usePrompterRuntime(view !== null ? docId : null);
   const [, tick] = useReducer((n: number) => n + 1, 0);
 
   const airWindow = view?.clock?.airWindow ?? null;
@@ -32,22 +34,38 @@ export function useRundownFacts(docId: string): readonly StateFact[] {
 
   if (view === null || view.rundown === null || view.clock === null)
     return NO_FACTS;
+
+  const facts: StateFact[] = [];
   const { airAt, targetMs } = view.rundown.rundown;
   const { overMs } = view.clock;
-  if (airAt === null || targetMs === null || overMs === null) return NO_FACTS;
+  if (airAt !== null && targetMs !== null && overMs !== null) {
+    const over =
+      overMs < 0 ? `-${formatDuration(-overMs)}` : formatDuration(overMs);
+    facts.push({
+      kind: "rundown_timing",
+      air: formatTime(airAt),
+      target: formatDuration(targetMs),
+      over,
+    });
+    const current = now();
+    const inAirWindow =
+      airWindow !== null &&
+      current >= airWindow.startsAt &&
+      current <= airWindow.endsAt;
+    if (inAirWindow) facts.push({ kind: "air_window" });
+  }
 
-  const over =
-    overMs < 0 ? `-${formatDuration(-overMs)}` : formatDuration(overMs);
-  const timingFact: StateFact = {
-    kind: "rundown_timing",
-    air: formatTime(airAt),
-    target: formatDuration(targetMs),
-    over,
-  };
-  const current = now();
-  const inAirWindow =
-    airWindow !== null &&
-    current >= airWindow.startsAt &&
-    current <= airWindow.endsAt;
-  return inAirWindow ? [timingFact, { kind: "air_window" }] : [timingFact];
+  if (!prompter.isOperator) {
+    if (prompter.operator !== null) {
+      facts.push({
+        kind: "prompter_held",
+        name: prompter.operator.name,
+        canTakeOver: prompter.canSend && prompter.online,
+      });
+    } else if (prompter.canSend && prompter.online && prompter.hasSentRow) {
+      facts.push({ kind: "prompter_ready" });
+    }
+  }
+
+  return facts.length === 0 ? NO_FACTS : facts;
 }

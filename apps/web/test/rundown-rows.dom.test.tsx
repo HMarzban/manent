@@ -718,6 +718,7 @@ test("presence shows remote cell and story initials and publishes local awarenes
   );
   expect(ROW_MENU_ITEMS).toEqual([
     "prompter.send",
+    "prompter.jumpHere",
     "rundown.openBeside",
     "rundown.moveUp",
     "rundown.moveDown",
