@@ -7,6 +7,8 @@ export const RELAYED_CONTROL_KINDS: readonly ControlKind[] = Object.freeze([
   "draft_opened",
   "driver_changed",
   "handed_in",
+  "prompter_operator_changed",
+  "prompter_scroll",
   "sent_to_prompter",
   "trashed",
   "untrashed",
