@@ -27,6 +27,7 @@ import {
 } from "./format.ts";
 import type { Run } from "./format.ts";
 import { notMeasuredSection } from "./not-built.ts";
+import { otherDesignsSection } from "./other-designs.ts";
 import { readSmokeResults } from "./smoke.ts";
 import type { SmokeResult } from "./smoke.ts";
 import {
@@ -163,6 +164,29 @@ function profilesTable(): string {
   );
 }
 
+const FULL_SOAK_SCENARIO: Readonly<Record<string, string>> = Object.freeze({
+  "client memory soak": "soak-client-120",
+  "server soak": "server.soak",
+});
+
+function fullSoakMinutes(
+  runs: readonly Run[],
+  scenarioId: string,
+): string | null {
+  for (const run of runs) {
+    if (run.result.environment.mode !== "full" || run.result.environment.prove)
+      continue;
+    const found = run.result.scenarios.find(
+      (s) => s.id === scenarioId && s.outcome === "measured",
+    );
+    if (found?.outcome === "measured") {
+      const minutes = Math.max(1, Math.round(found.elapsedMs / 60_000));
+      return `${formatCount(minutes)} min`;
+    }
+  }
+  return null;
+}
+
 function modeSizesTable(runs: readonly Run[]): string {
   const used = MODES.filter((m) =>
     runs.some((r) => r.result.environment.mode === m),
@@ -171,7 +195,12 @@ function modeSizesTable(runs: readonly Run[]): string {
     ["", ...used],
     MODE_SIZES.map(([label, ...values]) => [
       label,
-      ...used.map((m) => values[MODES.indexOf(m)] ?? ""),
+      ...used.map((m) => {
+        const scenarioId = m === "full" ? FULL_SOAK_SCENARIO[label] : undefined;
+        const measured =
+          scenarioId === undefined ? null : fullSoakMinutes(runs, scenarioId);
+        return measured ?? values[MODES.indexOf(m)] ?? "";
+      }),
     ]),
   );
 }
@@ -319,6 +348,7 @@ export function generateReport(
     [SECTIONS.wrongDesign, wrongDesignSection(ordered)],
     [SECTIONS.longBook, longBookSection(ordered)],
     [SECTIONS.tradeOffs, tradeOffsSection(ordered)],
+    [SECTIONS.otherDesigns, otherDesignsSection(ordered)],
     [SECTIONS.notMeasured, notMeasuredSection(ordered, systems)],
     [SECTIONS.rawData, rawDataSection(ordered)],
   ];

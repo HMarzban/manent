@@ -37,12 +37,18 @@ export const NOT_BUILT: readonly NotBuilt[] = Object.freeze([
     reason: "it is run by hand, not in a published run",
   },
   {
-    what: "Storage pressure in a browser; desktop sleep and wake, update and rollback, timed; power loss; Firefox and WebKit timings; real modest hardware",
-    reason: "a later stage measures them",
+    what: "Real modest hardware",
+    reason:
+      "no modest machine was available; the D-modest container stands in for one",
   },
   {
-    what: "A central-authority baseline on the same editing traces, and other CRDT libraries on the same workloads",
-    reason: "a later stage measures them",
+    what: "Rollback",
+    reason: "the app has no rollback step to time in this release",
+  },
+  {
+    what: "Aged-document workloads for Loro and Automerge",
+    reason:
+      "only the editing traces are replayed into Loro and Automerge in this release",
   },
 ]);
 
