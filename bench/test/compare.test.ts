@@ -201,6 +201,14 @@ test("a baseline keeps only deterministic metrics, and only scenarios that still
 const QUICK_STEPS = [
   { uses: "actions/checkout@v5", with: { "persist-credentials": false } },
   { uses: "oven-sh/setup-bun@v2", with: { "bun-version": "1.4.4" } },
+  {
+    uses: "actions/cache@v4",
+    with: {
+      path: "~/.bun/install/cache",
+      key: "${{ runner.os }}-bun-1.4.4-${{ hashFiles('bun.lock') }}",
+      "restore-keys": "${{ runner.os }}-bun-1.4.4-\n",
+    },
+  },
   { run: "bun install --frozen-lockfile" },
   { run: "bun x playwright install --with-deps chromium" },
   { run: "bun run bench --tier ci-shared --quick" },
@@ -216,6 +224,10 @@ test("the published workflow runs the quick suite on three systems and compares 
     name: "bench",
     on: { pull_request: null, workflow_dispatch: null },
     permissions: { contents: "read" },
+    concurrency: {
+      group: "bench-${{ github.ref }}",
+      "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}",
+    },
     jobs: {
       deterministic: {
         "runs-on": "ubuntu-24.04",
