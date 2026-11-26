@@ -75,6 +75,10 @@ test("every command but the generated ones has a handler, and only the productio
       "timing.include",
       "prompter.send",
       "prompter.sendPrevious",
+      "prompter.takeControl",
+      "prompter.takeOver",
+      "prompter.stopControlling",
+      "prompter.jumpHere",
       "doc.moveToTrash",
     ],
   );
