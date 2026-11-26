@@ -261,6 +261,9 @@ describe("ShareDialog", () => {
     expect(
       items[0]?.querySelector(".mn-avatar")?.getAttribute("data-who"),
     ).toBe("3");
+    expect(items[1]?.querySelector('[role="combobox"]')?.className).toContain(
+      "w-36",
+    );
 
     // E2E selector contract: any div/li inside dialog containing "Leo Marsh" has Leo's RoleSelect as its first combobox
     const leoDivs = [...dialog.querySelectorAll("li, div")].filter((el) =>

@@ -219,7 +219,7 @@ export function VersionPane(props: {
       sceneIds: scope,
       engineFor,
     });
-    // a read-only page has no caret, so the view itself holds the focus ring
+    // a read-only page has no caret, so the view holds focus for keyboard scrolling without a viewport border
     element.focus({ preventScroll: true });
     const top = beside && page !== null ? blockAtTop(page) : null;
     if (top !== null) view.scrollToBlock(top);
@@ -251,7 +251,7 @@ export function VersionPane(props: {
       ref={place}
       tabIndex={-1}
       aria-label={title}
-      className="min-h-0 flex-1 overflow-auto outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
+      className="min-h-0 flex-1 overflow-auto outline-none"
     />
   );
   if (beside) {
