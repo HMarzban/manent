@@ -63,7 +63,7 @@ export function StorylineHeader(props: StorylineHeaderProps): ReactNode {
   const cell = (
     <div
       style={{ gridColumn: 1, gridRow: `${rowStart} / span 2` }}
-      className={`flex items-start justify-between gap-2 bg-chrome px-3 py-2${isLast ? "" : " border-b border-line"}`}
+      className={`group/storyline flex items-start justify-between gap-2 bg-chrome px-3 py-2${isLast ? "" : " border-b border-line"}`}
     >
       {renaming && canEdit ? (
         <Input
@@ -85,7 +85,9 @@ export function StorylineHeader(props: StorylineHeaderProps): ReactNode {
         </span>
       )}
       {canEdit && !renaming ? (
-        <RowMenu title={storyline.title}>{menuItems}</RowMenu>
+        <span className="opacity-0 transition-opacity duration-(--dur-fast) group-hover/storyline:opacity-100 group-focus-within/storyline:opacity-100 has-[[data-popup-open]]:opacity-100 [@media(hover:none)]:opacity-100">
+          <RowMenu title={storyline.title}>{menuItems}</RowMenu>
+        </span>
       ) : null}
     </div>
   );

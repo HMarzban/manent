@@ -200,7 +200,7 @@ export function BoardGrid(props: BoardGridProps): ReactNode {
 
   const columns =
     episodes.length > 0
-      ? `13rem repeat(${episodes.length}, minmax(14rem, 1fr))`
+      ? `var(--board-storyline-col) repeat(${episodes.length}, minmax(var(--board-ep-col), 1fr))`
       : "1fr";
   const totalCols = episodes.length + 1;
 
@@ -213,7 +213,7 @@ export function BoardGrid(props: BoardGridProps): ReactNode {
       <div
         data-ring="inset"
         style={{ gridTemplateColumns: columns }}
-        className="grid w-max min-w-full overflow-hidden rounded-surface border border-line bg-chrome"
+        className="grid w-max min-w-full overflow-hidden rounded-surface border border-line bg-chrome [--board-ep-col:12.5rem] [--board-storyline-col:8.5rem] sm:[--board-ep-col:14rem] sm:[--board-storyline-col:13rem]"
       >
         <div
           aria-hidden="true"
@@ -293,7 +293,7 @@ export function BoardGrid(props: BoardGridProps): ReactNode {
 
         {episodes.length > 0 && storylines.length > 0 ? (
           canEdit ? (
-            <div className="contents [&>div]:contents [&>div>[role=list]]:flex [&>div>[role=list]]:min-h-12 [&>div>[role=list]]:min-w-0 [&>div>[role=list]]:flex-col [&>div>[role=list]]:gap-2 [&>div>[role=list]]:border-l [&>div>[role=list]]:border-line [&>div>[role=list]]:bg-chrome [&>div>[role=list]]:p-2">
+            <div className="contents [&>div]:contents [&>div>[role=list]]:flex [&>div>[role=list]]:min-h-12 [&>div>[role=list]]:min-w-0 [&>div>[role=list]]:flex-col [&>div>[role=list]]:gap-2 [&>div>[role=list]]:border-l [&>div>[role=list]]:border-line [&>div>[role=list]]:bg-chrome [&>div>[role=list]]:p-2 [&>div>[role=list]:empty]:min-h-2 [&>div>[role=list]:empty]:p-1">
               <SortableLists
                 ref={sortableRef}
                 lists={lists}
@@ -307,7 +307,7 @@ export function BoardGrid(props: BoardGridProps): ReactNode {
                 key={list.id}
                 role="list"
                 aria-label={list.label}
-                className="flex min-h-12 min-w-0 flex-col gap-2 border-l border-line bg-chrome p-2"
+                className={`flex min-w-0 flex-col gap-2 border-l border-line bg-chrome ${list.items.length === 0 ? "min-h-2 p-1" : "min-h-12 p-2"}`}
               >
                 {list.items.map((item) => (
                   <div key={item.id} role="listitem">

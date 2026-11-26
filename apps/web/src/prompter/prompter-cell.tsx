@@ -88,9 +88,11 @@ export function PrompterCell(props: {
 
   if (!runtime.online) {
     return (
-      <span className="inline-flex min-w-0 items-center gap-1 text-fg-muted">
+      <span className="flex w-full min-w-0 items-center gap-1 text-fg-muted">
         <CloudOffIcon aria-hidden="true" className="size-icon shrink-0" />
-        <span className="truncate">{PROMPTER_WORDS.offline}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {PROMPTER_WORDS.offline}
+        </span>
       </span>
     );
   }
@@ -101,9 +103,11 @@ export function PrompterCell(props: {
 
   if (row.prompter?.state === "on") {
     return (
-      <span className="inline-flex min-w-0 items-center gap-1 text-fg-muted">
+      <span className="flex w-full min-w-0 items-center gap-1 text-fg-muted">
         <CheckIcon aria-hidden="true" className="size-icon shrink-0" />
-        <span className="truncate">{PROMPTER_WORDS.onPrompter}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {PROMPTER_WORDS.onPrompter}
+        </span>
       </span>
     );
   }
@@ -114,12 +118,14 @@ export function PrompterCell(props: {
 
   return (
     <span className="flex w-full min-w-0 items-center justify-between gap-2">
-      <span className="inline-flex min-w-0 items-center gap-1 font-medium text-attention">
+      <span className="flex min-w-0 flex-1 items-center gap-1 font-medium text-attention">
         <TriangleExclamationPointIcon
           aria-hidden="true"
           className="size-icon shrink-0"
         />
-        <span className="truncate">{PROMPTER_WORDS.changed}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {PROMPTER_WORDS.changed}
+        </span>
       </span>
       {runtime.canSend ? (
         <SendRowButton

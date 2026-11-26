@@ -16,7 +16,13 @@ import type {
   Subscribable,
   SurfaceStateValue,
 } from "@manent/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { focusHeading } from "../focus.ts";
 import { DocumentStateBar } from "../screens/document/document-state-bar.tsx";
@@ -61,6 +67,22 @@ import {
 import { RundownTitleBar } from "./rundown-title-bar.tsx";
 
 const PAGE_AREA: CSSProperties = Object.freeze({ gridArea: "page" });
+const OVERLAY_BREAKPOINT_PX = 1024;
+
+function subscribeToResize(listener: () => void): () => void {
+  window.addEventListener("resize", listener);
+  return () => window.removeEventListener("resize", listener);
+}
+
+/** True on narrow windows where a docked side panel would crush the rundown grid. */
+function useSidePanelOverPage(): boolean {
+  const widthPx = useSyncExternalStore(
+    subscribeToResize,
+    () => window.innerWidth,
+    () => OVERLAY_BREAKPOINT_PX,
+  );
+  return widthPx < OVERLAY_BREAKPOINT_PX;
+}
 
 /** Maps the rundown's effective access onto the document status so Can edit without edit rundowns shows `View only`. */
 function useEffectiveStatus(
@@ -307,6 +329,8 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     />
   );
 
+  const sideOverPage = useSidePanelOverPage();
+
   return (
     <>
       <RundownTitleBar docId={docId} doc={effectiveDoc} title={displayTitle} />
@@ -333,7 +357,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
           }}
         />
       </div>
-      <SidePanel docId={docId} overlay={false} />
+      <SidePanel docId={docId} overlay={sideOverPage} />
       <StatusBar
         readouts={STATUS_READOUTS.flatMap(({ id, kinds, Readout }) =>
           kinds.includes("rundown") ? [<Readout key={id} docId={docId} />] : [],

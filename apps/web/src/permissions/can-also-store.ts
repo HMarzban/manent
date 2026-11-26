@@ -139,14 +139,14 @@ function startEntry(
   const person = readPerson(tabStorage);
   const token = person?.userId === services.userId ? person.token : null;
 
-  void Promise.all([
-    askDoc("/api/docs/describe", docId, token),
-    askDoc("/api/docs/people", docId, token),
-  ]).then(([described, listed]) => {
-    setSnapshot({
-      canEdit: canEditFromDescribe(described),
-      people: peopleMapFromList(listed),
-    });
+  void askDoc("/api/docs/describe", docId, token).then(async (described) => {
+    const canEdit = canEditFromDescribe(described);
+    if (described === null) {
+      setSnapshot({ canEdit, people: new Map() });
+      return;
+    }
+    const listed = await askDoc("/api/docs/people", docId, token);
+    setSnapshot({ canEdit, people: peopleMapFromList(listed) });
   });
 
   // Resolve project title from the Library's workspace lists.

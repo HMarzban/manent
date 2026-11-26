@@ -144,24 +144,6 @@ export function useRundownsData(projectId: string): RundownsData {
   );
 
   useEffect(() => {
-    let shown = true;
-    const person = readPerson(tabStorage);
-    const token = person?.userId === userId ? person.token : null;
-    const docId = indexDocId("project", projectId);
-    void Promise.all([
-      askProjectApi("/api/docs/describe", docId, token),
-      askProjectApi("/api/docs/people", docId, token),
-    ]).then(([described, listed]) => {
-      if (!shown) return;
-      setServerAccess(readCanEdit(described));
-      setPeople(readPeopleList(listed));
-    });
-    return () => {
-      shown = false;
-    };
-  }, [tabStorage, userId, projectId]);
-
-  useEffect(() => {
     if (workspaceId === null) {
       setLoaded(workspaceSettled);
       return;
@@ -224,6 +206,42 @@ export function useRundownsData(projectId: string): RundownsData {
     .map(([docId]) => docId)
     .toSorted()
     .join(",");
+
+  const accessDocId =
+    rundownIdsKey !== ""
+      ? (rundownIdsKey.split(",")[0] ?? null)
+      : loaded && workspaceId !== null && workspaceId !== userId
+        ? indexDocId("workspace", workspaceId)
+        : null;
+
+  useEffect(() => {
+    if (accessDocId === null) {
+      if (loaded && workspaceId === userId) {
+        setServerAccess(true);
+        setPeople([]);
+      }
+      return;
+    }
+    let shown = true;
+    const person = readPerson(tabStorage);
+    const token = person?.userId === userId ? person.token : null;
+    void askProjectApi("/api/docs/describe", accessDocId, token).then(
+      async (described) => {
+        if (!shown) return;
+        setServerAccess(readCanEdit(described));
+        if (described === null) return setPeople([]);
+        const listed = await askProjectApi(
+          "/api/docs/people",
+          accessDocId,
+          token,
+        );
+        if (shown) setPeople(readPeopleList(listed));
+      },
+    );
+    return () => {
+      shown = false;
+    };
+  }, [tabStorage, userId, accessDocId, loaded, workspaceId]);
 
   useEffect(() => {
     const rundownIds = rundownIdsKey === "" ? [] : rundownIdsKey.split(",");
@@ -324,46 +342,35 @@ export function useRundownsData(projectId: string): RundownsData {
     const person = readPerson(tabStorage);
     const signedIn = person?.userId === userId && person.token !== null;
     const isOnline = online();
-    const storyPlace = (docId: string): RowPlace => {
-      if (storyOnDevice.has(docId))
-        return signedIn ? { kind: "synced" } : { kind: "never_synced" };
-      return isOnline ? { kind: "on_server" } : { kind: "not_on_device" };
-    };
+    const fallbackPlace: RowPlace = isOnline
+      ? { kind: "on_server" }
+      : { kind: "not_on_device" };
+    const storyPlace = (docId: string): RowPlace =>
+      storyOnDevice.has(docId)
+        ? { kind: signedIn ? "synced" : "never_synced" }
+        : fallbackPlace;
+    const editedOf = (id: string) =>
+      computeLastEdited(id, documents, continued, userId, people);
     return rundownEntries
       .map(([docId, entry]): RundownViewItem => {
         const crdt = rundownByDoc.get(docId) ?? null;
-        const airDate = crdt?.rundown.airDate || entry.airDate || "";
         const stories = storiesForRundown(docId, crdt, documents).map(
           (story): StoryViewItem => ({
             ...story,
-            lastEdited: computeLastEdited(
-              story.docId,
-              documents,
-              continued,
-              userId,
-              people,
-            ),
+            lastEdited: editedOf(story.docId),
             place: storyPlace(story.docId),
           }),
         );
         return {
           docId,
-          airDate,
+          airDate: crdt?.rundown.airDate || entry.airDate || "",
           airAt: crdt?.rundown.airAt ?? null,
           targetMs: crdt?.rundown.targetMs ?? null,
           rowCount: crdt === null ? null : crdt.rows.length,
           createdAt: entry.createdAt,
           fallbackTitle: entry.title,
-          lastEdited: computeLastEdited(
-            docId,
-            documents,
-            continued,
-            userId,
-            people,
-          ),
-          place:
-            placeByDoc.get(docId) ??
-            (isOnline ? { kind: "on_server" } : { kind: "not_on_device" }),
+          lastEdited: editedOf(docId),
+          place: placeByDoc.get(docId) ?? fallbackPlace,
           stories,
         };
       })

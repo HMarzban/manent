@@ -95,10 +95,9 @@ export async function fetchRundownMeta(
   access: RundownAccess | null;
   people: readonly RundownPerson[];
 }> {
-  const [described, listed] = await Promise.all([
-    postJson("/api/docs/describe", docId, token),
-    postJson("/api/docs/people", docId, token),
-  ]);
+  const described = await postJson("/api/docs/describe", docId, token);
+  if (described === null) return { access: null, people: EMPTY_PEOPLE };
+  const listed = await postJson("/api/docs/people", docId, token);
   return {
     access: accessFromDescribe(described),
     people: peopleFromList(listed),

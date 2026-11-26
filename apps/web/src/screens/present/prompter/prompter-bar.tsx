@@ -1,6 +1,7 @@
 // The prompter window's top bar (never mirrored): feed status on the left, Text size, Dark and Mirror on the right.
 import {
   Button,
+  DOCUMENT_WORDS,
   PROMPTER_WINDOW_WORDS,
   Skeleton,
   Switch,
@@ -11,6 +12,7 @@ import {
   formatClockTime,
 } from "@manent/ui";
 import {
+  ArrowLeftIcon,
   MinusIcon,
   PlusIcon,
   TriangleExclamationPointIcon,
@@ -33,6 +35,7 @@ export type PrompterBarStatus =
 interface PrompterBarProps {
   readonly status: PrompterBarStatus;
   readonly view: PrompterViewState;
+  readonly onBack?: () => void;
   readonly onTextSizeChange: (size: PrompterTextSize) => void;
   readonly onDarkChange: (dark: boolean) => void;
   readonly onMirrorChange: (mirror: boolean) => void;
@@ -155,7 +158,7 @@ function BarSwitch(props: {
 }): ReactNode {
   const switchId = useId();
   return (
-    <div className="flex items-center gap-2 rounded-control px-2 py-1 hover:bg-subtle">
+    <div className="flex items-center gap-1 rounded-control px-1 py-1 hover:bg-subtle sm:gap-2 sm:px-2">
       <label
         htmlFor={switchId}
         className="cursor-pointer text-ui font-medium text-fg select-none"
@@ -173,8 +176,14 @@ function BarSwitch(props: {
 }
 
 export function PrompterBar(props: PrompterBarProps): ReactNode {
-  const { status, view, onTextSizeChange, onDarkChange, onMirrorChange } =
-    props;
+  const {
+    status,
+    view,
+    onBack,
+    onTextSizeChange,
+    onDarkChange,
+    onMirrorChange,
+  } = props;
   const sizeIndex = PROMPTER_TEXT_SIZES.indexOf(view.textSize);
   const atMin = view.textSize === MIN_SIZE;
   const atMax = view.textSize === MAX_SIZE;
@@ -191,19 +200,32 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
   return (
     <header
       aria-label={PROMPTER_WINDOW_WORDS.barLabel}
-      className="flex min-h-titlebar shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-chrome px-4 py-1 text-ui"
+      className="flex min-h-titlebar shrink-0 items-center justify-between gap-2 border-b border-line bg-chrome px-2 py-1 text-ui sm:gap-4 sm:px-4"
     >
-      <div
-        role="status"
-        aria-live="polite"
-        data-tour="prompter:feed"
-        className="flex min-w-0 items-center gap-2 text-ui"
-      >
-        <FeedStatus status={status} />
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+        {onBack !== undefined ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={DOCUMENT_WORDS.back}
+            onClick={onBack}
+            className="shrink-0 text-fg-muted hover:text-fg"
+          >
+            <ArrowLeftIcon aria-hidden="true" className="size-icon" />
+          </Button>
+        ) : null}
+        <div
+          role="status"
+          aria-live="polite"
+          data-tour="prompter:feed"
+          className="flex min-w-0 items-center gap-2 text-ui"
+        >
+          <FeedStatus status={status} />
+        </div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-meta text-fg-muted">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <span className="hidden text-meta text-fg-muted sm:inline">
             {PROMPTER_WINDOW_WORDS.textSize}
           </span>
           <TooltipProvider>
@@ -215,7 +237,7 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
                 icon={<MinusIcon aria-hidden="true" className="size-icon" />}
                 onClick={stepSmaller}
               />
-              <span className="min-w-12 text-center text-ui font-medium text-fg tabular-nums">
+              <span className="min-w-10 text-center text-ui font-medium text-fg tabular-nums sm:min-w-12">
                 {PROMPTER_WINDOW_WORDS.textSizeValue(view.textSize)}
               </span>
               <StepButton

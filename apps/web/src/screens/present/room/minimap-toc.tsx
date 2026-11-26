@@ -1,5 +1,12 @@
 // Present mode right-edge outline mini-map: ambient tick spine, floating outline card and quick-jump filter.
-import { Button, Input, LIBRARY_WORDS, PRESENT_WORDS, cn } from "@manent/ui";
+import {
+  Button,
+  DOCUMENT_WORDS,
+  Input,
+  LIBRARY_WORDS,
+  PRESENT_WORDS,
+  cn,
+} from "@manent/ui";
 import { ListTreeIcon, PinIcon, SearchIcon, XIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent, ReactNode } from "react";
@@ -192,10 +199,10 @@ export function MiniMapToc(props: {
       onMouseLeave={handleMouseLeave}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
-      className="pointer-events-auto fixed end-4 top-1/2 z-20 flex -translate-y-1/2 flex-row-reverse items-center"
+      className="pointer-events-auto fixed end-4 bottom-4 z-20 flex flex-row-reverse items-center md:top-1/2 md:bottom-auto md:-translate-y-1/2"
     >
-      <div className="flex flex-col items-end gap-1.5">
-        <div className="flex items-stretch gap-1.5">
+      <div className="flex flex-col items-end gap-2">
+        <div className="hidden items-stretch gap-2 md:flex">
           <div className="flex flex-col items-end">
             {ticks.map((tick, index) => (
               <button
@@ -208,7 +215,7 @@ export function MiniMapToc(props: {
                 onClick={() => onJump(tick.row.blockId)}
                 className={cn(
                   TICK_BUTTON_CLASS,
-                  tick.isMilestone && index > 0 && "mt-1.5",
+                  tick.isMilestone && index > 0 && "mt-2",
                 )}
               >
                 <span
@@ -237,88 +244,108 @@ export function MiniMapToc(props: {
           aria-expanded={expanded}
           aria-controls={expanded ? cardId : undefined}
           onClick={() => setCardMode(expanded ? "closed" : "open")}
-          className="rounded-control bg-raised text-fg-muted hover:text-fg"
+          className="rounded-control border border-line bg-raised text-fg-muted hover:text-fg md:border-transparent"
         >
           <ListTreeIcon aria-hidden="true" className="size-3.5" />
         </Button>
       </div>
       {expanded && (
-        <div
-          id={cardId}
-          ref={cardRef}
-          data-popup-open=""
-          className="mn-minimap-card me-2 w-72 p-2 animate-in fade-in-0 slide-in-from-end-2 duration-(--dur-fast) ease-out"
-        >
-          <div className="flex items-center gap-2 px-1 pb-1.5">
-            <span className="mn-group-label p-0!">{PRESENT_WORDS.outline}</span>
-            <span className="text-micro text-fg-muted">
-              {PRESENT_WORDS.sceneCount(totalScenes)}
-            </span>
-            <span className={`ms-auto text-micro ${META_NUMBER_CLASS}`}>
-              {PRESENT_WORDS.progressPercent(progress)}
-            </span>
-            <Button
-              {...ICON_BUTTON_PROPS}
-              aria-pressed={pinned}
-              aria-label={PRESENT_WORDS.pinOutline}
-              onClick={() => setCardMode(pinned ? "open" : "pinned")}
-            >
-              <PinIcon
-                aria-hidden="true"
-                className={pinned ? "size-3.5 text-fg-accent" : ICON_CLASS}
-              />
-            </Button>
-          </div>
-          {rows.length >= FILTER_THRESHOLD && (
-            <div className="relative mb-1.5 flex items-center">
-              <SearchIcon
-                aria-hidden="true"
-                className={`pointer-events-none absolute start-2 ${ICON_CLASS}`}
-              />
-              <Input
-                type="search"
-                aria-label={PRESENT_WORDS.filterScenes}
-                placeholder={PRESENT_WORDS.filterPlaceholder}
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                className={filterInputClass}
-              />
-              {filter !== "" && (
-                <Button
-                  {...ICON_BUTTON_PROPS}
-                  aria-label={LIBRARY_WORDS.clearSearch}
-                  className="absolute end-0.5"
-                  onClick={() => {
-                    setFilter("");
-                    cardRef.current?.querySelector("input")?.focus();
-                  }}
-                >
-                  <XIcon aria-hidden="true" className={ICON_CLASS} />
-                </Button>
-              )}
-            </div>
-          )}
-          <nav
-            aria-label={PRESENT_WORDS.outline}
-            data-ring="inset"
-            className="max-h-[58vh] overflow-y-auto pt-1"
+        <>
+          <div
+            aria-hidden="true"
+            onClick={() => setCardMode("closed")}
+            className="fixed inset-0 -z-10 bg-scrim md:hidden"
+          />
+          <div
+            id={cardId}
+            ref={cardRef}
+            data-popup-open=""
+            className="mn-minimap-card p-2 animate-in fade-in-0 slide-in-from-end-2 duration-(--dur-fast) ease-out max-md:fixed max-md:inset-x-4 max-md:bottom-14 max-md:max-w-[calc(100vw-2rem)] md:me-2 md:w-60"
           >
-            {filteredRows.length === 0 ? (
-              <p className="px-2 py-3 text-center text-meta text-fg-muted">
-                {PRESENT_WORDS.noMatchingScenes}
-              </p>
-            ) : (
-              filteredRows.map((row, index) =>
-                renderOutlineItem(
-                  row,
-                  index,
-                  row.blockId === activeBlockId,
-                  onJump,
-                ),
-              )
+            <div className="flex items-center gap-2 px-1 pb-2">
+              <span className="mn-group-label p-0!">
+                {PRESENT_WORDS.outline}
+              </span>
+              <span className="text-micro text-fg-muted">
+                {PRESENT_WORDS.sceneCount(totalScenes)}
+              </span>
+              <span className={`ms-auto text-micro ${META_NUMBER_CLASS}`}>
+                {PRESENT_WORDS.progressPercent(progress)}
+              </span>
+              <Button
+                {...ICON_BUTTON_PROPS}
+                aria-pressed={pinned}
+                aria-label={PRESENT_WORDS.pinOutline}
+                onClick={() => setCardMode(pinned ? "open" : "pinned")}
+              >
+                <PinIcon
+                  aria-hidden="true"
+                  className={pinned ? "size-3.5 text-fg-accent" : ICON_CLASS}
+                />
+              </Button>
+              <Button
+                {...ICON_BUTTON_PROPS}
+                aria-label={DOCUMENT_WORDS.dismiss}
+                onClick={() => {
+                  setCardMode("closed");
+                  toggleRef.current?.focus();
+                }}
+                className="md:hidden"
+              >
+                <XIcon aria-hidden="true" className={ICON_CLASS} />
+              </Button>
+            </div>
+            {rows.length >= FILTER_THRESHOLD && (
+              <div className="relative mb-1.5 flex items-center">
+                <SearchIcon
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute start-2 ${ICON_CLASS}`}
+                />
+                <Input
+                  type="search"
+                  aria-label={PRESENT_WORDS.filterScenes}
+                  placeholder={PRESENT_WORDS.filterPlaceholder}
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  className={filterInputClass}
+                />
+                {filter !== "" && (
+                  <Button
+                    {...ICON_BUTTON_PROPS}
+                    aria-label={LIBRARY_WORDS.clearSearch}
+                    className="absolute end-0.5"
+                    onClick={() => {
+                      setFilter("");
+                      cardRef.current?.querySelector("input")?.focus();
+                    }}
+                  >
+                    <XIcon aria-hidden="true" className={ICON_CLASS} />
+                  </Button>
+                )}
+              </div>
             )}
-          </nav>
-        </div>
+            <nav
+              aria-label={PRESENT_WORDS.outline}
+              data-ring="inset"
+              className="max-h-[58vh] overflow-y-auto pt-1"
+            >
+              {filteredRows.length === 0 ? (
+                <p className="px-2 py-3 text-center text-meta text-fg-muted">
+                  {PRESENT_WORDS.noMatchingScenes}
+                </p>
+              ) : (
+                filteredRows.map((row, index) =>
+                  renderOutlineItem(
+                    row,
+                    index,
+                    row.blockId === activeBlockId,
+                    onJump,
+                  ),
+                )
+              )}
+            </nav>
+          </div>
+        </>
       )}
     </aside>
   );

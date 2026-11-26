@@ -36,15 +36,15 @@ export const DEFAULT_COLUMN_WIDTHS_PX: Readonly<
 > = Object.freeze({
   number: 48,
   segment: 260,
-  story: 260,
-  writer: 144,
-  presenter: 144,
-  type: 96,
-  dur: 84,
-  cume: 84,
-  start: 96,
-  back: 96,
-  prompter: 260,
+  story: 228,
+  writer: 128,
+  presenter: 120,
+  type: 88,
+  dur: 68,
+  cume: 68,
+  start: 82,
+  back: 82,
+  prompter: 228,
 });
 
 export function clampColumnWidthPx(widthPx: number): number {

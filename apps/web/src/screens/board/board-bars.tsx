@@ -58,13 +58,13 @@ export function BoardTitleBar(props: BoardTitleBarProps): ReactNode {
       </Button>
       <h1
         tabIndex={-1}
-        className="min-w-0 truncate text-title font-semibold outline-none"
+        className="min-w-0 flex-1 truncate text-title font-semibold outline-none"
       >
         {BOARD_WORDS.title(projectTitle)}
       </h1>
       {seasons.length > 0 && activeSeason !== null ? (
-        <div className="flex shrink-0 items-center gap-2 ps-2">
-          <span className="text-meta text-fg-muted">
+        <div className="flex shrink-0 items-center gap-2 ps-1 sm:ps-2">
+          <span className="hidden text-meta text-fg-muted sm:inline">
             {BOARD_WORDS.seasonLabel}
           </span>
           <Select
@@ -96,14 +96,15 @@ export function BoardTitleBar(props: BoardTitleBarProps): ReactNode {
         </span>
       ) : null}
       {canEdit ? (
-        <div className="ms-auto flex shrink-0 items-center gap-2">
-          <Button variant="outline" onClick={onAddStoryline}>
-            <PlusIcon
-              aria-hidden="true"
-              data-icon="inline-start"
-              className="size-icon"
-            />
-            {BOARD_WORDS.addStoryline}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            aria-label={BOARD_WORDS.addStoryline}
+            onClick={onAddStoryline}
+            className="px-2 sm:px-3"
+          >
+            <PlusIcon aria-hidden="true" className="size-icon" />
+            <span className="hidden sm:inline">{BOARD_WORDS.addStoryline}</span>
           </Button>
         </div>
       ) : null}
