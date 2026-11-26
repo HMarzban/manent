@@ -164,10 +164,14 @@ test("DemoBar stays single-row with h-demobar and hides person name below sm", a
   });
   const bar = host.querySelector<HTMLElement>("[data-surface='demo']");
   expect(bar?.className).toContain("h-demobar");
+  expect(bar?.className).toContain("min-h-demobar");
   const personBtn = host.querySelector<HTMLButtonElement>(
     "button[aria-label='Person: Dana Reyes']",
   );
   expect(personBtn).not.toBeNull();
   const nameSpan = personBtn?.querySelector("span.hidden");
   expect(nameSpan?.textContent).toBe("Dana Reyes");
+  expect(
+    host.querySelector(`button[aria-label='${TEXT.demoTools}']`),
+  ).toBeNull();
 });

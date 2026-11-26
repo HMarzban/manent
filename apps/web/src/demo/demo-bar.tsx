@@ -34,7 +34,7 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="mn-bar flex h-demobar shrink-0 items-center gap-2 border-b border-line-strong bg-chrome px-2 text-meta text-fg sm:gap-3 sm:px-3"
+      className="mn-bar flex h-demobar min-h-demobar shrink-0 items-center gap-2 border-b border-line-strong bg-chrome px-2 text-meta text-fg sm:gap-3 sm:px-3"
     >
       <span className="mn-tag shrink-0" data-fill>
         {DEMO_WORDS.demo}

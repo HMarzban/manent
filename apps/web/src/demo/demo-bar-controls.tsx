@@ -18,6 +18,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
+import { useNarrowDemoBar } from "../shell/narrow-window.ts";
 import type { TabPerson } from "../session.ts";
 import { useEnvironment } from "../services/context.tsx";
 import type { ConnectionMode } from "../services/sync/device-memory.ts";
@@ -72,7 +73,7 @@ const ONLINE: Subscribable<ConnectionMode> = Object.freeze({
 function DemoToolsPopover(props: { children: ReactNode }): ReactNode {
   const [open, setOpen] = useState(false);
   return (
-    <div className="flex shrink-0 sm:hidden">
+    <div className="flex shrink-0">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
@@ -100,6 +101,7 @@ function DemoToolsPopover(props: { children: ReactNode }): ReactNode {
 
 function ShellControls(props: { control: DemoControl | null }): ReactNode {
   const { control } = props;
+  const narrow = useNarrowDemoBar();
   const connection = useConnectionControl();
   const mode = useSubscribable(
     connection === null ? ONLINE : asUiSubscribable(connection.mode),
@@ -136,8 +138,7 @@ function ShellControls(props: { control: DemoControl | null }): ReactNode {
   return (
     <>
       {connection && <ConnectionChoice control={connection} />}
-      <div className="hidden sm:contents">{secondary}</div>
-      <DemoToolsPopover>{secondary}</DemoToolsPopover>
+      {narrow ? <DemoToolsPopover>{secondary}</DemoToolsPopover> : secondary}
       <Tour />
     </>
   );
