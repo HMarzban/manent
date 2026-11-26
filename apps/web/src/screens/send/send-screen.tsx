@@ -1,23 +1,38 @@
 // The Send screen: the form its route names, inside the frame, over the document it sends.
 import { COMMANDS } from "@manent/commands";
 import { markEnd, markStart } from "@manent/perf";
-import { LIBRARY_WORDS, MessageSlot, useSubscribable } from "@manent/ui";
+import {
+  Button,
+  LIBRARY_WORDS,
+  MessageSlot,
+  SEND_WORDS,
+  useSubscribable,
+} from "@manent/ui";
 import {
   getRouteApi,
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { LockIcon } from "lucide-react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { useServices } from "../../services/context.tsx";
+import { safeNext } from "../../session.ts";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
-import { safeNext } from "../../session.ts";
+import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SEND_FORMS } from "./forms.ts";
-import type { SendForm } from "./forms.ts";
-import { SendLayout } from "./send-frame.tsx";
+import type { SendAvailability, SendForm } from "./forms.ts";
+import { SendFormSkeleton, SendLayout } from "./send-frame.tsx";
 import type { SendPlace } from "./send-frame.tsx";
 import { testSendForm } from "./test-form.tsx";
 
@@ -25,6 +40,9 @@ import { testSendForm } from "./test-form.tsx";
 declare const MANENT_FLAVOUR: string | undefined;
 
 const route = getRouteApi("/s/$docId/send/$form");
+
+// below 1,024 px the open side panel overlays the Send form instead of squeezing it
+const OVERLAY_BREAKPOINT_PX = 1_024;
 
 // the test build adds a form no release registers, so the frame can be driven from its address
 const DEFAULT_FORMS: readonly SendForm[] =
@@ -34,6 +52,30 @@ const DEFAULT_FORMS: readonly SendForm[] =
 
 const isCommandId = (id: string): boolean =>
   COMMANDS.some((command) => command.id === id);
+
+function subscribeResize(listener: () => void): () => void {
+  window.addEventListener("resize", listener);
+  return () => window.removeEventListener("resize", listener);
+}
+
+function useOverlaySide(): boolean {
+  const widthPx = useSyncExternalStore(
+    subscribeResize,
+    () => window.innerWidth,
+    () => OVERLAY_BREAKPOINT_PX,
+  );
+  return widthPx < OVERLAY_BREAKPOINT_PX;
+}
+
+/** True only when the open side tab is actually present on SendScreen (e.g. Tour in demo mode). */
+function useHasVisibleSideTab(): boolean {
+  const { tab } = usePanel("side");
+  const states = SIDE_PANEL_TABS.map((entry) => ({
+    id: entry.id,
+    present: entry.useTab(null).present,
+  }));
+  return states.some((entry) => entry.present && entry.id === tab);
+}
 
 /** The place `from` names: Library for `/`, else the document under the screen by its title. */
 function usePlaceOpenedFrom(docId: string): SendPlace {
@@ -82,22 +124,129 @@ function SendStatusBar(): ReactNode {
   );
 }
 
-/** The screen around one form when it is available here; otherwise it goes back to the document in place of this address. */
+function SendOverlayPanel(props: { open: boolean }): ReactNode {
+  if (!props.open) return null;
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 top-titlebar bottom-statusbar z-10 bg-scrim animate-in fade-in-0 duration-(--dur-fast) ease-out"
+        onClick={() => panelsActions.close("side")}
+      />
+      <div
+        data-overlay=""
+        className="absolute top-titlebar end-0 bottom-statusbar z-20 flex max-w-full border-s border-line shadow-overlay animate-in fade-in-0 slide-in-from-end-4 duration-(--dur-base) ease-out [&>[data-region='side_panel']]:max-w-full"
+      >
+        <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
+      </div>
+    </>
+  );
+}
+
+function SendHeaderOnly(props: { place: SendPlace }): ReactNode {
+  const { place } = props;
+  return (
+    <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
+      <Button variant="ghost" className="text-fg-muted" onClick={place.back}>
+        {SEND_WORDS.back(place.name)}
+      </Button>
+    </header>
+  );
+}
+
+function UnavailableForm(props: {
+  place: SendPlace;
+  reason: string;
+  overlay: boolean;
+  sideOpen: boolean;
+}): ReactNode {
+  const { place, reason, overlay, sideOpen } = props;
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-x-clip">
+      <SendHeaderOnly place={place} />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="flex min-h-full w-full flex-col items-center justify-center">
+            <EmptyHeroCard
+              icon={<LockIcon aria-hidden="true" className="size-5" />}
+              title={SEND_WORDS.unavailableTitle}
+              headingAs="h2"
+              description={reason}
+              actions={
+                <Button onClick={place.back}>{SEND_WORDS.backToScript}</Button>
+              }
+            />
+          </div>
+        </div>
+        {overlay ? null : <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />}
+      </div>
+      {overlay ? <SendOverlayPanel open={sideOpen} /> : null}
+      <SendStatusBar />
+    </div>
+  );
+}
+
+function LoadingForm(props: {
+  place: SendPlace;
+  overlay: boolean;
+  sideOpen: boolean;
+}): ReactNode {
+  const { place, overlay, sideOpen } = props;
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-x-clip">
+      <SendHeaderOnly place={place} />
+      <div className="flex min-h-0 flex-1">
+        <SendFormSkeleton rows={5} />
+        {overlay ? null : <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />}
+      </div>
+      {overlay ? <SendOverlayPanel open={sideOpen} /> : null}
+      <SendStatusBar />
+    </div>
+  );
+}
+
+function normaliseAvailability(
+  value: boolean | SendAvailability,
+): "redirect" | SendAvailability {
+  if (value === true) return "available";
+  if (value === false) return "redirect";
+  return value;
+}
+
+/** The screen around one form when it is available here; otherwise it hydrates, explains why not, or goes back. */
 function FormScreen(props: { form: SendForm; docId: string }): ReactNode {
   const { form, docId } = props;
-  const available = form.useAvailable(docId);
+  const availability = normaliseAvailability(form.useAvailable(docId));
   const place = usePlaceOpenedFrom(docId);
-  if (!available) return <BackToDocument docId={docId} />;
+  const overlay = useOverlaySide();
+  const sideOpen = useHasVisibleSideTab();
+
+  if (availability === "redirect") return <BackToDocument docId={docId} />;
+  if (availability === "loading")
+    return <LoadingForm place={place} overlay={overlay} sideOpen={sideOpen} />;
+  if (typeof availability === "object") {
+    return (
+      <UnavailableForm
+        place={place}
+        reason={availability.reason}
+        overlay={overlay}
+        sideOpen={sideOpen}
+      />
+    );
+  }
   const { Body } = form;
   return (
     // positioned, so that WebKit finds the screen, not the scrolled page under it, beneath the pointer
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-x-clip">
       <SendLayout
         place={place}
-        side={<SidePosition docId={null} tabs={SIDE_PANEL_TABS} />}
+        side={
+          overlay ? null : <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
+        }
       >
         <Body docId={docId} />
       </SendLayout>
+      {overlay ? <SendOverlayPanel open={sideOpen} /> : null}
       <SendStatusBar />
     </div>
   );

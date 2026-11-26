@@ -23,6 +23,7 @@ import type { Message } from "@manent/ui";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { showPage, showScene } from "../../editor-host/production.ts";
+import { useProductionFormAvailability } from "../../screens/send/forms.ts";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
 import {
   PageTilesSkeleton,
@@ -31,7 +32,6 @@ import {
 } from "../../screens/send/send-frame.tsx";
 import type { SendRow } from "../../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { useProductionContext } from "../../state/production-context.store.ts";
 import { Choices } from "../choices.tsx";
 import { useProductionServices } from "../live-services.ts";
 import type { ProductionServices } from "../services.ts";
@@ -383,8 +383,7 @@ function IssueBody(props: SendFormProps): ReactNode {
 export const issueForm: SendForm = {
   id: "issue",
   useAvailable(docId) {
-    const production = useProductionContext(docId);
-    return production !== null && production.locked && production.canIssue;
+    return useProductionFormAvailability(docId, "issue");
   },
   Body: IssueBody,
 };

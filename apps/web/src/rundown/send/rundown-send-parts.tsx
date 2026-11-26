@@ -1,6 +1,7 @@
 // Shared What controls and Checks row for RundownExport and RundownPrint.
 import type { RundownColumnId } from "@manent/schema";
 import {
+  Checkbox,
   Input,
   RUNDOWN_SEND_WORDS,
   RUNDOWN_WORDS,
@@ -135,18 +136,12 @@ export function CheckOption(props: {
           : "inline-flex cursor-pointer items-center gap-2 rounded-control px-1 py-0.5 text-ui text-fg hover:bg-subtle"
       }
     >
-      <input
+      <Checkbox
         id={id}
-        type="checkbox"
         checked={checked}
         disabled={disabled}
         aria-label={accessibleLabel}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-        className={
-          disabled
-            ? "size-4 shrink-0 cursor-not-allowed rounded-micro accent-accent-solid"
-            : "size-4 shrink-0 cursor-pointer rounded-micro accent-accent-solid"
-        }
+        onCheckedChange={onChange}
       />
       <span>{label}</span>
     </label>
@@ -239,7 +234,7 @@ export function RundownWhatContent(props: {
         <span className="text-ui font-medium text-fg">
           {RUNDOWN_SEND_WORDS.columns}
         </span>
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 sm:grid-cols-5">
           {allColumns.map((columnId) => {
             const checked = selectedSet.has(columnId);
             const locked = checked && selectedSet.size <= 1;

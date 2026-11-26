@@ -6,6 +6,11 @@ export const CHECKS_WORDS = Object.freeze({
   /** "Checks (2)" while `n` things need a look, "Checks" when none does. */
   heading: (n: number): string =>
     n > 0 ? `Checks (${formatCount(n)})` : "Checks",
+  /** Collapsed Send-form summary when more than three checks need a look. */
+  summary: (n: number): string =>
+    n === 1 ? "1 check to review" : `${formatCount(n)} checks to review`,
+  showAll: "Show all",
+  hide: "Hide",
   nothing: "Nothing needs a look before you send.",
   /** New character cue or new proper noun with no sent draft. */
   newName: (name: string): string =>

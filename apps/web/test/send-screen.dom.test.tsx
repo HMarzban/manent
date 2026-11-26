@@ -15,7 +15,8 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { RootLayout } from "../src/root-layout.tsx";
-import type { SendForm } from "../src/screens/send/forms.ts";
+import { useProductionFormAvailability } from "../src/screens/send/forms.ts";
+import type { SendAvailability, SendForm } from "../src/screens/send/forms.ts";
 import { SendFrame } from "../src/screens/send/send-frame.tsx";
 import type { SendAction, SendRow } from "../src/screens/send/send-frame.tsx";
 import { SendScreen } from "../src/screens/send/send-screen.tsx";
@@ -23,7 +24,9 @@ import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
+import { panelsActions } from "../src/state/panels.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
+import { productionContextActions } from "../src/state/production-context.store.ts";
 import { createClock, fakeApi, testEnvironment } from "./services.fixtures.ts";
 
 withDom();
@@ -85,10 +88,16 @@ function FixtureBody(): ReactNode {
   );
 }
 
-let available = true;
+let available: boolean | SendAvailability = true;
 const PRINT: SendForm = {
   id: "print",
   useAvailable: () => available,
+  Body: FixtureBody,
+};
+
+const ISSUE: SendForm = {
+  id: "issue",
+  useAvailable: (docId) => useProductionFormAvailability(docId, "issue"),
   Body: FixtureBody,
 };
 
@@ -97,6 +106,8 @@ afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
   available = true;
+  productionContextActions.set("d1", null);
+  panelsActions.close("side");
   fixture.set({ title: "Print 14 pages", rows: [MEMO_ROW], action: IDLE });
 });
 
@@ -109,7 +120,11 @@ function ServicesProbe(): ReactNode {
 }
 
 /** The app at `/`, then at `path`. */
-async function renderApp(path: string): Promise<{
+async function renderApp(
+  path: string,
+  forms: readonly SendForm[] = [PRINT],
+  options: { demo?: boolean } = {},
+): Promise<{
   router: AnyRouter;
   container: HTMLElement;
   clock: ReturnType<typeof createClock>;
@@ -124,7 +139,17 @@ async function renderApp(path: string): Promise<{
   bindGuard(environment.guard);
   const usePerson = createPersonStore(null);
   usePerson.getState().setPerson(LEO);
-  const api = fakeApi();
+  const api = fakeApi(
+    options.demo
+      ? {
+          demo: async () => ({
+            demo: true,
+            seedId: "seed-1",
+            control: null,
+          }),
+        }
+      : {},
+  );
   const rootRoute = createRootRoute({
     component: () => (
       <RootLayout api={api} fetch={fetch} usePerson={usePerson} />
@@ -144,7 +169,7 @@ async function renderApp(path: string): Promise<{
     createRoute({
       getParentRoute: () => rootRoute,
       path: "/s/$docId/send/$form",
-      component: () => <SendScreen forms={[PRINT]} />,
+      component: () => <SendScreen forms={forms} />,
     }),
   ]);
   const router = createRouter({
@@ -431,4 +456,93 @@ test("the screen has no status, keeps the message slot and Commands, and covers 
     ["Undo", "Commands"],
     false,
   ]);
+});
+
+test("loading availability shows a skeleton without redirecting, and unavailable explains why with Back to script", async () => {
+  available = "loading";
+  const loading = await renderApp("/s/d1/send/print");
+  expect([
+    loading.router.state.location.pathname,
+    loading.container.querySelector("[aria-busy='true']") !== null,
+  ]).toEqual(["/s/d1/send/print", true]);
+
+  act(() => mounted?.unmount());
+  available = {
+    kind: "unavailable",
+    reason: "Lock page numbers before issuing revisions.",
+  };
+  const blocked = await renderApp("/s/d1/send/print");
+  expect(blocked.router.state.location.pathname).toBe("/s/d1/send/print");
+  expect(blocked.container.textContent).toContain(
+    "Lock page numbers before issuing revisions.",
+  );
+  const backButton = buttonNamed(blocked.container, "Back to script");
+  await act(async () => backButton.click());
+  expect(blocked.router.state.location.pathname).toBe("/s/d1");
+});
+
+test("cold-route Issue hydrates from skeleton to form once production context arrives, and explains when unlocked", async () => {
+  const { container, router } = await renderApp("/s/d1/send/issue", [ISSUE]);
+  expect(router.state.location.pathname).toBe("/s/d1/send/issue");
+  expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
+
+  act(() =>
+    productionContextActions.set("d1", {
+      locked: false,
+      canLock: true,
+      canIssue: true,
+      recallOpen: false,
+      waiting: 0,
+      activeName: "White",
+      recallName: null,
+      selection: null,
+      mode: "none",
+      tint: false,
+    }),
+  );
+  expect(router.state.location.pathname).toBe("/s/d1/send/issue");
+  expect(container.textContent).toContain(
+    "Lock page numbers before issuing revisions.",
+  );
+
+  act(() =>
+    productionContextActions.set("d1", {
+      locked: true,
+      canLock: true,
+      canIssue: true,
+      recallOpen: false,
+      waiting: 0,
+      activeName: "Pink",
+      recallName: null,
+      selection: null,
+      mode: "none",
+      tint: false,
+    }),
+  );
+  expect(container.querySelector("h1")?.textContent).toBe("Print 14 pages");
+});
+
+test("on narrow viewports under 1024px, a visible side tab overlays the Send screen without showing an orphan scrim for hidden tabs", async () => {
+  const prevWidth = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 375,
+  });
+  try {
+    const { container } = await renderApp("/s/d1/send/print", [PRINT], {
+      demo: true,
+    });
+    // Details is not present on SendScreen (docId === null), so no orphan overlay renders.
+    act(() => panelsActions.open("side", "details"));
+    expect(container.querySelector("[data-overlay]")).toBeNull();
+
+    // Tour IS present in demo mode, so opening it overlays SendScreen instead of squeezing it.
+    act(() => panelsActions.open("side", "tour"));
+    expect(container.querySelector("[data-overlay]")).not.toBeNull();
+  } finally {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: prevWidth,
+    });
+  }
 });

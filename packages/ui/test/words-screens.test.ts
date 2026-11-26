@@ -275,6 +275,14 @@ test("the screens' words are the design's", () => {
     memo: "Memo",
     pagesRegion: "The pages as they will go",
     back: ["‹ The Long Night", "‹ Library"],
+    unavailableTitle: "This isn't available",
+    issueNeedsLock: "Lock page numbers before issuing revisions.",
+    issueNoPermission: "Only someone who can issue revisions can open this.",
+    recallClosed: "There is no issued revision open to recall right now.",
+    recallNoPermission:
+      "Only someone who can issue revisions can recall a revision.",
+    formUnavailable: "This isn't available for this script.",
+    backToScript: "Back to script",
   });
 
   const P = PREFERENCES_WORDS;

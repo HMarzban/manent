@@ -6,6 +6,7 @@ import { PRODUCTION_WORDS, useSubscribable } from "@manent/ui";
 import type { Message } from "@manent/ui";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { useProductionFormAvailability } from "../../screens/send/forms.ts";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
 import {
   PageTilesSkeleton,
@@ -13,7 +14,6 @@ import {
   SendFrame,
 } from "../../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { useProductionContext } from "../../state/production-context.store.ts";
 import { useProductionServices } from "../live-services.ts";
 import type { ProductionServices } from "../services.ts";
 import { deviceDay, latestIssue } from "../state-facts.ts";
@@ -190,8 +190,7 @@ function RecallBody(props: SendFormProps): ReactNode {
 export const recallForm: SendForm = {
   id: "recall",
   useAvailable(docId) {
-    const production = useProductionContext(docId);
-    return production !== null && production.recallOpen && production.canIssue;
+    return useProductionFormAvailability(docId, "recall");
   },
   Body: RecallBody,
 };
