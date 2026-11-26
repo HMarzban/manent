@@ -159,6 +159,15 @@ async function openNewsScriptForTemplate(page: Page): Promise<void> {
     `${docPath("medium/lannick-one-news/stories/01")}?panels=closed`,
   );
   await expect(editorOf(page)).toBeVisible();
+  // wait for the workspace index to settle so projectKind ("news") makes template.save visible in the palette
+  await expect(page.locator("[data-tour='status:server']")).toHaveText(
+    "Synced",
+  );
+  await expect(
+    page
+      .locator("[data-region='title_bar']")
+      .getByRole("heading", { level: 1 }),
+  ).not.toHaveText("Untitled script");
   await page.keyboard.press("Escape");
   await expect(editorOf(page)).toBeFocused();
 }
