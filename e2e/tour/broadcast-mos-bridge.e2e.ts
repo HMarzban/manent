@@ -1,12 +1,7 @@
 // The Tour's broadcast-mos-bridge scenario: configure Autoscript WinPlus-IP against a loopback mock MOS prompter, opt in Lannick One News, and verify air-window hold until Send to prompter.
 import { docPath } from "@manent/demo";
 import { createMockMosPrompter } from "@manent/testkit";
-import {
-  BROADCAST_MOS_WORDS,
-  DEMO_WORDS,
-  DOCUMENT_WORDS,
-  RUNDOWN_WORDS,
-} from "@manent/ui";
+import { BROADCAST_MOS_WORDS, RUNDOWN_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import { settled } from "../editor/support.ts";
 import {
@@ -18,7 +13,7 @@ import {
 const NEWS_DAY = docPath("medium/lannick-one-news/rundowns/day");
 const EDIT_PHRASE = "mos-air-window-check";
 
-tourScenario("broadcast-mos-bridge", async ({ page, scenario, step }) => {
+tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
   const [liveWord, mosToggleWord, sendWord] = scenario.evidence;
   const mockPrompter = await createMockMosPrompter({
     host: "127.0.0.1",
@@ -80,8 +75,6 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario, step }) => {
     await mosToggle.click();
     await expect(mosToggle).toHaveAttribute("aria-checked", "true");
     await expectEvidence([page], { ...scenario, evidence: [mosToggleWord!] });
-    void DEMO_WORDS;
-    void step;
 
     await mockPrompter.waitFor(
       (messages) =>
@@ -156,7 +149,6 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario, step }) => {
         if (await confirmBtn.isVisible().catch(() => false))
           await confirmBtn.click();
       }
-      void DOCUMENT_WORDS;
     }
     await mockPrompter.close();
   }

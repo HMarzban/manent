@@ -14,7 +14,11 @@ import {
   GRAPHICS_WORDS,
   Input,
   Label,
-  Segmented,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useSubscribable,
 } from "@manent/ui";
 import { useId, useMemo, useState, useSyncExternalStore } from "react";
@@ -190,15 +194,29 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
 
       {isBroadcast ? (
         <div className="flex flex-col gap-1">
-          <Segmented
-            label={GRAPHICS_WORDS.graphic}
+          <Select
+            items={KIND_CHOICES}
             value={attrs.kind}
-            options={KIND_CHOICES}
-            onChange={(chosen) => {
-              if (editable && isGraphicKind(chosen))
+            disabled={!editable}
+            onValueChange={(chosen) => {
+              if (editable && chosen !== null && isGraphicKind(chosen))
                 runGraphicUpdate(docId, { kind: chosen }, blockId);
             }}
-          />
+          >
+            <SelectTrigger
+              aria-label={GRAPHICS_WORDS.graphic}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {KIND_CHOICES.map((choice) => (
+                <SelectItem key={choice.value} value={choice.value}>
+                  {choice.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 

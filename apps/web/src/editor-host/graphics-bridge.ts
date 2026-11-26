@@ -147,20 +147,19 @@ function waitForDocumentProject(
   if (current !== null) return Promise.resolve(current);
   return new Promise<string | null>((resolve) => {
     let done = false;
+    let stop: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (value: string | null): void => {
       if (done) return;
       done = true;
-      clearTimeout(timer);
-      stop();
+      if (timer !== undefined) clearTimeout(timer);
+      stop?.();
       resolve(value);
     };
-    const stop = source.subscribe((next) => {
+    stop = source.subscribe((next) => {
       if (next !== null) finish(next);
     });
-    const timer = setTimeout(
-      () => finish(source.get()),
-      PROJECT_RESOLVE_TIMEOUT_MS,
-    );
+    timer = setTimeout(() => finish(source.get()), PROJECT_RESOLVE_TIMEOUT_MS);
     const after = source.get();
     if (after !== null) finish(after);
   });
