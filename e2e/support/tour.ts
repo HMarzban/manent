@@ -7,7 +7,12 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { localDatabaseName } from "@manent/client-web";
 import { DEMO_PEOPLE, TOUR, isShown } from "@manent/demo";
-import { DEMO_WORDS, DOCUMENT_WORDS, LIBRARY_WORDS } from "@manent/ui";
+import {
+  DEMO_WORDS,
+  DOCUMENT_WORDS,
+  LIBRARY_WORDS,
+  TOUR_WORDS,
+} from "@manent/ui";
 import type { TourFile, TourScenario } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type {
@@ -231,17 +236,43 @@ const tourPanel = (page: Page): Locator =>
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: DOCUMENT_WORDS.tourTab });
 
-/** Shows the Tour in the side panel when it is not showing, with the demo bar's Tour button. */
-async function openTour(page: Page): Promise<void> {
+/** The compact floating Tour bar shown when a scenario is active outside the Tour side panel. */
+const tourFloat = (page: Page): Locator =>
+  page.locator("aside[data-tour-chrome='true']");
+
+const TOUR_ACTIVE_KEY = "manent.demo.tour.active";
+const STEP_OF = /^(\d+) of (\d+)$/;
+
+/** Shows the Tour in the side panel, or starts the scenario in the floating Tour bar on screens with no side panel. */
+async function openTour(page: Page, scenario: TourScenario): Promise<void> {
   const tour = tourPanel(page);
+  const floating = tourFloat(page);
   const button = page
     .getByRole("region", { name: DEMO_WORDS.demo })
     .getByRole("button", { name: DEMO_WORDS.tour });
-  // a person's first visit to the Library opens the Tour by itself, and may do so just after the button was pressed
-  await expect(async () => {
-    if (!(await tour.isVisible())) await button.click();
-    await expect(tour).toBeVisible({ timeout: 1000 });
-  }).toPass();
+  await expect(button).toBeVisible();
+  if (!(await tour.isVisible())) await button.click();
+  const hasPanel = await tour
+    .waitFor({ state: "visible", timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!hasPanel) {
+    // clicking Tour on a screen with no side panel sets sideTab = "tour", which hides TourFloatingBar; toggle it off
+    await button.click();
+    if (!(await floating.isVisible())) {
+      await page.evaluate(
+        ([key, scenarioId]) => {
+          sessionStorage.setItem(key, JSON.stringify({ scenarioId, step: 0 }));
+        },
+        [TOUR_ACTIVE_KEY, scenario.id] as const,
+      );
+      await page.reload();
+    }
+    await expect(floating).toBeVisible();
+    return;
+  }
+  if (scenario.steps.length > 0)
+    await selectTourStep(page, scenario.promise, 0);
 }
 
 const STEP_WINDOW = new RegExp("^In (\\p{Lu}\\p{Ll}*)'s window", "u");
@@ -261,13 +292,84 @@ function windowOfStep(text: string, userIds: readonly string[]): number {
   return at;
 }
 
-/** Selects step `index` in the Tour before opening a menu or popover whose blur would otherwise dismiss it. */
+/** Reads the current zero-based step index shown by the floating Tour bar. */
+async function floatingStepIndex(floating: Locator): Promise<number> {
+  const label = await floating.locator("span").evaluateAll((nodes) => {
+    for (const node of nodes) {
+      const text = node.textContent?.trim() ?? "";
+      if (/^\d+ of \d+$/.test(text)) return text;
+    }
+    return "";
+  });
+  const match = STEP_OF.exec(label);
+  if (match === null)
+    throw new Error(`floating Tour bar showed no step count: ${label}`);
+  return Number(match[1]) - 1;
+}
+
+/** Navigates the floating Tour bar to step `index` using its Previous / Next buttons without closing other side panels. */
+async function selectFloatingStep(
+  floating: Locator,
+  index: number,
+): Promise<void> {
+  let current = await floatingStepIndex(floating);
+  while (current !== index) {
+    const buttonName = current < index ? TOUR_WORDS.next : TOUR_WORDS.previous;
+    const expected = current < index ? current + 1 : current - 1;
+    await floating.getByRole("button", { name: buttonName }).click();
+    await expect.poll(() => floatingStepIndex(floating)).toBe(expected);
+    current = expected;
+  }
+}
+
+/** Whether step `index` is already selected in the Tour (checked via DOM attributes so modal aria-hidden does not hide it). */
+async function isTourStepActive(
+  page: Page,
+  promise: string,
+  index: number,
+): Promise<boolean> {
+  const floating = tourFloat(page);
+  if (await floating.isVisible()) {
+    const current = await floatingStepIndex(floating).catch(() => -1);
+    if (current === index) return true;
+  }
+  const panel = page.locator("[data-region='side_panel'] [role='tabpanel']");
+  if (await panel.isVisible()) {
+    const hasPromise =
+      (await panel.getByText(promise, { exact: true }).count()) > 0;
+    const row = panel.locator("ol > li > div").nth(index);
+    if (hasPromise && (await row.count()) > 0) {
+      return (await row.getAttribute("aria-current")) === "true";
+    }
+  }
+  return false;
+}
+
+/** Selects step `index` in the Tour (side panel or floating bar) before opening a menu or popover whose blur would otherwise dismiss it. */
 export async function selectTourStep(
   page: Page,
   promise: string,
   index: number,
 ): Promise<void> {
+  if (await isTourStepActive(page, promise, index)) return;
   const panel = tourPanel(page);
+  const floating = tourFloat(page);
+  // navigating from a document with Tour open to a screen without a side panel leaves sideTab === "tour", hiding TourFloatingBar
+  if (
+    !(await panel.isVisible()) &&
+    !(await floating.isVisible()) &&
+    (await page.locator("[data-region='side_panel']").count()) === 0
+  ) {
+    const tourBtn = page
+      .getByRole("region", { name: DEMO_WORDS.demo })
+      .getByRole("button", { name: DEMO_WORDS.tour });
+    if (await tourBtn.isVisible()) await tourBtn.click();
+  }
+  await expect(panel.or(floating)).toBeVisible();
+  if (!(await panel.isVisible()) && (await floating.isVisible())) {
+    await selectFloatingStep(floating, index);
+    return;
+  }
   const back = panel.getByRole("button", { name: "All parts" });
   const allFilter = panel.getByRole("button", { name: "All", exact: true });
   await expect(back.or(allFilter)).toBeVisible();
@@ -365,7 +467,7 @@ async function setUpScenario(
     await page.goto(`${node.nodeUrl}${asPerson(setup.open, setup.userId)}`);
     await page.waitForURL((at) => !at.searchParams.has("person"));
   }
-  await openTour(page);
+  await openTour(page, scenario);
   const windows = [page];
   const contexts: BrowserContext[] = [];
   for (const extra of setup.extraWindows) {

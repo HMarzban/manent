@@ -1,7 +1,6 @@
 import type { TourScenario } from "../../format.ts";
 import { FERRY } from "../documents.ts";
 import { setupOf } from "../setup.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_VERSION_LINK: TourScenario = {
   id: "history-version-link",
@@ -34,5 +33,5 @@ export const HISTORY_VERSION_LINK: TourScenario = {
   ],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

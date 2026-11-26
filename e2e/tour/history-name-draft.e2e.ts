@@ -1,4 +1,5 @@
 import { HISTORY_WORDS } from "@manent/ui";
+import { expect } from "@playwright/test";
 import { expectEvidence, tourScenario } from "../support/tour.ts";
 
 tourScenario("history-name-draft", async ({ page, scenario, step }) => {
@@ -9,6 +10,6 @@ tourScenario("history-name-draft", async ({ page, scenario, step }) => {
   await field.fill("Table read draft");
   await field.press("Enter");
   const list = await step(1);
-  await list.getByText("Table read draft").first().scrollIntoViewIfNeeded();
+  await expect(list.getByText("Table read draft").first()).toBeVisible();
   await expectEvidence([page], scenario);
 });

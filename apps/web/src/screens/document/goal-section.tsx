@@ -93,7 +93,10 @@ export function GoalSection(props: { docId: string }): ReactNode {
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-3">
+    <div
+      data-tour="script.goal"
+      className="flex flex-col gap-2 border-t border-line pt-3"
+    >
       <div className="flex flex-col gap-0.5">
         <h3 className="text-ui font-semibold text-fg">
           {WRITING_TOOLS_WORDS.goal}
@@ -135,6 +138,7 @@ export function GoalSection(props: { docId: string }): ReactNode {
         <Button
           variant="outline"
           size="sm"
+          data-tour="sprint.start"
           aria-disabled={sprintRunning ? true : undefined}
           aria-describedby={sprintRunning ? reasonId : undefined}
           className={

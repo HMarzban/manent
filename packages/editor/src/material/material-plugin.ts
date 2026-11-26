@@ -122,7 +122,7 @@ function markerOf(options: MaterialOptions): Marker {
         button.contentEditable = "false";
         button.textContent = text;
         button.setAttribute("aria-label", name);
-        button.dataset.tour = "alternates";
+        button.dataset.tour = "alternate.show";
         Object.assign(button.style, {
           position: "absolute",
           insetInlineStart: "0.5rem",

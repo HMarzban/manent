@@ -217,8 +217,7 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
     case "marks_not_collated":
       return line(marks(fact), [SHOW_COLLATED]);
     case "role_comment":
-      // nothing in the app takes a comment yet, so the line promises none
-      return line("View only");
+      return line("View only — you can comment");
     case "reader_draft":
       return line(`${fact.name}, ${fact.date}`, [
         {

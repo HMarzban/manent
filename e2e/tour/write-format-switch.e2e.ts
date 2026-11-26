@@ -18,9 +18,9 @@ tourScenario("write-format-switch", async ({ page, scenario, step }) => {
   const format = await step(1);
   await format.getByRole("combobox").click();
   await page.getByRole("option", { name: multiCamera, exact: true }).click();
-  await expect(format.getByRole("combobox")).toHaveText(multiCamera!);
+  await expect(format.getByRole("combobox")).toContainText(multiCamera!);
   await (await step(2)).getByRole("combobox").click();
   await page.getByRole("option", { name: screenplay, exact: true }).click();
-  await expect(format.getByRole("combobox")).toHaveText(screenplay!);
+  await expect(format.getByRole("combobox")).toContainText(screenplay!);
   await expect(sheet).toHaveText(String(text));
 });

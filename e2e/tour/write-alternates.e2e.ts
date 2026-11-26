@@ -17,8 +17,9 @@ tourScenario("write-alternates", async ({ page, scenario, step }) => {
   await settled(page);
   await expectEvidence([page], { ...scenario, evidence: [marker!] });
   await selectTourStep(page, scenario.promise, 0);
-  await page.getByRole("button", { name: "Script" }).click();
-  await (await step(0)).click();
+  await step(0);
+  await selectTourStep(page, scenario.promise, 1);
+  await joke.locator("[data-tour='alternate.show']").click();
   const popover = await step(1);
   await popover
     .locator("li", {
@@ -27,6 +28,13 @@ tourScenario("write-alternates", async ({ page, scenario, step }) => {
     .getByRole("button", { name: "Use this" })
     .click();
   await expectEvidence([page], { ...scenario, evidence: [swapped!] });
+  await selectTourStep(page, scenario.promise, 2);
+  const cutsTab = page.locator("[data-tour='tab:cuts']");
+  if (!(await cutsTab.isVisible())) {
+    await page.keyboard.press("ControlOrMeta+k");
+    await page.getByRole("combobox").first().fill("Left panel");
+    await page.locator('[data-tour="view.leftPanel"]').first().click();
+  }
   await (await step(2)).click();
   await page
     .locator("[data-region='left_panel']")

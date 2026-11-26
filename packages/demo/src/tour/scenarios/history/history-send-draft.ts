@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { FERRY } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_SEND_DRAFT: TourScenario = {
   id: "history-send-draft",
@@ -39,5 +38,5 @@ export const HISTORY_SEND_DRAFT: TourScenario = {
   ],
   fresh: true,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };
