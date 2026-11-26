@@ -26,9 +26,12 @@ import {
   RELAYED_CONTROL_KINDS,
   createPrompterControlHttpProxy,
   createPrompterRelay,
+  createShellChannel,
   relayControl,
 } from "../src/index.ts";
 import type { Editor, NodeCoreOptions, UpstreamFactory } from "../src/index.ts";
+import { composeNodeServices } from "../src/node/services.ts";
+import type { NodeServiceDeps } from "../src/node/services.ts";
 import { createMemoryRecords } from "../src/testing/index.ts";
 
 type RemoteScrollValue = ReturnType<
@@ -476,4 +479,163 @@ test("createPrompterControlHttpProxy proxies synced rundowns (static + parameter
   expect(relBody.operator).toBeNull();
 
   prompter.stop();
+});
+
+test("composeNodeServices wires prompter control HTTP forwarding for both static and parameterized routes", async () => {
+  const fc = fakeClock(200_000);
+  const storage = createMemoryStorage({ now: () => fc.clock.now() });
+  const records = createMemoryRecords();
+  const sessions = createSignedSessionStore({
+    secret: records.secret(),
+    now: fc.clock.now,
+  });
+  records.savePerson({
+    userId: "sam",
+    name: "Sam",
+    wantsCloud: true,
+    cloudToken: "cloud-tok-sam",
+    chosenAt: 1,
+  });
+  records.setDocState(SYNCED_RUNDOWN, "sam", "synced", 1);
+
+  const forwarded: { method: string; path: string }[] = [];
+  const cloud = {
+    async forward(_token: string, request: Request) {
+      const url = new URL(request.url);
+      forwarded.push({
+        method: request.method,
+        path: `${url.pathname}${url.search}`,
+      });
+      return Response.json({ proxied: true, path: url.pathname });
+    },
+  } as unknown as NodeCoreOptions["cloud"];
+
+  let idSeq = 0;
+  let sync!: ReturnType<typeof createSyncService>;
+  const composed = composeNodeServices({
+    nodeUrl: "http://127.0.0.1:41234",
+    storage,
+    records,
+    cloud,
+    upstream: {
+      create() {
+        throw new Error("upstream not used");
+      },
+      store() {
+        throw new Error("store not used");
+      },
+    },
+    clock: fc.clock,
+    defer: fc.defer,
+    random: {
+      next: () => 0.5,
+      clientId: () => 1,
+      bytes: (n: number) => new Uint8Array(n),
+    },
+    directory: {
+      user: (id: string) => ({ userId: id, name: "Sam" }),
+      workspace: () => null,
+    } as unknown as NodeCoreOptions["directory"],
+    registry: {
+      get: () => undefined,
+      validate: () => ({ ok: true }),
+    } as unknown as NodeCoreOptions["registry"],
+    sessions,
+    ids: () => `id-${++idSeq}`,
+    sync: () => sync,
+    shell: createShellChannel({ clock: fc.clock, heartbeatMs: 30_000 }).shell,
+    clientOf: () => null,
+    reserveClientId: async () => null,
+  } as unknown as NodeServiceDeps);
+  sync = createSyncService({
+    storage,
+    clock: fc.clock,
+    defer: fc.defer,
+    ids: () => `s-${++idSeq}`,
+    versions: { current: V1, min: V1 },
+    ...composed.sync,
+  });
+  sync.access.create("sam", {
+    docId: LOCAL_RUNDOWN,
+    kind: "rundown",
+    home: `project:${PROJECT}`,
+  });
+  storage.directory.setRole(LOCAL_RUNDOWN, "sam", "owner", [
+    "edit_rundowns",
+    "send_to_prompter",
+  ]);
+
+  const token = sessions.issue("sam");
+  const auth = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  // Synced rundown: static and parameterized routes both proxy to cloud through composed.forward
+  const syncStatic = await composed.forward(
+    new Request(
+      `http://127.0.0.1/api/prompter/control?docId=${SYNCED_RUNDOWN}`,
+      { headers: auth },
+    ),
+  );
+  expect(syncStatic?.status).toBe(200);
+  const syncParamTake = await composed.forward(
+    new Request(
+      `http://127.0.0.1/api/prompter/${SYNCED_RUNDOWN}/operator/take`,
+      {
+        method: "POST",
+        headers: auth,
+        body: JSON.stringify({ deviceId: "d1", expectedUserId: null }),
+      },
+    ),
+  );
+  expect(syncParamTake?.status).toBe(200);
+  const syncParamCtrl = await composed.forward(
+    new Request(`http://127.0.0.1/api/prompter/${SYNCED_RUNDOWN}/control`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ action: "play", deviceId: "d1" }),
+    }),
+  );
+  expect(syncParamCtrl?.status).toBe(200);
+  expect(forwarded).toEqual([
+    { method: "GET", path: `/api/prompter/control?docId=${SYNCED_RUNDOWN}` },
+    {
+      method: "POST",
+      path: `/api/prompter/${SYNCED_RUNDOWN}/operator/take`,
+    },
+    { method: "POST", path: `/api/prompter/${SYNCED_RUNDOWN}/control` },
+  ]);
+
+  // Local rundown: static and parameterized routes hit localPrompter directly through composed.forward
+  const localTake = await composed.forward(
+    new Request(
+      `http://127.0.0.1/api/prompter/${LOCAL_RUNDOWN}/operator/take`,
+      {
+        method: "POST",
+        headers: auth,
+        body: JSON.stringify({ deviceId: "d1", expectedUserId: null }),
+      },
+    ),
+  );
+  expect(localTake?.status).toBe(200);
+  const taken = (await localTake!.json()) as {
+    operator: PrompterOperator | null;
+  };
+  expect(taken.operator?.userId).toBe("sam");
+
+  const localStatus = await composed.forward(
+    new Request(
+      `http://127.0.0.1/api/prompter/control?docId=${LOCAL_RUNDOWN}`,
+      { headers: auth },
+    ),
+  );
+  expect(localStatus?.status).toBe(200);
+  const statusBody = (await localStatus!.json()) as {
+    operator: PrompterOperator | null;
+  };
+  expect(statusBody.operator?.deviceId).toBe("d1");
+
+  composed.stop();
+  composed.config.prompter?.stop();
 });

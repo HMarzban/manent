@@ -3,6 +3,7 @@ import {
   createHistoryService,
   createPrompterService,
 } from "@manent/server-core";
+import { createPrompterControlHttpProxy } from "../../relay/prompter-control-relay.ts";
 import { createPrompterRelay } from "../../relay/prompter-relay.ts";
 import type { NodeService } from "../services.ts";
 
@@ -10,6 +11,8 @@ export const prompterService: NodeService = {
   create({
     storage,
     records,
+    sessions,
+    cloud,
     upstream,
     sync,
     clock,
@@ -33,6 +36,12 @@ export const prompterService: NodeService = {
       clock,
       airWindowOf: airWindows?.windowOf ?? (() => null),
     });
+    const forward = createPrompterControlHttpProxy({
+      records,
+      sessions,
+      cloud,
+      localPrompter: prompter,
+    });
     return {
       hooks: [prompter.hooks],
       config: {
@@ -44,6 +53,7 @@ export const prompterService: NodeService = {
           },
         },
       },
+      forward,
       prompterSubscribe(sub) {
         if (records.docState(sub.message.docId) !== null) {
           relay.subscribe(sub);
