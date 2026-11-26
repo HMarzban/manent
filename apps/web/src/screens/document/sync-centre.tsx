@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { CommandAction } from "./status-bar.tsx";
+import { isStatusSettled } from "./status-writer.ts";
 
 /** The line under a status the person may not understand; null for every other status. */
 function explanation(facts: StatusFacts): string | null {
@@ -59,8 +60,7 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
   const receipts = useSyncExternalStore(messages.subscribe, messages.receipts);
   const words = statusText(facts);
   const line = explanation(facts);
-  const settled =
-    !facts.neverSynced && waiting.length === 0 && facts.toReview === 0;
+  const settled = isStatusSettled(facts) && waiting.length === 0;
   return (
     <>
       <Part className="gap-1">

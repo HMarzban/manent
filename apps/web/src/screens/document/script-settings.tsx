@@ -16,12 +16,17 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { ChevronRightIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { SCRIPT_SETTING_ROWS } from "./script-setting-rows.ts";
-import { SCRIPT_SETTINGS_PART } from "./script-settings-part.ts";
+import {
+  SCRIPT_SETTINGS_PART,
+  consumeScriptSettingsOpen,
+  hasPendingScriptSettingsOpen,
+  subscribeScriptSettingsOpen,
+} from "./script-settings-part.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { announcing, nameOf, valueLabel } from "./setting-messages.ts";
 
@@ -97,11 +102,30 @@ function SetBy(props: {
   return null;
 }
 
-/** The Script scope's own group: open, with its scope line, its groups of rows, and a link to the person's own preferences. */
+/** Concise summary shown while Script settings is collapsed, e.g. "Screenplay · US Letter". */
+function Summary(): ReactNode {
+  const format = useSetting("script.format");
+  const paper = useSetting("script.paper");
+  const formatText = valueLabel("script.format", format, "row");
+  const text = appliesToFormat("script.paper", format)
+    ? `${formatText} · ${valueLabel("script.paper", paper, "row")}`
+    : formatText;
+  return <p className="ps-5 text-meta text-fg-muted">{text}</p>;
+}
+
+/**
+ * The Script scope's own group: collapsed by default with a concise summary so Production, Checks, Numbers and Goal
+ * sit above the fold; opens automatically when `doc.scriptSettings` moves focus to it.
+ */
 export function ScriptSettings(props: { docId: string }): ReactNode {
   const { docId } = props;
   const services = useServices();
   const doc = useOpenDocument(docId);
+  const [open, setOpen] = useState(hasPendingScriptSettingsOpen);
+  useEffect(() => {
+    if (consumeScriptSettingsOpen()) setOpen(true);
+    return subscribeScriptSettingsOpen(() => setOpen(true));
+  }, []);
   const titleSource = useMemo(
     () => services.library.documentTitle(docId),
     [services, docId],
@@ -113,37 +137,39 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
   );
   if (doc === null) return null;
   return (
-    <Collapsible
-      defaultOpen
-      {...{ [SCRIPT_SETTINGS_PART]: "" }}
-      className="flex flex-col gap-2"
-    >
-      {/* a quiet row, its chevron where the rows' words begin */}
-      <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
-        <ChevronRightIcon
-          aria-hidden="true"
-          className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/disclosure:text-fg group-data-panel-open/disclosure:rotate-90 motion-safe:transition-transform"
-        />
-        {DOCUMENT_WORDS.scriptSettingsHeading}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="flex animate-in flex-col gap-2 duration-(--dur-fast) ease-out fade-in-0">
-        <p className="text-meta text-fg-muted">
-          {DOCUMENT_WORDS.scriptScopeLine(title)}
-        </p>
-        <ReadOnlyLine doc={doc} />
-        <SettingsProvider store={store}>
+    <SettingsProvider store={store}>
+      <Collapsible
+        open={open}
+        onOpenChange={setOpen}
+        {...{ [SCRIPT_SETTINGS_PART]: "" }}
+        className="flex flex-col gap-2"
+      >
+        {/* a quiet row, its chevron where the rows' words begin */}
+        <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
+          <ChevronRightIcon
+            aria-hidden="true"
+            className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/disclosure:text-fg group-data-panel-open/disclosure:rotate-90 motion-safe:transition-transform"
+          />
+          {DOCUMENT_WORDS.scriptSettingsHeading}
+        </CollapsibleTrigger>
+        {open ? null : <Summary />}
+        <CollapsibleContent className="flex animate-in flex-col gap-2 duration-(--dur-fast) ease-out fade-in-0">
+          <p className="text-meta text-fg-muted">
+            {DOCUMENT_WORDS.scriptScopeLine(title)}
+          </p>
+          <ReadOnlyLine doc={doc} />
           <Groups doc={doc} docId={docId} />
-        </SettingsProvider>
-        <Button
-          variant="link"
-          size="sm"
-          className="self-start"
-          onClick={() => services.commands.run("app.preferences", "control")}
-        >
-          {DOCUMENT_WORDS.ownPreferences}
-        </Button>
-      </CollapsibleContent>
-    </Collapsible>
+          <Button
+            variant="link"
+            size="sm"
+            className="self-start"
+            onClick={() => services.commands.run("app.preferences", "control")}
+          >
+            {DOCUMENT_WORDS.ownPreferences}
+          </Button>
+        </CollapsibleContent>
+      </Collapsible>
+    </SettingsProvider>
   );
 }
 

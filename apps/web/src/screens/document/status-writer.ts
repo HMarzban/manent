@@ -63,6 +63,14 @@ const OFFLINE_REWRITE_MS = 60_000;
 const isBusy = (facts: StatusFacts): boolean =>
   facts.server === "syncing" || facts.waiting > 0;
 
+/** Shared settled predicate for the Title Bar and Sync Centre so both agree on when everything is on the server. */
+export const isStatusSettled = (facts: StatusFacts): boolean =>
+  !facts.neverSynced &&
+  facts.network === "online" &&
+  facts.server === "synced" &&
+  !isBusy(facts) &&
+  facts.toReview === 0;
+
 const isSameWords = (a: StatusWords, b: StatusWords): boolean =>
   a.device === b.device &&
   a.server === b.server &&

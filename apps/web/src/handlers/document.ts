@@ -1,7 +1,10 @@
 // An open document's commands: its panels, History, Script settings and its name.
 import type { CommandHandlers, PanelId } from "@manent/commands";
 import { DOCUMENT_WORDS } from "@manent/ui";
-import { SCRIPT_SETTINGS_PART } from "../screens/document/script-settings-part.ts";
+import {
+  SCRIPT_SETTINGS_PART,
+  requestScriptSettingsOpen,
+} from "../screens/document/script-settings-part.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import { renameActions } from "../state/rename.store.ts";
 import type { HandlerDeps } from "./index.ts";
@@ -31,7 +34,10 @@ export function documentHandlers(
     "view.leftPanel": toggle("left", "scenes", DOCUMENT_WORDS.leftPanel),
     "view.sidePanel": toggle("side", "details", DOCUMENT_WORDS.sidePanel),
     "history.open": openSide("history"),
-    "doc.scriptSettings": openSide("details", `[${SCRIPT_SETTINGS_PART}]`),
+    "doc.scriptSettings"() {
+      requestScriptSettingsOpen();
+      openSide("details", `[${SCRIPT_SETTINGS_PART}]`)();
+    },
     "doc.rename"() {
       const { docId } = shellState();
       if (docId === null) return;

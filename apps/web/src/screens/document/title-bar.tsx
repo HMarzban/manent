@@ -48,8 +48,9 @@ export function useDocumentTitle(docId: string): string {
 /**
  * Share runs `share.open`, and is drawn while the command is visible. While it cannot run it stays in the bar,
  * focusable, and says why in its tooltip and description, as a command's button does; a press then gives the reason.
+ * View/comment roles see a quiet ghost button rather than a bordered primary control.
  */
-function ShareButton(): ReactNode {
+function ShareButton(props: { canEdit: boolean }): ReactNode {
   const { service } = useCommands();
   const state = useCommandState("share.open");
   const reasonId = useId();
@@ -64,7 +65,10 @@ function ShareButton(): ReactNode {
         <TooltipTrigger
           render={
             <Button
-              variant="outline"
+              variant={props.canEdit ? "outline" : "ghost"}
+              className={
+                props.canEdit ? undefined : "text-fg-muted hover:text-fg"
+              }
               data-tour="share"
               aria-disabled={reason === null ? undefined : true}
               aria-describedby={reason === null ? undefined : reasonId}
@@ -96,6 +100,7 @@ export function TitleBar(props: {
   const { docId, doc } = props;
   const router = useRouter();
   const title = useDocumentTitle(docId);
+  const canEdit = useSubscribable(doc.status).access === "edit";
   const renaming = useRenaming() === docId;
   useFocusAfterRename(renaming);
   return (
@@ -132,7 +137,7 @@ export function TitleBar(props: {
       <StatusButton doc={doc} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <People docId={docId} people={doc.people} viewers={doc.viewers} />
-        <ShareButton />
+        <ShareButton canEdit={canEdit} />
       </div>
     </ShellRegion>
   );

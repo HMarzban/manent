@@ -9,6 +9,22 @@ import type { StateLine } from "./state-line.ts";
 
 const ACTION_LIMIT = 2;
 const ACTION_VARIANTS = ["outline", "ghost"] as const;
+const OVER_MARKER = " · Over ";
+
+function renderSentence(line: StateLine): ReactNode {
+  if (line.attention) return line.sentence;
+  const overAt = line.sentence.indexOf(OVER_MARKER);
+  if (overAt === -1) return line.sentence;
+  const splitAt = overAt + 3;
+  return (
+    <>
+      {line.sentence.slice(0, splitAt)}
+      <span className="font-medium text-attention">
+        {line.sentence.slice(splitAt)}
+      </span>
+    </>
+  );
+}
 
 interface StateBarProps {
   left: StateLine | null;
@@ -45,8 +61,11 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
       {line.chip === null ? null : (
         <span data-rev={line.chip} aria-hidden="true" className="mn-rev-chip" />
       )}
-      <span className="truncate" title={line.sentence}>
-        {line.sentence}
+      <span
+        className="max-sm:whitespace-normal sm:truncate"
+        title={line.sentence}
+      >
+        {renderSentence(line)}
       </span>
       {line.actions
         .filter((action) => registered(action.commandId))
@@ -80,6 +99,13 @@ export function StateBar({
   registered,
 }: StateBarProps): ReactNode {
   if (left === null && right === null) return null;
+  const soloRightAsLeft =
+    left === null &&
+    right !== null &&
+    right.actions.length === 0 &&
+    right.dismiss === null;
+  const shownLeft = soloRightAsLeft ? right : left;
+  const shownRight = soloRightAsLeft ? null : right;
   return (
     <div
       role="status"
@@ -87,8 +113,8 @@ export function StateBar({
       data-tour="state_bar"
       className="flex min-h-statebar flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-chrome px-3 py-1 text-ui animate-in fade-in-0 duration-(--dur-fast) ease-out"
     >
-      <StateSide line={left} run={run} registered={registered} />
-      <StateSide line={right} run={run} registered={registered} />
+      <StateSide line={shownLeft} run={run} registered={registered} />
+      <StateSide line={shownRight} run={run} registered={registered} />
     </div>
   );
 }

@@ -187,22 +187,25 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
       return line(timing(fact));
     case "recall": {
       const revision = facts.find((f) => f.kind === "revision");
-      return line(
-        fact.people === 1
-          ? `${fact.name} issued ${fact.at} to 1 person`
-          : `${fact.name} issued ${fact.at} to ${formatCount(fact.people)} people`,
-        [
-          { label: `Recall ${fact.name}…`, commandId: "production.recall" },
-          ...(revision !== undefined && revision.pages > 0
-            ? [
-                {
-                  label: `Issue ${revision.name}…`,
-                  commandId: "production.issue",
-                },
-              ]
-            : []),
-        ],
-      );
+      return {
+        ...line(
+          fact.people === 1
+            ? `${fact.name.toUpperCase()} issued ${fact.at} to 1 person`
+            : `${fact.name.toUpperCase()} issued ${fact.at} to ${formatCount(fact.people)} people`,
+          [
+            ...(revision !== undefined && revision.pages > 0
+              ? [
+                  {
+                    label: `Issue ${revision.name}…`,
+                    commandId: "production.issue",
+                  },
+                ]
+              : []),
+            { label: `Recall ${fact.name}…`, commandId: "production.recall" },
+          ],
+        ),
+        chip: fact.colour,
+      };
     }
     case "revision":
       return {

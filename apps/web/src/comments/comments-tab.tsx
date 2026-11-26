@@ -1,6 +1,12 @@
 // The right panel's Comments tab: exclusive filters (Open, Mine, Writers only, rounds), thread rows and empty states.
 import type { Choice, SettingValue } from "@manent/settings";
-import { COMMENTS_WORDS, HISTORY_WORDS, Segmented, Skeleton } from "@manent/ui";
+import {
+  COMMENTS_WORDS,
+  HISTORY_WORDS,
+  Segmented,
+  Skeleton,
+  WRITING_WORDS,
+} from "@manent/ui";
 import { MessageSquareIcon } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -95,6 +101,9 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
         />
         {rounds.length === 0 ? null : (
           <div className="flex flex-col gap-0.5">
+            <h3 className="mn-group-label px-0 pt-1">
+              {WRITING_WORDS.reviewRounds}
+            </h3>
             {rounds.map(({ id, round }) => (
               <RoundRow
                 key={id}

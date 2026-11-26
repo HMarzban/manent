@@ -25,7 +25,8 @@ test("the state bar shows one sentence a side, the first in its order", () => {
       },
     ]).left,
   ).toMatchObject({
-    sentence: "Blue issued Mon 22:41 to 131 people",
+    sentence: "BLUE issued Mon 22:41 to 131 people",
+    chip: "blue",
     actions: [{ label: "Recall Blue…" }],
   });
   expect(
@@ -109,7 +110,7 @@ test("each side keeps its own order whatever order the facts arrive in", () => {
     "View only — you can comment",
     "Showing all revisions",
     "PINK revision · started 16 Nov 2026 · 14 pages revised",
-    "Blue issued Mon 22:41 to 131 people",
+    "BLUE issued Mon 22:41 to 131 people",
     "Air 23:35 · Target 42:00 · Over 0:48",
     "Air 23:35 · Target 42:00 · Over 0:48 · In the air window — prompter text changes only when you send it.",
   ]);
@@ -262,9 +263,11 @@ test("each state-bar fact reads as the design writes it, with its actions", () =
       attention: true,
     },
     {
-      sentence: "Blue issued Mon 22:41 to 1 person",
+      sentence: "BLUE issued Mon 22:41 to 1 person",
       actions: [{ label: "Recall Blue…", commandId: "production.recall" }],
-      ...plain,
+      chip: "blue",
+      dismiss: null,
+      attention: false,
     },
     {
       sentence: "PINK revision · started 16 Nov 2026 · 14 pages revised",

@@ -4,6 +4,7 @@ import {
   Button,
   CommandMenu,
   DOCUMENT_WORDS,
+  INK_WORDS,
   MessageSlot,
   READOUT_WORDS,
   useSubscribable,
@@ -93,16 +94,37 @@ export function ElementReadout(props: { docId: string }): ReactNode {
   );
 }
 
-/** The caret's page, which opens Details at the script. */
+/** 1-based Ink line index for `blockId` when an Ink script is mounted on the page; null for paged scripts. */
+function inkLineNumber(blockId: string | null): number | null {
+  if (typeof document === "undefined") return null;
+  const lines = document.querySelectorAll(
+    '[data-region="page"] [data-type="ink_line"]',
+  );
+  if (lines.length === 0) return null;
+  if (blockId !== null) {
+    for (let i = 0; i < lines.length; i += 1) {
+      if (lines[i]?.getAttribute("data-id") === blockId) return i + 1;
+    }
+  }
+  return 1;
+}
+
+/** The caret's page (or Ink line number when unpaged), which opens Details at the script. */
 export function PageReadout(): ReactNode {
   const { frame } = useEnvironment();
+  const page = useEditorFact("page");
+  const pageCount = useEditorFact("pageCount");
+  const blockId = useEditorFact("blockId");
   const readout = pageReadoutOf({
-    page: useEditorFact("page"),
-    pageCount: useEditorFact("pageCount"),
+    page,
+    pageCount,
     pageRevision: useEditorFact("pageRevision"),
     pageOrdinal: useEditorFact("pageOrdinal"),
   });
-  if (readout === null) return null;
+  const inkLine = readout === null ? inkLineNumber(blockId) : null;
+  const text =
+    readout ?? (inkLine === null ? null : INK_WORDS.lineDescription(inkLine));
+  if (text === null) return null;
   return (
     <Button
       variant="ghost"
@@ -111,7 +133,7 @@ export function PageReadout(): ReactNode {
       className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
       onClick={() => openDetailsAt("script", frame)}
     >
-      {readout}
+      {text}
     </Button>
   );
 }
@@ -146,7 +168,9 @@ export function StatusBar(props: { readouts: ReactNode }): ReactNode {
       className="flex h-statusbar items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui"
     >
       {props.readouts}
-      <MessageSlot queue={messages} run={run} registered={registered} />
+      <div className="flex min-w-0 flex-1 items-center border-s border-line ps-2">
+        <MessageSlot queue={messages} run={run} registered={registered} />
+      </div>
       <CommandMenu
         menu="view"
         label={DOCUMENT_WORDS.viewMenu}

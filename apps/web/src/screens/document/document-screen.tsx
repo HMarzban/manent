@@ -3,13 +3,16 @@
 import { DEMO_PEOPLE } from "@manent/demo";
 import type { DocKind } from "@manent/sync-protocol";
 import {
+  Button,
   DOCUMENT_WORDS,
+  LIBRARY_WORDS,
+  WRITING_WORDS,
   createValue,
   messageFor,
   useSubscribable,
 } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
-import { getRouteApi } from "@tanstack/react-router";
+import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { LockIcon } from "lucide-react";
 import {
   Suspense,
@@ -22,11 +25,13 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { SelectionToolbar } from "../../selection/selection-toolbar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { chooseUrl, readPerson } from "../../session.ts";
 import { ShareDialog } from "../../sharing/share-dialog.tsx";
 import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
@@ -175,14 +180,80 @@ function useTestStatus(
   return status ?? source;
 }
 
-/** A person whose access was removed sees why in the page's place, with what can still be done with the changes not sent. */
+/** A person whose access was removed — or a browser-only session opening an absent doc — sees why in the page's place. */
 function NoAccess(props: {
   docId: string;
   status: Subscribable<StatusFacts>;
 }): ReactNode {
+  const { docId } = props;
   const facts = useSubscribable(props.status);
-  const title = useDocumentTitle(props.docId);
-  if (facts.server !== "access_removed") return null;
+  const title = useDocumentTitle(docId);
+  const router = useRouter();
+  const { tabStorage } = useEnvironment();
+  const { library, ready } = useServices();
+  const [libraryReady, setLibraryReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void ready.then(() => {
+      if (live) setLibraryReady(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [ready]);
+  const titleSource = useMemo(
+    () => library.documentTitle(docId),
+    [library, docId],
+  );
+  const kindSource = useMemo(() => library.docKindOf(docId), [library, docId]);
+  const indexedTitle = useSubscribable(titleSource);
+  const indexedKind = useSubscribable(kindSource);
+  const person = readPerson(tabStorage);
+  const missingLocal =
+    libraryReady &&
+    person !== null &&
+    person.token === null &&
+    facts.neverSynced &&
+    indexedTitle === null &&
+    indexedKind === null;
+
+  if (facts.server !== "access_removed" && !missingLocal) return null;
+
+  if (missingLocal) {
+    return (
+      <div
+        className="z-10 flex min-h-0 flex-1 overflow-y-auto bg-desk p-6 text-ui"
+        style={PAGE_AREA}
+      >
+        <div className="flex min-h-full w-full flex-col items-center justify-center">
+          <EmptyHeroCard
+            icon={<LockIcon aria-hidden="true" className="size-5" />}
+            title={LIBRARY_WORDS.notOnDevice}
+            description={WRITING_WORDS.notOnDeviceBody}
+            actions={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  variant="default"
+                  onClick={() =>
+                    void router.navigate({ href: chooseUrl(`/s/${docId}`) })
+                  }
+                >
+                  {WRITING_WORDS.choosePerson}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void router.navigate({ href: "/" })}
+                >
+                  {WRITING_WORDS.backToLibrary}
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
   const { actions } = messageFor({
     kind: "access_removed",
     title,

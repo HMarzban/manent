@@ -1,7 +1,7 @@
 // Reading a document without editing it: its blocks as the server projects them, never a CRDT
 // document, a state vector or awareness.
 import type { BlockJSON, TextJSON } from "@manent/schema";
-import { CODE } from "@manent/sync-protocol";
+import { CODE, DOC_ROLES } from "@manent/sync-protocol";
 import type { DocRole, DocumentMessage, Message } from "@manent/sync-protocol";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import { HANDSHAKE_TIMEOUT_MS } from "../ports/defaults.ts";
@@ -143,6 +143,14 @@ function readViewPatch(bytes: Uint8Array): ViewPatch | null {
     : null;
 }
 
+/** The updated role carried by a `membership_changed` CONTROL payload, null on removal, or undefined for an empty/foreign payload. */
+function readMembershipRole(bytes: Uint8Array): DocRole | null | undefined {
+  const value = readJson(bytes);
+  if (!isFields(value) || !("role" in value)) return undefined;
+  if (value.role === null) return null;
+  return DOC_ROLES.find((role) => role === value.role);
+}
+
 /** A reader of one document as its client drives it. */
 export interface Viewer {
   readonly handle: ViewHandle;
@@ -214,8 +222,14 @@ class DocViewer implements Viewer {
     if (m.type === "SUBSCRIBED") {
       this.wait(null);
       this.status.set({ ...this.status.get(), role: m.role });
-    } else if (m.type === "CONTROL") this.viewers.control(m);
-    else if (m.type === "VIEW_SNAPSHOT")
+    } else if (m.type === "CONTROL") {
+      this.viewers.control(m);
+      if (m.kind === "membership_changed") {
+        const nextRole = readMembershipRole(m.data);
+        if (nextRole !== undefined && nextRole !== this.status.get().role)
+          this.status.set({ ...this.status.get(), role: nextRole });
+      }
+    } else if (m.type === "VIEW_SNAPSHOT")
       this.show(readViewSnapshot(m.content)?.blocks ?? null);
     else if (m.type === "VIEW_PATCH" && this.status.get().live) {
       const patch = readViewPatch(m.patch);
