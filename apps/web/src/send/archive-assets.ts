@@ -1,7 +1,7 @@
-// Collects project binary assets referenced by archive documents for `writeArchive({ assets })`.
-import type { StoredAssetRecord } from "@manent/client-web";
+// Collects project-scoped binary assets referenced by archive documents for `writeArchive({ assets })`.
+import type { IdbAssetStore, StoredAssetRecord } from "@manent/client-web";
 import type { ArchiveAsset, ArchiveDocument } from "@manent/formats";
-import { getProjectAssetUploader } from "../editor-host/graphics-bridge.ts";
+import { getProjectAssetUploader } from "../editor-host/asset-pool.ts";
 import type { PersonServices } from "../services/ports.ts";
 
 export interface ArchiveAssetReader {
@@ -52,7 +52,20 @@ export async function collectArchiveAssets(
   return collected;
 }
 
-/** Loads archive assets for `projectId` from IndexedDB (falling back to online fetch if available). */
+/** Project-scoped adapter wrapping an `IdbAssetStore` as an `ArchiveAssetReader` (rejects cross-project records). */
+export function archiveAssetReaderFromStore(
+  store: IdbAssetStore,
+  projectId: string,
+): ArchiveAssetReader {
+  return {
+    async readAsset(assetId) {
+      const record = await store.getAsset(assetId, { touch: false });
+      return record !== null && record.projectId === projectId ? record : null;
+    },
+  };
+}
+
+/** Loads archive assets strictly scoped to `projectId` from IndexedDB (falling back to online fetch when absent). */
 export async function loadArchiveAssetsForProject(
   services: {
     readonly userId: string;
@@ -68,9 +81,12 @@ export async function loadArchiveAssetsForProject(
   return collectArchiveAssets(documents, {
     async readAsset(assetId) {
       const local = await pooled.store.getAsset(assetId, { touch: false });
-      if (local !== null) return local;
+      if (local !== null) return local.projectId === projectId ? local : null;
       await pooled.uploader.resolveAssetUrl(assetId);
-      return pooled.store.getAsset(assetId, { touch: false });
+      const fetched = await pooled.store.getAsset(assetId, { touch: false });
+      return fetched !== null && fetched.projectId === projectId
+        ? fetched
+        : null;
     },
   });
 }

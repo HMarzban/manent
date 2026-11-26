@@ -1,10 +1,10 @@
-// Resolves project assets referenced by paginated graphic blocks for PDFKit export,
-// lazily transcoding WebP blobs to PNG and omitting unavailable blobs (vector placeholder fallback).
+// Resolves project-scoped assets referenced by paginated graphic blocks for PDFKit export,
+// lazily transcoding WebP blobs to PNG and omitting unavailable or cross-project blobs.
 import type { IdbAssetStore, StoredAssetRecord } from "@manent/client-web";
 import type { PdfAsset } from "@manent/formats";
 import type { Pagination } from "@manent/pagination";
 import { archiveSource } from "../archive/archive-source.ts";
-import { getProjectAssetUploader } from "../editor-host/graphics-bridge.ts";
+import { getProjectAssetUploader } from "../editor-host/asset-pool.ts";
 import { transcodeWebpToPng } from "../graphics/webp-to-png.ts";
 import type { WebpTranscodePorts } from "../graphics/webp-to-png.ts";
 
@@ -44,7 +44,7 @@ export async function collectPdfAssets(
   return assets;
 }
 
-/** Loads PDF assets for an open document from its project's IDB store (fetching online when missing). */
+/** Loads PDF assets for an open document strictly scoped to its project's IDB/server assets. */
 export async function loadPdfAssetsForDoc(
   docId: string,
   pagination: Pagination,
@@ -53,23 +53,33 @@ export async function loadPdfAssetsForDoc(
   if (ids.length === 0) return new Map();
   const services = archiveSource.get();
   if (services === null) return new Map();
-  const projectId = services.library.documentProject(docId).get() ?? docId;
+  const projectId = services.library.documentProject(docId).get();
+  if (projectId === null) return new Map();
   const pooled = await getProjectAssetUploader(services, projectId);
   if (pooled === null) return new Map();
   const reader: PdfAssetReader = {
     async readAsset(assetId) {
       const local = await pooled.store.getAsset(assetId, { touch: false });
-      if (local !== null) return local;
+      if (local !== null) return local.projectId === projectId ? local : null;
       await pooled.uploader.resolveAssetUrl(assetId);
-      return pooled.store.getAsset(assetId, { touch: false });
+      const fetched = await pooled.store.getAsset(assetId, { touch: false });
+      return fetched !== null && fetched.projectId === projectId
+        ? fetched
+        : null;
     },
   };
   return collectPdfAssets(pagination, reader);
 }
 
-/** Helper adapter wrapping an `IdbAssetStore` directly as a `PdfAssetReader`. */
-export function pdfAssetReaderFromStore(store: IdbAssetStore): PdfAssetReader {
+/** Project-scoped adapter wrapping an `IdbAssetStore` as a `PdfAssetReader` (rejects cross-project records). */
+export function pdfAssetReaderFromStore(
+  store: IdbAssetStore,
+  projectId: string,
+): PdfAssetReader {
   return {
-    readAsset: (assetId) => store.getAsset(assetId, { touch: false }),
+    async readAsset(assetId) {
+      const record = await store.getAsset(assetId, { touch: false });
+      return record !== null && record.projectId === projectId ? record : null;
+    },
   };
 }

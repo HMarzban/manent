@@ -20,6 +20,13 @@ import type { GraphicAttrs } from "@manent/schema";
 import { GRAPHICS_WORDS, createMessageQueue } from "@manent/ui";
 import { IDBFactory } from "fake-indexeddb";
 import {
+  assetAuthHeaders,
+  disposeProjectAssetUploaders,
+  getProjectAssetUploader,
+} from "../src/editor-host/asset-pool.ts";
+import {
+  attachGraphicsBridge,
+  graphicAssetPortFor,
   handleDroppedOrPastedImages,
   registerGraphicController,
   syncSelectedGraphic,
@@ -32,13 +39,17 @@ import {
 } from "../src/graphics/insert-graphic.ts";
 import { transcodeWebpToPng } from "../src/graphics/webp-to-png.ts";
 import { DETAILS_SECTIONS } from "../src/screens/document/details-sections.ts";
-import { collectArchiveAssets } from "../src/send/archive-assets.ts";
+import {
+  archiveAssetReaderFromStore,
+  collectArchiveAssets,
+} from "../src/send/archive-assets.ts";
 import {
   collectPdfAssets,
   pdfAssetReaderFromStore,
 } from "../src/send/pdf-assets.ts";
 import { ServicesProvider } from "../src/services/context.tsx";
 import type { PersonServices, ProjectKind } from "../src/services/ports.ts";
+import { tabStorage, writePerson } from "../src/session.ts";
 
 withDom();
 
@@ -148,6 +159,7 @@ function subscribable<T>(value: T) {
 
 function fakeServices(options: {
   projectKind: ProjectKind;
+  projectId?: string | null;
   format?: string;
   access?: "edit" | "view";
 }): PersonServices {
@@ -156,12 +168,14 @@ function fakeServices(options: {
     schedule: () => () => {},
   });
   const access = options.access ?? "edit";
+  const projectId =
+    options.projectId === undefined ? "proj-1" : options.projectId;
   return {
     userId: "user-1",
     messages,
     library: {
       documentKind: () => subscribable(options.projectKind),
-      documentProject: () => subscribable("proj-1"),
+      documentProject: () => subscribable(projectId),
     },
     documents: {
       open: () => ({
@@ -599,7 +613,7 @@ describe("WebP → PNG transcoding, PDF assets and Archive asset bundling", () =
 
     const pdfAssets = await collectPdfAssets(
       pagination,
-      pdfAssetReaderFromStore(store),
+      pdfAssetReaderFromStore(store, "proj-exp"),
       {
         decode: async () => ({ width: 120, height: 90 }),
         encodePng: async () => pngBytes,
@@ -608,6 +622,13 @@ describe("WebP → PNG transcoding, PDF assets and Archive asset bundling", () =
     expect(pdfAssets.get(pngId)?.mime).toBe("image/png");
     expect(pdfAssets.get(webpId)?.mime).toBe("image/png");
     expect(pdfAssets.has(missingId)).toBe(false);
+
+    // Cross-project IDB entries are strictly rejected for PDF export.
+    const crossPdfAssets = await collectPdfAssets(
+      pagination,
+      pdfAssetReaderFromStore(store, "proj-other"),
+    );
+    expect(crossPdfAssets.size).toBe(0);
 
     const docs: ArchiveDocument[] = [
       {
@@ -658,12 +679,19 @@ describe("WebP → PNG transcoding, PDF assets and Archive asset bundling", () =
     ];
     const archiveAssets = await collectArchiveAssets(
       docs,
-      pdfAssetReaderFromStore(store),
+      archiveAssetReaderFromStore(store, "proj-exp"),
     );
     expect(archiveAssets.map((a) => a.mime).toSorted()).toEqual([
       "image/png",
       "image/webp",
     ]);
+
+    // Cross-project IDB entries are strictly rejected for Archive export.
+    const crossArchiveAssets = await collectArchiveAssets(
+      docs,
+      archiveAssetReaderFromStore(store, "proj-other"),
+    );
+    expect(crossArchiveAssets).toEqual([]);
 
     const zip = writeArchive({
       project: "Show",
@@ -676,5 +704,141 @@ describe("WebP → PNG transcoding, PDF assets and Archive asset bundling", () =
     expect(zipText).toContain(`assets/${webpId}.webp`);
 
     await store.close();
+  });
+});
+
+describe("auth headers, drop isolation, pool disposal and project scoping", () => {
+  test("pooled AssetUploader attaches tab session Bearer auth and cleans up on disposeProjectAssetUploaders", async () => {
+    const userId = "u-auth-pool";
+    writePerson(tabStorage(), { userId, token: "tok-secret-42", name: "Ana" });
+    cleanups.push(() => writePerson(tabStorage(), null));
+
+    expect(assetAuthHeaders(userId)).toEqual({
+      Authorization: "Bearer tok-secret-42",
+    });
+    expect(assetAuthHeaders("other-user")).toEqual({});
+
+    const seenAuth: (string | null)[] = [];
+    const createdUrls: string[] = [];
+    const revokedUrls: string[] = [];
+    const onlineListeners = new Set<EventListenerOrEventListenerObject>();
+
+    const pooled = await getProjectAssetUploader({ userId }, "proj-auth", {
+      indexedDb: new IDBFactory(),
+      isOnline: () => true,
+      createObjectURL: () => {
+        const url = `blob:auth/${createdUrls.length + 1}`;
+        createdUrls.push(url);
+        return url;
+      },
+      revokeObjectURL: (url) => revokedUrls.push(url),
+      onlineTarget: {
+        addEventListener(type, listener) {
+          if (type === "online") onlineListeners.add(listener);
+        },
+        removeEventListener(type, listener) {
+          if (type === "online") onlineListeners.delete(listener);
+        },
+      },
+      fetch: async (_input, init) => {
+        seenAuth.push(new Headers(init?.headers).get("Authorization"));
+        return new Response(null, { status: 201 });
+      },
+    });
+    expect(pooled).not.toBeNull();
+    expect(onlineListeners.size).toBe(1);
+
+    let closed = false;
+    const origClose = pooled!.store.close.bind(pooled!.store);
+    pooled!.store.close = async () => {
+      closed = true;
+      await origClose();
+    };
+
+    await pooled!.uploader.stageAsset(makePng(32, 32));
+    await pooled!.uploader.drainPending();
+    expect(seenAuth).toEqual(["Bearer tok-secret-42"]);
+    expect(createdUrls).toEqual(["blob:auth/1"]);
+
+    await disposeProjectAssetUploaders(userId);
+    expect(revokedUrls).toEqual(["blob:auth/1"]);
+    expect(closed).toBe(true);
+    expect(onlineListeners.size).toBe(0);
+  });
+
+  test("dropping an image onto the editor stops propagation so AppShell useFileDrop is never triggered", () => {
+    const shell = document.createElement("div");
+    const editorDom = document.createElement("div");
+    shell.append(editorDom);
+    document.body.append(shell);
+
+    let shellDrops = 0;
+    let shellDragOvers = 0;
+    shell.addEventListener("drop", () => {
+      shellDrops += 1;
+    });
+    shell.addEventListener("dragover", () => {
+      shellDragOvers += 1;
+    });
+
+    const services = fakeServices({ projectKind: "film" });
+    const fakeEditor = {
+      view: {
+        dom: editorDom,
+        state: { selection: { $from: { depth: -1 } } },
+      },
+      insertGraphic: () => true,
+      updateGraphicAttrs: () => true,
+      setGraphicHeightLines: () => true,
+      removeGraphicImage: () => true,
+    } as unknown as Parameters<typeof attachGraphicsBridge>[0]["editor"];
+
+    const stop = attachGraphicsBridge({
+      docId: "doc-bubble",
+      editor: fakeEditor,
+      services,
+      editable: true,
+      stage: stageLocal,
+    });
+    cleanups.push(stop);
+
+    const png = makePng(64, 64);
+    const file = new File([toBuffer(png)], "frame.png", { type: "image/png" });
+    const dragOverEvent = new Event("dragover", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(dragOverEvent, "dataTransfer", {
+      value: { types: ["Files"] },
+    });
+    editorDom.dispatchEvent(dragOverEvent);
+    expect(dragOverEvent.defaultPrevented).toBe(true);
+    expect(shellDragOvers).toBe(0);
+
+    const dropEvent = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvent, "dataTransfer", {
+      value: { files: [file], types: ["Files"] },
+    });
+    editorDom.dispatchEvent(dropEvent);
+    expect(dropEvent.defaultPrevented).toBe(true);
+    expect(shellDrops).toBe(0);
+  });
+
+  test("missing projectId refuses cleanly instead of falling back to docId", async () => {
+    const services = fakeServices({ projectKind: "film", projectId: null });
+    const port = graphicAssetPortFor(services, "doc-orphan");
+    expect(await port.resolveUrl("a".repeat(64))).toBeNull();
+
+    const png = makePng(32, 32);
+    const ok = await insertImageFromPicker(services, "doc-orphan", {
+      pickFile: async () => ({
+        type: "image/png",
+        arrayBuffer: async () => toBuffer(png),
+      }),
+    });
+    expect(ok).toBe(false);
+    expect(services.messages.current()?.text).toBe(
+      GRAPHICS_WORDS.refusals.unsupportedType,
+    );
   });
 });

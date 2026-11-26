@@ -1,16 +1,7 @@
 // Editor-host bridge for inline graphics: per-doc command hooks, selected graphic state,
-// drag-drop/paste image staging, and per-project AssetUploader lifecycle.
-import {
-  AssetValidationError,
-  createAssetUploader,
-  openIdbAssetStore,
-} from "@manent/client-web";
-import type {
-  AssetUploader,
-  AssetValidationReason,
-  IdbAssetStore,
-  StagedAsset,
-} from "@manent/client-web";
+// and isolated drag-drop/paste image staging.
+import { AssetValidationError } from "@manent/client-web";
+import type { StagedAsset } from "@manent/client-web";
 import type {
   GraphicAssetPort,
   InsertGraphicInput,
@@ -18,10 +9,17 @@ import type {
   UpdateGraphicAttrsPatch,
 } from "@manent/editor";
 import type { GraphicAttrs, GraphicKind } from "@manent/schema";
-import { GRAPHICS_WORDS } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
-import { browserStores } from "../services/sync/device-memory.ts";
+import { getProjectAssetUploader } from "./asset-pool.ts";
+import { pushGraphicRefusal } from "./graphic-refusal.ts";
+
+export {
+  assetAuthHeaders,
+  disposeProjectAssetUploaders,
+  getProjectAssetUploader,
+} from "./asset-pool.ts";
+export { graphicRefusalText, pushGraphicRefusal } from "./graphic-refusal.ts";
 
 export interface SelectedGraphicSnapshot {
   readonly blockId: string;
@@ -138,97 +136,19 @@ export const runGraphicRemoveImage = (
   blockId?: string,
 ): boolean => runAndSync(docId, (c) => c.removeGraphicImage(blockId));
 
-/** Maps a local validation failure or server quota refusal to the verified copy in `GRAPHICS_WORDS`. */
-export function graphicRefusalText(
-  reason: AssetValidationReason | "quota_exceeded",
-): string {
-  switch (reason) {
-    case "too_large":
-      return GRAPHICS_WORDS.refusals.tooLarge;
-    case "dimensions_exceeded":
-      return GRAPHICS_WORDS.refusals.dimensionsExceeded;
-    case "quota_exceeded":
-      return GRAPHICS_WORDS.refusals.quotaExceeded;
-    case "empty":
-    case "unsupported_type":
-    case "invalid_header":
-      return GRAPHICS_WORDS.refusals.unsupportedType;
-  }
-}
-
-export function pushGraphicRefusal(
-  messages: MessageQueue,
-  reason: AssetValidationReason | "quota_exceeded",
-): void {
-  messages.push({
-    id: `graphic:${reason}`,
-    text: graphicRefusalText(reason),
-    actions: [],
-    lifetime: "brief",
-    ownWork: false,
-  });
-}
-
-interface PooledUploader {
-  readonly uploader: AssetUploader;
-  readonly store: IdbAssetStore;
-  readonly stopOnline: () => void;
-}
-
-const uploaderPool = new Map<string, Promise<PooledUploader | null>>();
-
-export function getProjectAssetUploader(
-  services: { readonly userId: string; readonly messages?: MessageQueue },
-  projectId: string,
-): Promise<PooledUploader | null> {
-  const key = `${services.userId}:${projectId}`;
-  const existing = uploaderPool.get(key);
-  if (existing !== undefined) return existing;
-  const created = (async (): Promise<PooledUploader | null> => {
-    const indexedDb = browserStores().indexedDb;
-    if (indexedDb === null) return null;
-    const store = await openIdbAssetStore({
-      userId: services.userId,
-      indexedDb,
-    });
-    const uploader = createAssetUploader({
-      projectId,
-      store,
-      onUploadRefused(_assetId, status) {
-        if (status === 413 && services.messages)
-          pushGraphicRefusal(services.messages, "quota_exceeded");
-      },
-    });
-    const onOnline = (): void => {
-      void uploader.notifyOnline();
-    };
-    if (typeof window !== "undefined")
-      window.addEventListener("online", onOnline);
-    return {
-      uploader,
-      store,
-      stopOnline: () => {
-        if (typeof window !== "undefined")
-          window.removeEventListener("online", onOnline);
-      },
-    };
-  })().catch(() => {
-    uploaderPool.delete(key);
-    return null;
-  });
-  uploaderPool.set(key, created);
-  return created;
-}
-
 export function graphicAssetPortFor(
   services: Pick<PersonServices, "userId" | "messages" | "library">,
   docId: string,
 ): GraphicAssetPort {
   return {
     async resolveUrl(assetId) {
-      const projectId = services.library.documentProject(docId).get() ?? docId;
+      const projectId = services.library.documentProject(docId).get();
+      if (projectId === null) return null;
       const pooled = await getProjectAssetUploader(services, projectId);
-      return pooled === null ? null : pooled.uploader.resolveAssetUrl(assetId);
+      if (pooled === null) return null;
+      const local = await pooled.store.getAsset(assetId, { touch: false });
+      if (local !== null && local.projectId !== projectId) return null;
+      return pooled.uploader.resolveAssetUrl(assetId);
     },
   };
 }
@@ -330,12 +250,13 @@ const imageFilesFrom = (list: FileList | null | undefined): File[] =>
     ? []
     : [...list].filter((f) => f.type.startsWith("image/") || f.type === "");
 
-/** Connects one mounted ScriptEditor to the graphics bridge, selection sync, and drag-drop/paste handlers. */
+/** Connects one mounted ScriptEditor to the graphics bridge, selection sync, and isolated drag-drop/paste handlers. */
 export function attachGraphicsBridge(options: {
   readonly docId: string;
   readonly editor: ScriptEditor;
   readonly services: Pick<PersonServices, "userId" | "messages" | "library">;
   readonly editable: boolean;
+  readonly stage?: (bytes: Uint8Array) => Promise<StagedAsset>;
 }): () => void {
   const { docId, editor, services } = options;
   const unregister = registerGraphicController(docId, {
@@ -348,28 +269,39 @@ export function attachGraphicsBridge(options: {
     selectedGraphic: () => readSelectedGraphicFromEditor(editor),
   });
 
-  const stage = async (bytes: Uint8Array): Promise<StagedAsset> => {
-    const projectId = services.library.documentProject(docId).get() ?? docId;
-    const pooled = await getProjectAssetUploader(services, projectId);
-    if (pooled === null)
-      throw new AssetValidationError(
-        "unsupported_type",
-        "Offline asset storage unavailable.",
-      );
-    return pooled.uploader.stageAsset(bytes);
-  };
+  const stage =
+    options.stage ??
+    (async (bytes: Uint8Array): Promise<StagedAsset> => {
+      const projectId = services.library.documentProject(docId).get();
+      if (projectId === null)
+        throw new AssetValidationError(
+          "unsupported_type",
+          "Project is not known for this document.",
+        );
+      const pooled = await getProjectAssetUploader(services, projectId);
+      if (pooled === null)
+        throw new AssetValidationError(
+          "unsupported_type",
+          "Offline asset storage unavailable.",
+        );
+      return pooled.uploader.stageAsset(bytes);
+    });
 
   const dom = editor.view.dom;
   const onSelectSync = (): void => syncSelectedGraphic(docId);
   const onDragOver = (event: DragEvent): void => {
-    if (options.editable && event.dataTransfer?.types.includes("Files"))
+    if (!options.editable) return;
+    if (event.dataTransfer?.types.includes("Files")) {
       event.preventDefault();
+      event.stopPropagation();
+    }
   };
   const ingest = (list: FileList | null | undefined, event: Event): void => {
     if (!options.editable) return;
     const files = imageFilesFrom(list);
     if (files.length === 0) return;
     event.preventDefault();
+    event.stopPropagation();
     void handleDroppedOrPastedImages(files, {
       docId,
       messages: services.messages,

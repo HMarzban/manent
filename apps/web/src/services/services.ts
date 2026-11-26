@@ -265,26 +265,7 @@ function createPersonMounts(
   };
 }
 
-function createSyncedParts(
-  options: Options,
-  sync: PersonDocuments,
-): Pick<
-  PersonServices,
-  | "history"
-  | "openHandle"
-  | "openComments"
-  | "viewComments"
-  | "prompter"
-  | "onDevice"
-  | "waitingDocuments"
-  | "privateIndexSynced"
-  | "projectIndex"
-  | "folders"
-  | "favourites"
-  | "trash"
-  | "documentBlocks"
-  | "createInkProject"
-> {
+function createSyncedParts(options: Options, sync: PersonDocuments) {
   const openHandle = async (docId: string): Promise<DocHandle> =>
     (await sync.client).open(writingActions.openTarget(docId));
   const openComments = async (docId: string, home: string | null) => {
@@ -305,27 +286,29 @@ function createSyncedParts(
     openHandle,
     openComments,
     viewComments,
-    prompter: async (rundownId) => (await sync.client).prompter(rundownId),
-    async onDevice(docIds) {
+    prompter: async (rundownId: string) =>
+      (await sync.client).prompter(rundownId),
+    async onDevice(docIds: readonly string[]): Promise<ReadonlySet<string>> {
       const held = new Set(
         (await (await sync.client).documents()).map((doc) => doc.docId),
       );
       return new Set(docIds.filter((docId) => held.has(docId)));
     },
-    async waitingDocuments() {
-      return (await (await sync.client).documents())
+    waitingDocuments: async () =>
+      (await (await sync.client).documents())
         .filter((doc) => doc.waiting > 0)
-        .map(({ docId, waiting }) => ({ docId, waiting }));
-    },
+        .map(({ docId, waiting }) => ({ docId, waiting })),
     privateIndexSynced: () => sync.privateIndexSynced,
-    projectIndex: (projectId) =>
+    projectIndex: (projectId: string) =>
       openProjectIndex({ client: sync.client, projectId }),
     folders: createFolders({ client: sync.client }),
     favourites: createFavourites({ client: sync.client }),
     trash: createTrash({ api: options.api }),
-    documentBlocks: (docId) => documentBlocks(sync.client, docId),
-    createInkProject: (workspaceId, input) =>
-      createInkProject(sync.library, workspaceId, input),
+    documentBlocks: (docId: string) => documentBlocks(sync.client, docId),
+    createInkProject: (
+      workspaceId: string,
+      input: Parameters<PersonServices["createInkProject"]>[1],
+    ) => createInkProject(sync.library, workspaceId, input),
   };
 }
 
@@ -385,8 +368,12 @@ export function createPersonServices(options: Options): PersonServices {
       wired.stop();
       kept.dispose();
       wired.scripts.clear();
-      void import("../production/live-services.ts").then((loaded) =>
-        loaded.disposeProductionServices(scoped.person.userId),
+      const id = scoped.person.userId;
+      void import("../production/live-services.ts").then((m) =>
+        m.disposeProductionServices(id),
+      );
+      void import("../editor-host/asset-pool.ts").then((m) =>
+        m.disposeProjectAssetUploaders(id),
       );
       sync.dispose();
     },

@@ -61,7 +61,12 @@ async function stageForDoc(
   const stage =
     stageOverride ??
     (async (data: Uint8Array): Promise<StagedAsset> => {
-      const projectId = services.library.documentProject(docId).get() ?? docId;
+      const projectId = services.library.documentProject(docId).get();
+      if (projectId === null)
+        throw new AssetValidationError(
+          "unsupported_type",
+          "Project is not known for this document.",
+        );
       const pooled = await getProjectAssetUploader(services, projectId);
       if (pooled === null)
         throw new AssetValidationError(
