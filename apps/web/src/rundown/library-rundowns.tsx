@@ -1,15 +1,11 @@
 // A Show or News project in the Library: its rundowns listed by date with nested stories and New rundown.
+import type { RundownTemplateSkeleton } from "@manent/crdt";
 import {
-  Button,
   DEMO_WORDS,
   LIBRARY_WORDS,
-  READOUT_WORDS,
   RUNDOWN_WORDS,
   Row,
   Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   VirtualRows,
   cn,
   formatTime,
@@ -20,9 +16,8 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ListOrderedIcon,
-  PlusIcon,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { KindIcon } from "../screens/library/project-kind.tsx";
@@ -36,10 +31,7 @@ import {
 } from "../screens/library/row-place.tsx";
 import type { EpisodeLastEdited } from "../screens/library/series/series-facts.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import {
-  asRundownProjectKind,
-  createProjectRundown,
-} from "./create-rundown.ts";
+import { asRundownProjectKind } from "./create-rundown.ts";
 import { formatAirDate } from "./dur-format.ts";
 import { registerLibraryNew, setActiveLibraryProject } from "./handlers.ts";
 import { useRundownsData } from "./library-rundowns-data.ts";
@@ -47,6 +39,11 @@ import type {
   RundownViewItem,
   StoryViewItem,
 } from "./library-rundowns-data.ts";
+import {
+  NewRundownSplitControl,
+  createProjectRundownWithTemplate,
+  useProjectRundownTemplates,
+} from "./library-rundowns-template.tsx";
 
 const VIRTUAL_LIMIT = 100;
 const COL_AIR = "w-16 shrink-0 tabular-nums";
@@ -67,48 +64,6 @@ function formatLastEdited(edited: EpisodeLastEdited, now: number): string {
   if (edited === null) return RUNDOWN_WORDS.dash;
   if ("changedSinceOpened" in edited) return LIBRARY_WORDS.changedSinceOpened;
   return LIBRARY_WORDS.edited(edited.byName, formatWhen(edited.at, now));
-}
-
-function NewRundownButton(props: {
-  readonly disabled: boolean;
-  readonly reason: string | null;
-  readonly onClick: () => void;
-}): ReactNode {
-  const reasonId = useId();
-  const unavailable =
-    props.reason === null
-      ? null
-      : READOUT_WORDS.unavailable(RUNDOWN_WORDS.newRundown, props.reason);
-  const button = (
-    <Button
-      variant="outline"
-      size="sm"
-      data-tour="rundown.new"
-      aria-disabled={props.disabled ? true : undefined}
-      aria-describedby={unavailable === null ? undefined : reasonId}
-      className={
-        props.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-      }
-      onClick={() => {
-        if (!props.disabled) props.onClick();
-      }}
-    >
-      <PlusIcon aria-hidden="true" data-icon="inline-start" />
-      {RUNDOWN_WORDS.newRundown}
-    </Button>
-  );
-  if (unavailable === null) return button;
-  return (
-    <>
-      <Tooltip>
-        <TooltipTrigger render={button} />
-        <TooltipContent>{unavailable}</TooltipContent>
-      </Tooltip>
-      <span id={reasonId} className="sr-only">
-        {unavailable}
-      </span>
-    </>
-  );
 }
 
 function RundownListRow(props: {
@@ -226,6 +181,10 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const services = useServices();
   const { now: clockNow } = useEnvironment();
   const data = useRundownsData(project.projectId);
+  const templates = useProjectRundownTemplates(
+    data.workspaceId,
+    project.projectId,
+  );
   const newCmd = useCommandState("rundown.new");
   const [creating, setCreating] = useState(false);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
@@ -234,16 +193,20 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
 
   const disabled =
     !data.canEdit || !newCmd.enabled || data.workspaceId === null || creating;
-  const onNewRundown = (): void => {
+  const onNewRundown = (
+    skeleton: RundownTemplateSkeleton | null = templates.defaultRundown
+      ?.skeleton ?? null,
+  ): void => {
     if (disabled || data.workspaceId === null) return;
     setCreating(true);
-    void createProjectRundown({
+    void createProjectRundownWithTemplate({
       services,
       workspaceId: data.workspaceId,
       projectId: project.projectId,
       kind: asRundownProjectKind(project.kind),
       existing: data.rundowns,
       nowMs: clockNow(),
+      skeleton,
     })
       .then((created) => open(created.docId))
       .finally(() => setCreating(false));
@@ -301,10 +264,11 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const loading = data.rundowns.length === 0 && !data.loaded;
   const empty = !loading && data.rundowns.length === 0;
   const newButton = (
-    <NewRundownButton
+    <NewRundownSplitControl
       disabled={disabled}
       reason={newCmd.whyNot ?? (!data.canEdit ? DEMO_WORDS.needsEdit : null)}
-      onClick={onNewRundown}
+      templates={templates}
+      onCreate={onNewRundown}
     />
   );
 

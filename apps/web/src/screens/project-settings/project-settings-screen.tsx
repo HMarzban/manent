@@ -24,6 +24,8 @@ import type { ProjectItem } from "../../services/ports.ts";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { focusHeading } from "../../focus.ts";
+import { TemplatesGroup } from "../../templates/project-templates-panel.tsx";
+import { isTemplateProjectKind } from "../../templates/template-service.ts";
 import { TEXT, pageTitle } from "../../text.ts";
 import { announcing } from "../document/setting-messages.ts";
 import { isCommandId } from "../preferences/search-index.ts";
@@ -240,6 +242,15 @@ export function ProjectSettingsScreen(): ReactNode {
             <Group group="drafts" lines={[ownerLine]}>
               <Rows group="drafts" projectId={projectId} />
             </Group>
+            {project !== null && isTemplateProjectKind(project.kind) ? (
+              <TemplatesGroup
+                index={index}
+                projectId={projectId}
+                projectKind={project.kind}
+                canChangeDefaults={owner}
+                canEditWorkspace={editor}
+              />
+            ) : null}
           </div>
         </div>
         <StatusBar />
