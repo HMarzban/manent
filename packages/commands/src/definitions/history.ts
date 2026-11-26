@@ -6,9 +6,17 @@ import { defineCommands } from "../define.ts";
 import type { CommandDefinition, MenuPlacement } from "../define.ts";
 
 const onDocument = (ctx: CommandContext): boolean => ctx.docOpen;
-// a person who can only view or comment sees the History tab read-only
-const canEdit = (ctx: CommandContext): boolean =>
+const onScript = (ctx: CommandContext): boolean =>
+  ctx.docOpen && ctx.docKind !== "rundown";
+const canEditRole = (ctx: CommandContext): boolean =>
   ctx.docOpen && (ctx.role === "owner" || ctx.role === "editor");
+// a person who can only view or comment, or edit without edit_rundowns on a rundown, sees the History tab read-only
+const canEdit = (ctx: CommandContext): boolean =>
+  ctx.docKind === "rundown"
+    ? ctx.docOpen && ctx.rundown?.canEdit === true
+    : canEditRole(ctx);
+const canEditScript = (ctx: CommandContext): boolean =>
+  onScript(ctx) && canEditRole(ctx);
 
 const same = (...keys: Keys): PlatformKeys => ({
   mac: keys,
@@ -86,7 +94,7 @@ export const HISTORY_COMMANDS = defineCommands([
     palette: { keywords: ["revert", "roll back"] },
   }),
   historyCommand("history.restoreScene", "Restore this scene", {
-    visible: canEdit,
+    visible: canEditScript,
   }),
   historyCommand("history.restoreBefore", "Restore 'Before restore'", {
     visible: canEdit,
@@ -98,6 +106,7 @@ export const HISTORY_COMMANDS = defineCommands([
   }),
   {
     ...historyCommand("history.whoWrote", "Who wrote this?", {
+      visible: onScript,
       menus: [placed("script", "who", 10)],
     }),
     when: (ctx: CommandContext) => ctx.online,

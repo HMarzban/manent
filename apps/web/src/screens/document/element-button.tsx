@@ -1,5 +1,5 @@
 // The status bar's Element button: the caret's element, which opens the element picker beside it.
-import { Button, EDITOR_WORDS } from "@manent/ui";
+import { Button, EDITOR_WORDS, GRAPHICS_WORDS } from "@manent/ui";
 import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -9,6 +9,7 @@ import {
 } from "../../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
+import { openDetailsAt } from "./details-tab.tsx";
 import { useAccess } from "./ruler-bar.tsx";
 
 const PICKER_ID = "mn-picker";
@@ -16,10 +17,12 @@ const PICKER_ID = "mn-picker";
 /** Absent while the caret is in no element; plain words on a page this person cannot edit. */
 export function ElementButton(props: { docId: string }): ReactNode {
   const { commands } = useServices();
-  const { dom } = useEnvironment();
+  const { dom, frame } = useEnvironment();
   const element = useEditorFact("element");
   const access = useAccess(props.docId);
-  const editable = element !== null && (access === null || access === "edit");
+  const isGraphic = element === GRAPHICS_WORDS.graphic;
+  const editable =
+    element !== null && !isGraphic && (access === null || access === "edit");
   // a press takes focus from the page, which closes an open picker before the click: that click leaves it closed
   const pressedOpen = useRef(false);
   const [open, setOpen] = useState(false);
@@ -50,6 +53,18 @@ export function ElementButton(props: { docId: string }): ReactNode {
     };
   }, [editable, props.docId]);
   if (element === null) return null;
+  if (isGraphic)
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        data-tour="readout:element"
+        className="max-w-full text-ui"
+        onClick={() => openDetailsAt("selection", frame)}
+      >
+        <span className="truncate">{element}</span>
+      </Button>
+    );
   if (access !== null && access !== "edit")
     return (
       <span className="block truncate px-2 text-ui text-fg-muted">

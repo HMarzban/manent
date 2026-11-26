@@ -18,7 +18,7 @@ test("a guard is the one way a closed list is searched", () => {
 });
 
 test("format element sets", () => {
-  const all: BlockType[] = ["act_break", "group", "page_break"];
+  const all: BlockType[] = ["act_break", "group", "page_break", "graphic"];
   const base: BlockType[] = [
     "scene_heading",
     "action",
@@ -80,6 +80,7 @@ test("a stage play has the screenplay's elements but Transition and Shot", () =>
     "act_break",
     "group",
     "page_break",
+    "graphic",
   ]);
 });
 

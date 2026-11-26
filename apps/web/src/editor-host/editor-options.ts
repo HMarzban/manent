@@ -14,6 +14,7 @@ import type { KeyResolver } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
+import { graphicAssetPortFor } from "./graphics-bridge.ts";
 import type { EditorMount } from "./mount.ts";
 import { createPastedText } from "./pasted-text.ts";
 import { EDITOR_PLUGINS } from "./plugins.ts";
@@ -89,6 +90,7 @@ export function editorOptions(
     titlePage: bound.titlePage,
     view: layoutViewActions.get(),
     desk: open.desk,
+    graphics: graphicAssetPortFor(services(), docId),
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>
         make({

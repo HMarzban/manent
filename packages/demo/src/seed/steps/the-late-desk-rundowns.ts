@@ -1,5 +1,11 @@
-// The Late Desk rundowns for days D-1, D and D+1, with row 8's previous duration on day D.
-import { insertRows, readRundown, setCell } from "@manent/crdt";
+// The Late Desk rundowns for days D-1, D and D+1, with version history, Leo's Can view role and row 8's previous duration on day D.
+import {
+  insertRows,
+  moveRows,
+  readRundown,
+  removeRows,
+  setCell,
+} from "@manent/crdt";
 import type { CrdtDoc, NewRow } from "@manent/crdt";
 import { projectHome } from "@manent/sync-protocol";
 import {
@@ -166,6 +172,88 @@ async function updateRowEightDuration(
   }
 }
 
+const WARM_UP_SPEC: Extract<ShowRowSpec, { kind: "item" }> = Object.freeze({
+  kind: "item",
+  segment: "Warm-up: audience Q&A",
+  writer: null,
+  durMs: 60_000,
+});
+const TEASE_SEGMENT = "Tease guest one";
+const BAND_INTRO_SEGMENT = "Band intro";
+const MONOLOGUE_SEGMENT = "Monologue";
+const MAILBAG_SEGMENT = "Benny's Mailbag";
+
+/** Initial day D rows before the afternoon reshuffle: extra warm-up row, Band intro before Monologue, and no Tease guest one yet. */
+function morningDayRows(): readonly ShowRowSpec[] {
+  const withoutTease = LATE_DESK_DAY_ROWS.filter(
+    (spec) => spec.kind === "header" || spec.segment !== TEASE_SEGMENT,
+  );
+  const bandIndex = withoutTease.findIndex(
+    (spec) => spec.kind !== "header" && spec.segment === BAND_INTRO_SEGMENT,
+  );
+  const monoIndex = withoutTease.findIndex(
+    (spec) => spec.kind !== "header" && spec.segment === MONOLOGUE_SEGMENT,
+  );
+  if (bandIndex === -1 || monoIndex === -1)
+    throw new RangeError("The Late Desk day rows lack Band intro or Monologue");
+  const reordered = [...withoutTease];
+  const [band] = reordered.splice(bandIndex, 1);
+  reordered.splice(monoIndex, 0, band!);
+  // insert the temporary warm-up row directly after ACT ONE so removing it later shows a removed row in History
+  reordered.splice(1, 0, WARM_UP_SPEC);
+  return reordered;
+}
+
+async function refineDayLineup(
+  context: SeedContext,
+  driver: SeedDriver,
+  dayRows: ReadonlyMap<string, string>,
+): Promise<void> {
+  const dayDocId = seedDoc(`${PROJECT_KEY}/rundowns/day`).docId;
+  if (driver.capabilities.has("history")) {
+    await driver.setTime(context.time.at("N−8:55"));
+    await driver.nameDraft("ana", dayDocId, "Morning lineup");
+  }
+  const warmUpId = dayRows.get(WARM_UP_SPEC.segment);
+  const bandIntroId = dayRows.get(BAND_INTRO_SEGMENT);
+  const monologueId = dayRows.get(MONOLOGUE_SEGMENT);
+  const mailbagId = dayRows.get(MAILBAG_SEGMENT);
+  const teaseSpec = LATE_DESK_DAY_ROWS.find(
+    (spec) => spec.kind === "item" && spec.segment === TEASE_SEGMENT,
+  );
+  if (
+    warmUpId === undefined ||
+    bandIntroId === undefined ||
+    monologueId === undefined ||
+    mailbagId === undefined ||
+    teaseSpec === undefined ||
+    teaseSpec.kind !== "item"
+  )
+    throw new RangeError(
+      "The Late Desk day rundown lacks expected Act One rows",
+    );
+  const teaseId = context.ids();
+  const updatedAt = context.time.at("N−4:30");
+  await driver.setTime(updatedAt);
+  const session = await driver.open("ana", dayDocId);
+  try {
+    const by = { userId: "ana", now: () => updatedAt };
+    await session.change((doc) => {
+      removeRows(doc, [warmUpId]);
+      moveRows(doc, [bandIntroId], monologueId);
+      insertRows(
+        doc,
+        [{ id: teaseId, kind: "item", docId: null, blockId: null }],
+        mailbagId,
+      );
+      setCell(doc, teaseId, "segment", teaseSpec.segment, by);
+      setCell(doc, teaseId, "dur", teaseSpec.durMs, by);
+    });
+  } finally {
+    await session.close();
+  }
+}
+
 export const THE_LATE_DESK_RUNDOWNS: SeedStep = {
   id: "the-late-desk-rundowns",
   workspace: "medium",
@@ -188,8 +276,9 @@ export const THE_LATE_DESK_RUNDOWNS: SeedStep = {
       docKey: `${PROJECT_KEY}/rundowns/day`,
       createdAtSpec: "N−9:00",
       dayOffset: 0,
-      rows: LATE_DESK_DAY_ROWS,
+      rows: morningDayRows(),
     });
+    await refineDayLineup(context, driver, dayRows);
     await seedShowRundown(context, driver, home, {
       docKey: `${PROJECT_KEY}/rundowns/day-plus-1`,
       createdAtSpec: "N−1:50",
@@ -200,6 +289,14 @@ export const THE_LATE_DESK_RUNDOWNS: SeedStep = {
     if (rowEightId === undefined)
       throw new RangeError("The Late Desk day rundown has no row 8");
     await updateRowEightDuration(context, driver, rowEightId);
+    if (driver.sharing !== null) {
+      await driver.sharing.grant(
+        "ana",
+        seedDoc(`${PROJECT_KEY}/rundowns/day`).docId,
+        "leo",
+        "view",
+      );
+    }
     return [];
   },
 };

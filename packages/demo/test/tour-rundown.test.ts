@@ -19,6 +19,10 @@ test("every Rundown and prompter scenario is ready", () => {
     ["rundown-previous-value", null],
     ["rundown-next-week", null],
     ["rundown-print", null],
+    ["rundown-remote-prompter", null],
+    ["broadcast-mos-bridge", null],
+    ["rundown-show-template", null],
+    ["rundown-view-and-history", null],
   ]);
 });
 

@@ -64,3 +64,5 @@ export { readRundownWrites } from "./rundown/rundown-writes.ts";
 export type { RundownWrites } from "./rundown/rundown-writes.ts";
 export { createRundownUndo } from "./rundown/rundown-undo.ts";
 export type { RundownUndo } from "./rundown/rundown-undo.ts";
+export * from "./templates/index.ts";
+export { applyRundownRestore } from "./rundown/rundown-restore.ts";

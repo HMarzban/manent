@@ -19,13 +19,31 @@ export interface ArchiveDocument {
   readonly drafts: readonly ArchiveDraft[];
 }
 
+export interface ArchiveAsset {
+  readonly assetId: string;
+  readonly mime: "image/png" | "image/jpeg" | "image/webp";
+  readonly width: number;
+  readonly height: number;
+  readonly bytes: Uint8Array;
+}
+
 export interface ArchiveEntries {
   /** The project's title. */
   readonly project: string;
   /** Milliseconds since the epoch; also the time of every file in the zip. */
   readonly exportedAt: number;
   readonly documents: readonly ArchiveDocument[];
+  /** Optional binary assets written under `assets/<assetId>.<ext>` and recorded in `manifest.json`. */
+  readonly assets?: readonly ArchiveAsset[];
 }
+
+const ASSET_EXT: Readonly<Record<ArchiveAsset["mime"], string>> = Object.freeze(
+  {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+  },
+);
 
 const MANIFEST = "manifest.json";
 const NAME_LIMIT = 120;
@@ -53,7 +71,16 @@ function unique(base: string, taken: Set<string>): string {
 export function writeArchive(entries: ArchiveEntries): Uint8Array<ArrayBuffer> {
   const encoder = new TextEncoder();
   const files: Record<string, Uint8Array> = {};
-  const folders = new Set([MANIFEST]);
+  const uniqueAssets = new Map<string, ArchiveAsset>();
+  for (const asset of entries.assets ?? [])
+    if (!uniqueAssets.has(asset.assetId))
+      uniqueAssets.set(asset.assetId, asset);
+  const sortedAssets = [...uniqueAssets.values()].toSorted((a, b) =>
+    a.assetId < b.assetId ? -1 : a.assetId > b.assetId ? 1 : 0,
+  );
+  const folders = new Set(
+    sortedAssets.length > 0 ? [MANIFEST, "assets"] : [MANIFEST],
+  );
   const documents = entries.documents.map(({ docId, script, drafts }) => {
     const folder = unique(baseName(script.title, ""), folders);
     files[`${folder}/${baseName(script.title, ".fdx")}.fdx`] = encoder.encode(
@@ -73,6 +100,18 @@ export function writeArchive(entries: ArchiveEntries): Uint8Array<ArrayBuffer> {
       drafts: drafts.map(({ versionId, name }) => ({ versionId, name })),
     };
   });
+  const manifestAssets = sortedAssets.map((asset) => {
+    const path = `assets/${asset.assetId}.${ASSET_EXT[asset.mime]}`;
+    files[path] = asset.bytes;
+    return {
+      assetId: asset.assetId,
+      path,
+      mime: asset.mime,
+      byteLength: asset.bytes.byteLength,
+      width: asset.width,
+      height: asset.height,
+    };
+  });
   files[MANIFEST] = encoder.encode(
     JSON.stringify(
       {
@@ -80,6 +119,7 @@ export function writeArchive(entries: ArchiveEntries): Uint8Array<ArrayBuffer> {
         project: entries.project,
         exportedAt: entries.exportedAt,
         documents,
+        ...(manifestAssets.length > 0 ? { assets: manifestAssets } : {}),
       },
       null,
       2,

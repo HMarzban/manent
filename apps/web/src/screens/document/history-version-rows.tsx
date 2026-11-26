@@ -1,5 +1,5 @@
 // The rows of the History tab: Working; the versions and the changes to script settings under their days, or with
-// Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
+// Drafts only the drafts oldest first; delegates rundown documents to RundownVersionRows.
 import { SETTINGS } from "@manent/settings";
 import {
   Button,
@@ -8,10 +8,11 @@ import {
   Row,
   VirtualRows,
   formatTime,
+  useSubscribable,
 } from "@manent/ui";
 import { StarIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode, RefObject } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
 import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
@@ -19,76 +20,36 @@ import { selectRow } from "../../history/history-view.ts";
 import { useRowExtensionList } from "../../history/row-extensions.ts";
 import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
+import { useRundownView } from "../../rundown/rundown-session.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { NameField, nextDraftName, useDraftLadder } from "./draft-name.tsx";
 import { HistoryAvatars, useRowMeta } from "./history-row-line.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
+import type { DraftNaming } from "./history-rundown-dialog.tsx";
+import {
+  RundownVersionRows,
+  itemsOfHistoryRows,
+} from "./history-rundown-rows.tsx";
 import { valueLabel } from "./setting-messages.ts";
+
+export { useDraftNaming } from "./history-rundown-dialog.tsx";
 
 // the next page is asked for while a row this close to the end is drawn
 const MORE_WITHIN_ROWS = 50;
 // the person, in a setting's row, when they made the change
 const YOU = "you";
-
-type Item =
-  | { kind: "day"; label: string }
-  | { kind: "version"; row: HistoryRow }
-  | { kind: "setting"; change: SettingChange };
-
-interface Pending {
-  name: string;
-  fromVersionId: string | null;
-  failed: boolean;
-}
-
 // a named draft's mark, before its name
 const STAR = <StarIcon aria-hidden="true" className="size-icon" />;
-
-/** Each day's versions and setting changes under its day, newest first; with Drafts only the drafts oldest first. */
-function itemsOf(
-  rows: readonly HistoryRow[],
-  changes: readonly SettingChange[],
-  draftsOnly: boolean,
-  now: number,
-): Item[] {
-  if (draftsOnly)
-    return rows
-      .filter((row) => row.item.kind === "named" || row.item.kind === "sent")
-      .toReversed()
-      .map((row): Item => ({ kind: "version", row }));
-  const dated = [
-    ...rows.map((row) => ({
-      at: row.item.createdAt,
-      day: row.day,
-      item: { kind: "version", row } satisfies Item,
-    })),
-    ...changes.map((change) => ({
-      at: change.at,
-      day: HISTORY_WORDS.dayGroup(change.at, now),
-      item: { kind: "setting", change } satisfies Item,
-    })),
-  ].toSorted((a, b) => b.at - a.at);
-  const items: Item[] = [];
-  let day: string | null = null;
-  for (const each of dated) {
-    if (each.day !== day) items.push({ kind: "day", label: each.day });
-    day = each.day;
-    items.push(each.item);
-  }
-  return items;
-}
 
 function VersionRow(props: {
   docId: string;
   row: HistoryRow;
   offline: boolean;
-  /** The name field's first text while this row is named; null while it is not. */
   naming: string | null;
   onName(): void;
   name(name: string): void;
-  /** A click: the version's changes, shown the way Show says. */
   onShow(): void;
 }): ReactNode {
   const { docId, row } = props;
@@ -97,7 +58,6 @@ function VersionRow(props: {
   const selected = useHistory("selected") === row.item.id;
   const named = row.item.kind === "named" || row.item.kind === "sent";
   const title = row.item.name ?? (isTitledByTime(row) ? row.time : row.title);
-  // Enter opens the version as it was; a click shows its changes the way Show says
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (
       event.key !== "Enter" ||
@@ -149,48 +109,6 @@ function VersionRow(props: {
 }
 
 /**
- * A draft named and not yet answered, shown under Working; `target` is the version whose row holds the name field,
- * null for Working; `name` names a draft of Working or of a version.
- */
-interface DraftNaming {
-  pending: Pending | null;
-  target: string | null;
-  nameVersion(versionId: string): void;
-  name(draft: string, fromVersionId: string | null): void;
-  working: RefObject<HTMLElement | null>;
-}
-
-export function useDraftNaming(docId: string): DraftNaming {
-  const { history } = useServices();
-  const naming = useHistory("naming");
-  const [pending, setPending] = useState<Pending | null>(null);
-  const [target, setTarget] = useState<string | null>(null);
-  const working = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!naming) setTarget(null);
-  }, [naming]);
-  return {
-    pending,
-    target,
-    working,
-    nameVersion(versionId) {
-      setTarget(versionId);
-      historyActions.setNaming(true);
-    },
-    name(draft, fromVersionId) {
-      historyActions.setNaming(false);
-      setPending({ name: draft, fromVersionId, failed: false });
-      working.current?.focus();
-      void history.name(docId, draft, fromVersionId).then((named) => {
-        setPending(
-          named.ok ? null : { name: draft, fromVersionId, failed: true },
-        );
-      });
-    },
-  };
-}
-
-/**
  * Working, the focus target of naming; its name field while Working is named, once the list has `answered` and so
  * can offer the next draft's name; and the draft named and not yet answered.
  */
@@ -204,6 +122,8 @@ export function WorkingRow(props: {
   const ladder = useDraftLadder(docId);
   const naming = useHistory("naming");
   const selected = useHistory("selected");
+  const rundownView = useRundownView(docId ?? "");
+  const canName = rundownView === null || rundownView.access === "edit";
   const { pending } = draft;
   return (
     <>
@@ -214,7 +134,7 @@ export function WorkingRow(props: {
       >
         {HISTORY_WORDS.workingLabel}
       </Row>
-      {naming && draft.target === null && props.answered ? (
+      {canName && naming && draft.target === null && props.answered ? (
         <NameField
           initial={nextDraftName(rows, ladder)}
           onName={(name) => draft.name(name, null)}
@@ -282,6 +202,12 @@ export function VersionRows(props: {
   onShow(row: HistoryRow): void;
 }): ReactNode {
   const { docId, rows, draft } = props;
+  const { library } = useServices();
+  const docKindSource = useMemo(
+    () => library.docKindOf(docId),
+    [library, docId],
+  );
+  const docKind = useSubscribable(docKindSource);
   useRowExtensionList(docId);
   const ladder = useDraftLadder(docId);
   const { now } = useEnvironment();
@@ -289,10 +215,27 @@ export function VersionRows(props: {
   const naming = useHistory("naming");
   const changes = useSettingChanges(docId);
   const drawnTo = useRef(0);
-  const items = itemsOf(rows, changes, draftsOnly, now());
+  const items = itemsOfHistoryRows(rows, changes, draftsOnly, now());
   useEffect(() => {
-    if (drawnTo.current >= items.length - MORE_WITHIN_ROWS) props.onNearEnd();
+    if (
+      docKind !== "rundown" &&
+      drawnTo.current >= items.length - MORE_WITHIN_ROWS
+    )
+      props.onNearEnd();
   });
+  if (docKind === "rundown") {
+    return (
+      <RundownVersionRows
+        docId={docId}
+        rows={rows}
+        namingTarget={draft.target}
+        onNameVersion={draft.nameVersion}
+        onCommitName={(name, fromVersionId) => draft.name(name, fromVersionId)}
+        onNearEnd={props.onNearEnd}
+        onShow={props.onShow}
+      />
+    );
+  }
   const renderRow = (index: number): ReactNode => {
     drawnTo.current = Math.max(drawnTo.current, index);
     const item = items[index]!;

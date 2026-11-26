@@ -1,5 +1,30 @@
 // The desk the pages lie on: the room the editor's element gives them.
-import type { ScriptEditorOptions } from "@manent/editor";
+import type { ScriptEditor, ScriptEditorOptions } from "@manent/editor";
+
+/** Scrolls past any rendered front (Title) pages so page 1 opens cleanly with no bottom card edge peeking under the bar. */
+export function scrollToPageOne(
+  region: HTMLElement,
+  scaffold: ScriptEditor["scaffold"],
+): void {
+  if (scaffold === null) {
+    region.scrollTo({ top: 0 });
+    return;
+  }
+  const sheets = scaffold.front.querySelectorAll(".mn-sheet");
+  const lastFront = sheets.item(sheets.length - 1);
+  if (lastFront === null || lastFront.getBoundingClientRect().height <= 0) {
+    region.scrollTo({ top: 0 });
+    return;
+  }
+  const regionTop = region.getBoundingClientRect().top;
+  const frontBottom = lastFront.getBoundingClientRect().bottom;
+  const pagesTop = scaffold.pages.getBoundingClientRect().top;
+  const shift = Math.max(
+    frontBottom - regionTop + 8,
+    pagesTop - regionTop - 20,
+  );
+  if (shift > 0) region.scrollTop += shift;
+}
 
 /** The element's inner width and horizontal padding, px, and its resizes, each heard in the frame after it. */
 export function deskOf(element: HTMLElement): ScriptEditorOptions["desk"] {

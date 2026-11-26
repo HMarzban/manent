@@ -117,3 +117,8 @@ The evidence or event that would reopen this.
 - [0069. Animation pickup lines export dialogue changed since the newest Record draft as CSV](0069-animation-pickup-lines.md)
 - [0070. Character, scene and location reports export in both CSV and PDF](0070-script-reports-csv-and-pdf.md)
 - [0071. Whole Ink projects export as one concatenated file in Library order](0071-whole-ink-project-export.md)
+- [0072. Remote prompter scroll control uses a server-held operator lease and client-side interpolation](0072-remote-prompter-scroll-control.md)
+- [0073. External MOS prompters connect through a PrompterFeedHub-only TCP bridge](0073-mos-tcp-prompter-bridge.md)
+- [0074. Inline graphics use the single block node with content-addressed offline binary assets](0074-inline-graphics-and-offline-assets.md)
+- [0075. Reusable Show and News templates live in the workspace and project indexes](0075-reusable-show-templates.md)
+- [0076. Rundown viewers receive server-projected views and rundowns carry full version history](0076-rundown-viewer-and-full-history.md)

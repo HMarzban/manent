@@ -1,6 +1,7 @@
 // The Details tab's sections, one line per section, each in its scope.
 import type { ComponentType } from "react";
 import { WriterSection } from "../../assignment/writer-section.tsx";
+import { GraphicDetailsSection } from "../../graphics/graphic-details-section.tsx";
 import { ImportSection } from "../../import/import-section.tsx";
 import { ProductionGroup } from "../../production/production-group.tsx";
 import { ChecksSection } from "./checks-section.tsx";
@@ -22,6 +23,7 @@ export interface DetailsSection {
 }
 
 export const DETAILS_SECTIONS: readonly DetailsSection[] = [
+  { id: "graphic", scope: "selection", Section: GraphicDetailsSection },
   { id: "layout", scope: "selection", Section: LayoutGroup },
   { id: "who_wrote", scope: "selection", Section: WhoWrote },
   { id: "scene", scope: "scene", Section: SceneSection },

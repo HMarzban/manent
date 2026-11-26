@@ -977,6 +977,10 @@ test("the handler table names every command but the generated ones", () => {
     "view.presentOnPrompter": noop,
     "prompter.files": noop,
     "prompter.stopFiles": noop,
+    "prompter.takeControl": noop,
+    "prompter.takeOver": noop,
+    "prompter.stopControlling": noop,
+    "prompter.jumpHere": noop,
     "script.renameCharacter": noop,
     "library.search": noop,
     "library.newFolder": noop,
@@ -997,7 +1001,12 @@ test("the handler table names every command but the generated ones", () => {
     "script.numbers": noop,
     "script.reports": noop,
     "view.focusMode": noop,
+    "graphics.insertImage": noop,
+    "graphics.insertLowerThird": noop,
+    "graphics.insertOts": noop,
+    "graphics.insertFullScreen": noop,
     "production.includeInSides": noop,
+    "template.save": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

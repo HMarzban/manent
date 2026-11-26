@@ -8,4 +8,5 @@ export * from "./section-height.ts";
 export { drawRequest } from "./behind.ts";
 export * from "./caret.ts";
 export * from "./drift.ts";
+export * from "./graphic-height.ts";
 export * from "./page-view.ts";

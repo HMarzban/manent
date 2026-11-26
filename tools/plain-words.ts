@@ -68,5 +68,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   counting, figure, per,
   best, inside, narrow, year,
   benchmark,
-  alone, encoding, software, windows-1252
+  alone, encoding, software, windows-1252,
+  advanced, allowed, blank, choices, control, controlling, description, external, fast, forward, id, insert, ip, jpeg, jump, limit, lower, ncs, normal, optional, paused, png, port, ports, scroll, taking, taller, upper, webp, wider
 `);

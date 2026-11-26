@@ -143,6 +143,8 @@ export interface DocumentStart {
   airDate: string | null;
   /** The rundown a story belongs to; null for any other document. */
   rundownId: string | null;
+  /** True when instantiated from a template so quiet untouched removal never deletes it. */
+  createdFromTemplate?: boolean;
   start(handle: DocHandle): void;
 }
 

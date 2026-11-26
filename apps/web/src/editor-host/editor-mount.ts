@@ -25,11 +25,12 @@ import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import { connectEditor } from "./connect-editor.ts";
 import type { EditorControl } from "./control.ts";
-import { deskOf } from "./desk.ts";
+import { deskOf, scrollToPageOne } from "./desk.ts";
 import { editorOptions } from "./editor-options.ts";
 import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
+import { attachGraphicsBridge } from "./graphics-bridge.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
@@ -151,31 +152,6 @@ interface Opened extends OpenedScript {
   shown: Shown;
 }
 
-/** Scrolls past any rendered front (Title) pages so page 1 opens cleanly with no bottom card edge peeking under the bar. */
-function scrollToPageOne(
-  region: HTMLElement,
-  scaffold: ScriptEditor["scaffold"],
-): void {
-  if (scaffold === null) {
-    region.scrollTo({ top: 0 });
-    return;
-  }
-  const sheets = scaffold.front.querySelectorAll(".mn-sheet");
-  const lastFront = sheets.item(sheets.length - 1);
-  if (lastFront === null || lastFront.getBoundingClientRect().height <= 0) {
-    region.scrollTo({ top: 0 });
-    return;
-  }
-  const regionTop = region.getBoundingClientRect().top;
-  const frontBottom = lastFront.getBoundingClientRect().bottom;
-  const pagesTop = scaffold.pages.getBoundingClientRect().top;
-  const shift = Math.max(
-    frontBottom - regionTop + 8,
-    pagesTop - regionTop - 20,
-  );
-  if (shift > 0) region.scrollTop += shift;
-}
-
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
 function buildEditor(
   options: MountOptions,
@@ -204,6 +180,12 @@ function buildEditor(
   else if (region !== null) scrollToPageOne(region, editor.scaffold);
   const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
+  const stopGraphics = attachGraphicsBridge({
+    docId,
+    editor,
+    services: options.services(),
+    editable,
+  });
   let stopThumb = noop;
   let built = true;
   // loaded apart: it shows only once the person scrolls
@@ -234,6 +216,7 @@ function buildEditor(
       built = false;
       stopFocus();
       stopZoom();
+      stopGraphics();
       stopThumb();
       disconnect();
       editor.destroy();

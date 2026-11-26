@@ -12,7 +12,7 @@ import {
   ENGINE_VERSIONS,
   TABLE_VERSION,
 } from "@manent/pagination";
-import { SCHEMA_VERSION } from "@manent/schema";
+import { SCHEMA_VERSION, minSchemaVersionOf } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
   createServer,
@@ -198,6 +198,7 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
     defer: setImmediate,
     ids: () => crypto.randomUUID(),
     registry: PRODUCT_SETTING_RULES,
+    schemaFloor: minSchemaVersionOf,
     close: () => storage.close(),
   };
 }

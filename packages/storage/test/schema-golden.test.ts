@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(11);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(11);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(11);
+  expect(STORAGE_SCHEMA_VERSION).toBe(12);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(12);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(12);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -376,6 +376,16 @@ test("the storage schema is exactly these tables", () => {
       "result TEXT",
       "created_at INTEGER",
     ],
+    project_assets: [
+      "asset_id TEXT",
+      "mime TEXT",
+      "byte_length INTEGER",
+      "width INTEGER",
+      "height INTEGER",
+      "bytes BLOB",
+      "created_by_user_id TEXT",
+      "created_at INTEGER",
+    ],
   });
 });
 
@@ -547,7 +557,7 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
+  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
   expect(
     rawRows(
       files.documents,
@@ -590,7 +600,7 @@ test("a file written at version 9 gains the eight lookup indexes on open", async
   file.checkpoints.newest(DOC, 1);
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
+  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
   expect(indexNamesOf(files.control)).toEqual([
     { name: "doc_directory_by_home" },
     { name: "draft_links_by_send" },
@@ -644,7 +654,7 @@ test("a file written at version 10 upgrades to 11 with draft_links.open defaulti
   const send = file.sharing.sendOf("s-1");
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
+  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
   expect(link).toEqual({
     id: "dl-1",
     sendId: "s-1",
@@ -668,5 +678,59 @@ test("a file written at version 10 upgrades to 11 with draft_links.open defaulti
     sentByUserId: "dana",
     sentAt: 500,
     directRecipientCount: null,
+  });
+});
+
+test("a file written at version 11 upgrades cleanly to 12 with project_assets in documents only", async () => {
+  const old = await trees.tree();
+  const files = {
+    control: join(old, "control.sqlite"),
+    documents: docPath(old, HOME),
+    checkpoints: checkpointsPath(old, HOME),
+  };
+  for (const kind of ["control", "documents", "checkpoints"] as const) {
+    await Bun.write(files[kind], "");
+    for (const statement of MIGRATIONS[kind].slice(0, 11).flat())
+      rawSql(files[kind], statement);
+    rawSql(files[kind], "PRAGMA user_version = 11");
+  }
+  rawSql(
+    files.documents,
+    "INSERT INTO documents (id, kind, schema_version, created_at) VALUES (?1, 'script', 2, 500)",
+    DOC,
+  );
+  expect(tableNames(files.documents)).not.toContain("project_assets");
+
+  const storage = openSqliteStorage({ dir: old, now });
+  const file = storage.open(HOME);
+  file.checkpoints.newest(DOC, 1);
+  const stored = file.assets.put({
+    assetId: "a".repeat(64),
+    mime: "image/png",
+    width: 640,
+    height: 360,
+    bytes: new Uint8Array([137, 80, 78, 71]),
+    createdByUserId: "dana",
+    createdAt: 1_000,
+  });
+  const docRow = file.log.get(DOC);
+  storage.close();
+
+  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
+  expect(tableNames(files.documents)).toContain("project_assets");
+  expect(tableNames(files.control)).not.toContain("project_assets");
+  expect(tableNames(files.checkpoints)).not.toContain("project_assets");
+  expect(docRow?.schemaVersion).toBe(2);
+  expect(stored).toEqual({
+    status: "stored",
+    meta: {
+      assetId: "a".repeat(64),
+      mime: "image/png",
+      byteLength: 4,
+      width: 640,
+      height: 360,
+      createdByUserId: "dana",
+      createdAt: 1_000,
+    },
   });
 });

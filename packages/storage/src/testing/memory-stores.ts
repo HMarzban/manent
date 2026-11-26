@@ -2,6 +2,8 @@
 // them, and the control file's tables and the stores over those.
 import { createApiKeyTables, createMemoryApiKeys } from "../api-keys/memory.ts";
 import type { ApiKeyTables } from "../api-keys/memory.ts";
+import { copyAssetTables, createMemoryAssets } from "../assets/store.ts";
+import type { AssetTables } from "../assets/store.ts";
 import { createMemoryOutbox, createOutboxTables } from "../outbox/memory.ts";
 import type { OutboxTables } from "../outbox/memory.ts";
 import type { DocDirectory, DocFile, Storage } from "../ports/index.ts";
@@ -44,6 +46,7 @@ export interface FileParts {
   sharing: SharingTables;
   privateCopies: PrivateCopyTables;
   prompter: PrompterTables;
+  assets: AssetTables;
 }
 
 /** A copy that a transaction may change without touching `parts`; empty parts when there are none. */
@@ -53,6 +56,7 @@ export const copyParts = (parts?: FileParts): FileParts => ({
   sharing: copySharingTables(parts?.sharing),
   privateCopies: copyPrivateCopyTables(parts?.privateCopies),
   prompter: copyPrompterTables(parts?.prompter),
+  assets: copyAssetTables(parts?.assets),
 });
 
 /** A part as the current transaction sees it, and a write that joins that transaction. */
@@ -67,13 +71,17 @@ type PartOf = <K extends keyof FileParts>(
 export function createFileStores(options: {
   partOf: PartOf;
   setLocked: (docId: string, locked: boolean) => void;
-}): Pick<DocFile, "production" | "sharing" | "privateCopies" | "prompter"> {
+}): Pick<
+  DocFile,
+  "production" | "sharing" | "privateCopies" | "prompter" | "assets"
+> {
   const { partOf, setLocked } = options;
   return {
     production: createMemoryProduction({ ...partOf("production"), setLocked }),
     sharing: createMemorySharing(partOf("sharing")),
     privateCopies: createMemoryPrivateCopies(partOf("privateCopies")),
     prompter: createMemoryPrompter(partOf("prompter")),
+    assets: createMemoryAssets(partOf("assets")),
   };
 }
 

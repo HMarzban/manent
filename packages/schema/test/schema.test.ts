@@ -25,8 +25,8 @@ test("the document is doc → section+ → block+ → text*", () => {
 
 const attrsOf = (spec: { attrs?: Record<string, { default?: unknown }> }) =>
   Object.entries(spec.attrs ?? {}).map(([name, a]) => [name, a.default]);
-test("the schema's shape is version 2; a change to this snapshot means raising SCHEMA_VERSION", () => {
-  expect(SCHEMA_VERSION).toBe(2);
+test("the schema's shape is version 3; a change to this snapshot means raising SCHEMA_VERSION", () => {
+  expect(SCHEMA_VERSION).toBe(3);
   const nodes = Object.fromEntries(
     NODE_NAMES.map((n) => [
       n,
@@ -65,6 +65,7 @@ test("the schema's shape is version 2; a change to this snapshot means raising S
         ["suggestAt", null],
         ["tags", []],
         ["linkTo", null],
+        ["graphic", null],
       ],
     ],
     text: [null, null, []],

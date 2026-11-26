@@ -4,6 +4,7 @@ import {
   ORIGIN_LOAD,
   createDoc,
   loadDoc,
+  readRundown,
   scriptBody,
   scriptSettings,
 } from "@manent/crdt";
@@ -19,6 +20,7 @@ import type {
 } from "@manent/sync-protocol";
 import { isStorageError } from "../sync/storage-error.ts";
 import { corruptError } from "./chunks.ts";
+import { carryRundownAuthors } from "./rundown-summary.ts";
 import { readSnapshot } from "./snapshot.ts";
 
 /** The lock table open at a position; null: page numbers were not locked. */
@@ -72,6 +74,18 @@ export function contentOfDoc(
   row: DocumentRow,
   authors: Record<string, VersionAuthor>,
 ): VersionContent {
+  if (row.kind === "rundown") {
+    return {
+      v: 1,
+      blocks: [],
+      settings: {},
+      schemaVersion: row.schemaVersion,
+      engineVersion: row.engineVersion,
+      locks: null,
+      authors,
+      rundown: readRundown(doc),
+    };
+  }
   return {
     v: 1,
     blocks: canonicalBlocksOf(scriptBody(doc).materialize()),
@@ -144,10 +158,11 @@ function contentFromLog(
   try {
     const content = contentOfDoc(doc, row, {});
     const previous = snapshotBefore(file, docId, position);
-    return {
-      ...content,
-      authors: carryAuthors(previous, content.blocks, author),
-    };
+    const authors =
+      content.rundown !== undefined
+        ? carryRundownAuthors(content.rundown, previous, author)
+        : carryAuthors(previous, content.blocks, author);
+    return { ...content, authors };
   } finally {
     doc.destroy();
   }

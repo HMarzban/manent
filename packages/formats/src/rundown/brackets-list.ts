@@ -1,5 +1,5 @@
-// The brackets list for a rundown: one TSV line per Bracket block of the chosen rows' stories.
-import { findBracketTimes } from "@manent/pagination";
+// The brackets list for a rundown: one TSV line per Bracket or Graphic cue of the chosen rows' stories.
+import { findBracketTimes, formatGraphicCue } from "@manent/pagination";
 import {
   blockPlainText,
   formatMinutesSeconds,
@@ -34,6 +34,19 @@ export function writeBracketsList(rundown: RundownForExport): string {
       if (type === "slug") {
         const trimmed = text.trim();
         if (trimmed !== "") currentSlug = trimmed;
+        continue;
+      }
+      if (type === "graphic") {
+        const cue = formatGraphicCue({
+          id: block.attrs?.id ?? "",
+          type,
+          text,
+          graphic: block.attrs?.graphic ?? null,
+        });
+        if (cue !== null)
+          lines.push(
+            `${tsvField(rowNumber)}\t${tsvField(currentSlug ?? fallbackSlug)}\t${tsvField(cue.text)}\t${NO_TIME}\n`,
+          );
         continue;
       }
       if (type !== "bracket") continue;

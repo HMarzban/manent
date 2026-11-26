@@ -3,7 +3,7 @@ import { StoreError } from "@manent/sync-client";
 import type { DocMeta, StoredEntry } from "@manent/sync-client";
 
 /** The IndexedDB database version. A later one adds stores or indexes by `oldVersion`, and never deletes or rekeys one of these. */
-export const LOCAL_STORE_VERSION = 1;
+export const LOCAL_STORE_VERSION = 2;
 
 /** Keyed by user as well as by origin, so that two people on one origin never share a database. */
 export function localDatabaseName(userId: string): string {
@@ -13,7 +13,7 @@ export function localDatabaseName(userId: string): string {
 /** The stores that hold a document's own records, which a load reads and a reset replaces. */
 export const DOC_STORES = ["meta", "entries", "checkpoints", "bases"] as const;
 export type StoreName =
-  (typeof DOC_STORES)[number] | "versions" | "recovered" | "lease";
+  (typeof DOC_STORES)[number] | "versions" | "recovered" | "lease" | "assets";
 export type Durability = "strict" | "relaxed";
 
 export type EntryRecord = StoredEntry & { docId: string };
@@ -50,6 +50,12 @@ function createLayout(db: IDBDatabase): void {
   db.createObjectStore("lease", { keyPath: "name" });
 }
 
+function createAssetsStore(db: IDBDatabase): void {
+  const assets = db.createObjectStore("assets", { keyPath: "assetId" });
+  assets.createIndex("byProject", "projectId");
+  assets.createIndex("byUploadState", "uploadState");
+}
+
 /** Rejects StoreError("unavailable") when the database cannot be opened, as when a newer build wrote it (a VersionError, which leaves it untouched). The connection closes itself when another asks to delete or upgrade the database. */
 export function openLocalDatabase(
   indexedDb: IDBFactory,
@@ -65,6 +71,7 @@ export function openLocalDatabase(
     }
     request.addEventListener("upgradeneeded", (event) => {
       if (event.oldVersion < 1) createLayout(request.result);
+      if (event.oldVersion < 2) createAssetsStore(request.result);
     });
     request.addEventListener("success", () => {
       const db = request.result;

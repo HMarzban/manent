@@ -65,6 +65,17 @@ const canSendPrompter = (ctx: CommandContext): boolean =>
     ? ctx.prompter.storyFormat === "variety"
     : ctx.docKind === "rundown");
 
+const canControlPrompter = (ctx: CommandContext): boolean =>
+  ctx.docOpen &&
+  ctx.docKind === "rundown" &&
+  ctx.prompter !== null &&
+  ctx.prompter.canSend;
+
+const JUMP_HERE_NEED = both(ONLINE, {
+  holds: (ctx) => ctx.prompter?.sentBefore === true,
+  reason: () => "this row has nothing on the prompter",
+});
+
 function prompterCommand<const Id extends string>(
   id: Id,
   label: string,
@@ -127,5 +138,31 @@ export const PROMPTER_COMMANDS = defineCommands([
   prompterCommand("prompter.stopFiles", "Stop", {
     visible: (ctx) => ctx.shell === "desktop" && ctx.docOpen,
     palette: { hidden: "the state bar's action" },
+  }),
+  prompterCommand("prompter.takeControl", "Take control", {
+    visible: canControlPrompter,
+    need: ONLINE,
+    palette: { keywords: ["prompter", "control", "scroll"] },
+    reach: "others",
+  }),
+  prompterCommand("prompter.takeOver", "Take over", {
+    visible: canControlPrompter,
+    need: ONLINE,
+    palette: {
+      hidden: "the state bar's action while someone else controls the prompter",
+    },
+    reach: "others",
+  }),
+  prompterCommand("prompter.stopControlling", "Stop controlling", {
+    visible: (ctx) =>
+      canControlPrompter(ctx) && ctx.prompter?.controlling === true,
+    palette: { keywords: ["prompter", "control", "stop"] },
+    reach: "others",
+  }),
+  prompterCommand("prompter.jumpHere", "Jump prompter here", {
+    visible: canControlPrompter,
+    need: JUMP_HERE_NEED,
+    palette: { keywords: ["prompter", "jump", "scroll"] },
+    reach: "others",
   }),
 ]);

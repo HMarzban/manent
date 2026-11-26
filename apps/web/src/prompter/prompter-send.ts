@@ -1,5 +1,9 @@
 // Send and Send previous execution over a rundown's prompter runtime state.
 import type { SettingValue } from "@manent/settings";
+import type {
+  PrompterOperator,
+  PrompterScrollState,
+} from "@manent/sync-protocol";
 import { PROMPTER_WORDS } from "@manent/ui";
 import type { BesideOpen } from "../beside/open-beside.ts";
 import type { RundownViewState } from "../rundown/rundown-view-store.ts";
@@ -26,6 +30,13 @@ export interface PrompterSnapshot {
   readonly synced: boolean;
   readonly inFlightRows: ReadonlySet<string>;
   readonly waitingByDocId: ReadonlyMap<string, number>;
+  readonly operator: PrompterOperator | null;
+  readonly scroll: PrompterScrollState | null;
+  readonly takingControl: boolean;
+  readonly isOperator: boolean;
+  readonly hasSentRow: boolean;
+  readonly activeRowId: string | null;
+  readonly activeRowSent: boolean;
 }
 
 export interface PrompterRuntimeState {
@@ -42,6 +53,10 @@ export interface PrompterRuntimeState {
   online: boolean;
   canSend: boolean;
   synced: boolean;
+  operator: PrompterOperator | null;
+  scroll: PrompterScrollState | null;
+  takingControl: boolean;
+  isOperator: boolean;
   latestView: RundownViewState | null;
   latestBeside: BesideOpen | null;
   overrideRowId: string | null;
@@ -50,6 +65,99 @@ export interface PrompterRuntimeState {
   trackedStoryFormat: SettingValue<"script.format"> | null;
   stopTrackedStory: (() => void) | null;
   snapshot: PrompterSnapshot;
+}
+
+const EMPTY_SET: ReadonlySet<string> = new Set();
+const EMPTY_MAP: ReadonlyMap<string, number> = new Map();
+
+export const INITIAL_PROMPTER_SNAPSHOT: PrompterSnapshot = Object.freeze({
+  online: true,
+  canSend: false,
+  synced: false,
+  inFlightRows: EMPTY_SET,
+  waitingByDocId: EMPTY_MAP,
+  operator: null,
+  scroll: null,
+  takingControl: false,
+  isOperator: false,
+  hasSentRow: false,
+  activeRowId: null,
+  activeRowSent: false,
+});
+
+export function createPrompterRuntimeState(
+  key: string,
+  rundownId: string,
+  services: PersonServices,
+  env: Environment,
+  initialOnline: boolean,
+  initialSynced: boolean,
+): PrompterRuntimeState {
+  return {
+    key,
+    rundownId,
+    services,
+    env,
+    inFlight: new Set(),
+    pendingKeys: new Map(),
+    trails: new Map(),
+    knownSentRows: new Set(),
+    waitingByDocId: new Map(),
+    disposed: false,
+    online: initialOnline,
+    canSend: false,
+    synced: initialSynced,
+    operator: null,
+    scroll: null,
+    takingControl: false,
+    isOperator: false,
+    latestView: null,
+    latestBeside: null,
+    overrideRowId: null,
+    lastSelectionSig: "",
+    trackedStoryId: null,
+    trackedStoryFormat: null,
+    stopTrackedStory: null,
+    snapshot: INITIAL_PROMPTER_SNAPSHOT,
+  };
+}
+
+export function trackPrompterStory(
+  state: PrompterRuntimeState,
+  storyId: string | null,
+  hooks: { emit(): void; publish(): void },
+): void {
+  if (storyId === state.trackedStoryId) return;
+  state.stopTrackedStory?.();
+  state.stopTrackedStory = null;
+  state.trackedStoryId = storyId;
+  state.trackedStoryFormat = null;
+  if (storyId === null) {
+    hooks.emit();
+    hooks.publish();
+    return;
+  }
+  const doc = state.services.documents.open(storyId);
+  const store = state.services.openScriptStore(storyId);
+  state.trackedStoryFormat = store.get("script.format");
+  state.waitingByDocId.set(storyId, doc.status.get().waiting);
+  const stopStatus = doc.status.subscribe((st) => {
+    if (state.waitingByDocId.get(storyId) === st.waiting) return;
+    state.waitingByDocId.set(storyId, st.waiting);
+    hooks.emit();
+    hooks.publish();
+  });
+  const stopFormat = store.subscribe("script.format", () => {
+    state.trackedStoryFormat = store.get("script.format");
+    hooks.publish();
+  });
+  state.stopTrackedStory = () => {
+    stopStatus();
+    stopFormat();
+    state.services.documents.close(storyId);
+  };
+  hooks.emit();
+  hooks.publish();
 }
 
 const PROMPTER_MESSAGE_ID = "prompter.status";

@@ -24,6 +24,7 @@ import {
   cornerMarkOf,
   presenceBadges,
 } from "./rundown-cell-parts.tsx";
+import { ReadOnlyPrompterStatus, ReadOnlyRowMenu } from "./rundown-states.tsx";
 import { WriterEditor } from "./writer-editor.tsx";
 
 const EDITABLE_COLUMNS = new Set<RundownColumnId>([
@@ -85,6 +86,8 @@ function buildItemCells(options: {
   readonly label: string;
   readonly timing: RowTiming;
   readonly columnIds: readonly RundownColumnId[];
+  readonly online: boolean;
+  readonly readOnly: boolean;
   readonly offlineMissing: boolean;
   readonly liveDuration: (rowId: string) => number | null;
   readonly cellPresence: (rowId: string, columnId: string) => readonly string[];
@@ -233,7 +236,11 @@ function buildItemCells(options: {
       case "prompter":
         cells[colId] = {
           value: "",
-          display: <PrompterCell rundownId={docId} rowId={row.id} />,
+          display: options.readOnly ? (
+            <ReadOnlyPrompterStatus row={row} online={options.online} />
+          ) : (
+            <PrompterCell rundownId={docId} rowId={row.id} />
+          ),
         };
         break;
     }
@@ -249,6 +256,7 @@ export function buildGridRows(options: {
   readonly columnIds: readonly RundownColumnId[];
   readonly titleColumn: "segment" | "story";
   readonly online: boolean;
+  readonly readOnly?: boolean;
   readonly onDevice: ReadonlySet<string>;
   readonly liveDuration: (rowId: string) => number | null;
   readonly cellPresence: (rowId: string, columnId: string) => readonly string[];
@@ -287,18 +295,27 @@ export function buildGridRows(options: {
       title !== ""
         ? title
         : RUNDOWN_WORDS.rowFallback(timing.number ?? index + 1);
-    const menu =
-      ROW_MENU_ITEMS.length > 0 ? (
-        <RowMenu
-          row={row}
-          rowIndex={index}
-          rowCount={rundown.rows.length}
-          label={RUNDOWN_WORDS.rowHandle(label)}
-          activeCell={activeCell}
-          onBeforeOpen={onBeforeMenuOpen}
-          onOpenPrevious={onOpenPrevious}
-        />
-      ) : undefined;
+    const readOnly = options.readOnly === true;
+    const menu = readOnly ? (
+      <ReadOnlyRowMenu
+        row={row}
+        label={RUNDOWN_WORDS.rowHandle(label)}
+        activeCell={activeCell}
+        onBeforeOpen={onBeforeMenuOpen}
+        onOpenBeside={options.onOpenBeside}
+        onOpenPrevious={onOpenPrevious}
+      />
+    ) : ROW_MENU_ITEMS.length > 0 ? (
+      <RowMenu
+        row={row}
+        rowIndex={index}
+        rowCount={rundown.rows.length}
+        label={RUNDOWN_WORDS.rowHandle(label)}
+        activeCell={activeCell}
+        onBeforeOpen={onBeforeMenuOpen}
+        onOpenPrevious={onOpenPrevious}
+      />
+    ) : undefined;
 
     if (row.kind === "header") {
       const storedCell =
@@ -332,7 +349,14 @@ export function buildGridRows(options: {
       id: row.id,
       kind: "item",
       label,
-      cells: buildItemCells({ ...options, row, label, timing, offlineMissing }),
+      cells: buildItemCells({
+        ...options,
+        readOnly,
+        row,
+        label,
+        timing,
+        offlineMissing,
+      }),
       menu,
     };
   });

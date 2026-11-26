@@ -1,8 +1,19 @@
-// HTTP requests, response parsers and message builders for Send to prompter and Send previous.
+// HTTP requests, response parsers and message builders for Send to prompter, Send previous and remote prompter scroll control.
 import type {
   PrompterSendRequest,
   PrompterSendResponse,
 } from "@manent/sync-protocol";
+export {
+  fetchPrompterControlStatus,
+  postPrompterOperatorRelease,
+  postPrompterOperatorTake,
+  postPrompterScrollCommand,
+} from "./prompter-control-http.ts";
+export type {
+  PrompterControlCommandOutcome,
+  PrompterControlStatusSnapshot,
+  PrompterTakeOutcome,
+} from "./prompter-control-http.ts";
 import { PROMPTER_WORDS, formatClockTime } from "@manent/ui";
 import type { Message } from "@manent/ui";
 

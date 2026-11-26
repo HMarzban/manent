@@ -6,14 +6,11 @@ import {
   EditableGrid,
   RUNDOWN_WORDS,
   SurfaceState,
-  createValue,
   useSubscribable,
 } from "@manent/ui";
 import type {
   EditableGridHandle,
   GridCommitResult,
-  StatusFacts,
-  Subscribable,
   SurfaceStateValue,
 } from "@manent/ui";
 import {
@@ -53,8 +50,8 @@ import {
   useCornerMark,
   usePreviousValue,
 } from "./previous-value.tsx";
+import { PrompterControlBar } from "./prompter-control-bar.tsx";
 import { useRundownRows } from "./rows.tsx";
-import type { RundownAccess } from "./rundown-access.ts";
 import { buildGridColumns, buildGridRows } from "./rundown-cells.tsx";
 import { useRundownSession } from "./rundown-session.ts";
 import {
@@ -62,7 +59,7 @@ import {
   RundownLoading,
   RundownNoAccess,
   RundownProblem,
-  RundownViewRoleNotice,
+  useEffectiveStatus,
 } from "./rundown-states.tsx";
 import { RundownTitleBar } from "./rundown-title-bar.tsx";
 
@@ -82,28 +79,6 @@ function useSidePanelOverPage(): boolean {
     () => OVERLAY_BREAKPOINT_PX,
   );
   return widthPx < OVERLAY_BREAKPOINT_PX;
-}
-
-/** Maps the rundown's effective access onto the document status so Can edit without edit rundowns shows `View only`. */
-function useEffectiveStatus(
-  source: Subscribable<StatusFacts>,
-  access: RundownAccess,
-): Subscribable<StatusFacts> {
-  const [derived] = useState(() => createValue(source.get()));
-  useEffect(() => {
-    const apply = (facts: StatusFacts): void => {
-      const needsViewOnly =
-        access !== "edit" &&
-        facts.server !== "access_removed" &&
-        facts.server !== "deleted" &&
-        facts.device !== "failing" &&
-        facts.access !== "too_old";
-      derived.set(needsViewOnly ? { ...facts, access: "view" } : facts);
-    };
-    apply(source.get());
-    return source.subscribe(apply);
-  }, [source, access, derived]);
-  return derived;
 }
 
 export interface RundownScreenProps {
@@ -176,21 +151,13 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
   const surfaceState: SurfaceStateValue = useMemo(() => {
     if (status.server === "access_removed" || status.server === "deleted")
       return { kind: "no_access" };
-    if (view.access === "view_or_comment") return { kind: "read_only" };
     if (!view.ready) return { kind: "loading", sinceMs: loadingSince };
     if (view.rundown === null)
       return { kind: "problem", reason: "unavailable" };
     if (view.rundown.rows.length === 0) return { kind: "empty" };
     if (!online) return { kind: "offline" };
     return { kind: "ready" };
-  }, [
-    status.server,
-    view.access,
-    view.ready,
-    view.rundown,
-    loadingSince,
-    online,
-  ]);
+  }, [status.server, view.ready, view.rundown, loadingSince, online]);
 
   const gridColumns = useMemo(
     () =>
@@ -219,6 +186,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     services.commands.run("rundown.openBeside", "control");
   };
 
+  const readOnly = view.access !== "edit";
   const gridRows = useMemo(() => {
     if (view.rundown === null || view.clock === null) return [];
     return buildGridRows({
@@ -228,6 +196,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       columnIds: allColumns,
       titleColumn,
       online,
+      readOnly,
       onDevice: view.onDevice,
       liveDuration,
       cellPresence,
@@ -246,6 +215,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     allColumns,
     titleColumn,
     online,
+    readOnly,
     view.onDevice,
     liveDuration,
     cellPresence,
@@ -255,7 +225,6 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     rowsBinding.onBeforeMenuOpen,
   ]);
 
-  const readOnly = view.access !== "edit";
   const onReadOnlyKey = (): void => {
     if (view.access !== "view_only") return;
     services.messages.push({
@@ -338,24 +307,30 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       <div
         ref={gridContainerRef}
         data-rundown-page=""
-        className="z-10 min-h-0 overflow-hidden bg-chrome"
+        className="z-10 flex min-h-0 flex-col overflow-hidden bg-chrome"
         style={PAGE_AREA}
       >
-        <SurfaceState
-          surface="rundown_grid"
-          state={surfaceState}
-          render={{
-            ready: () => gridElement,
-            offline: () => gridElement,
-            empty: () => <RundownEmpty canEdit={!readOnly} />,
-            loading: () => <RundownLoading />,
-            read_only: () => <RundownViewRoleNotice />,
-            no_access: () => (
-              <RundownNoAccess title={displayTitle} notSent={status.notSent} />
-            ),
-            problem: (_state, reload) => <RundownProblem onReload={reload} />,
-          }}
-        />
+        <PrompterControlBar docId={docId} />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <SurfaceState
+            surface="rundown_grid"
+            state={surfaceState}
+            render={{
+              ready: () => gridElement,
+              offline: () => gridElement,
+              empty: () => <RundownEmpty canEdit={!readOnly} />,
+              loading: () => <RundownLoading />,
+              read_only: () => gridElement,
+              no_access: () => (
+                <RundownNoAccess
+                  title={displayTitle}
+                  notSent={status.notSent}
+                />
+              ),
+              problem: (_state, reload) => <RundownProblem onReload={reload} />,
+            }}
+          />
+        </div>
       </div>
       <SidePanel docId={docId} overlay={sideOverPage} />
       <StatusBar

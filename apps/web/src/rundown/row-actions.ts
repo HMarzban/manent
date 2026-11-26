@@ -46,6 +46,11 @@ export interface RowActionContext {
   focusCell?(coord: GridCellCoord): void;
 }
 
+/** True when `row` has spoken text sent to the prompter and can be jumped to remotely. */
+export function canJumpRowToPrompter(row: RundownRowJSON): boolean {
+  return row.kind === "script" && row.prompter !== null;
+}
+
 /** Target row ids in rundown order: selected rows when non-empty, else the active row. */
 export function targetRowIdsOf(
   rundown: RundownJSON,

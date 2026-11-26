@@ -1,6 +1,8 @@
-// The text of a script the script font cannot draw, which a PDF prints as boxes.
+// The text of a script the script font cannot draw, which a PDF prints as boxes,
+// plus missing graphic assets that fall back to vector placeholders.
 import { engineFor } from "@manent/pagination";
 import type { Engine, Pagination } from "@manent/pagination";
+import type { PdfAsset } from "./graphics.ts";
 
 // The subset whose files hold every code point of `cluster`; null when no one subset does, so the
 // font has no glyph for it.
@@ -45,4 +47,19 @@ export function findUnsupportedCharacters(
       found.push({ blockId: id, characters: [...characters] });
   }
   return found;
+}
+
+/** Graphic blocks referencing an `assetId` that is absent from `assets` (drawn as vector placeholders). */
+export function findMissingPdfAssets(
+  p: Pagination,
+  assets?: ReadonlyMap<string, PdfAsset>,
+): { readonly blockId: string; readonly assetId: string }[] {
+  const missing: { readonly blockId: string; readonly assetId: string }[] = [];
+  for (const block of p.blocks) {
+    if (block.type !== "graphic") continue;
+    const assetId = block.graphic?.assetId ?? null;
+    if (assetId !== null && !assets?.has(assetId))
+      missing.push({ blockId: block.id, assetId });
+  }
+  return missing;
 }

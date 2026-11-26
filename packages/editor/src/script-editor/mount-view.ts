@@ -5,6 +5,7 @@ import { mark } from "@manent/perf";
 import type { IdSource } from "@manent/schema";
 import type { Plugin, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import type { GraphicAssetPort } from "../graphics/index.ts";
 import { nextElementFor } from "../keys/element-keys.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import type { LayoutView } from "../page/config.ts";
@@ -33,6 +34,7 @@ interface MountOptions {
   ports: PageViewPorts;
   words: EditorWords;
   view: LayoutView;
+  graphics?: GraphicAssetPort;
 }
 
 /** A transaction that changes the document is applied inside the guard and timed. */
@@ -89,5 +91,6 @@ export function mountEditor(
     isRemote: binding.isRemote,
     scroller: parts.ports.scroller,
     view: options.view,
+    graphics: options.graphics,
   });
 }

@@ -5,6 +5,8 @@ import type {
   Identity,
   ServerVersions,
 } from "@manent/sync-protocol";
+import { createAssetsService } from "../assets/service.ts";
+import type { AssetsService } from "../assets/service.ts";
 import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
@@ -13,6 +15,7 @@ import type { DraftsService } from "../drafts/service.ts";
 import type { DriverService } from "../driver/service.ts";
 import type { HistoryService } from "../history/service.ts";
 import type { TrashService } from "../library/service.ts";
+import type { MosBridgeService } from "../mos/bridge.ts";
 import type { NotificationsService } from "../notifications/service.ts";
 import type { PrivateCopyService } from "../private-copy/service.ts";
 import type { ProductionService } from "../production/service.ts";
@@ -35,8 +38,9 @@ import type { SyncService, SyncSettings } from "../sync/ports.ts";
 import type { WorkspaceService } from "../workspace/service.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
+import { answerMosRequest } from "./routes/mos.ts";
 import { hearReplays } from "./routes/replay.ts";
-import { ROUTES } from "./routes/index.ts";
+import { ROUTES, handleAssetRoute } from "./routes/index.ts";
 import { serveStatic } from "./static.ts";
 
 export interface RequestContext {
@@ -97,6 +101,8 @@ export interface ServerConfig {
   rundown?: RundownService;
   /** Absent: every prompter route answers not_found. */
   prompter?: PrompterService;
+  /** Absent: every MOS broadcast route answers not_found. */
+  mos?: MosBridgeService;
   /** Absent: every Trash route answers not_found. */
   trash?: TrashService;
   /** Absent: every search route answers not_found. */
@@ -107,6 +113,8 @@ export interface ServerConfig {
   notify?: NotificationsService;
   /** Absent: every public API route answers not_found. */
   publicApi?: PublicApiService;
+  /** Optional override for project binary assets; created automatically from `sync.storage` when absent. */
+  assets?: AssetsService;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
@@ -175,6 +183,15 @@ export function createServer(config: ServerConfig): ManentServer {
       : { ...sync, service: guardHomes(config, settings, sync.service) };
   if (sync !== null) hearRemovals(config, sync.service);
   if (sync !== null) hearReplays(config, sync.service);
+  const assets: AssetsService | null =
+    config.assets ??
+    (settings !== null && settings.mode !== "relay"
+      ? createAssetsService({
+          storage: settings.storage,
+          clock: settings.clock,
+          draftReaders: settings.draftReaders ?? config.drafts,
+        })
+      : null);
 
   return {
     sync: sync?.service ?? null,
@@ -194,12 +211,25 @@ export function createServer(config: ServerConfig): ManentServer {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
       }
+      const user = () => userOf(request, config.auth);
+      const assetResponse = await handleAssetRoute(
+        url.pathname,
+        { request, peer, config, user },
+        assets,
+      );
+      if (assetResponse !== null) return assetResponse;
       const route = ROUTES.find(
         (r) => r.method === request.method && r.path === url.pathname,
       );
       if (route !== undefined) {
-        const user = () => userOf(request, config.auth);
         return route.handle({ request, peer, config, user });
+      }
+      if (config.mos !== undefined) {
+        const answered = await answerMosRequest(request, {
+          mos: config.mos,
+          user: () => userOf(request, config.auth),
+        });
+        if (answered !== null) return answered;
       }
       if (isApi || request.method !== "GET" || webDir === null)
         return failure("not_found", 404);

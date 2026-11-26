@@ -1,6 +1,7 @@
 // One home's document file: its log, versions, history, generations, replays, adoptions, production, sharing,
 // private-copy and prompter tables over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
+import { createSqliteAssets } from "../assets/store.ts";
 import { crc32 } from "../checksum.ts";
 import type {
   AppendItem,
@@ -325,6 +326,7 @@ export function openDocFile(options: {
     sharing: createSqliteSharing(db),
     privateCopies: createSqlitePrivateCopies(db),
     prompter: createSqlitePrompter(db),
+    assets: createSqliteAssets(db),
     transaction: (fn) => transact(db, fn),
     close() {
       caches.close();

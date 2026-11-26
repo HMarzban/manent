@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import * as CONTENT from "../src/content/index.ts";
 import {
+  DEMO_WORKSPACES,
   SEED_DOCS,
   SEED_PROJECTS,
   TOUR,
@@ -16,6 +17,15 @@ import {
 import type { SeedWorkspaceId, TourScenario } from "../src/index.ts";
 
 const DOC_AT = new Map(SEED_DOCS.map((d) => [docPath(d.key), d]));
+const PROMPTER_AT = new Map(
+  SEED_DOCS.filter((d) => d.kind === "rundown").map((d) => [
+    `/s/${d.docId}/prompter`,
+    d,
+  ]),
+);
+const WORKSPACE_SETTINGS_AT = new Map(
+  DEMO_WORKSPACES.map((w) => [`/w/${w.id}/settings/broadcast`, w.id]),
+);
 const DRAFT_LINK_AT = new Map([
   [
     draftLinkPath("medium/the-long-night/script", "Blue"),
@@ -53,13 +63,16 @@ function windowsOf(scenario: TourScenario) {
 /** The workspace a window opens: the Library counts only for Your desk, opened as you. */
 function workspaceOpened(userId: string, open: string): SeedWorkspaceId | null {
   if (open === "/") return userId === "you" ? "you" : null;
+  const workspaceSettings = WORKSPACE_SETTINGS_AT.get(open);
+  if (workspaceSettings !== undefined) return workspaceSettings;
   const board = PROJECT_BOARDS.get(open);
   if (board !== undefined) return board.workspaceId;
-  const doc = DOC_AT.get(open) ?? DRAFT_LINK_AT.get(open);
+  const doc =
+    DOC_AT.get(open) ?? PROMPTER_AT.get(open) ?? DRAFT_LINK_AT.get(open);
   return doc === undefined ? null : seedProject(doc.projectKey).workspaceId;
 }
 
-test("every scenario opens a seeded document, draft link, project board, or the Library", () => {
+test("every scenario opens a seeded document, prompter, workspace settings, draft link, project board, or the Library", () => {
   expect(
     TOUR.scenarios.flatMap((s) =>
       windowsOf(s)
@@ -67,6 +80,8 @@ test("every scenario opens a seeded document, draft link, project board, or the 
           (w) =>
             w.open !== "/" &&
             !DOC_AT.has(w.open) &&
+            !PROMPTER_AT.has(w.open) &&
+            !WORKSPACE_SETTINGS_AT.has(w.open) &&
             !DRAFT_LINK_AT.has(w.open) &&
             !PROJECT_BOARDS.has(w.open),
         )

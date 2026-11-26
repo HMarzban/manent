@@ -1,13 +1,26 @@
-// What the prompter commands know of the open rundown, and the bound Send / Send previous actions per rundown.
+// What the prompter commands know of the open rundown, and the bound Send / Send previous / remote control actions per rundown.
 import type { CommandContext } from "@manent/commands";
+import type { PrompterScrollCommand } from "@manent/sync-protocol";
 import { guardWrite } from "./guard.ts";
 
 export type PrompterContext = NonNullable<CommandContext["prompter"]>;
+
+/** Distributive omit of `deviceId` over the `PrompterScrollCommand` union. */
+export type PrompterControlInput = PrompterScrollCommand extends infer T
+  ? T extends PrompterScrollCommand
+    ? Omit<T, "deviceId">
+    : never
+  : never;
 
 export interface PrompterBinding {
   send(): void;
   sendPrevious(): void;
   sendRow(rowId: string): void;
+  takeControl?(): void;
+  takeOver?(): void;
+  stopControlling?(): void;
+  jumpHere?(rowId?: string): void;
+  sendControl?(command: PrompterControlInput): void;
 }
 
 const contexts = new Map<string, PrompterContext>();
@@ -26,7 +39,8 @@ function sameContext(
     a.sentBefore === b.sentBefore &&
     a.storyFormat === b.storyFormat &&
     a.waiting === b.waiting &&
-    a.synced === b.synced
+    a.synced === b.synced &&
+    (a.controlling ?? false) === (b.controlling ?? false)
   );
 }
 
@@ -35,8 +49,8 @@ const notify = (): void => {
 };
 
 /**
- * `get` is what a command's context reads; `subscribe`'s listener hears every context change; `send`, `sendPrevious`
- * and `sendRow` invoke the bound rundown's prompter runtime.
+ * `get` is what a command's context reads; `subscribe`'s listener hears every context change; `send`, `sendPrevious`,
+ * `sendRow` and remote control methods invoke the bound rundown's prompter runtime.
  */
 export const prompterActions: {
   get(docId: string): CommandContext["prompter"];
@@ -46,6 +60,11 @@ export const prompterActions: {
   send(docId: string): void;
   sendPrevious(docId: string): void;
   sendRow(rundownId: string, rowId: string): void;
+  takeControl(docId: string): void;
+  takeOver(docId: string): void;
+  stopControlling(docId: string): void;
+  jumpHere(docId: string, rowId?: string): void;
+  sendControl(docId: string, command: PrompterControlInput): void;
 } = Object.freeze({
   get: (docId: string) => contexts.get(docId) ?? null,
   subscribe(listener: () => void) {
@@ -74,5 +93,20 @@ export const prompterActions: {
   },
   sendRow(rundownId: string, rowId: string) {
     bindings.get(rundownId)?.sendRow(rowId);
+  },
+  takeControl(docId: string) {
+    bindings.get(docId)?.takeControl?.();
+  },
+  takeOver(docId: string) {
+    bindings.get(docId)?.takeOver?.();
+  },
+  stopControlling(docId: string) {
+    bindings.get(docId)?.stopControlling?.();
+  },
+  jumpHere(docId: string, rowId?: string) {
+    bindings.get(docId)?.jumpHere?.(rowId);
+  },
+  sendControl(docId: string, command: PrompterControlInput) {
+    bindings.get(docId)?.sendControl?.(command);
   },
 });

@@ -10,6 +10,7 @@ import type { PrivateCopyStore } from "./private-copy.ts";
 import type { PrompterStore } from "./prompter.ts";
 import type { Replays } from "./replays.ts";
 import type { SharingStore } from "./sharing.ts";
+import type { ProjectAssetsStore } from "./storage.ts";
 import type { Versions } from "./versions.ts";
 
 /** The file a document lives in, written `project:<uuid>` or `user:<userId>`. */
@@ -31,9 +32,10 @@ export interface DocFile {
   readonly sharing: SharingStore;
   readonly privateCopies: PrivateCopyStore;
   readonly prompter: PrompterStore;
+  readonly assets: ProjectAssetsStore;
   /**
    * The unit of work: every write to `log`, `versions`, `history`, `generations`, `replays`, `adoptions`, `production`,
-   * `sharing`, `privateCopies` and `prompter` inside the synchronous
+   * `sharing`, `privateCopies`, `prompter` and `assets` inside the synchronous
    * `fn` commits together or not at all. A failure throws
    * StorageError("commit_failed") having written nothing. A write outside one
    * commits by itself.

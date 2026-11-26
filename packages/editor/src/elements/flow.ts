@@ -63,6 +63,7 @@ const ROWS: Readonly<Record<TableElement, Cells>> = Object.freeze({
   engine: ACTION,
   general: ACTION,
   page_break: ACTION,
+  graphic: ["action", "nothing", "nothing", "action"],
   ink_line: ACTION,
   character: ["dialogue", "parenthetical", "transition", "action"],
   parenthetical: ["dialogue", "dialogue", "dialogue", "dialogue"],
@@ -180,6 +181,7 @@ const STRUCTURE: readonly BlockType[] = Object.freeze([
   "act_break",
   "group",
   "page_break",
+  "graphic",
 ]);
 
 /**

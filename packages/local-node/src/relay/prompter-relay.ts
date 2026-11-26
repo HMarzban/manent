@@ -1,76 +1,30 @@
 // Prompter feed relay on the desktop node: answers prompter SUBSCRIBE for a relayed rundown from
-// the person's upstream prompter handle, forwarding snapshots, patches, heartbeats and feed loss.
+// the person's upstream prompter handle, forwarding snapshots, patches, heartbeats, control frames and feed loss.
 import { diffPrompterFeed, syncError } from "@manent/server-core";
-import type {
-  Clock,
-  Peer,
-  PrompterService,
-  SyncService,
-} from "@manent/server-core";
+import type { Clock, Peer, SyncService } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import type {
-  PrompterHandle,
-  PrompterStatus,
-  SyncClient,
-} from "@manent/sync-client";
-import { prepareMessage } from "@manent/sync-protocol";
-import type {
-  Message,
-  PrompterFeed,
-  PrompterPatch,
-  PrompterStory,
-} from "@manent/sync-protocol";
+import type { PrompterStatus, SyncClient } from "@manent/sync-client";
 import type { UpstreamFactory } from "../node/ports.ts";
 import type { NodeRecords } from "../records/ports.ts";
-
-type PrompterSubscribe = PrompterService["subscribePrompter"];
-type PrompterRegistry = Parameters<PrompterSubscribe>[0]["prompters"];
+import {
+  HEARTBEAT_BYTES,
+  attachPrompterControlForwarder,
+  docRowOf,
+  encodeJson,
+  livePeers,
+  readFeedFromHandle,
+  removePeer,
+  sendTo,
+} from "./prompter-control-relay.ts";
+import type {
+  PrompterSubscribe,
+  RelayedFeed,
+} from "./prompter-control-relay.ts";
 
 /** Interval for reaping upstream handles once every local prompter window has closed or unsubscribed. */
 const SWEEP_MS = 1_000;
 /** Retry delay carried by the transient error that signals upstream feed loss to the window. */
 const LOST_RETRY_MS = 1_000;
-
-const encodeJson = (value: unknown): Uint8Array =>
-  new TextEncoder().encode(JSON.stringify(value));
-
-const HEARTBEAT_BYTES = encodeJson({
-  v: 1,
-  runOrder: null,
-  stories: [],
-  removed: [],
-} satisfies PrompterPatch);
-
-function sendTo(peers: readonly Peer[], message: Message): void {
-  const prepared = prepareMessage(message);
-  for (const peer of peers) peer.send(prepared);
-}
-
-function readFeedFromHandle(handle: PrompterHandle): PrompterFeed {
-  const stories: PrompterStory[] = [];
-  for (const [storyId, blocks] of handle.stories.get())
-    stories.push({ storyId, blocks: [...blocks] });
-  return { v: 1, runOrder: [...handle.runOrder.get()], stories };
-}
-
-function livePeers(entry: RelayedFeed): Peer[] {
-  const unique = new Set<Peer>();
-  for (const registry of entry.registries) {
-    const peers = registry.peersOf(entry.docId);
-    if (peers.length === 0) entry.registries.delete(registry);
-    else
-      for (const peer of peers)
-        if (peer.userId === entry.userId) unique.add(peer);
-  }
-  for (const peer of entry.snapshotted)
-    if (!unique.has(peer)) entry.snapshotted.delete(peer);
-  return [...unique];
-}
-
-function removePeer(entry: RelayedFeed, peer: Peer): void {
-  entry.snapshotted.delete(peer);
-  for (const registry of entry.registries) registry.remove(entry.docId, peer);
-}
 
 export interface PrompterRelayOptions {
   storage: Storage;
@@ -86,20 +40,6 @@ export interface PrompterRelay {
   readonly subscribe: PrompterSubscribe;
   /** Closes every active upstream prompter handle, cached upstream client and sweep timer. */
   stop(): void;
-}
-
-interface RelayedFeed {
-  readonly key: string;
-  readonly userId: string;
-  readonly docId: string;
-  readonly registries: Set<PrompterRegistry>;
-  readonly handle: PrompterHandle;
-  readonly unsubscribes: (() => void)[];
-  readonly snapshotted: Set<Peer>;
-  lastFeed: PrompterFeed | null;
-  lastStatus: PrompterStatus["feed"];
-  lastForwardedAt: number | null;
-  cancelSweep: (() => void) | null;
 }
 
 /** Relays prompter subscriptions for synced rundowns through each person's upstream prompter handle. */
@@ -133,13 +73,6 @@ export function createPrompterRelay(
     if (known.refs > 0) return;
     clients.delete(userId);
     void known.client.close();
-  }
-
-  function docRowOf(docId: string) {
-    if (storage.directory.tombstoneOf(docId) !== null) return null;
-    const place = storage.directory.placeOf(docId);
-    if (place === null || place.kind !== "rundown") return null;
-    return storage.open(place.home).log.get(docId);
   }
 
   function teardown(entry: RelayedFeed): void {
@@ -186,13 +119,15 @@ export function createPrompterRelay(
     return eligible;
   }
 
+  const rowOf = (docId: string) => docRowOf(storage, docId);
+
   function deliverLive(
     entry: RelayedFeed,
     status: PrompterStatus,
     isStatusEvent: boolean,
   ): void {
     if (active.get(entry.key) !== entry) return;
-    const row = docRowOf(entry.docId);
+    const row = rowOf(entry.docId);
     if (row === null) return rejectAll(entry, "deleted", 0);
     const eligible = eligiblePeers(entry, row.generation);
     if (eligible.length === 0) return;
@@ -212,7 +147,10 @@ export function createPrompterRelay(
         ...base,
         content: encodeJson(nextFeed),
       });
-      for (const peer of needSnapshot) entry.snapshotted.add(peer);
+      for (const peer of needSnapshot) {
+        entry.snapshotted.add(peer);
+        entry.deliverControlSnapshot(peer, row.generation);
+      }
     }
     const patch =
       entry.lastFeed === null
@@ -240,7 +178,7 @@ export function createPrompterRelay(
     if (active.get(entry.key) !== entry || entry.lastStatus === "lost") return;
     entry.lastStatus = "lost";
     entry.snapshotted.clear();
-    const row = docRowOf(entry.docId);
+    const row = rowOf(entry.docId);
     if (row === null) return rejectAll(entry, "deleted", 0);
     const eligible = eligiblePeers(entry, row.generation);
     if (eligible.length === 0) return;
@@ -261,7 +199,7 @@ export function createPrompterRelay(
         entry.cancelSweep = null;
         if (active.get(entry.key) !== entry) return;
         if (livePeers(entry).length === 0) return teardown(entry);
-        const row = docRowOf(entry.docId);
+        const row = rowOf(entry.docId);
         if (row === null) return rejectAll(entry, "deleted", 0);
         if (eligiblePeers(entry, row.generation).length === 0) return;
         scheduleNext();
@@ -287,8 +225,17 @@ export function createPrompterRelay(
       lastStatus: handle.status.get().feed,
       lastForwardedAt: null,
       cancelSweep: null,
+      deliverControlSnapshot: () => {},
     };
     active.set(key, entry);
+    const control = attachPrompterControlForwarder({
+      docId,
+      handle,
+      clock,
+      generationOf: () => rowOf(docId)?.generation ?? null,
+      eligiblePeers: (generation) => eligiblePeers(entry, generation),
+    });
+    entry.deliverControlSnapshot = control.deliverSnapshot;
     const onData = (): void => {
       const status = handle.status.get();
       if (status.feed === "live") deliverLive(entry, status, false);
@@ -297,12 +244,13 @@ export function createPrompterRelay(
       if (status.feed === "live") deliverLive(entry, status, true);
       else if (status.feed === "lost") handleLost(entry);
       else if (status.feed === "refused")
-        rejectAll(entry, "forbidden", docRowOf(docId)?.generation ?? 0);
+        rejectAll(entry, "forbidden", rowOf(docId)?.generation ?? 0);
     };
     entry.unsubscribes.push(
       handle.runOrder.subscribe(onData),
       handle.stories.subscribe(onData),
       handle.status.subscribe(onStatus),
+      ...control.unsubscribes,
     );
     armSweep(entry);
     return entry;
@@ -315,7 +263,7 @@ export function createPrompterRelay(
       const doc = { docId, generation };
       if (storage.directory.tombstoneOf(docId) !== null)
         return tell(syncError("deleted", doc));
-      const row = docRowOf(docId);
+      const row = rowOf(docId);
       if (row === null) return tell(syncError("prompter_unavailable", doc));
 
       prompters.add(docId, peer);
@@ -349,6 +297,7 @@ export function createPrompterRelay(
           viewSeq: row.headSeq,
           content: encodeJson(feed),
         });
+        entry.deliverControlSnapshot(peer, row.generation);
       } else if (status.feed === "refused") {
         rejectAll(entry, "forbidden", row.generation);
       }

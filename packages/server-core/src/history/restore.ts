@@ -1,17 +1,25 @@
-// A restore on the authority: the script, or one scene of it, put back as a version holds it, by
-// one forward change of origin restore committed with a Before restore version.
-import { ORIGIN_RESTORE, applyBlockOps, scriptBody } from "@manent/crdt";
+// A restore on the authority: a script, scene, rundown or single rundown row put back as a version
+// holds it, by one forward change of origin restore committed with a Before restore version.
+import {
+  ORIGIN_RESTORE,
+  applyBlockOps,
+  applyRundownRestore,
+  readRundown,
+  scriptBody,
+} from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import {
   canonicalBlocksOf,
   idOf,
   isSceneHeading,
   planRestore,
+  planRundownRestore,
   sceneBlocks,
+  sortRundownRows,
 } from "@manent/revisions";
-import type { RestorePlan } from "@manent/revisions";
+import type { RestorePlan, RundownRestoreScope } from "@manent/revisions";
 import { fillBlockAttrs, validateBlocks } from "@manent/schema";
-import type { BlockJSON, DocJSON } from "@manent/schema";
+import type { BlockJSON, DocJSON, RundownJSON } from "@manent/schema";
 import type { DocFile, VersionRow } from "@manent/storage";
 import type {
   HistoryControl,
@@ -56,7 +64,6 @@ function readStoredRestore(text: string): RestoreResponse | null {
   try {
     parsed = JSON.parse(text);
   } catch {
-    // stored text that is not JSON is no answer: the caller refuses the retry like a damaged one
     return null;
   }
   if (!isFields(parsed)) return null;
@@ -108,14 +115,66 @@ function sceneNumberOf(doc: DocJSON, headingId: string): string | null {
   return typeof num === "string" ? num : String(at + 1);
 }
 
+/** The 1-based display number of a numbered rundown row, or null for header/unnumbered rows. */
+function rowNumberOf(rundown: RundownJSON, rowId: string): string | null {
+  let num = 0;
+  for (const row of sortRundownRows(rundown.rows)) {
+    const numbered = row.kind !== "header" && !row.unnumbered;
+    if (numbered) num++;
+    if (row.id === rowId) return numbered ? String(num) : null;
+  }
+  return null;
+}
+
 /** What a restore's write learns as it goes: read and planned in its edit, answered in its commit. */
 interface Written {
   previous: NewestVersion | null;
   before: VersionContent | null;
-  plan: RestorePlan | null;
+  applied: number | null;
   answer: RestoreResponse | null;
-  /** A scene restore's scene number. */
+  /** A scene or row restore's display number; null for whole-document restores. */
   scene: string | null;
+}
+
+type RestoreTarget =
+  | { kind: "script"; doc: DocJSON }
+  | { kind: "rundown"; rundown: RundownJSON; scope: RundownRestoreScope };
+
+function resolveTarget(
+  file: DocFile,
+  body: RestoreRequest,
+  content: VersionContent,
+): HistoryOutcome<RestoreTarget> {
+  const { docId, scope } = body;
+  const docRow = file.log.get(docId);
+  if (docRow === null) return { ok: false, code: "not_found" };
+  if (docRow.kind === "rundown") {
+    if (content.rundown === undefined)
+      return { ok: false, code: "not_restorable" };
+    if (scope.kind === "scene") return { ok: false, code: "bad_request" };
+    if (
+      scope.kind === "row" &&
+      !content.rundown.rows.some((row) => row.id === scope.rowId)
+    )
+      return { ok: false, code: "not_restorable" };
+    const rundownScope: RundownRestoreScope =
+      scope.kind === "row"
+        ? { kind: "row", rowId: scope.rowId }
+        : { kind: "all" };
+    return {
+      ok: true,
+      value: {
+        kind: "rundown",
+        rundown: content.rundown,
+        scope: rundownScope,
+      },
+    };
+  }
+  if (scope.kind === "row") return { ok: false, code: "bad_request" };
+  const doc = docOf(content.blocks);
+  if (scope.kind === "scene" && sceneBlocks(doc, scope.headingId).length === 0)
+    return { ok: false, code: "not_restorable" };
+  return { ok: true, value: { kind: "script", doc } };
 }
 
 export function createRestorer(options: {
@@ -129,36 +188,52 @@ export function createRestorer(options: {
 }): Restorer {
   const { clock, ids, recorder, locksAt } = options;
 
-  /** The restore's edit: the plan, checked, then written into `doc`; what it read kept in `state`. */
+  /** The restore's edit: planned, checked, then written into `doc` under `ORIGIN_RESTORE`. */
   function planInto(
     file: DocFile,
     doc: CrdtDoc,
+    userId: string,
     { docId, scope }: RestoreRequest,
-    target: DocJSON,
+    target: RestoreTarget,
     state: Written,
   ): { ok: true } | { ok: false; reason: string } {
     const row = file.log.get(docId);
     if (row === null) throw new RangeError(`no document ${docId} here`);
+    if (target.kind === "rundown") {
+      const now = clock.now();
+      const current = readRundown(doc);
+      const plan = planRundownRestore(current, target.rundown, target.scope, {
+        userId,
+        now,
+      });
+      state.previous = recorder.previousOf(file, docId);
+      state.before = contentOfDoc(doc, row, {});
+      state.applied = plan.applied;
+      if (target.scope.kind === "row")
+        state.scene = rowNumberOf(plan.result, target.scope.rowId);
+      applyRundownRestore(doc, plan.ops, {
+        userId,
+        now,
+        origin: ORIGIN_RESTORE,
+      });
+      return { ok: true };
+    }
+    if (scope.kind === "row") return { ok: false, reason: "invalid" };
     const current = scriptBody(doc).materialize();
-    const plan = planRestore(current, target, scope, {
+    const plan = planRestore(current, target.doc, scope, {
       authority: options.extras?.authority(file, docId),
       newId: ids,
     });
     if (!isHoldable(plan)) return { ok: false, reason: "invalid" };
-    // read here, out of the commit every queued write of the file shares
     state.previous = recorder.previousOf(file, docId);
     state.before = contentOfDoc(doc, row, {});
-    state.plan = plan;
+    state.applied = plan.applied;
     if (scope.kind === "scene")
       state.scene = sceneNumberOf(plan.result, scope.headingId);
     applyBlockOps(doc, plan.ops, ORIGIN_RESTORE);
     return { ok: true };
   }
 
-  /**
-   * In the restore's commit: `version`, at the head just before it, holding `before`, summarised
-   * against the newest version read before the commit, or against one kept since.
-   */
   function recordBefore(
     file: DocFile,
     version: VersionRow & VersionPosition,
@@ -179,12 +254,11 @@ export function createRestorer(options: {
     return true;
   }
 
-  /** One authority write: the plan applied, and in its commit the Before restore version and the answer. */
   async function write(
     file: DocFile,
     userId: string,
     body: RestoreRequest,
-    target: DocJSON,
+    target: RestoreTarget,
   ): Promise<
     HistoryOutcome<{ answer: RestoreResponse; scene: string | null }>
   > {
@@ -193,7 +267,7 @@ export function createRestorer(options: {
     const state: Written = {
       previous: null,
       before: null,
-      plan: null,
+      applied: null,
       answer: null,
       scene: null,
     };
@@ -201,10 +275,10 @@ export function createRestorer(options: {
       userId,
       origin: "restore",
       writer: body.clientId ?? undefined,
-      edit: (doc) => planInto(file, doc, body, target, state),
+      edit: (doc) => planInto(file, doc, userId, body, target, state),
       inTransaction(_file, at) {
-        const { before, plan } = state;
-        if (before === null || plan === null) return;
+        const { before, applied } = state;
+        if (before === null || applied === null) return;
         const createdAt = clock.now();
         const version = {
           id: beforeVersionId,
@@ -219,7 +293,7 @@ export function createRestorer(options: {
         } as const;
         if (!recordBefore(file, version, before, state.previous)) return;
         const serverSeq = at.seq ?? at.before;
-        const answer = { beforeVersionId, serverSeq, applied: plan.applied };
+        const answer = { beforeVersionId, serverSeq, applied };
         const result = JSON.stringify(answer);
         file.history.putRequest({ docId, key, userId, result, createdAt });
         state.answer = answer;
@@ -235,7 +309,7 @@ export function createRestorer(options: {
 
   return {
     async restore(file, userId, body) {
-      const { docId, key, versionId, scope } = body;
+      const { docId, key, versionId } = body;
       const stored = file.history.request(docId, key);
       if (stored !== null) {
         const answer =
@@ -248,15 +322,11 @@ export function createRestorer(options: {
       if (version?.docId !== docId) return { ok: false, code: "not_found" };
       const content = targetOf(file, version);
       if (content === null) return { ok: false, code: "not_restorable" };
-      const target = docOf(content.blocks);
-      if (
-        scope.kind === "scene" &&
-        sceneBlocks(target, scope.headingId).length === 0
-      )
-        return { ok: false, code: "not_restorable" };
+      const target = resolveTarget(file, body, content);
+      if (!target.ok) return target;
       if (!isFreeFor(file, body, userId))
         return { ok: false, code: "bad_request" };
-      const outcome = await write(file, userId, body, target);
+      const outcome = await write(file, userId, body, target.value);
       if (!outcome.ok) return outcome;
       const { answer, scene } = outcome.value;
       options.announce(docId, {

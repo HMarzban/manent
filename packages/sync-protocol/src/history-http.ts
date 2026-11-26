@@ -21,6 +21,59 @@ interface DocJSON {
   content?: { type: "section"; content?: BlockJSON[] }[];
 }
 
+// A rundown's stored shapes as they travel in version content: structurally identical to @manent/schema's RundownJSON.
+type RundownRowKind = "header" | "item" | "script";
+type RundownColumnId =
+  | "number"
+  | "segment"
+  | "story"
+  | "writer"
+  | "presenter"
+  | "type"
+  | "dur"
+  | "cume"
+  | "start"
+  | "back"
+  | "prompter";
+interface RundownFieldsJSON {
+  airDate: string;
+  airAt: number | null;
+  windowLeadMs: number;
+  targetMs: number | null;
+}
+interface RundownCellJSON {
+  value: string | number | null;
+  userId: string;
+  setAt: number;
+  previous: {
+    value: string | number | null;
+    userId: string;
+    setAt: number;
+  } | null;
+}
+interface PrompterStateJSON {
+  state: "on" | "changed";
+  versionId: string | null;
+  sentAt: number;
+  sentByUserId: string | null;
+}
+interface RundownRowJSON {
+  id: string;
+  order: string;
+  kind: RundownRowKind;
+  cells: Partial<Record<RundownColumnId, RundownCellJSON>>;
+  docId: string | null;
+  blockId: string | null;
+  durationMs: number | null;
+  prompter: PrompterStateJSON | null;
+  unnumbered: boolean;
+}
+interface RundownJSON {
+  rundown: RundownFieldsJSON;
+  columns: RundownColumnId[];
+  rows: RundownRowJSON[];
+}
+
 export const VERSION_KINDS = [
   "auto",
   "saved",
@@ -91,6 +144,8 @@ export interface VersionContent {
   locks: LockAnchorRecord[] | null;
   /** By block id: the last author and time known, per block and never per character. */
   authors: Record<string, VersionAuthor>;
+  /** Present for rundown versions: the rundown's fields, columns and rows as they were. */
+  rundown?: RundownJSON;
 }
 
 /** A version a device hands over with its document in POST /api/docs/adopt, kept as its content under its own id. */
@@ -118,7 +173,9 @@ export interface VersionContentResponse {
 }
 
 export type RestoreScopeBody =
-  { kind: "script" } | { kind: "scene"; headingId: string };
+  | { kind: "script" }
+  | { kind: "scene"; headingId: string }
+  | { kind: "row"; rowId: string };
 
 /** The body of POST /api/versions/name. A retry under the same `key` (`isReplayKey`) changes nothing. */
 export interface NameRequest {

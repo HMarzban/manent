@@ -1,4 +1,4 @@
-// The prompter routes: sending a rundown row to the prompter and restoring the previous send.
+// The prompter routes: sending a rundown row, restoring the previous send, and remote scroll control.
 import { isDocId, isRequestKey } from "@manent/sync-protocol";
 import type {
   Identity,
@@ -13,6 +13,10 @@ import type {
 import { failure, json, readJsonBody } from "../respond.ts";
 import type { Route } from "../route.ts";
 import { isObject } from "./docs.ts";
+import {
+  PROMPTER_CONTROL_ROUTES,
+  answerPrompterControlRequest,
+} from "./prompter-control.ts";
 
 /** Who asks, and the service that answers. */
 interface PrompterCaller {
@@ -96,10 +100,14 @@ export async function answerPrompterRequest(
   const route = ANSWERS.find(
     (r) => r.method === request.method && r.path === pathname,
   );
-  return route === undefined ? null : answerAs(route, request, caller);
+  if (route !== undefined) return answerAs(route, request, caller);
+  return answerPrompterControlRequest(request, {
+    control: caller.service.control,
+    user: caller.user,
+  });
 }
 
-export const PROMPTER_ROUTES: readonly Route[] = ANSWERS.map((route) => ({
+const SEND_ROUTES: readonly Route[] = ANSWERS.map((route) => ({
   method: route.method,
   path: route.path,
   handle(context) {
@@ -111,3 +119,8 @@ export const PROMPTER_ROUTES: readonly Route[] = ANSWERS.map((route) => ({
     });
   },
 }));
+
+export const PROMPTER_ROUTES: readonly Route[] = [
+  ...SEND_ROUTES,
+  ...PROMPTER_CONTROL_ROUTES,
+];
