@@ -71,6 +71,14 @@ export const TOUR_TARGETS = [
   "status:goal",
   "details:numbers",
   "setting:script.engineVersion",
+  "prompter:take_control",
+  "prompter:play",
+  "prompter:follow_switch",
+  "workspace:broadcast",
+  "mos:save",
+  "rundown:mos_toggle",
+  "details:graphic",
+  "rundown:new_menu",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];
