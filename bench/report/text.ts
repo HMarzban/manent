@@ -13,9 +13,16 @@ export const SECTIONS = {
   wrongDesign: "The wrong design, on purpose",
   longBook: "The long book",
   tradeOffs: "Trade-offs",
+  otherDesigns: "Other designs and other figures",
   notMeasured: "Not measured",
   rawData: "Raw data",
 } as const;
+
+export const OTHER_DESIGNS =
+  "These figures have no budget. They are measured so that the choices this app made can be weighed against the alternatives, and so that features without a stated target have a figure.";
+
+export const OTHER_DESIGNS_LIBRARIES =
+  "On the editing traces, Yjs (this app) is measured beside prosemirror-collab (central-authority baseline), Loro and Automerge.";
 
 export const METHOD =
   "Every number in this report was read from a result file under runs/, written by the benchmark suite in this repository at the commit named below. Each scenario ran in fresh processes, and the samples of all its processes were pooled. Timings are reported as nearest-rank percentiles (p50, p95, p99) with a bootstrap interval of the percentile (1,000 resamples, seed 4747); no mean and no best run is reported.";
@@ -90,8 +97,8 @@ export const MODE_SIZES: readonly (readonly [
     "the scenario's own",
     "the scenario's own",
   ],
-  ["client memory soak", "1 min", "10 min", "120 min"],
-  ["server soak", "1 min", "10 min", "480 min"],
+  ["client memory soak", "1 min", "10 min", "120 min (or MANENT_SOAK_MINUTES)"],
+  ["server soak", "1 min", "10 min", "480 min (or MANENT_SOAK_MINUTES)"],
   ["aged sessions", "400", "400, 2,000, 10,000", "400, 2,000, 10,000, 50,000"],
   ["kills in server.durability", "10", "200", "200"],
 ];
@@ -102,8 +109,9 @@ export const LIMITS: readonly string[] = [
   "Containers have no graphics card, so paint times read worse than on a real machine.",
   "Docker runs Linux only. Windows is checked on shared CI machines for whether the app works, never for timing; macOS is measured directly on one Apple-silicon laptop, the host tier. Processor emulation is never used for timing.",
   "Server figures come from the D-small container, where the simulated clients share the server's one core, so they read worse than a server alone would.",
-  "Headless Chromium has no spellchecker and no display pacing.",
-  "Simulated: writers and readers at the rates of the profiles above, generated scripts and prose, and offline hours compressed into seconds. Not simulated: real typists, real networks with loss and delay, and browsers other than Chromium.",
+  "Headless browsers have no spellchecker, so spellcheck is measured in headed Chromium with a virtual display.",
+  "Simulated: writers and readers at the rates of the profiles above, generated scripts and prose, and offline hours compressed into seconds. Not simulated: real typists, real networks with loss and delay, and browsers other than Chromium, Firefox and WebKit.",
+  "The power-loss model copies files while writing and models a cut that keeps what reached the file system, not the disk's cache.",
 ];
 
 /** The limits to state first; `limits` is the measured comfort limit of each tier. */

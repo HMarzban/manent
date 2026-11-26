@@ -197,7 +197,14 @@ const ENVELOPE: RowRef = { type: "part", name: "the comfort envelope" };
 
 /** The rows that bear on a trade-off, by its number; a trade-off not named here has none. */
 export const BEARS_ON: ReadonlyMap<number, readonly RowRef[]> = new Map([
-  [1, [ref("merge-offline-120"), ref("merge-offline-book-2000")]],
+  [
+    1,
+    [
+      ref("merge-offline-120"),
+      ref("merge-offline-book-2000"),
+      ref("crdt.authority"),
+    ],
+  ],
   [2, [ref("crdt.rebuild-size"), ref("crdt.aged")]],
   [
     3,

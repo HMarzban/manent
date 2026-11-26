@@ -441,7 +441,7 @@ test("a host number is never shown without the modest-tier number beside it", as
     tables(withoutModest).filter((t) => t.header.includes("host")),
   ).toEqual([]);
   expect(tables(report).filter((t) => t.header.includes("host")).length).toBe(
-    4,
+    11,
   );
 });
 
@@ -655,4 +655,189 @@ test("a failing row names its remedy", async () => {
   expect(
     budgetRow(report, "Variation across start, middle, end"),
   ).toMatchObject({ Verdict: "pass", Remedy: "" });
+});
+
+const sample = (
+  metric: string,
+  unit: "ms" | "bytes" | "count",
+  value: number,
+) => ({
+  metric,
+  unit,
+  samples: 5,
+  p50: value,
+  p95: value,
+  p99: value,
+  max: value,
+  intervals: {
+    p50: [value, value] as [number, number],
+    p95: [value, value] as [number, number],
+    p99: [value, value] as [number, number],
+  },
+  processP50: [value, value] as [number, number],
+  warmup: 0,
+  verdict: "no_budget" as const,
+  verdictReason: null,
+  judgedStat: null,
+  raw: [[value]],
+});
+
+test("Other designs and other figures renders unbudgeted scenarios, library names, Trade-off 1 crdt.authority, and full-mode soak lengths", async () => {
+  const runs = await fixtureRuns();
+  const modest = structuredClone(runs[0]!);
+  modest.result.scenarios.push(
+    {
+      id: "crdt.authority",
+      area: "crdt",
+      workload: null,
+      processes: 5,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 1200,
+      metrics: [
+        sample("replay_ms_seph_blog1", "ms", 42.5),
+        sample("log_bytes_seph_blog1", "bytes", 2_500_000),
+        sample("offline_dropped_seph_blog1", "count", 3),
+      ],
+    },
+    {
+      id: "crdt.loro",
+      area: "crdt",
+      workload: null,
+      processes: 5,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 900,
+      metrics: [
+        sample("replay_ms_seph_blog1", "ms", 18.2),
+        sample("bytes_ratio_seph_blog1", "count", 1.9),
+      ],
+    },
+    {
+      id: "crdt.automerge",
+      area: "crdt",
+      workload: null,
+      processes: 5,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 1100,
+      metrics: [
+        sample("replay_ms_seph_blog1", "ms", 31.4),
+        sample("bytes_ratio_seph_blog1", "count", 2.4),
+      ],
+    },
+  );
+  const fullClient = structuredClone(runs[0]!);
+  fullClient.file = "full-client.json";
+  fullClient.result.environment.mode = "full";
+  fullClient.result.scenarios = [
+    {
+      id: "soak-client-120",
+      area: "client",
+      workload: "W1",
+      processes: 1,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 110 * 60_000,
+      metrics: [sample("heap_growth", "count", 1.2)],
+    },
+  ];
+  const fullServer = structuredClone(runs[2]!);
+  fullServer.file = "full-server.json";
+  fullServer.result.environment.mode = "full";
+  fullServer.result.scenarios = [
+    {
+      id: "server.soak",
+      area: "server",
+      workload: null,
+      processes: 1,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 110 * 60_000,
+      metrics: [sample("memory_growth_percent", "count", 2.1)],
+    },
+  ];
+  const hostRun = structuredClone(runs[4]!);
+  hostRun.result.scenarios.push(
+    {
+      id: "desktop.wake",
+      area: "desktop",
+      workload: null,
+      processes: 5,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 500,
+      metrics: [sample("reconnect_ms", "ms", 125)],
+    },
+    {
+      id: "desktop.update",
+      area: "desktop",
+      workload: null,
+      processes: 1,
+      outcome: "measured",
+      quiet: null,
+      elapsedMs: 500,
+      metrics: [sample("update_ms", "ms", 840)],
+    },
+  );
+  const report = generateReport(
+    [modest, ...runs.slice(1, 4), hostRun, fullClient, fullServer],
+    [],
+    FACTS,
+  );
+  const other = section(report, "Other designs and other figures");
+  expect(other).toContain(
+    "These figures have no budget. They are measured so that the choices this app made can be weighed against the alternatives, and so that features without a stated target have a figure.",
+  );
+  expect(other).toContain("prosemirror-collab");
+  expect(other).toContain("Loro");
+  expect(other).toContain("Automerge");
+  expect(other).toContain("Yjs");
+  expect(other).toContain("42.5 ms (42.5–42.5)");
+  expect(other).toContain("2.5 MB");
+  expect(other).toContain("18.2 ms (18.2–18.2)");
+  expect(other).toContain("31.4 ms (31.4–31.4)");
+  expect(other).toContain("125 ms (125–125)");
+  expect(other).toContain("840 ms (840–840)");
+  for (const t of tables(other)) {
+    expect(t.header).not.toContain("Verdict");
+    expect(t.header).not.toContain("Remedy");
+  }
+  const [tradeOffs] = tables(section(report, "Trade-offs"));
+  expect(tradeOffs!.rows[0]![4]).toBe("crdt.authority");
+  const method = section(report, "What was measured, and how");
+  const modeTable = tables(method).find((t) => t.header.includes("full"))!;
+  expect(modeTable.rows.find((r) => r[0] === "client memory soak")).toEqual([
+    "client memory soak",
+    "10 min",
+    "110 min",
+  ]);
+  expect(modeTable.rows.find((r) => r[0] === "server soak")).toEqual([
+    "server soak",
+    "10 min",
+    "110 min",
+  ]);
+  const limits = section(report, "Limits of the method");
+  expect(limits).toContain(
+    "5. Server figures come from the D-small container, where the simulated clients share the server's one core, so they read worse than a server alone would.",
+  );
+  expect(limits).toContain(
+    "6. Headless browsers have no spellchecker, so spellcheck is measured in headed Chromium with a virtual display.",
+  );
+  expect(limits).toContain(
+    "and browsers other than Chromium, Firefox and WebKit.",
+  );
+  expect(limits).toContain(
+    "keeps what reached the file system, not the disk's cache.",
+  );
+  const notMeasured = section(report, "Not measured");
+  expect(notMeasured).toContain(
+    "- Real modest hardware: no modest machine was available; the D-modest container stands in for one.",
+  );
+  expect(notMeasured).toContain(
+    "- Rollback: the app has no rollback step to time in this release.",
+  );
+  expect(notMeasured).toContain(
+    "- Aged-document workloads for Loro and Automerge: only the editing traces are replayed into Loro and Automerge in this release.",
+  );
 });

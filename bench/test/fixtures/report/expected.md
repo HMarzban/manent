@@ -78,8 +78,9 @@ To run one row again, check out the commit, run bun install --frozen-lockfile, t
 3. Containers have no graphics card, so paint times read worse than on a real machine.
 4. Docker runs Linux only. Windows is checked on shared CI machines for whether the app works, never for timing; macOS is measured directly on one Apple-silicon laptop, the host tier. Processor emulation is never used for timing.
 5. Server figures come from the D-small container, where the simulated clients share the server's one core, so they read worse than a server alone would.
-6. Headless Chromium has no spellchecker and no display pacing.
-7. Simulated: writers and readers at the rates of the profiles above, generated scripts and prose, and offline hours compressed into seconds. Not simulated: real typists, real networks with loss and delay, and browsers other than Chromium.
+6. Headless browsers have no spellchecker, so spellcheck is measured in headed Chromium with a virtual display.
+7. Simulated: writers and readers at the rates of the profiles above, generated scripts and prose, and offline hours compressed into seconds. Not simulated: real typists, real networks with loss and delay, and browsers other than Chromium, Firefox and WebKit.
+8. The power-loss model copies files while writing and models a cut that keeps what reached the file system, not the disk's cache.
 
 ## Limits to state first
 
@@ -237,6 +238,192 @@ The long book is generated prose in the manuscript format, at 1,000 and 2,000 pa
 | 27  | The PDF is written in the page, from the pagination already on screen                    | Export and Print work offline, with no server, and the file's pages are the screen's                                | Writing a very long script's PDF occupies the window while the Send screen shows its busy state; at 2,000 pages that can take seconds                                                                                                                                                                                                                                                                                                                             | not measured                                                                                        |
 | 28  | An issued revision's file is drawn again from what was issued each time it is asked for  | Nothing extra is stored, and the file always matches the issued version                                             | Its pages, lines and marks never change; its bytes may differ between releases of the PDF library, because they are not stored                                                                                                                                                                                                                                                                                                                                    | no measurement bears on this                                                                        |
 
+## Other designs and other figures
+
+These figures have no budget. They are measured so that the choices this app made can be weighed against the alternatives, and so that features without a stated target have a figure.
+
+On the editing traces, Yjs (this app) is measured beside prosemirror-collab (central-authority baseline), Loro and Automerge.
+
+### Yjs on the editing traces (`crdt.traces`)
+
+| Metric                           | Stat | D-modest     | D-typical    | Processes and samples |
+| -------------------------------- | ---- | ------------ | ------------ | --------------------- |
+| replay_ms_seph_blog1             | p50  | not measured | not measured |                       |
+| bytes_ratio_seph_blog1           | p50  | not measured | not measured |                       |
+| transactions_seph_blog1          | max  | not measured | not measured |                       |
+| replay_ms_rustcode               | p50  | not measured | not measured |                       |
+| bytes_ratio_rustcode             | p50  | not measured | not measured |                       |
+| transactions_rustcode            | max  | not measured | not measured |                       |
+| replay_ms_sveltecomponent        | p50  | not measured | not measured |                       |
+| bytes_ratio_sveltecomponent      | p50  | not measured | not measured |                       |
+| transactions_sveltecomponent     | max  | not measured | not measured |                       |
+| replay_ms_json_crdt_patch        | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_patch      | p50  | not measured | not measured |                       |
+| transactions_json_crdt_patch     | max  | not measured | not measured |                       |
+| replay_ms_json_crdt_blog_post    | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_blog_post  | p50  | not measured | not measured |                       |
+| transactions_json_crdt_blog_post | max  | not measured | not measured |                       |
+
+### Central-authority baseline with `prosemirror-collab` (`crdt.authority`)
+
+| Metric                              | Stat | D-modest     | D-typical    | Processes and samples |
+| ----------------------------------- | ---- | ------------ | ------------ | --------------------- |
+| replay_ms_seph_blog1                | p50  | not measured | not measured |                       |
+| log_bytes_seph_blog1                | max  | not measured | not measured |                       |
+| offline_dropped_seph_blog1          | max  | not measured | not measured |                       |
+| replay_ms_rustcode                  | p50  | not measured | not measured |                       |
+| log_bytes_rustcode                  | max  | not measured | not measured |                       |
+| offline_dropped_rustcode            | max  | not measured | not measured |                       |
+| replay_ms_sveltecomponent           | p50  | not measured | not measured |                       |
+| log_bytes_sveltecomponent           | max  | not measured | not measured |                       |
+| offline_dropped_sveltecomponent     | max  | not measured | not measured |                       |
+| replay_ms_json_crdt_patch           | p50  | not measured | not measured |                       |
+| log_bytes_json_crdt_patch           | max  | not measured | not measured |                       |
+| offline_dropped_json_crdt_patch     | max  | not measured | not measured |                       |
+| replay_ms_json_crdt_blog_post       | p50  | not measured | not measured |                       |
+| log_bytes_json_crdt_blog_post       | max  | not measured | not measured |                       |
+| offline_dropped_json_crdt_blog_post | max  | not measured | not measured |                       |
+
+### Loro on the editing traces (`crdt.loro`)
+
+| Metric                          | Stat | D-modest     | D-typical    | Processes and samples |
+| ------------------------------- | ---- | ------------ | ------------ | --------------------- |
+| replay_ms_seph_blog1            | p50  | not measured | not measured |                       |
+| bytes_ratio_seph_blog1          | p50  | not measured | not measured |                       |
+| replay_ms_rustcode              | p50  | not measured | not measured |                       |
+| bytes_ratio_rustcode            | p50  | not measured | not measured |                       |
+| replay_ms_sveltecomponent       | p50  | not measured | not measured |                       |
+| bytes_ratio_sveltecomponent     | p50  | not measured | not measured |                       |
+| replay_ms_json_crdt_patch       | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_patch     | p50  | not measured | not measured |                       |
+| replay_ms_json_crdt_blog_post   | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_blog_post | p50  | not measured | not measured |                       |
+
+### Automerge on the editing traces (`crdt.automerge`)
+
+| Metric                          | Stat | D-modest     | D-typical    | Processes and samples |
+| ------------------------------- | ---- | ------------ | ------------ | --------------------- |
+| replay_ms_seph_blog1            | p50  | not measured | not measured |                       |
+| bytes_ratio_seph_blog1          | p50  | not measured | not measured |                       |
+| replay_ms_rustcode              | p50  | not measured | not measured |                       |
+| bytes_ratio_rustcode            | p50  | not measured | not measured |                       |
+| replay_ms_sveltecomponent       | p50  | not measured | not measured |                       |
+| bytes_ratio_sveltecomponent     | p50  | not measured | not measured |                       |
+| replay_ms_json_crdt_patch       | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_patch     | p50  | not measured | not measured |                       |
+| replay_ms_json_crdt_blog_post   | p50  | not measured | not measured |                       |
+| bytes_ratio_json_crdt_blog_post | p50  | not measured | not measured |                       |
+
+### Browser storage quota exhaustion (`storage-quota-120`)
+
+| Metric       | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ------------ | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| told_ms      | p50  | not measured | not measured | not measured | not measured |                       |
+| changes_lost | max  | not measured | not measured | not measured | not measured |                       |
+
+### Unpersisted browser storage (`storage-unpersisted-120`)
+
+| Metric       | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ------------ | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| changes_lost | max  | not measured | not measured | not measured | not measured |                       |
+
+### Typing in Firefox, 120 pages (`typing-120-firefox`)
+
+| Metric                 | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ---------------------- | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| keystroke_paint        | p50  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p95  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p99  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint_remote | p95  | not measured | not measured | not measured | not measured |                       |
+| remote_extra           | p50  | not measured | not measured | not measured | not measured |                       |
+| position_spread        | p50  | not measured | not measured | not measured | not measured |                       |
+| dispatch               | p95  | not measured | not measured | not measured | not measured |                       |
+
+### Typing in WebKit, 120 pages (`typing-120-webkit`)
+
+| Metric                 | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ---------------------- | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| keystroke_paint        | p50  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p95  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p99  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint_remote | p95  | not measured | not measured | not measured | not measured |                       |
+| remote_extra           | p50  | not measured | not measured | not measured | not measured |                       |
+| position_spread        | p50  | not measured | not measured | not measured | not measured |                       |
+| dispatch               | p95  | not measured | not measured | not measured | not measured |                       |
+
+### Typing with spellcheck, 120 pages (`typing-120-spellcheck`)
+
+| Metric                 | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ---------------------- | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| keystroke_paint        | p50  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p95  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p99  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint_remote | p95  | not measured | not measured | not measured | not measured |                       |
+| remote_extra           | p50  | not measured | not measured | not measured | not measured |                       |
+| position_spread        | p50  | not measured | not measured | not measured | not measured |                       |
+| dispatch               | p95  | not measured | not measured | not measured | not measured |                       |
+
+### Typing with spellcheck, 1,000 pages (`typing-1000-spellcheck`)
+
+| Metric                 | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ---------------------- | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| keystroke_paint        | p50  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p95  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint        | p99  | not measured | not measured | not measured | not measured |                       |
+| keystroke_paint_remote | p95  | not measured | not measured | not measured | not measured |                       |
+| remote_extra           | p50  | not measured | not measured | not measured | not measured |                       |
+| position_spread        | p50  | not measured | not measured | not measured | not measured |                       |
+| dispatch               | p95  | not measured | not measured | not measured | not measured |                       |
+
+### Full-text search (`server.search`)
+
+| Metric    | Stat | D-small      | Processes and samples |
+| --------- | ---- | ------------ | --------------------- |
+| search_ms | p50  | not measured |                       |
+| search_ms | p95  | not measured |                       |
+| search_ms | p99  | not measured |                       |
+
+### Ink compile after pause (`ink-compile`)
+
+| Metric              | Stat | D-modest     | D-modest 4x  | D-typical    | host         | Processes and samples |
+| ------------------- | ---- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| pause_to_problem_ms | p50  | not measured | not measured | not measured | not measured |                       |
+| pause_to_problem_ms | p95  | not measured | not measured | not measured | not measured |                       |
+| pause_to_problem_ms | p99  | not measured | not measured | not measured | not measured |                       |
+
+### Desktop wake and reconnect (`desktop.wake`)
+
+| Metric       | Stat | Desktop (host) | Processes and samples |
+| ------------ | ---- | -------------- | --------------------- |
+| reconnect_ms | p50  | not measured   |                       |
+| reconnect_ms | p95  | not measured   |                       |
+| reconnect_ms | max  | not measured   |                       |
+
+### Desktop update (`desktop.update`)
+
+| Metric    | Stat | Desktop (host) | Processes and samples |
+| --------- | ---- | -------------- | --------------------- |
+| update_ms | p50  | not measured   |                       |
+
+### Many loaded rooms (`server.many-rooms`)
+
+| Metric                     | Stat | D-small      | Processes and samples |
+| -------------------------- | ---- | ------------ | --------------------- |
+| rss_per_loaded_room_bytes  | max  | not measured |                       |
+| rss_per_connection_bytes   | max  | not measured |                       |
+| heap_per_loaded_room_bytes | max  | not measured |                       |
+| rooms_after_idle           | max  | not measured |                       |
+
+### Presence fan-out (`server.presence`)
+
+| Metric                    | Stat | D-small      | Processes and samples |
+| ------------------------- | ---- | ------------ | --------------------- |
+| deliveries_per_second     | p50  | not measured |                       |
+| presence_bytes_per_second | p50  | not measured |                       |
+| presence_lag_ms           | p50  | not measured |                       |
+| presence_lag_ms           | p95  | not measured |                       |
+| presence_lag_ms           | p99  | not measured |                       |
+
 ## Not measured
 
 - export.pdf-120 on D-typical: could not finish: export.pdf-120 pdf_ms was budgeted and not measured.
@@ -282,8 +469,9 @@ The long book is generated prose in the manuscript format, at 1,000 and 2,000 pa
 - The log of 900,000 updates behind a W1 typing run: typing reads only the live document, and the log lies outside it; the log's growth is measured by `server.persistence`.
 - The other writers and readers of W6 and W7, and W7's 200 versions: each is measured with one typist and no versions.
 - The 24-hour soak: it is run by hand, not in a published run.
-- Storage pressure in a browser; desktop sleep and wake, update and rollback, timed; power loss; Firefox and WebKit timings; real modest hardware: a later stage measures them.
-- A central-authority baseline on the same editing traces, and other CRDT libraries on the same workloads: a later stage measures them.
+- Real modest hardware: no modest machine was available; the D-modest container stands in for one.
+- Rollback: the app has no rollback step to time in this release.
+- Aged-document workloads for Loro and Automerge: only the editing traces are replayed into Loro and Automerge in this release.
 
 ## Raw data
 
