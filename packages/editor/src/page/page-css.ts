@@ -13,6 +13,13 @@ import {
 // ProseMirror's own styles, since the reset makes images blocks and one would put an empty line under that line;
 // geometricPrecision turns subpixel positioning on, without which Chromium on Linux rounds each advance to a whole pixel
 export const PAGE_CSS = `
+.mn-zoom:not(.mn-reflow) {
+  position: relative;
+}
+.mn-zoom:not(.mn-reflow) > .mn-pages {
+  position: absolute;
+  left: 0;
+}
 .mn-pages {
   --geo-cell: ${CELL_PT}pt;
   --geo-line: ${LINE_PT}pt;
