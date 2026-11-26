@@ -136,13 +136,43 @@ export const runGraphicRemoveImage = (
   blockId?: string,
 ): boolean => runAndSync(docId, (c) => c.removeGraphicImage(blockId));
 
+const PROJECT_RESOLVE_TIMEOUT_MS = 4000;
+
+function waitForDocumentProject(
+  services: Pick<PersonServices, "library">,
+  docId: string,
+): Promise<string | null> {
+  const source = services.library.documentProject(docId);
+  const current = source.get();
+  if (current !== null) return Promise.resolve(current);
+  return new Promise<string | null>((resolve) => {
+    let done = false;
+    const finish = (value: string | null): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      stop();
+      resolve(value);
+    };
+    const stop = source.subscribe((next) => {
+      if (next !== null) finish(next);
+    });
+    const timer = setTimeout(
+      () => finish(source.get()),
+      PROJECT_RESOLVE_TIMEOUT_MS,
+    );
+    const after = source.get();
+    if (after !== null) finish(after);
+  });
+}
+
 export function graphicAssetPortFor(
   services: Pick<PersonServices, "userId" | "messages" | "library">,
   docId: string,
 ): GraphicAssetPort {
   return {
     async resolveUrl(assetId) {
-      const projectId = services.library.documentProject(docId).get();
+      const projectId = await waitForDocumentProject(services, docId);
       if (projectId === null) return null;
       const pooled = await getProjectAssetUploader(services, projectId);
       if (pooled === null) return null;

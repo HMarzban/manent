@@ -81,6 +81,7 @@ export interface ComposedService {
       | "project"
       | "rundown"
       | "prompter"
+      | "mos"
       | "trash"
       | "search"
       | "workspace"
@@ -183,6 +184,7 @@ export function composeServices(deps: ServiceDeps): {
 
 /** Stops every composed service that holds background work or open handles. */
 export function stopComposedServices(config: ComposedService["config"]): void {
+  void config.mos?.stop();
   config.prompter?.stop();
   config.trash?.stop();
   config.search?.stop();

@@ -137,7 +137,10 @@ export function createVersionLists(options: {
     entry.phase = { kind: "loaded" };
   };
 
-  async function listFirst(entry: Entry): Promise<void> {
+  async function listFirst(
+    entry: Entry,
+    opts?: { allowNotFoundAsLocal?: boolean },
+  ): Promise<void> {
     if (entry.listing) return;
     entry.listing = true;
     const { epoch } = entry;
@@ -148,6 +151,8 @@ export function createVersionLists(options: {
           const response = await http.get("/api/versions", {
             docId: entry.docId,
           });
+          if (response.status === 404 && opts?.allowNotFoundAsLocal)
+            return { kind: "local" };
           if (!response.ok)
             return { kind: "problem", reason: String(response.status) };
           const answer = await readBody(response, isVersionList);
@@ -162,6 +167,7 @@ export function createVersionLists(options: {
       (answer) => {
         if ("kind" in answer) {
           entry.phase = answer;
+          if (answer.kind === "local") entry.othersCanOpen = false;
           return;
         }
         entry.items = merged(answer.versions, entry.items);
@@ -216,6 +222,11 @@ export function createVersionLists(options: {
     entry.link = status.link;
     const { kind } = entry.phase;
     if (status.neverSynced) {
+      if (status.link === "online") {
+        if (kind === "loading" || cameOnline)
+          void listFirst(entry, { allowNotFoundAsLocal: true });
+        return;
+      }
       if (kind === "local") return;
       entry.phase = { kind: "local" };
       entry.othersCanOpen = false;

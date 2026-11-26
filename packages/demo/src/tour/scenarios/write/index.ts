@@ -25,6 +25,7 @@ import { WRITE_GOAL } from "./write-goal.ts";
 import { WRITE_FOCUS } from "./write-focus.ts";
 import { WRITE_NUMBERS } from "./write-numbers.ts";
 import { WRITE_LAYOUT_ENGINE } from "./write-layout-engine.ts";
+import { WRITE_INLINE_GRAPHICS } from "./write-inline-graphics.ts";
 
 export const WRITE: readonly TourScenario[] = [
   WRITE_FIRST_RUN,
@@ -52,4 +53,5 @@ export const WRITE: readonly TourScenario[] = [
   WRITE_FOCUS,
   WRITE_NUMBERS,
   WRITE_LAYOUT_ENGINE,
+  WRITE_INLINE_GRAPHICS,
 ];

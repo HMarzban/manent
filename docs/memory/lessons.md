@@ -4,6 +4,46 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Wire every new relay or asset helper into its live composition root and authenticate binary asset requests
+
+- Date: 2026-11-26
+
+### What happened
+
+Two separate helpers passed isolated unit tests while remaining disconnected or unauthenticated in the live app. First, `createPrompterControlHttpProxy` in `packages/local-node` was exported and unit-tested directly, yet never wired into `createPrompterService`, and `docIdOf` did not parse parameterised `/api/prompter/:docId/…` paths, so synced rundowns fell through to local state instead of proxying to the cloud authority. Second, the browser graphic image uploader and `<img>` loader called `/api/projects/:projectId/assets/:assetId` without the signed-in Bearer header (and without scoping by the document's project ID on fetch), so live authenticated uploads and downloads were refused with `401`.
+
+### How it was caught
+
+By senior code review tracing end-to-end request paths from `apps/web` and `packages/local-node` composition roots into `packages/server-core` route handlers.
+
+### Rule
+
+Never declare a relay, proxy or HTTP helper finished on isolated unit tests alone: wire it into its live composition root (`createLocalNode`, `createServer`, `apps/web` services) and assert live end-to-end routing and Bearer-authenticated fetch/upload behaviour with the real server stack.
+
+### Enforced by
+
+`packages/local-node/test/prompter-control-relay.test.ts` (asserting live `createLocalNode` HTTP proxying across static and parameterised prompter control paths for synced vs local-only rundowns) and `apps/web/test/graphics-ui.dom.test.tsx` (asserting Bearer-authenticated project-scoped asset upload and fetch).
+
+## Exclude baseline-absent added rows from row-level History restore controls
+
+- Date: 2026-11-26
+
+### What happened
+
+The rundown History diff view rendered a `Restore` button on every non-`same` row, including rows whose diff kind was `"added"` (present now, absent in the chosen baseline version). Clicking `Restore` on such a row offered to restore something that never existed in that version, and the server's row restore rejected the missing row ID.
+
+### How it was caught
+
+By code review checking `canRestoreRow` in `apps/web/src/screens/document/history-rundown-diff.tsx` against `applyRundownRestore` in `packages/crdt/src/rundown/rundown-restore.ts`.
+
+### Rule
+
+Gate row-level History restore controls strictly on rows that exist in the baseline version (`rowDiff.kind !== "same" && rowDiff.kind !== "added"`), keeping whole-rundown restore for rolling back newly added rows.
+
+### Enforced by
+
+`apps/web/test/rundown-history.dom.test.tsx`, which asserts that `changed`, `moved` and `removed` rows expose a row `Restore` button for editors while `added` and `same` rows do not.
+
 ## Keep prompter feed hubs per service instance and re-check permissions inside the document queue
 
 - Date: 2026-11-25
