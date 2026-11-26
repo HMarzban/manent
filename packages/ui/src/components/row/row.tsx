@@ -17,6 +17,8 @@ const attach = (
 
 interface RowProps {
   current?: boolean;
+  /** The row's section is currently scrolled into view while the caret is elsewhere (ghost follow). */
+  viewed?: boolean;
   /** A visible word for the current row ("Chosen"), drawn after the children. */
   currentLabel?: string;
   selected?: boolean;
@@ -36,6 +38,11 @@ interface RowProps {
    * control of its own beside the row's, never inside it, so a row that is a button holds no button.
    */
   menu?: ReactNode;
+  /**
+   * When `"hover"`, hover-capable pointers omit the resting spacer and swap trailing items for the menu handle on
+   * hover, focus-within or open menu so trailing metadata aligns flush with the row's edge. Default `"always"`.
+   */
+  menuReveal?: "always" | "hover";
   onActivate?: () => void;
   rowRef?: Ref<HTMLElement>;
 }
@@ -43,6 +50,7 @@ interface RowProps {
 /** Throws a RangeError for more than three trailing items. */
 export function Row({
   current,
+  viewed,
   currentLabel,
   selected,
   unavailable,
@@ -52,6 +60,7 @@ export function Row({
   meta,
   trailing = [],
   menu,
+  menuReveal = "always",
   onActivate,
   rowRef,
 }: RowProps): ReactNode {
@@ -77,6 +86,7 @@ export function Row({
       )}
       aria-busy={busy ? "true" : undefined}
       aria-current={current ? "true" : undefined}
+      data-viewed={viewed && !current ? "true" : undefined}
       aria-selected={selected ? "true" : undefined}
       aria-disabled={
         unavailable !== undefined && onActivate !== undefined
@@ -118,15 +128,28 @@ export function Row({
         </span>
       ))}
       {menu === undefined ? null : (
-        <span aria-hidden="true" className="size-6 shrink-0" />
+        <span
+          aria-hidden="true"
+          data-menu-spacer=""
+          className="size-6 shrink-0"
+        />
       )}
     </div>
   );
   if (menu === undefined) return row;
   return (
-    <div data-row-menu className="relative">
+    <div
+      data-row-menu
+      data-menu-reveal={menuReveal === "hover" ? "hover" : undefined}
+      className="relative"
+    >
       {row}
-      <span className="absolute inset-y-0 end-3 flex items-center">{menu}</span>
+      <span
+        data-menu-handle=""
+        className="absolute inset-y-0 end-2 flex items-center"
+      >
+        {menu}
+      </span>
     </div>
   );
 }

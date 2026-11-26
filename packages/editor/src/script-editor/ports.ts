@@ -137,6 +137,8 @@ export interface OutlineSink {
   publish(rows: readonly OutlineEntry[]): void;
   /** Updates only the active heading's block id, without replacing the rows. */
   publishCurrent?(blockId: string | null): void;
+  /** Updates only the viewport-scrolled heading's block id (ghost follow), without replacing the rows. */
+  publishViewed?(blockId: string | null): void;
 }
 
 export interface DispatchGuardPort {

@@ -24,6 +24,8 @@ export interface OutlineWriter {
   publish(rows: readonly OutlineRow[]): void;
   /** Updates only the active heading's block id immediately, without triggering row subscribers. */
   publishCurrent(blockId: string | null): void;
+  /** Updates only the viewport-scrolled heading's block id immediately, without triggering row or caret subscribers. */
+  publishViewed?(blockId: string | null): void;
 }
 
 export interface OutlineSelectors {
@@ -34,7 +36,13 @@ export interface OutlineSelectors {
   /** The active heading's block id; null before the first heading. */
   currentBlockId(): string | null;
   subscribeCurrent(listener: () => void): () => void;
+  /** The viewport-scrolled heading's block id (ghost follow); null when unset. */
+  viewedBlockId?(): string | null;
+  subscribeViewed?(listener: () => void): () => void;
 }
+
+const noUnsubscribe = (): (() => void) => () => {};
+const noViewed = (): null => null;
 
 /** The outline of one editor. Each publish is checked with `guard` under the name `outline`. */
 export function createOutlineStore(options: {
@@ -44,15 +52,27 @@ export function createOutlineStore(options: {
 }): { writer: OutlineWriter; selectors: OutlineSelectors } {
   const rows = createThrottledList<OutlineRow>({ name: "outline", ...options });
   let currentBlockId: string | null = null;
+  let viewedBlockId: string | null = null;
   // true once publishCurrent runs after the latest publish(rows), so a queued structural publish cannot clobber it
   let currentOverridden = false;
   const currentListeners = new Set<() => void>();
+  const viewedListeners = new Set<() => void>();
   rows.subscribe(() => {
-    if (currentOverridden) return;
-    const nextCurrent = rows.get().find((row) => row.current)?.blockId ?? null;
-    if (Object.is(currentBlockId, nextCurrent)) return;
-    currentBlockId = nextCurrent;
-    for (const listener of currentListeners) listener();
+    const list = rows.get();
+    if (!currentOverridden) {
+      const nextCurrent = list.find((row) => row.current)?.blockId ?? null;
+      if (!Object.is(currentBlockId, nextCurrent)) {
+        currentBlockId = nextCurrent;
+        for (const listener of currentListeners) listener();
+      }
+    }
+    if (
+      viewedBlockId !== null &&
+      !list.some((row) => row.blockId === viewedBlockId)
+    ) {
+      viewedBlockId = null;
+      for (const listener of viewedListeners) listener();
+    }
   });
   return {
     writer: {
@@ -70,6 +90,12 @@ export function createOutlineStore(options: {
         currentBlockId = blockId;
         for (const listener of currentListeners) listener();
       },
+      publishViewed(blockId) {
+        if (Object.is(viewedBlockId, blockId)) return;
+        options.guard.check("outline");
+        viewedBlockId = blockId;
+        for (const listener of viewedListeners) listener();
+      },
     },
     selectors: {
       count: () => rows.get().length,
@@ -80,6 +106,13 @@ export function createOutlineStore(options: {
         currentListeners.add(listener);
         return () => {
           currentListeners.delete(listener);
+        };
+      },
+      viewedBlockId: () => viewedBlockId,
+      subscribeViewed(listener) {
+        viewedListeners.add(listener);
+        return () => {
+          viewedListeners.delete(listener);
         };
       },
     },
@@ -110,4 +143,30 @@ export function useIsCurrentOutline(blockId: string): boolean {
   const outline = useOutline();
   const read = (): boolean => outline.currentBlockId() === blockId;
   return useSyncExternalStore(outline.subscribeCurrent, read, read);
+}
+
+/** Whether `blockId` is the outline's viewport-scrolled heading (ghost follow) in the nearest `OutlineContext`. */
+export function useIsViewedOutline(blockId: string): boolean {
+  const outline = useOutline();
+  const subscribe = outline.subscribeViewed ?? noUnsubscribe;
+  const read = (): boolean => (outline.viewedBlockId?.() ?? null) === blockId;
+  return useSyncExternalStore(subscribe, read, read);
+}
+
+/** The active heading's block id in the nearest `OutlineContext`; null before the first heading. */
+export function useCurrentOutlineId(): string | null {
+  const outline = useOutline();
+  return useSyncExternalStore(
+    outline.subscribeCurrent,
+    outline.currentBlockId,
+    outline.currentBlockId,
+  );
+}
+
+/** The viewport-scrolled heading's block id (ghost follow) in the nearest `OutlineContext`; null when unset. */
+export function useViewedOutlineId(): string | null {
+  const outline = useOutline();
+  const subscribe = outline.subscribeViewed ?? noUnsubscribe;
+  const read = outline.viewedBlockId ?? noViewed;
+  return useSyncExternalStore(subscribe, read, read);
 }

@@ -37,6 +37,8 @@ interface SortableListProps {
   orientation: Orientation;
   /** Accessible name of the list. */
   label?: string;
+  /** Row index to keep softly in view while the person scrolls the script (ghost follow). */
+  followIndex?: number | null;
   ref?: Ref<SortableListHandle>;
 }
 
@@ -72,6 +74,7 @@ export function SortableList({
   renderItem,
   orientation,
   label,
+  followIndex,
   ref,
 }: SortableListProps): ReactNode {
   const focus = useFollowFocus(items);
@@ -128,15 +131,16 @@ export function SortableList({
           rowHeight="one"
           label={label ?? ""}
           renderRow={item}
+          followIndex={followIndex}
         />
       ) : (
         <div
           role="list"
           aria-label={label || undefined}
-          className="flex flex-wrap gap-3"
+          className="@container grid grid-cols-1 gap-2.5 @[28rem]:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]"
         >
           {items.map((entry, index) => (
-            <div key={entry.id} role="listitem">
+            <div key={entry.id} role="listitem" className="min-w-0">
               {item(index)}
             </div>
           ))}

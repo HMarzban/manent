@@ -225,6 +225,12 @@ p.el.el-page_break::before {
   width: calc(var(--geo-column) * var(--geo-cell));
   border-top: 1px dashed var(--page-edge);
 }
+p.el.el-hidden, .mn-omitted-orig, p.el[data-omitted] > br.ProseMirror-trailingBreak {
+  display: none;
+}
+.mn-omitted {
+  user-select: none;
+}
 mn-offfont {
   text-decoration: underline dotted;
 }

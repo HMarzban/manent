@@ -105,7 +105,7 @@ Text pasted from another app comes in one paragraph to an element. Fountain or F
 
 ## Moving around
 
-The **Scenes** tab of the left panel lists the script's acts, sections and scenes, each with its length in eighths of a page; click one to go there. **Find** (Ctrl+F) and **Go to** (Ctrl+G) are described in [Keyboard shortcuts](keyboard-shortcuts.md#find-and-go-to).
+The **Scenes** tab of the left panel lists the script's acts, sections and scenes, each with its length in eighths of a page; click one to go there. As you scroll away from where you are typing, **Ghost Follow** marks the scene currently in view with a subtle dashed indicator in both List and Cards views, gently keeps it in sight as long as you are not browsing the panel yourself, and shows a compact `Viewing …` / `Back to …` strip beneath the toolbar so one click returns to your caret. **Find** (Ctrl+F) and **Go to** (Ctrl+G) are described in [Keyboard shortcuts](keyboard-shortcuts.md#find-and-go-to).
 
 ## Not in this build
 

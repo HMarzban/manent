@@ -21,7 +21,7 @@ function kindOf(block: LayoutBlock): OutlineEntry["kind"] | null {
   if (type === "scene_heading" || type === "slug" || type === "chapter")
     return "scene";
   if (type === "act_break") return block.kind === "end_of_act" ? null : "act";
-  return type === "group" ? "section" : null;
+  return type === "group" && block.text.trim() !== "" ? "section" : null;
 }
 
 /** The lines block `i` takes on a page, its space before included; 0 for a block that is not printed. */

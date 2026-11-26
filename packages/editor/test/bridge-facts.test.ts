@@ -1,8 +1,19 @@
 import { expect, test } from "bun:test";
-import { profileFor, resolveSpec } from "@manent/pagination";
-import type { LayoutBlock, PageProfile, Pagination } from "@manent/pagination";
+import {
+  applyLayoutPatches,
+  paginate,
+  profileFor,
+  resolveSpec,
+  toLayoutBlocks,
+} from "@manent/pagination";
+import type {
+  LayoutBlock,
+  LayoutPatches,
+  PageProfile,
+  Pagination,
+} from "@manent/pagination";
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
-import { parseDoc } from "@manent/schema";
+import { blocksOf, parseDoc } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { AllSelection, EditorState, TextSelection } from "prosemirror-state";
@@ -324,4 +335,43 @@ test("with everything selected no block is the caret's", () => {
     findCount: 0,
     findCurrent: null,
   });
+});
+
+test("outlineOf skips hidden omitted-scene body blocks and empty groups", () => {
+  const doc = docOfBlocks([
+    ["scene_heading", "INT. A - DAY"],
+    ["action", "First action."],
+    ["scene_heading", "INT. B - NIGHT"],
+    ["action", "Hidden action."],
+    ["character", "IRENA"],
+    ["dialogue", "Hidden line."],
+    ["scene_heading", "INT. C - NIGHT"],
+    ["action", "After omitted."],
+  ]);
+  const layout: LayoutPatches = {
+    key: "omit-b",
+    patches: new Map([
+      [bid(2), { text: "OMITTED", num: "2" }],
+      [bid(3), { type: "group", text: "" }],
+      [bid(4), { type: "group", text: "" }],
+      [bid(5), { type: "group", text: "" }],
+    ]),
+  };
+  const p = paginate(
+    applyLayoutPatches(toLayoutBlocks(blocksOf(doc)), layout),
+    profileFor("screenplay")!,
+  );
+  const o = outlineOf(p, 0);
+  expect(
+    o.entries.map((entry) => [
+      entry.blockId,
+      entry.kind,
+      entry.number,
+      entry.heading,
+    ]),
+  ).toEqual([
+    [bid(0), "scene", "1", "INT. A - DAY"],
+    [bid(2), "scene", "2", "OMITTED"],
+    [bid(6), "scene", "3", "INT. C - NIGHT"],
+  ]);
 });

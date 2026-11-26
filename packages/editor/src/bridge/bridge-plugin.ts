@@ -21,6 +21,8 @@ import type {
 import { factsOf } from "./facts.ts";
 import { headingAt, inkOutlineOf, outlineOf } from "./outline.ts";
 import type { OutlineIndex } from "./outline.ts";
+import { viewedPublisher } from "./viewed.ts";
+import type { ViewedScrollPort } from "./viewed.ts";
 
 /** How often at most the outline is rebuilt after a change. */
 const OUTLINE_EVERY_MS = 250;
@@ -110,6 +112,7 @@ interface BridgeOptions {
   format(): FormatId;
   frames: Frames;
   timers: Timers;
+  scroll?: ViewedScrollPort;
 }
 
 // while frozen, the pages and their index are the ones from before the composition, not of the caret's document
@@ -300,7 +303,12 @@ function outlinePublisher(
       return index;
     },
     update(prev) {
-      if (view.state.doc !== prev.doc) later();
+      if (
+        view.state.doc !== prev.doc ||
+        paginationKey.getState(view.state)?.index.layoutKey !==
+          paginationKey.getState(prev)?.index.layoutKey
+      )
+        later();
       else if (
         cancelTimer === null &&
         view.state.selection.$head.parent !== prev.selection.$head.parent
@@ -325,7 +333,20 @@ export function bridgePlugin(options: BridgeOptions): Plugin {
   return new Plugin({
     view: (view) => {
       const facts = factsPublisher(view, options, () => outline.index);
-      const outline = outlinePublisher(view, options, facts.request);
+      let syncViewed: (() => void) | null = null;
+      const outline = outlinePublisher(view, options, () => {
+        facts.request();
+        syncViewed?.();
+      });
+      const viewed = viewedPublisher({
+        view,
+        scroll: options.scroll,
+        outline: () => outline.index,
+        format: options.format,
+        frames: options.frames,
+        publish: options.outline.publishViewed,
+      });
+      syncViewed = viewed.request;
       facts.request();
       return {
         update(_, prev) {
@@ -333,6 +354,7 @@ export function bridgePlugin(options: BridgeOptions): Plugin {
           facts.update();
         },
         destroy() {
+          viewed.destroy();
           facts.destroy();
           outline.destroy();
         },

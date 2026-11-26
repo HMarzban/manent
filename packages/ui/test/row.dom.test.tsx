@@ -328,3 +328,112 @@ test("SortableLists exposes label and move handle, and SortableArea keeps Escape
     1,
   ]);
 });
+
+test("Row marks data-viewed only when viewed and not current, and VirtualRows followIndex pauses while hovered", () => {
+  const { el: rowHost } = render(
+    <div>
+      <Row viewed onActivate={() => {}}>
+        Scene 27
+      </Row>
+      <Row current viewed onActivate={() => {}}>
+        Scene 1
+      </Row>
+    </div>,
+  );
+  const rows = [...rowHost.querySelectorAll(".mn-row")];
+  const viewedAttrs = rows.map((node) => node.getAttribute("data-viewed"));
+
+  const listHost = document.createElement("div");
+  document.body.append(listHost);
+  const root = createRoot(listHost);
+  roots.push(root);
+  act(() => {
+    root.render(
+      <VirtualRows
+        count={40}
+        rowHeight="one"
+        label="Scenes"
+        followIndex={null}
+        renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+      />,
+    );
+  });
+  const list = listHost.querySelector<HTMLElement>('[role="list"]')!;
+  const scrollCalls: number[] = [];
+  list.scrollTo = ((arg: ScrollToOptions | number, y?: number) => {
+    const top = typeof arg === "number" ? (y ?? 0) : (arg.top ?? 0);
+    scrollCalls.push(top);
+    list.scrollTop = top;
+  }) as typeof list.scrollTo;
+  list.getBoundingClientRect = () => new DOMRect(0, 0, 240, 200);
+  const itemAt = (idx: number) =>
+    list.querySelector<HTMLElement>(`[aria-posinset="${idx + 1}"]`)!;
+  itemAt(25).getBoundingClientRect = () => new DOMRect(0, 500, 240, 28);
+  itemAt(30).getBoundingClientRect = () => new DOMRect(0, 640, 240, 28);
+
+  act(() => {
+    root.render(
+      <VirtualRows
+        count={40}
+        rowHeight="one"
+        label="Scenes"
+        followIndex={25}
+        renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+      />,
+    );
+  });
+  const afterFollow = scrollCalls.length;
+
+  act(() => {
+    list.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    root.render(
+      <VirtualRows
+        count={40}
+        rowHeight="one"
+        label="Scenes"
+        followIndex={30}
+        renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+      />,
+    );
+  });
+  const whileHovered = scrollCalls.length;
+
+  expect([viewedAttrs, afterFollow, whileHovered]).toEqual([
+    ["true", null],
+    1,
+    1,
+  ]);
+});
+
+test("Row marks hover-revealed menus with data-menu-reveal so trailing items sit flush at rest", () => {
+  const { el } = render(
+    <div>
+      <Row
+        onActivate={() => {}}
+        trailing={["1 1/8"]}
+        menu={<button type="button">Menu</button>}
+        menuReveal="hover"
+      >
+        Scene 1
+      </Row>
+      <Row
+        onActivate={() => {}}
+        trailing={["Blue"]}
+        menu={<button type="button">Menu</button>}
+      >
+        Page 1
+      </Row>
+    </div>,
+  );
+  const wrappers = [...el.querySelectorAll("[data-row-menu]")];
+  expect(
+    wrappers.map((node) => [
+      node.getAttribute("data-menu-reveal"),
+      node.querySelector("[data-menu-spacer]") !== null,
+      node.querySelector("[data-menu-handle]") !== null,
+    ]),
+  ).toEqual([
+    ["hover", true, true],
+    [null, true, true],
+  ]);
+});

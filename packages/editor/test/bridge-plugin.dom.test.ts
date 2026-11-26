@@ -9,6 +9,7 @@ import {
   blockPos,
   bridgePlugin,
   paginationPlugin,
+  setPagination,
   toIndex,
 } from "../src/index.ts";
 import type {
@@ -498,5 +499,94 @@ test("a minimal outline sink receives a frame-fast update when the caret enters 
       [bid(4), false],
     ],
     true,
+  ]);
+});
+
+test("the outline rebuilds when layout patches arrive without a document change", () => {
+  const doc = docOfBlocks([
+    ["scene_heading", "INT. A - DAY"],
+    ["action", "One."],
+    ["scene_heading", "INT. B - NIGHT"],
+    ["action", "Hidden."],
+    ["scene_heading", "INT. C - NIGHT"],
+  ]);
+  const { view, timers, outline } = mount(doc, 0);
+  view.dispatch(
+    setPagination(view.state.tr, {
+      layout: {
+        key: "omit-b",
+        patches: new Map([
+          [bid(2), { text: "OMITTED", num: "2" }],
+          [bid(3), { type: "group", text: "" }],
+        ]),
+      },
+    }),
+  );
+  timers.advance(250);
+  expect(
+    outline.at(-1)!.map((entry) => [entry.blockId, entry.kind, entry.heading]),
+  ).toEqual([
+    [bid(0), "scene", "INT. A - DAY"],
+    [bid(2), "scene", "OMITTED"],
+    [bid(4), "scene", "INT. C - NIGHT"],
+  ]);
+});
+
+test("scrolling the editor publishes the viewed scene on the next frame and dedupes unchanged scenes", () => {
+  const doc = docOfBlocks([
+    ["scene_heading", "INT. A - DAY"],
+    ["action", "first"],
+    ["scene_heading", "INT. B - DAY"],
+    ["action", "second"],
+    ["scene_heading", "INT. C - DAY"],
+  ]);
+  const timers = fakeTimers();
+  const frames = fakeFrames();
+  const scroller = document.createElement("div");
+  const viewed: (string | null)[] = [];
+  let blockAtViewport: number | null = 1;
+  const view = viewOf(doc, 0, [
+    pagination(),
+    bridgePlugin({
+      facts: { publish() {} },
+      outline: {
+        publish() {},
+        publishViewed: (blockId) => viewed.push(blockId),
+      },
+      history: noHistory,
+      words,
+      format: () => "screenplay",
+      frames,
+      timers,
+      scroll: {
+        scroller: () => scroller,
+        viewedBlock: () => blockAtViewport,
+      },
+    }),
+  ]);
+  frames.fire();
+  const initial = [...viewed];
+  // scroll inside scene 2 -> publishes bid(2) on the next frame
+  blockAtViewport = 3;
+  scroller.dispatchEvent(new Event("scroll"));
+  const beforeFrame = [...viewed];
+  frames.fire();
+  // scrolling again inside scene 2 publishes nothing extra
+  blockAtViewport = 2;
+  scroller.dispatchEvent(new Event("scroll"));
+  frames.fire();
+  // scrolling into scene 3 -> publishes bid(4)
+  blockAtViewport = 4;
+  scroller.dispatchEvent(new Event("scroll"));
+  frames.fire();
+  view.destroy();
+  // scrolling after destroy publishes nothing
+  blockAtViewport = 0;
+  scroller.dispatchEvent(new Event("scroll"));
+  frames.fire();
+  expect([initial, beforeFrame, viewed]).toEqual([
+    [bid(0)],
+    [bid(0)],
+    [bid(0), bid(2), bid(4)],
   ]);
 });

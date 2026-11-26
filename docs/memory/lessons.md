@@ -4,6 +4,66 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Hover-revealed row menus must swap with trailing metadata instead of reserving a resting spacer
+
+- Date: 2026-11-26
+
+### What happened
+
+`Row` in `packages/ui/src/components/row/row.tsx` unconditionally rendered a `size-6` (24 px) trailing spacer beside its `gap-2` (8 px) even when the row's menu (`RowMenu`) hid itself with `opacity: 0` at rest on hover-capable pointers. In narrow sidebars such as the Scenes list, that created a 32 px dead gutter down the right edge, misaligned scene lengths from `44 scenes` and `Back to …`, and truncated scene headings 32 px early.
+
+### How it was caught
+
+By visual review of the Scenes list sidebar comparing resting scene page lengths against the toolbar count and the Ghost Follow strip above them.
+
+### Rule
+
+When a `Row` pairs trailing metadata with a hover-revealed menu (`RowMenu`), pass `menuReveal="hover"` so `@media (hover: hover)` omits `[data-menu-spacer]` at rest and cross-fades `[data-trailing]` out while revealing `[data-menu-handle]` on hover, focus-within or open menu—keeping the spacer only for touch pointers (`@media (hover: none)`) and always-visible menus (`menuReveal="always"`). Keep stacked side-panel toolbars, strips and rows on matching horizontal padding (`px-3`) so both column rails align.
+
+### Enforced by
+
+`packages/ui/src/components/row/row.tsx`, `packages/ui/src/theme.css`, `packages/ui/test/row.dom.test.tsx`, and `apps/web/test/ghost-follow.dom.test.tsx`.
+
+## Binary searches over DOM bounding boxes must exclude hidden blocks
+
+- Date: 2026-11-26
+
+### What happened
+
+`blockAcross` in `packages/editor/src/script-editor/page-controls.ts` binary-searched `:scope > p.el` by `getBoundingClientRect().bottom > top`. Once omitted scene bodies were hidden with `p.el.el-hidden { display: none }`, hidden paragraphs reported zero-height rects (`bottom === 0`) inside an otherwise monotonically increasing vertical list, which could divert binary search past the visible target block.
+
+### How it was caught
+
+While auditing `blockAcross` for Ghost Follow's `viewedBlock` lookup in `packages/editor/src/script-editor/page-controls.ts`.
+
+### Rule
+
+Whenever code binary-searches block elements by viewport rect, filter out hidden blocks (`:scope > p.el:not(.el-hidden)`) so the sequence of bounding boxes remains strictly monotonic.
+
+### Enforced by
+
+`packages/editor/src/script-editor/page-controls.ts` (`:scope > p.el:not(.el-hidden)`) and `packages/editor/test/bridge-plugin.dom.test.ts`.
+
+## Mirror layout patches in editor decorations and skip empty groups in the outline
+
+- Date: 2026-11-26
+
+### What happened
+
+`productionLayout` patched omitted scene headings to `{ text: "OMITTED" }` and every block inside an omitted scene to `{ type: "group", text: "" }` so pagination gave the heading one line and its body zero lines. Editor pagination decorations never applied those patches to the DOM, so omitted scene bodies stayed at full height and shifted every later page downward across sheet breaks and page headers. At the same time, `outlineOf` treated every `type: "group"` block as a `"section"` even when its text was empty, turning each hidden block into a blank 28 px row under the omitted scene in the Scenes panel.
+
+### How it was caught
+
+By visual and DOM inspection of an omitted scene (`Scene 25`) in `The Long Night`, where `Scene 26` overlapped Page 18's `Blue Rev.` header and five blank rows sat between `25 OMITTED` and `26` in the Scenes list.
+
+### Rule
+
+Whenever `LayoutPatches` hides a block (`{ type: "group", text: "" }`) or replaces its text (`patch.text`), pagination decorations must mirror that in the DOM (`el-hidden` with `display: none`; `data-omitted` with replacement text and hidden original runs) so rendered height matches the pagination engine. `outlineOf` ignores empty `group` blocks, and `bridgePlugin` refreshes the outline when `index.layoutKey` changes.
+
+### Enforced by
+
+`packages/editor/test/revisions-plugin.test.ts`, `packages/editor/test/page-styles.test.ts`, `packages/editor/test/bridge-facts.test.ts`, and `packages/editor/test/bridge-plugin.dom.test.ts`.
+
 ## Keep prompter feed hubs per service instance and re-check permissions inside the document queue
 
 - Date: 2026-11-25

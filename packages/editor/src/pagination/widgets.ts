@@ -70,3 +70,12 @@ export function renderCast(text: string): HTMLElement {
   span.setAttribute("aria-hidden", "true");
   return span;
 }
+
+/** The replacement label of an omitted heading (for example, "OMITTED"): real uneditable text matching layout. */
+export function renderOmitted(text: string): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "mn-omitted";
+  span.contentEditable = "false";
+  span.textContent = text;
+  return span;
+}

@@ -14,6 +14,8 @@ export interface BlockIndex {
   readonly blocks: readonly LayoutBlock[];
   /** The key of the patches the blocks were built with. */
   readonly layoutKey: string | null;
+  /** The patches the blocks were built with; null when unpatched. */
+  readonly layout: LayoutPatches | null;
   /** The index of each section's first block, and a last entry: blocks.length. */
   readonly sectionStart: Int32Array;
   /** The document position of each section. */
@@ -66,6 +68,7 @@ function createIndex(
     doc,
     blocks,
     layoutKey: layout?.key ?? null,
+    layout,
     ...sectionsOf(doc),
   });
 }

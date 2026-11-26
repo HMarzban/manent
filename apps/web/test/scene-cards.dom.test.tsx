@@ -263,3 +263,175 @@ test("scene extras stay stable across unrelated renders and update when a mark s
     seen[2]?.marks("s1"),
   ]).toEqual([true, false, [{ kind: "revised" }]]);
 });
+
+test("a scene card edits its synopsis in place on Enter and cancels on Escape", () => {
+  const { clock, environment, services, outline, host, root } =
+    createTestShell();
+  const actions: unknown[] = [];
+  const origRun = services.editor.run.bind(services.editor);
+  services.editor.run = (action) => {
+    actions.push(action);
+    return origRun(action);
+  };
+  const rows: OutlineRow[] = [
+    {
+      ...scene("s1", "1", "INT. KITCHEN", true),
+      synopsis: "Old beat.",
+    },
+  ];
+  outline.writer.publish(rows);
+  clock.advance(250);
+
+  const parts: SceneParts = {
+    docId: DOC_ID,
+    extras: { marks: () => [], length: () => "1 1/8" },
+    items: [],
+  };
+  act(() =>
+    root.render(
+      <EnvironmentProvider environment={environment}>
+        <ServicesProvider services={services}>
+          <CommandsProvider
+            service={services.commands}
+            resolved={services.resolved}
+            platform="mac"
+          >
+            <OutlineContext value={outline.selectors}>
+              <SceneCards rows={rows} canEdit parts={parts} />
+            </OutlineContext>
+          </CommandsProvider>
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    ),
+  );
+
+  const editButton = host.querySelector<HTMLButtonElement>(
+    'button[aria-label="Edit synopsis"]',
+  );
+  expect(editButton).not.toBeNull();
+  act(() => {
+    editButton!.click();
+  });
+
+  const input = host.querySelector<HTMLTextAreaElement>(
+    "textarea[data-synopsis-input]",
+  );
+  expect(input?.value).toBe("Old beat.");
+
+  // Escape cancels without committing
+  act(() => {
+    input!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  });
+  expect([
+    host.querySelector("textarea[data-synopsis-input]"),
+    actions,
+  ]).toEqual([null, []]);
+
+  // F2 re-opens inline edit and Enter commits the updated synopsis
+  const card = host.querySelector<HTMLElement>('.mn-card[role="group"]');
+  act(() => {
+    card!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "F2", bubbles: true }),
+    );
+  });
+  const reopened = host.querySelector<HTMLTextAreaElement>(
+    "textarea[data-synopsis-input]",
+  );
+  expect(reopened).not.toBeNull();
+  act(() => {
+    reopened!.focus();
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(reopened, "New opening beat.");
+    reopened!.dispatchEvent(new Event("input", { bubbles: true }));
+    reopened!.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+  });
+  act(() => {
+    reopened!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+  expect(actions).toEqual([
+    { kind: "synopsis", blockId: "s1", text: "New opening beat." },
+  ]);
+});
+
+test("the Scenes toolbar shows live counts, clears the filter and renders an empty-filter state", () => {
+  const { clock, environment, services, outline, host, root } =
+    createTestShell();
+  const rows = [
+    scene("s1", "1", "INT. KITCHEN", true),
+    scene("s2", "2", "EXT. PIER"),
+    scene("s3", "3", "INT. HALL"),
+  ];
+  outline.writer.publish(rows);
+  clock.advance(250);
+
+  const Tab = scenesTab.Tab;
+  act(() =>
+    root.render(
+      <EnvironmentProvider environment={environment}>
+        <ServicesProvider services={services}>
+          <TimingProvider timing={{ now: clock.now, schedule: clock.schedule }}>
+            <CommandsProvider
+              service={services.commands}
+              resolved={services.resolved}
+              platform="mac"
+            >
+              <OutlineContext value={outline.selectors}>
+                <Tab docId={DOC_ID} />
+              </OutlineContext>
+            </CommandsProvider>
+          </TimingProvider>
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    ),
+  );
+
+  const statusText = () =>
+    host.querySelector('[aria-live="polite"]')?.textContent;
+  expect(statusText()).toBe("3 scenes");
+
+  const filterInput = host.querySelector<HTMLInputElement>(
+    'input[type="search"]',
+  );
+  expect(filterInput).not.toBeNull();
+
+  const setFilter = (value: string) => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    act(() => {
+      filterInput!.focus();
+      setter?.call(filterInput, value);
+      filterInput!.dispatchEvent(new Event("input", { bubbles: true }));
+      filterInput!.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+    });
+  };
+
+  setFilter("pier");
+  expect([
+    statusText(),
+    host.querySelector('button[aria-label="Clear filter"]') !== null,
+  ]).toEqual(["1 of 3", true]);
+
+  setFilter("lighthouse");
+  expect([
+    statusText(),
+    host.textContent?.includes("No scenes match."),
+  ]).toEqual(["0 of 3", true]);
+
+  const clearButton = [
+    ...host.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((btn) => btn.textContent === "Clear filter");
+  expect(clearButton).not.toBeNull();
+  act(() => {
+    clearButton!.click();
+  });
+  expect([filterInput!.value, statusText()]).toEqual(["", "3 scenes"]);
+});

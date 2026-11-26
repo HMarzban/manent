@@ -19,7 +19,7 @@ import type { BlockRange } from "./block-ranges.ts";
 import { toBreakSpecsIn, toRuleSpecs } from "./break-specs.ts";
 import type { BreakSpec } from "./break-specs.ts";
 import type { PaginationState } from "./plugin.ts";
-import { renderBreak, renderCast } from "./widgets.ts";
+import { renderBreak, renderCast, renderOmitted } from "./widgets.ts";
 
 export interface DecorationOptions {
   readonly style: BreakStyle;
@@ -99,16 +99,45 @@ export function decorationsFor(
     rows: new Set(Object.values(p.profile.elements)),
   };
   eachBlock(index, from, to, (i, pos, node) => {
+    const patch = index.layout?.patches.get(p.blocks[i]!.id);
+    if (patch?.type === "group" && patch.text === "") {
+      decorations.push(
+        Decoration.node(pos, pos + node.nodeSize, {
+          class: "el-hidden",
+          "aria-hidden": "true",
+        }),
+      );
+      return;
+    }
+    const replaced = patch?.text ?? null;
     const attrs = blockAttrs(context, i);
-    if (attrs !== null) {
-      const nodeAttrs =
-        "data-scene" in attrs
-          ? {
-              ...attrs,
-              "data-scene-sides": p.profile.furniture.sceneNumberSides,
-            }
-          : attrs;
-      decorations.push(Decoration.node(pos, pos + node.nodeSize, nodeAttrs));
+    if (attrs !== null || replaced !== null)
+      decorations.push(
+        Decoration.node(pos, pos + node.nodeSize, {
+          ...attrs,
+          ...(attrs !== null && "data-scene" in attrs
+            ? { "data-scene-sides": p.profile.furniture.sceneNumberSides }
+            : null),
+          ...(replaced !== null ? { "data-omitted": "" } : null),
+        }),
+      );
+    if (replaced !== null) {
+      decorations.push(
+        Decoration.widget(pos + 1, () => renderOmitted(replaced), {
+          key: `omitted:${replaced}`,
+          side: -1,
+          ignoreSelection: true,
+        }),
+        ...(node.content.size > 0
+          ? [
+              Decoration.inline(pos + 1, pos + node.nodeSize - 1, {
+                class: "mn-omitted-orig",
+                "aria-hidden": "true",
+              }),
+            ]
+          : []),
+      );
+      return;
     }
     const cast = engine.castList(p, i);
     if (cast !== null)

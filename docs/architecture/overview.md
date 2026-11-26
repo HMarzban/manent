@@ -187,7 +187,7 @@ sequenceDiagram
 
 The page engine (`packages/pagination`) is a pure function from a document's blocks, a page profile and the locks to positioned lines on pages. It measures Courier Prime on a fixed grid from generated tables, so the same input gives the same pages in every browser and in Bun. Engines are versioned, so a script keeps its layout when the engine changes.
 
-The editor runs the engine inside a ProseMirror plugin's state, after every change, and repaginates only what the change can reach. A drift monitor holds the browser's line wrapping to the engine's line starts. Print draws the engine's pages, and the PDF writer (`packages/formats`) draws the same positioned lines.
+The editor runs the engine inside a ProseMirror plugin's state, after every change, and repaginates only what the change can reach. Pagination decorations mirror production layout patches on screen (`OMITTED` headings and hidden omitted-scene bodies) so DOM height matches the engine, while a drift monitor holds the browser's line wrapping to the engine's line starts. On passive scroll, the editor bridge resolves the reading-zone heading in O(log n) over visible blocks and publishes it to the outline store's isolated viewed channel for Scenes Ghost Follow. Print draws the engine's pages, and the PDF writer (`packages/formats`) draws the same positioned lines.
 
 ## History and production revisions
 

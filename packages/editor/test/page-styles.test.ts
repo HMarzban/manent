@@ -263,3 +263,13 @@ test("all-caps mark is uppercased in PAGE_CSS and overridden alignment updates -
     "--el-indent: 0; --el-width: 60; --el-before: 1; --el-slack-left: 0.5; text-align: right",
   ]);
 });
+
+test("omitted scene body blocks and replaced original headings take no layout room", () => {
+  expect(
+    rule(
+      PAGE_CSS,
+      "p.el.el-hidden, .mn-omitted-orig, p.el[data-omitted] > br.ProseMirror-trailingBreak",
+    ),
+  ).toEqual(["display: none"]);
+  expect(rule(PAGE_CSS, ".mn-omitted")).toEqual(["user-select: none"]);
+});

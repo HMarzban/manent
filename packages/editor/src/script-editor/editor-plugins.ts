@@ -108,6 +108,7 @@ export function editorPlugins(
       format,
       frames,
       timers,
+      scroll: parts.ports,
     }),
     ...parts.extra,
   ];

@@ -1421,6 +1421,52 @@ button:not(:disabled, [aria-disabled="true"]):active
 .mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
   color: var(--fg-accent);
 }
+.mn-row[data-viewed="true"] {
+  background-color: var(--bg-subtle);
+}
+.mn-row[data-viewed="true"]::before {
+  /* ghost follow: where the viewport is scrolled while the caret rests elsewhere */
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 0;
+  border-inline-start: 2px dashed var(--bg-accent);
+  opacity: 0.75;
+}
+.mn-row[data-viewed="true"] [data-leading] {
+  color: var(--fg);
+}
+/* Hover-revealed row menus: keep trailing metadata flush with the row's end edge
+   at rest on hover-capable pointers, swapping trailing items cleanly for the menu
+   handle on hover, focus-within or open menu without shifting title width. */
+[data-row-menu][data-menu-reveal="hover"] [data-trailing] {
+  transition: opacity var(--dur-fast) var(--curve-enter);
+}
+@media (hover: hover) {
+  [data-row-menu][data-menu-reveal="hover"] [data-menu-spacer] {
+    display: none;
+  }
+  [data-row-menu][data-menu-reveal="hover"] [data-menu-handle] {
+    pointer-events: none;
+  }
+  [data-row-menu][data-menu-reveal="hover"]:is(
+      :hover,
+      :focus-within,
+      :has([aria-expanded="true"], [data-popup-open])
+    )
+    [data-menu-handle] {
+    pointer-events: auto;
+  }
+  [data-row-menu][data-menu-reveal="hover"]:is(
+      :hover,
+      :focus-within,
+      :has([aria-expanded="true"], [data-popup-open])
+    )
+    [data-trailing] {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
 
 /* --------------------------------------------------------------------------
    SHARED PIECES. Each is drawn the same wherever it appears; layout around
@@ -1671,6 +1717,7 @@ button:not(:disabled, [aria-disabled="true"]):active
    under the pointer, the chosen one selected. A new one ("You") is open: no
    fill, a dashed strong edge. */
 .mn-card {
+  position: relative;
   background-color: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--shape-surface);
@@ -1695,6 +1742,82 @@ button:not(:disabled, [aria-disabled="true"]):active
   background-color: var(--bg-selected);
   border-color: var(--focus);
   transition: none;
+}
+.mn-card[aria-current]:not([aria-current="false"])::before {
+  content: "";
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 0;
+  border-inline-start: 2px solid var(--bg-accent);
+}
+.mn-scene-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.375rem;
+  padding-inline: 0.375rem;
+  padding-block: 0.0625rem;
+  border-radius: var(--shape-micro);
+  background-color: var(--bg-subtle);
+  color: var(--fg-muted);
+  font-size: var(--type-micro);
+  line-height: var(--lh-micro);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mn-card[aria-current]:not([aria-current="false"]) .mn-scene-num {
+  background-color: var(--bg-accent);
+  color: var(--fg-on-accent);
+}
+.mn-card[data-viewed="true"] {
+  background-color: var(--bg-subtle);
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+.mn-card[data-viewed="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 0;
+  border-inline-start: 2px dashed var(--bg-accent);
+  opacity: 0.75;
+}
+.mn-card[data-viewed="true"] .mn-scene-num {
+  color: var(--fg);
+}
+@media (prefers-contrast: more) {
+  .mn-row[data-viewed="true"]::before,
+  .mn-card[data-viewed="true"]::before {
+    opacity: 1;
+  }
+}
+.mn-drop-indicator::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  inset-inline-start: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background-color: var(--bg-accent);
+}
+.mn-drop-indicator[data-drop-indicator="after"]::before {
+  top: auto;
+  bottom: -4px;
+}
+@container (min-width: 28rem) {
+  .mn-drop-indicator[data-drop-layout="grid"][data-drop-indicator="before"]::before {
+    inset-inline-start: -4px;
+  }
+  .mn-drop-indicator[data-drop-layout="grid"][data-drop-indicator="after"]::before {
+    inset-inline-start: auto;
+    inset-inline-end: -4px;
+  }
+}
+[data-dragging="pointer"],
+[data-dragging="pointer"] .mn-card[tabindex],
+[data-dragging="pointer"] .mn-row[tabindex] {
+  cursor: grabbing;
 }
 
 /* --------------------------------------------------------------------------
@@ -2057,6 +2180,24 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
+}
+.mn-marker-lock {
+  cursor: help;
+}
+.mn-marker-tooltip {
+  position: absolute;
+  z-index: var(--z-overlay);
+  width: max-content;
+  max-width: 18rem;
+  padding: 0.375rem 0.625rem;
+  background-color: var(--bg-overlay);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  box-shadow: var(--elev-overlay);
+  font: 400 var(--type-meta) / var(--lh-meta) var(--face-ui);
+  pointer-events: none;
+  white-space: normal;
 }
 /* Annotation gutter markers: distinguish shared Comments (amber cue) from
    private Writers-only Notes (dashed editorial cue) at a glance. */
@@ -2461,6 +2602,28 @@ html[data-switching] *::after {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;
+  }
+  .mn-card[aria-current]:not([aria-current="false"]) .mn-scene-num {
+    forced-color-adjust: none;
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  .mn-row[data-viewed="true"],
+  .mn-card[data-viewed="true"] {
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
+  }
+  .mn-row[data-viewed="true"]::before,
+  .mn-card[data-viewed="true"]::before {
+    border-inline-start-color: CanvasText;
+    opacity: 1;
+  }
+  .mn-drop-indicator {
+    border-color: Highlight;
+  }
+  .mn-drop-indicator::before {
+    forced-color-adjust: none;
+    background-color: Highlight;
   }
   .mn-who-caret {
     border-color: CanvasText;

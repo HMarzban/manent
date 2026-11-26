@@ -84,7 +84,10 @@ function blockAcross(
   const block =
     section === null
       ? null
-      : firstEndingBelow(section.querySelectorAll(":scope > p.el"), top);
+      : firstEndingBelow(
+          section.querySelectorAll(":scope > p.el:not(.el-hidden)"),
+          top,
+        );
   if (block === null) return null;
   const $pos = view.state.doc.resolve(view.posAtDOM(block, 0));
   return {
@@ -109,6 +112,9 @@ function flowBlockStart(doc: Node, block: number): number | null {
   return null;
 }
 
+const VIEWED_PROBE_RATIO = 0.28;
+const VIEWED_PROBE_MAX_PX = 220;
+
 export function createScrollPorts(
   place: HTMLElement,
   zoom: () => number,
@@ -124,6 +130,14 @@ export function createScrollPorts(
       return found === null
         ? null
         : { block: found.block, offsetPx: edge - found.top };
+    },
+    viewedBlock(view) {
+      const box = scrollerOf(place).getBoundingClientRect();
+      const probe =
+        box.top +
+        Math.min(box.height * VIEWED_PROBE_RATIO, VIEWED_PROBE_MAX_PX);
+      const found = blockAtHeight(view, probe) ?? blockAcross(view, probe);
+      return found === null ? null : found.block;
     },
     blockTop(view, block) {
       const pos = flowBlockStart(view.state.doc, block);

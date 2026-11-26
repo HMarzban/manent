@@ -24,12 +24,22 @@ const MARKER_PX = 24;
 const NUMBER_ROW_PX = 48;
 /** The gap between the sheet's right edge and the marker. */
 const GUTTER_GAP_PX = 8;
+/** Vertical gap between a lock marker and its hover tooltip. */
+const TOOLTIP_GAP_PX = 6;
+/** Minimum viewport top clearance before flipping the tooltip below the marker. */
+const TOOLTIP_FLIP_PX = 64;
+const TOOLTIP_ID = "mn-lock-marker-tooltip";
 
 interface Spot {
   readonly top: number;
   readonly left: number;
   /** The label extra text on the page goes to. */
   readonly next: string;
+}
+
+interface TooltipController {
+  show(marker: HTMLElement, spot: Spot, text: string): void;
+  hide(): void;
 }
 
 /** Where each drawn sheet of a locked page puts its marker, in the layer's coordinates. */
@@ -57,6 +67,7 @@ function markerOf(
   doc: Document,
   spot: Spot,
   options: LockMarkerOptions,
+  tooltip: TooltipController,
 ): HTMLElement {
   const marker = doc.createElement("span");
   marker.className = "mn-marker mn-marker-lock";
@@ -76,6 +87,10 @@ function markerOf(
     alignItems: "center",
     justifyContent: "center",
   });
+  marker.addEventListener("mouseenter", () => {
+    if (sentence !== "") tooltip.show(marker, spot, sentence);
+  });
+  marker.addEventListener("mouseleave", () => tooltip.hide());
   marker.append(options.icon());
   return marker;
 }
@@ -88,6 +103,38 @@ function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
   let drawn: HTMLElement[] = [];
   let key = "";
   let cancelFrame: (() => void) | null = null;
+  let activeTip: HTMLElement | null = null;
+  let activeOwner: HTMLElement | null = null;
+  const tooltip: TooltipController = {
+    show(marker, spot, text) {
+      tooltip.hide();
+      const layer = options.layer();
+      if (layer === null) return;
+      const tip = layer.ownerDocument.createElement("div");
+      tip.id = TOOLTIP_ID;
+      tip.className = "mn-marker-tooltip";
+      tip.setAttribute("role", "tooltip");
+      tip.textContent = text;
+      const below = marker.getBoundingClientRect().top < TOOLTIP_FLIP_PX;
+      Object.assign(tip.style, {
+        top: `${below ? spot.top + MARKER_PX + TOOLTIP_GAP_PX : spot.top - TOOLTIP_GAP_PX}px`,
+        left: `${spot.left + MARKER_PX}px`,
+        transform: below ? "translateX(-100%)" : "translate(-100%, -100%)",
+      });
+      marker.setAttribute("aria-describedby", TOOLTIP_ID);
+      layer.append(tip);
+      activeTip = tip;
+      activeOwner = marker;
+    },
+    hide() {
+      activeTip?.remove();
+      activeTip = null;
+      if (activeOwner !== null) {
+        activeOwner.removeAttribute("aria-describedby");
+        activeOwner = null;
+      }
+    },
+  };
   const draw = () => {
     cancelFrame = null;
     const layer = options.layer();
@@ -95,11 +142,14 @@ function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
     const next = JSON.stringify(spots);
     if (next === key) return;
     key = next;
+    tooltip.hide();
     for (const marker of drawn) marker.remove();
     drawn =
       layer === null
         ? []
-        : spots.map((spot) => markerOf(layer.ownerDocument, spot, options));
+        : spots.map((spot) =>
+            markerOf(layer.ownerDocument, spot, options, tooltip),
+          );
     layer?.append(...drawn);
   };
   const request = () => {
@@ -124,6 +174,7 @@ function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
     destroy() {
       cancelFrame?.();
       sheets.disconnect();
+      tooltip.hide();
       for (const marker of drawn) marker.remove();
     },
   };

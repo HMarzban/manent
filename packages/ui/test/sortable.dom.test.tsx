@@ -165,3 +165,33 @@ test("a sortable item binds a replacement handle when its inner element is repla
     ?.getAttribute("aria-roledescription");
   expect([before, after]).toEqual(["", ""]);
 });
+
+test("a grid sortable list uses a responsive container grid with full-width items", () => {
+  const { root, host } = mount();
+  const items = [
+    { id: "a", label: "Scene 1" },
+    { id: "b", label: "Scene 2" },
+  ];
+  act(() =>
+    root.render(
+      <SortableList
+        label="Scenes"
+        items={items}
+        orientation="grid"
+        onMove={() => {}}
+        renderItem={(id) => (
+          <div role="group" tabIndex={0}>
+            {id}
+          </div>
+        )}
+      />,
+    ),
+  );
+  const list = host.querySelector('[role="list"]');
+  const listItems = [...host.querySelectorAll('[role="listitem"]')];
+  expect([
+    list?.className.includes("@container"),
+    list?.className.includes("grid-cols-1"),
+    listItems.every((item) => item.className.includes("min-w-0")),
+  ]).toEqual([true, true, true]);
+});

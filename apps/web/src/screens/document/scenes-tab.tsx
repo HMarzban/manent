@@ -3,9 +3,6 @@
 // draws what other features say of its scene.
 import {
   DOCUMENT_WORDS,
-  HISTORY_WORDS,
-  Input,
-  Row,
   SortableList,
   SurfaceState,
   VirtualRows,
@@ -14,8 +11,8 @@ import {
   useCommands,
   useSubscribable,
 } from "@manent/ui";
+import type { NEW_PROJECT_CARDS } from "@manent/ui";
 import {
-  memo,
   useCallback,
   useContext,
   useMemo,
@@ -31,23 +28,20 @@ import {
   useScenesView,
 } from "../../scenes/cards.tsx";
 import type { ScenesView } from "../../scenes/cards.tsx";
-import {
-  ScenePeople,
-  SceneTitle,
-  isPersonMark,
-  sceneRowMeta,
-  useSceneExtras,
-} from "../../scenes/marks.tsx";
+import { GhostFollowBar } from "../../scenes/ghost-follow-bar.tsx";
+import { useSceneExtras } from "../../scenes/marks.tsx";
 import type { SceneParts } from "../../scenes/marks.tsx";
 import { SceneRowsContext, useSceneMoves } from "../../scenes/moves.ts";
-import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
+import { OutlineLine } from "../../scenes/outline-line.tsx";
+import { rowItemsFor } from "../../scenes/row-menu.tsx";
 import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
+import { ScenesFilterEmpty, ScenesToolbar } from "../../scenes/toolbar.tsx";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
 import {
-  useIsCurrentOutline,
   useOutlineCount,
+  useViewedOutlineId,
 } from "../../state/outline.store.ts";
 import type {
   OutlineRow,
@@ -73,108 +67,6 @@ function useFormat(docId: string | null): string {
   );
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
 }
-
-/**
- * A scene's row: its number, heading, synopsis and marks, then whether it is revised, the people in it, its length and
- * its menu.
- */
-function SceneLine(props: {
-  row: OutlineRow;
-  parts: SceneParts;
-  current: boolean;
-  goTo: () => void;
-}): ReactNode {
-  const { row, parts, current, goTo } = props;
-  if (row.omitted)
-    return (
-      <Row current={current} onActivate={goTo}>
-        <span className="whitespace-pre text-fg-muted">
-          {row.number === null
-            ? DOCUMENT_WORDS.omitted
-            : `${row.number}  ${DOCUMENT_WORDS.omitted}`}
-        </span>
-      </Row>
-    );
-  const marks = parts.extras.marks(row.blockId);
-  const length = parts.extras.length(row);
-  const lengthTitle =
-    length === null
-      ? undefined
-      : (parts.extras.lengthTitle?.(row) ?? undefined);
-  const meta = sceneRowMeta(marks, row.synopsis);
-  const trailing: ReactNode[] = [
-    ...(marks.some((mark) => mark.kind === "revised")
-      ? [
-          <span key="revised" aria-hidden="true">
-            *
-          </span>,
-        ]
-      : []),
-    // the people in the scene stand just before its length, in the same trailing item
-    ...(length === null && !marks.some(isPersonMark)
-      ? []
-      : [
-          <span key="length" className="flex items-center gap-2">
-            <ScenePeople marks={marks} />
-            {length === null ? null : (
-              <span className="tabular-nums" title={lengthTitle}>
-                {length}
-              </span>
-            )}
-          </span>,
-        ]),
-  ];
-  return (
-    <SceneRowMenu
-      docId={parts.docId}
-      headingId={row.blockId}
-      title={row.heading}
-      items={parts.items}
-    >
-      {(handle) => (
-        <Row
-          current={current}
-          onActivate={goTo}
-          leading={
-            row.number === null ? undefined : (
-              <span className="w-6 text-end tabular-nums">{row.number}</span>
-            )
-          }
-          meta={meta}
-          trailing={trailing}
-          menu={handle ?? undefined}
-        >
-          <SceneTitle heading={row.heading} marks={marks} />
-        </Row>
-      )}
-    </SceneRowMenu>
-  );
-}
-
-/** An act or knot heads the entries after it; a stitch indents under its knot; a section groups scenes. */
-const OutlineLine = memo(function OutlineLine(props: {
-  row: OutlineRow;
-  parts: SceneParts;
-}): ReactNode {
-  const { row, parts } = props;
-  const { editor } = useServices();
-  const current = useIsCurrentOutline(row.blockId);
-  const goTo = () =>
-    void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
-  if (row.kind === "scene")
-    return <SceneLine row={row} parts={parts} current={current} goTo={goTo} />;
-  const textClass =
-    row.kind === "act" || row.kind === "knot"
-      ? "font-semibold"
-      : row.kind === "stitch"
-        ? "pl-4"
-        : "text-fg-muted italic";
-  return (
-    <Row current={current} onActivate={goTo}>
-      <span className={textClass}>{row.heading}</span>
-    </Row>
-  );
-});
 
 const isFilterableKind = (kind: OutlineRow["kind"]): boolean =>
   kind === "scene" || kind === "knot" || kind === "stitch";
@@ -226,8 +118,9 @@ function MovableRows(props: {
   label: string;
   rows: readonly OutlineRow[];
   renderRow(row: OutlineRow): ReactNode;
+  followIndex: number | null;
 }): ReactNode {
-  const { docId, label, rows, renderRow } = props;
+  const { docId, label, rows, renderRow, followIndex } = props;
   const { area, sortable, rowOf } = useSceneMoves({ docId, rows });
   const renderItem = useCallback(
     (id: string): ReactNode => {
@@ -244,27 +137,48 @@ function MovableRows(props: {
           label={label}
           orientation="vertical"
           renderItem={renderItem}
+          followIndex={followIndex}
         />
       </div>
     </SceneRowsContext>
   );
 }
 
+type Kind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
+
 /** The listed rows as the view shows them: movable for a person who can edit (never for Ink knots). */
 function OutlineRows(props: {
   view: ScenesView;
+  rows: readonly OutlineRow[];
   filter: string;
+  onClearFilter(): void;
+  format: string;
+  kind: Kind | null;
   label: string;
   canEdit: boolean;
   movable: boolean;
   parts: SceneParts;
+  followIndex: number | null;
+  followBlockId: string | null;
 }): ReactNode {
-  const { parts } = props;
-  const rows = useListedRows(props.filter);
+  const {
+    rows,
+    filter,
+    onClearFilter,
+    format,
+    kind,
+    parts,
+    followIndex,
+    followBlockId,
+  } = props;
   const renderRow = useCallback(
     (row: OutlineRow): ReactNode => <OutlineLine row={row} parts={parts} />,
     [parts],
   );
+  if (filter !== "" && rows.length === 0)
+    return (
+      <ScenesFilterEmpty format={format} kind={kind} onClear={onClearFilter} />
+    );
   if (props.view === "cards")
     return (
       <SceneCards
@@ -272,6 +186,7 @@ function OutlineRows(props: {
         canEdit={props.canEdit}
         label={props.label}
         parts={parts}
+        followBlockId={followBlockId}
       />
     );
   return props.movable ? (
@@ -280,6 +195,7 @@ function OutlineRows(props: {
       label={props.label}
       rows={rows}
       renderRow={renderRow}
+      followIndex={followIndex}
     />
   ) : (
     <div className="min-h-0 flex-1">
@@ -287,10 +203,78 @@ function OutlineRows(props: {
         count={rows.length}
         rowHeight="one"
         label={props.label}
+        followIndex={followIndex}
         renderRow={(index) => {
           const row = rows[index];
           return row === undefined ? null : renderRow(row);
         }}
+      />
+    </div>
+  );
+}
+
+const countFilterable = (rows: readonly OutlineRow[]): number =>
+  rows.filter((row) => isFilterableKind(row.kind)).length;
+
+/** Ready body of the Scenes panel: reads outline rows only once the panel is ready, inside its boundary. */
+function ScenesReady(props: {
+  filter: string;
+  onFilterChange(value: string): void;
+  viewSwitch: ReactNode;
+  view: ScenesView;
+  format: string;
+  kind: Kind | null;
+  label: string;
+  canEdit: boolean;
+  movable: boolean;
+  parts: SceneParts;
+}): ReactNode {
+  const {
+    filter,
+    onFilterChange,
+    viewSwitch,
+    view,
+    format,
+    kind,
+    label,
+    canEdit,
+    movable,
+    parts,
+  } = props;
+  const allRows = useListedRows("");
+  const filteredRows = useListedRows(filter);
+  const viewedId = useViewedOutlineId();
+  const followBlockId = filter === "" ? viewedId : null;
+  const followIndex = useMemo(() => {
+    if (followBlockId === null) return null;
+    const at = filteredRows.findIndex((row) => row.blockId === followBlockId);
+    return at === -1 ? null : at;
+  }, [filteredRows, followBlockId]);
+  return (
+    <div className="@container flex h-full min-h-0 flex-col">
+      <ScenesToolbar
+        filter={filter}
+        onFilterChange={onFilterChange}
+        viewSwitch={viewSwitch}
+        shownCount={countFilterable(filteredRows)}
+        totalCount={countFilterable(allRows)}
+        format={format}
+        kind={kind}
+      />
+      <GhostFollowBar rows={allRows} />
+      <OutlineRows
+        view={view}
+        rows={filteredRows}
+        filter={filter}
+        onClearFilter={() => onFilterChange("")}
+        format={format}
+        kind={kind}
+        label={label}
+        canEdit={canEdit}
+        movable={movable}
+        parts={parts}
+        followIndex={followIndex}
+        followBlockId={followBlockId}
       />
     </div>
   );
@@ -327,40 +311,26 @@ function ScenesList(props: { docId: string }): ReactNode {
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="@container flex h-full min-h-0 flex-col">
-            <div className="flex items-center gap-2 p-2">
-              {viewSwitch}
-              <Input
-                type="search"
-                aria-label={HISTORY_WORDS.filter}
-                placeholder={HISTORY_WORDS.filter}
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape" || filter === "") return;
-                  event.preventDefault();
-                  setFilter("");
-                }}
-                className="h-control min-w-0 flex-1 text-ui"
-              />
-            </div>
-            <OutlineRows
-              view={activeView}
-              filter={filter}
-              label={DOCUMENT_WORDS.leftTab(format)}
-              canEdit={canEdit}
-              movable={canEdit && !isInk}
-              parts={parts}
-            />
-          </div>
+          <ScenesReady
+            filter={filter}
+            onFilterChange={setFilter}
+            viewSwitch={viewSwitch}
+            view={activeView}
+            format={format}
+            kind={kind}
+            label={DOCUMENT_WORDS.leftTab(format)}
+            canEdit={canEdit}
+            movable={canEdit && !isInk}
+            parts={parts}
+          />
         ),
         empty: () => (
           <div className="flex h-full min-h-0 flex-col">
             {viewSwitch === null ? null : (
-              <div className="p-2">{viewSwitch}</div>
+              <div className="border-b border-line p-2">{viewSwitch}</div>
             )}
             {activeView === "cards" && canEdit ? (
-              <div className="p-2">
+              <div className="p-2.5">
                 <BlankCard docId={docId} />
               </div>
             ) : (

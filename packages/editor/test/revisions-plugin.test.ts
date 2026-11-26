@@ -428,6 +428,45 @@ test("a scene brought back shows its blocks with its number, marked revised", as
   view.destroy();
 });
 
+test("an omitted scene draws OMITTED on its heading and hides its body blocks in the DOM", async () => {
+  const doc = lockedScript(300, 4);
+  const view = mount(doc, fakePort(lockedView(doc)).port);
+  await settle();
+  const heading = headingOf(view, 4);
+  const headingId = idAt(view, heading);
+  const bodyId = idAt(view, heading + 1);
+  const domOf = (id: string) =>
+    view.dom.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+  const beforeHeading = domOf(headingId);
+  const beforeBody = domOf(bodyId);
+  const omittedDom = [
+    beforeHeading.hasAttribute("data-omitted"),
+    beforeHeading.querySelector(".mn-omitted")?.textContent ?? null,
+    beforeHeading
+      .querySelector(".mn-omitted-orig")
+      ?.getAttribute("aria-hidden") ?? null,
+    beforeBody.classList.contains("el-hidden"),
+    beforeBody.getAttribute("aria-hidden"),
+  ];
+  caretIn(view, heading);
+  runCommand(view, bringBackScene);
+  await settle();
+  const afterHeading = domOf(headingId);
+  const afterBody = domOf(bodyId);
+  const restoredDom = [
+    afterHeading.hasAttribute("data-omitted"),
+    afterHeading.querySelector(".mn-omitted"),
+    afterHeading.querySelector(".mn-omitted-orig"),
+    afterBody.classList.contains("el-hidden"),
+    afterBody.getAttribute("aria-hidden"),
+  ];
+  expect([omittedDom, restoredDom]).toEqual([
+    [true, "OMITTED", "true", true, "true"],
+    [false, null, null, false, null],
+  ]);
+  view.destroy();
+});
+
 test("numbered scenes are drawn once the script is in production, and not after", async () => {
   const doc = lockedScript(300);
   const told: boolean[] = [];

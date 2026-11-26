@@ -1,29 +1,37 @@
-// The Scenes tab's Cards: its List / Cards switch and the choice it keeps, a card per scene, and the blank card after
-// the last, which writes a new scene heading with its synopsis.
-import { ORIGIN_MATERIAL, applyBlockOpsAsOne } from "@manent/crdt";
-import { randomBlockId } from "@manent/schema";
+// The Scenes tab's Cards: its List / Cards switch and the choice it keeps, uniform full-width cards with inline
+// synopsis editing, and the blank card after the last.
 import type { KeyValueMap } from "@manent/settings";
 import {
+  Button,
   DOCUMENT_WORDS,
   SCENE_MOVE_WORDS,
   Segmented,
   SortableList,
-  useSubscribable,
 } from "@manent/ui";
-import { LayoutGridIcon, ListIcon } from "lucide-react";
+import {
+  GripVerticalIcon,
+  LayoutGridIcon,
+  ListIcon,
+  PencilIcon,
+} from "lucide-react";
 import {
   memo,
   useCallback,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ReactNode } from "react";
-import { liveEditor } from "../editor-host/live-editor.ts";
+import type { KeyboardEvent, ReactNode, SyntheticEvent } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { createLocalMap } from "../services/local-map.ts";
-import { useIsCurrentOutline } from "../state/outline.store.ts";
+import {
+  useIsCurrentOutline,
+  useIsViewedOutline,
+} from "../state/outline.store.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
+import { BlankCard } from "./blank-card.tsx";
+import { useCardAutoFollow } from "./ghost-follow-bar.tsx";
 import {
   SceneMetaMarks,
   ScenePeople,
@@ -31,13 +39,10 @@ import {
   isMetaMark,
 } from "./marks.tsx";
 import type { SceneParts } from "./marks.tsx";
-import {
-  SceneRowsContext,
-  rowLabel,
-  scriptBlocks,
-  useSceneMoves,
-} from "./moves.ts";
+import { SceneRowsContext, rowLabel, useSceneMoves } from "./moves.ts";
 import { SceneRowMenu } from "./row-menu.tsx";
+
+export { BlankCard };
 
 const SCENES_VIEWS = ["list", "cards"] as const;
 export type ScenesView = (typeof SCENES_VIEWS)[number];
@@ -45,8 +50,11 @@ export type ScenesView = (typeof SCENES_VIEWS)[number];
 const isScenesView = (value: unknown): value is ScenesView =>
   SCENES_VIEWS.some((view) => view === value);
 
-const CARD =
-  "mn-card flex w-full max-w-56 flex-col gap-1 p-3 text-start text-ui";
+const CARD = "mn-card flex h-full w-full flex-col gap-2 p-3 text-start text-ui";
+const CARD_GRID =
+  "@container grid grid-cols-1 gap-2.5 @[28rem]:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]";
+
+const stopEvent = (event: SyntheticEvent): void => event.stopPropagation();
 
 // one map per person for the page's life, so every Scenes tab of theirs reads one choice and hears another tab's
 const viewMaps = new Map<string, KeyValueMap>();
@@ -113,18 +121,54 @@ export function ScenesSwitch(props: {
 }
 
 /**
- * A scene's card: its number and menu, heading and marks, synopsis, the people in it and its length. It goes to the
- * scene, as a row does.
+ * A scene's card: drag affordance, number badge, menu and synopsis edit, heading, marks, synopsis, people and length.
+ * Activating it jumps to the scene; double-clicking or pressing F2 edits its synopsis in place.
  */
 const SceneCard = memo(function SceneCard(props: {
   row: OutlineRow;
   parts: SceneParts;
+  canEdit: boolean;
 }): ReactNode {
-  const { row, parts } = props;
+  const { row, parts, canEdit } = props;
   const { editor } = useServices();
   const current = useIsCurrentOutline(row.blockId);
-  const goTo = () =>
-    void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
+  const viewed = useIsViewedOutline(row.blockId);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const canEditSynopsis = canEdit && !row.omitted;
+  const goTo = (): void => {
+    if (!editing)
+      void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
+  };
+  const startEdit = (): void => {
+    if (!canEditSynopsis) return;
+    setDraft(row.synopsis);
+    setEditing(true);
+  };
+  const commitEdit = (): void => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed !== row.synopsis)
+      void editor.run({
+        kind: "synopsis",
+        blockId: row.blockId,
+        text: trimmed,
+      });
+  };
+  const onEditKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    event.stopPropagation();
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      commitEdit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setEditing(false);
+    }
+  };
   const marks = parts.extras.marks(row.blockId);
   const length = parts.extras.length(row);
   const lengthTitle =
@@ -139,30 +183,60 @@ const SceneCard = memo(function SceneCard(props: {
       items={parts.items}
     >
       {(handle) => {
+        const showEditButton = canEditSynopsis && !editing;
+        const hasActions = handle !== null || showEditButton;
         const card = (
           <div
             role="group"
             tabIndex={0}
             aria-label={rowLabel(row)}
             aria-current={current ? "true" : undefined}
+            data-viewed={viewed && !current ? "true" : undefined}
+            data-outline-id={row.blockId}
             className={CARD}
             onClick={goTo}
+            onDoubleClick={canEditSynopsis ? startEdit : undefined}
             onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              goTo();
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "Enter") {
+                event.preventDefault();
+                goTo();
+              } else if (event.key === "F2" && canEditSynopsis) {
+                event.preventDefault();
+                startEdit();
+              }
             }}
           >
-            <span className="flex min-h-control-sm items-center gap-2 text-meta text-fg-muted tabular-nums">
-              {row.number}
-              {marks.some((mark) => mark.kind === "revised") ? (
-                <span aria-hidden="true">*</span>
+            <span className="flex min-h-control-sm items-center gap-1.5">
+              {canEdit ? (
+                <GripVerticalIcon
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 text-fg-muted opacity-50 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100"
+                />
               ) : null}
-              {handle === null ? null : (
-                <span aria-hidden="true" className="ms-auto size-6 shrink-0" />
+              {row.number === null ? null : (
+                <span className="mn-scene-num">{row.number}</span>
               )}
+              {marks.some((mark) => mark.kind === "revised") ? (
+                <span
+                  aria-hidden="true"
+                  className="text-meta font-semibold text-fg-accent"
+                >
+                  *
+                </span>
+              ) : null}
+              {hasActions ? (
+                <span
+                  aria-hidden="true"
+                  className={
+                    handle !== null && showEditButton
+                      ? "ms-auto h-6 w-12 shrink-0"
+                      : "ms-auto size-6 shrink-0"
+                  }
+                />
+              ) : null}
             </span>
-            <span className="line-clamp-2 font-semibold">
+            <span className="line-clamp-2 leading-snug font-semibold text-fg">
               {row.omitted ? (
                 DOCUMENT_WORDS.omitted
               ) : (
@@ -174,23 +248,59 @@ const SceneCard = memo(function SceneCard(props: {
                 <SceneMetaMarks marks={marks} />
               </span>
             ) : null}
-            {row.synopsis === "" ? null : (
-              <span className="line-clamp-3 text-fg-muted">{row.synopsis}</span>
+            {editing ? (
+              <div
+                onClick={stopEvent}
+                onPointerDown={stopEvent}
+                onKeyDown={stopEvent}
+              >
+                <textarea
+                  autoFocus
+                  rows={2}
+                  data-synopsis-input=""
+                  aria-label={SCENE_MOVE_WORDS.editSynopsis}
+                  placeholder={SCENE_MOVE_WORDS.addSynopsis}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={onEditKeyDown}
+                  className="w-full resize-none rounded-control border border-focus bg-well px-2 py-1.5 text-meta leading-relaxed text-fg placeholder:text-fg-muted focus:outline-none"
+                />
+              </div>
+            ) : row.synopsis === "" ? null : (
+              <span className="line-clamp-3 text-meta leading-relaxed text-fg-muted">
+                {row.synopsis}
+              </span>
             )}
-            <span className="flex items-center gap-2 text-meta text-fg-muted tabular-nums">
+            <span className="mt-auto flex items-center gap-2 border-t border-line pt-2 text-meta text-fg-muted tabular-nums">
               <ScenePeople marks={marks} />
-              <span title={lengthTitle}>
+              <span className="ms-auto" title={lengthTitle}>
                 {length ?? SCENE_MOVE_WORDS.noPages}
               </span>
             </span>
           </div>
         );
-        if (handle === null) return card;
+        if (!hasActions) return card;
         return (
-          <div data-row-menu className="relative w-full max-w-56">
+          <div data-row-menu className="group/card relative h-full w-full">
             {card}
-            <span className="absolute top-3 end-3 flex items-center">
+            <span className="absolute top-2.5 end-2.5 flex flex-row-reverse items-center gap-0.5 opacity-60 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100">
               {handle}
+              {showEditButton ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={SCENE_MOVE_WORDS.editSynopsis}
+                  title={SCENE_MOVE_WORDS.editSynopsis}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    startEdit();
+                  }}
+                >
+                  <PencilIcon aria-hidden="true" className="size-3.5" />
+                </Button>
+              ) : null}
             </span>
           </div>
         );
@@ -198,84 +308,6 @@ const SceneCard = memo(function SceneCard(props: {
     </SceneRowMenu>
   );
 });
-
-const headingTypeFor = (
-  format: string,
-): "chapter" | "slug" | "scene_heading" =>
-  format === "manuscript"
-    ? "chapter"
-    : format === "variety"
-      ? "slug"
-      : "scene_heading";
-
-/** Writes a heading of the script's format with empty text and `synopsis` at the end of the script, as one undo step; false when the script cannot be changed here. */
-function writeSceneCard(
-  docId: string,
-  synopsis: string,
-  format: string,
-): boolean {
-  const editor = liveEditor(docId);
-  if (editor === null || !editor.editable) return false;
-  const last = scriptBlocks(editor.doc).at(-1)?.attrs?.id;
-  applyBlockOpsAsOne(
-    editor.doc,
-    [
-      {
-        op: "insert",
-        after: typeof last === "string" ? last : null,
-        block: {
-          type: "block",
-          attrs: {
-            id: randomBlockId(),
-            type: headingTypeFor(format),
-            synopsis,
-          },
-        },
-      },
-    ],
-    ORIGIN_MATERIAL,
-  );
-  return true;
-}
-
-/** The card after the last: Enter writes what was typed there as a new scene's synopsis. */
-export function BlankCard(props: { docId: string }): ReactNode {
-  const { docId } = props;
-  const services = useServices();
-  const store = services.openScriptStore(docId);
-  const subscribeFormat = useCallback(
-    (listener: () => void) => store.subscribe("script.format", listener),
-    [store],
-  );
-  const format = useSyncExternalStore(subscribeFormat, () =>
-    store.get("script.format"),
-  );
-  const kindSource = useMemo(
-    () => services.library.documentKind(docId),
-    [services.library, docId],
-  );
-  const kind = useSubscribable(kindSource);
-  const prompt = SCENE_MOVE_WORDS.describeFor(format, kind);
-  const [text, setText] = useState("");
-  return (
-    <textarea
-      data-new=""
-      rows={3}
-      aria-label={prompt}
-      placeholder={prompt}
-      value={text}
-      className={`${CARD} resize-none placeholder:text-fg-muted`}
-      onChange={(event) => setText(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-        event.preventDefault();
-        const synopsis = text.trim();
-        if (synopsis !== "" && writeSceneCard(docId, synopsis, format))
-          setText("");
-      }}
-    />
-  );
-}
 
 /** The cards of a person who can edit: a card moves by drag, by its menu's Move, and by the move commands. */
 function MovableCards(props: {
@@ -313,18 +345,26 @@ export function SceneCards(props: {
   canEdit: boolean;
   label?: string;
   parts: SceneParts;
+  followBlockId?: string | null;
 }): ReactNode {
-  const { rows, canEdit, label, parts } = props;
+  const { rows, canEdit, label, parts, followBlockId = null } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
+  useCardAutoFollow(containerRef, followBlockId);
   const scenes = useMemo(
     () => rows.filter((row) => row.kind === "scene"),
     [rows],
   );
   const renderCard = useCallback(
-    (row: OutlineRow): ReactNode => <SceneCard row={row} parts={parts} />,
-    [parts],
+    (row: OutlineRow): ReactNode => (
+      <SceneCard row={row} parts={parts} canEdit={canEdit} />
+    ),
+    [parts, canEdit],
   );
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-2">
+    <div
+      ref={containerRef}
+      className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto p-2.5"
+    >
       {canEdit ? (
         <MovableCards
           docId={parts.docId}
@@ -333,13 +373,9 @@ export function SceneCards(props: {
           renderCard={renderCard}
         />
       ) : (
-        <div
-          role="list"
-          aria-label={label || undefined}
-          className="flex flex-wrap gap-3"
-        >
+        <div role="list" aria-label={label || undefined} className={CARD_GRID}>
           {scenes.map((row) => (
-            <div key={row.blockId} role="listitem">
+            <div key={row.blockId} role="listitem" className="min-w-0">
               {renderCard(row)}
             </div>
           ))}

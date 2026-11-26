@@ -25,6 +25,8 @@ export interface ScrollPorts {
   caretTop(view: EditorView): number | null;
   /** The block at the scroller's top edge and how far its top is above that edge, px; null when there is none. */
   topBlock(view: EditorView): { block: number; offsetPx: number } | null;
+  /** The block inside the viewport's upper reading zone, for outline scroll-following; null when there is none. */
+  viewedBlock?(view: EditorView): number | null;
   /** The viewport top of a rendered block, px, read without pages (Ink); null when it is not rendered. */
   blockTop(view: EditorView, block: number): number | null;
 }

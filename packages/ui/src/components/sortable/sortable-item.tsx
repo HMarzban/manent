@@ -12,22 +12,24 @@ export type Orientation = "vertical" | "grid";
 // without the library's optimistic sorting, which moves elements behind React's back: the drop indicator shows the place instead
 const ITEM_PLUGINS = [SortableKeyboardPlugin];
 
-// beyond an item's edge and its focus ring, since the dragged item is drawn over the one it is dropped on; a grid's
-// in the gap between items; an empty list's inside its top edge
+// beyond an item's edge and its focus ring, since the dragged item is drawn over the one it is dropped on; a grid
+// draws a horizontal line while stacked in one column and switches to a vertical bar once columns sit side by side
 const EDGE: Readonly<
   Record<Orientation | "list", Record<"before" | "after", string>>
 > = {
   vertical: {
-    before: "inset-x-0 -top-1.5 border-t-2",
-    after: "inset-x-0 -bottom-1.5 border-b-2",
+    before: "inset-x-1 top-0 border-t-2",
+    after: "inset-x-1 bottom-0 border-b-2",
   },
   grid: {
-    before: "inset-y-0 -start-2 border-s-2",
-    after: "inset-y-0 -end-2 border-e-2",
+    before:
+      "inset-x-0 -top-1.5 border-t-2 @[28rem]:inset-x-auto @[28rem]:inset-y-0 @[28rem]:-start-1.5 @[28rem]:border-t-0 @[28rem]:border-s-2",
+    after:
+      "inset-x-0 -bottom-1.5 border-b-2 @[28rem]:inset-x-auto @[28rem]:inset-y-0 @[28rem]:-end-1.5 @[28rem]:border-b-0 @[28rem]:border-e-2",
   },
   list: {
-    before: "inset-x-0 top-0 border-t-2",
-    after: "inset-x-0 bottom-0 border-b-2",
+    before: "inset-x-1 top-0 border-t-2",
+    after: "inset-x-1 bottom-0 border-b-2",
   },
 };
 
@@ -44,8 +46,10 @@ export function DropIndicator({ id, layout }: DropIndicatorProps): ReactNode {
   return (
     <span
       aria-hidden="true"
+      data-drop-indicator={mark.edge}
+      data-drop-layout={layout}
       className={cn(
-        "pointer-events-none absolute border-accent-solid animate-in fade-in-0 duration-(--dur-fast) ease-out",
+        "mn-drop-indicator pointer-events-none absolute z-20 border-accent-solid animate-in fade-in-0 duration-(--dur-fast) ease-out",
         EDGE[layout][mark.edge],
       )}
     />
@@ -115,10 +119,12 @@ export const SortableItem = memo(function SortableItem({
     <div
       ref={attach}
       data-sortable-id={id}
+      data-dragging-item={isDragging ? "true" : undefined}
       className={cn(
         "relative",
+        orientation === "grid" && "h-full",
         isDragging &&
-          "rounded-control bg-overlay shadow-overlay ring-1 ring-line",
+          "z-20 rounded-surface bg-overlay opacity-75 shadow-overlay ring-2 ring-focus",
       )}
     >
       {children}

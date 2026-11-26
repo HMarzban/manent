@@ -1,12 +1,22 @@
 // A list of rows that reports its true size, and is virtual once it is long.
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useLayoutEffect, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type { FocusEvent, KeyboardEvent, ReactNode, RefObject } from "react";
 import { RowTabStop } from "./tab-stop.ts";
 
 const PLAIN_LIMIT = 100;
 // the row tokens at Interface size 100 %, until a row is measured
 const ROW_PX = { one: 28, two: 44 } as const;
+/** Pause auto-follow after the person scrolls the list themselves. */
+const MANUAL_SCROLL_PAUSE_MS = 2500;
+/** Extra margin inside the list's top and bottom edges when auto-following a row. */
+const FOLLOW_PADDING_PX = 28;
 
 type RowHeight = keyof typeof ROW_PX;
 
@@ -25,6 +35,8 @@ interface VirtualRowsProps {
   onKeyMove?(index: number): void;
   /** Custom virtual range selector passed through to `useVirtualizer`. */
   rangeExtractor?: RangeExtractor;
+  /** Gently keeps this row in view when the person is not interacting with the list (ghost follow). */
+  followIndex?: number | null;
 }
 
 const STEPS: Readonly<
@@ -190,8 +202,12 @@ export function VirtualRows({
   renderRow,
   onKeyMove,
   rangeExtractor,
+  followIndex,
 }: VirtualRowsProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
+  const pointerInsideRef = useRef(false);
+  const focusInsideRef = useRef(false);
+  const manualPauseUntilRef = useRef(0);
   const focusLater = useFocusLater(listRef);
   const virtual = count > PLAIN_LIMIT;
   const virtualizer = useVirtualizer({
@@ -208,6 +224,50 @@ export function VirtualRows({
       ? `plain:${count}`
       : `v:${virtualItems.map((item) => item.index).join(",")}`;
   const { stop, onFocus } = useTabStop(listRef, count, drawnKey, renderRow);
+
+  useEffect(() => {
+    if (followIndex == null || followIndex < 0 || followIndex >= count) return;
+    const list = listRef.current;
+    if (list === null) return;
+    if (
+      pointerInsideRef.current ||
+      focusInsideRef.current ||
+      Date.now() < manualPauseUntilRef.current ||
+      list.closest("[data-dragging]") !== null
+    )
+      return;
+    if (virtual) {
+      virtualizer.scrollToIndex(followIndex, { align: "auto" });
+      return;
+    }
+    const item = list.querySelector<HTMLElement>(
+      `[aria-posinset="${followIndex + 1}"]`,
+    );
+    if (item === null) return;
+    const listRect = list.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const pad = Math.min(FOLLOW_PADDING_PX, listRect.height / 4);
+    let targetTop: number | null = null;
+    if (itemRect.top < listRect.top + pad)
+      targetTop = Math.max(
+        0,
+        list.scrollTop + (itemRect.top - listRect.top - pad),
+      );
+    else if (itemRect.bottom > listRect.bottom - pad)
+      targetTop = Math.max(
+        0,
+        list.scrollTop + (itemRect.bottom - listRect.bottom + pad),
+      );
+    if (targetTop === null) return;
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    list.scrollTo({ top: targetTop, behavior: reduced ? "auto" : "smooth" });
+  }, [followIndex, count, virtual, virtualizer]);
+
+  const pauseFollow = (): void => {
+    manualPauseUntilRef.current = Date.now() + MANUAL_SCROLL_PAUSE_MS;
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const next = keyTarget(event, count, rowHeight);
@@ -240,7 +300,31 @@ export function VirtualRows({
       data-ring="inset"
       className="h-full overflow-auto"
       onKeyDown={onKeyDown}
-      onFocus={onFocus}
+      onFocus={(event) => {
+        focusInsideRef.current = true;
+        onFocus(event);
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          focusInsideRef.current = false;
+      }}
+      onPointerEnter={() => {
+        pointerInsideRef.current = true;
+      }}
+      onPointerLeave={() => {
+        pointerInsideRef.current = false;
+      }}
+      onMouseEnter={() => {
+        pointerInsideRef.current = true;
+      }}
+      onMouseLeave={() => {
+        pointerInsideRef.current = false;
+      }}
+      onWheel={pauseFollow}
+      onTouchMove={pauseFollow}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) pauseFollow();
+      }}
     >
       {virtualItems !== null ? (
         <div

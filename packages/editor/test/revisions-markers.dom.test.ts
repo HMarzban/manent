@@ -208,6 +208,38 @@ test("each locked page has a lock beside its page number, saying where extra tex
   shown.destroy();
 });
 
+test("hovering a locked page marker shows a styled tooltip and removes it on leave", async () => {
+  const doc = docOfBlocks([
+    ["action", filledText(60, 40)],
+    ["action", filledText(60, 40)],
+  ]);
+  const records = [anchorAt("12", 0, 1), anchorAt("13", 1, 2)];
+  const shown = mount(doc, productionOf(doc, { records }));
+  await settle();
+  const [first] = [...shown.layer.querySelectorAll<HTMLElement>("span")];
+  first!.dispatchEvent(new MouseEvent("mouseenter"));
+  const tip = shown.layer.querySelector<HTMLElement>('[role="tooltip"]');
+  const whileHovered = [
+    tip?.className ?? null,
+    tip?.textContent ?? null,
+    tip !== null && first!.getAttribute("aria-describedby") === tip.id,
+  ];
+  first!.dispatchEvent(new MouseEvent("mouseleave"));
+  const afterLeave = [
+    shown.layer.querySelector('[role="tooltip"]'),
+    first!.getAttribute("aria-describedby"),
+  ];
+  expect([whileHovered, afterLeave]).toEqual([
+    [
+      "mn-marker-tooltip",
+      "Page numbers are locked. You can still edit; extra text goes to 12A.",
+      true,
+    ],
+    [null, null],
+  ]);
+  shown.destroy();
+});
+
 /** A locked page of level 1, revised in Second Blue or not. */
 const row = (index: number, label: string, revised: boolean): PageRow => ({
   index,
