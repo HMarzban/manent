@@ -1,6 +1,6 @@
 // The words one open script's editor shows: element names and placeholders by format, project kind and act break.
 import type { EditorWords } from "@manent/editor";
-import { EDITOR_WORDS } from "@manent/ui";
+import { EDITOR_WORDS, GRAPHICS_WORDS } from "@manent/ui";
 import type { ProjectKind } from "../services/ports.ts";
 
 /** `table`'s entry for `key`; undefined when it has none. */
@@ -15,6 +15,7 @@ export function editorWords(kind: ProjectKind | null): EditorWords {
   const podcast = kind === "podcast";
   return {
     element: (format, type, breakKind) =>
+      (type === "graphic" ? GRAPHICS_WORDS.graphic : undefined) ??
       (format === "stage_play"
         ? lookUp(EDITOR_WORDS.stagePlay, type)
         : undefined) ??
@@ -25,7 +26,7 @@ export function editorWords(kind: ProjectKind | null): EditorWords {
       lookUp(EDITOR_WORDS.elements, type) ??
       EDITOR_WORDS.elements.general,
     placeholder(format, type, breakKind) {
-      if (type === "page_break") return null;
+      if (type === "page_break" || type === "graphic") return null;
       const general =
         format === "game"
           ? EDITOR_WORDS.gameGeneralPlaceholder

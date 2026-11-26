@@ -45,6 +45,7 @@ import { ACCOUNT_COMMANDS } from "./account.ts";
 import { INK_COMMANDS } from "./ink.ts";
 import { SCRIPT_COMMANDS } from "./script.ts";
 import { FOCUS_MODE_COMMANDS } from "./focus-mode.ts";
+import { GRAPHICS_COMMANDS } from "./graphics.ts";
 import { PRODUCTION_OUTPUTS_COMMANDS } from "./production-outputs.ts";
 import { TEMPLATE_COMMANDS } from "./templates.ts";
 
@@ -92,6 +93,7 @@ export const COMMANDS = defineCommands([
   ...INK_COMMANDS,
   ...SCRIPT_COMMANDS,
   ...FOCUS_MODE_COMMANDS,
+  ...GRAPHICS_COMMANDS,
   ...PRODUCTION_OUTPUTS_COMMANDS,
   ...TEMPLATE_COMMANDS,
   ...settingCommands(SETTINGS),

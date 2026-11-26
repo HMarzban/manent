@@ -30,6 +30,7 @@ import { editorOptions } from "./editor-options.ts";
 import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
+import { attachGraphicsBridge } from "./graphics-bridge.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
@@ -179,6 +180,12 @@ function buildEditor(
   else region?.scrollTo({ top: 0 });
   const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
+  const stopGraphics = attachGraphicsBridge({
+    docId,
+    editor,
+    services: options.services(),
+    editable,
+  });
   let stopThumb = noop;
   let built = true;
   // loaded apart: it shows only once the person scrolls
@@ -209,6 +216,7 @@ function buildEditor(
       built = false;
       stopFocus();
       stopZoom();
+      stopGraphics();
       stopThumb();
       disconnect();
       editor.destroy();

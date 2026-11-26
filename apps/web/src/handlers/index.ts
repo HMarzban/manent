@@ -53,6 +53,7 @@ import { accountHandlers } from "./account.ts";
 import { inkHandlers } from "./ink.ts";
 import { scriptHandlers } from "./script.ts";
 import { focusModeHandlers } from "./focus-mode.ts";
+import { graphicsHandlers } from "./graphics.ts";
 import { productionOutputsHandlers } from "./production-outputs.ts";
 import { templateHandlers } from "./templates.ts";
 
@@ -147,6 +148,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...inkHandlers(deps),
     ...scriptHandlers(deps),
     ...focusModeHandlers(deps),
+    ...graphicsHandlers(deps),
     ...productionOutputsHandlers(deps),
     ...templateHandlers(deps),
   };

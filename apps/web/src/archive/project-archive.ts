@@ -21,6 +21,7 @@ import { indexDocId } from "@manent/sync-protocol";
 import { LIBRARY_WORDS } from "@manent/ui";
 import type { HistoryRow } from "../history/history-rows.ts";
 import type { HistorySource } from "../history/source.ts";
+import { loadArchiveAssetsForProject } from "../send/archive-assets.ts";
 import { fileName } from "../send/script-file.ts";
 import type { WrittenFile } from "../send/script-file.ts";
 import type { PersonServices } from "../services/ports.ts";
@@ -28,11 +29,13 @@ import { readWorkspace } from "../services/sync/index-entries.ts";
 
 /** What the archive is read with: the person's indexes and scripts, and history's drafts. */
 type ArchiveServices = Pick<PersonServices, "api" | "userId" | "openHandle"> & {
+  messages?: PersonServices["messages"];
   history: Pick<HistorySource, "rows" | "content">;
 };
 
-/** A project as its workspace's index lists it: its title and its scripts, oldest first. */
+/** A project as its workspace's index lists it: its id, title and scripts, oldest first. */
 interface ListedProject {
+  projectId: string;
   title: string;
   scripts: readonly { docId: string; title: string }[];
 }
@@ -73,7 +76,7 @@ async function projectOf(
           title:
             entry.title === "" ? LIBRARY_WORDS.untitledScript : entry.title,
         }));
-      return { title: project.title, scripts };
+      return { projectId: projectId!, title: project.title, scripts };
     } finally {
       await handle.close();
     }
@@ -255,10 +258,16 @@ export async function writeProjectArchive(
       script: await scriptOf(services, script.docId, script.title),
       drafts: await draftsOf(services.history, script.docId),
     });
+  const assets = await loadArchiveAssetsForProject(
+    services,
+    project.projectId,
+    documents,
+  );
   const bytes = writeArchive({
     project: project.title,
     exportedAt: now(),
     documents,
+    assets,
   });
   return { bytes, name: fileName(project.title, ".zip") };
 }
