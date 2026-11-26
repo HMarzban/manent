@@ -5,10 +5,10 @@ Start with the part that matches what you want to do. Each page says what works 
 ## Use Manent
 
 - [Getting started](guide/getting-started.md): run the demo, choose a person, and what to try first.
-- [Writing a script](guide/writing.md): formats, elements, Tab and Enter, the element picker.
+- [Writing a script](guide/writing.md): formats, elements, Tab and Enter, the element picker, inline images and chyrons, Show and News templates, and writing tools.
 - [Saving and syncing](guide/saving-and-syncing.md): what "Saved", "Synced" and "waiting" mean, working without a connection, and versions.
-- [Working together](guide/working-together.md): live changes and cursors, and what is not there yet.
-- [Export and print](guide/export-and-print.md): a PDF, FDX or Fountain file of the script, paper, and importing a script.
+- [Working together](guide/working-together.md): live changes, cursors, Following, sharing, comments and rounds, suggestions, private copies, the Room window, rundowns, Rundown History, remote prompter and external MOS.
+- [Export and print](guide/export-and-print.md): PDF, Sides, FDX, Fountain, Game Script, Ink, rundown exports, inline graphics, Project archives, paper and importing a script.
 - [Keyboard shortcuts](guide/keyboard-shortcuts.md): every default key.
 - [Preferences and accessibility](guide/preferences-and-accessibility.md): what you can set, and how Manent works with a keyboard and a screen reader.
 - [Public API and notifications](guide/api.md): workspace API keys, read-only HTTP endpoints, webhooks, Slack and email delivery.
@@ -26,6 +26,10 @@ Start with the part that matches what you want to do. Each page says what works 
 ## Understand Manent
 
 - [Architecture overview](architecture/overview.md): the system, every package and its status, a change from keystroke to disk.
+- [Working together](architecture/working-together.md): comments and anchors, sharing, groups and links, sent drafts, suggestions, private copies and the Room window.
+- [Projects and series](architecture/projects-and-series.md): project index maps, shared styles, page furniture, series episodes, room documents and the series Board.
+- [Rundowns and timing](architecture/rundowns.md): Variety and Podcast timing, collaborative Show and News rundowns, server durations and air windows.
+- [Prompter](architecture/prompter.md): one prompter projection, manual and 2-second automatic sends, Send previous, the live feed and desktop Prompter files folder output.
 - [Workspace, search and Ink](architecture/workspace-search-and-ink.md): full-text search, Trash and folders, workspace settings, Can also permissions, the public API, notifications, Ink compilation and player, layout engines and Sides.
 - [Layers and dependency rules](architecture/layers.md): which package may import which, and how that is checked.
 - [Repository outline](architecture/repository.md): what is in each folder.

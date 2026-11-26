@@ -61,8 +61,9 @@ A purple bar labelled **Demo** sits at the top of every screen. It shows who you
 The Library lists the projects of one workspace. Choose the workspace from the menu at the top left. Each demo person belongs to one or more workspaces, such as a personal desk, a writers' room or a studio.
 
 - **New script** makes a film project with one empty script and opens it.
-- **Import…** makes a script from a Final Draft or Fountain file; see [Import a script](export-and-print.md#import-a-script).
+- **Import…** makes a script from a Final Draft, Fountain, text-based PDF, Word (`.docx`) or plain-text file; see [Import a script](export-and-print.md#import-a-script).
 - **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. Each kind starts with one script in its own format: Film and Series as a screenplay, Show, News and Podcast as Variety, Book as a manuscript, Game as Game Script and Stage play as a stage play. Change the format in **Details → Script**, under Script settings.
+- **Search, folders, Favourites, Private and Trash.** Search every script in the workspace from the top bar (with `type:`, `folder:`, `after:`, `before:` and quoted phrases, plus offline full-text search in the desktop app), organise projects into nested folders, star personal Favourites, keep personal drafts in **Private**, and restore deleted scripts from **Trash** within 30 days.
 
 The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. While you are online, the Library fetches each script that is not on this device yet, and the row opens on a click. Offline, such a row says "Not on this device" and does not open until the connection is back.
 
