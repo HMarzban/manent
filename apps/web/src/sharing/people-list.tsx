@@ -68,8 +68,8 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         key="role"
         className={
           editing
-            ? "inline-flex w-28 shrink-0 justify-end"
-            : "inline-flex w-24 shrink-0 justify-end"
+            ? "inline-flex w-36 shrink-0 justify-end"
+            : "inline-flex w-28 shrink-0 justify-end"
         }
       >
         {person.role === "owner" ? (
@@ -87,7 +87,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         key="role"
         value={shareRole}
         labelledBy={nameId}
-        className="w-28"
+        className="w-36"
         onChange={(chosen) => void actions.changeRole(person, chosen)}
       />
     );

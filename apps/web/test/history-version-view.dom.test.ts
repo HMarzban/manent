@@ -217,9 +217,7 @@ test("a version is paginated by its own engine", async () => {
   expect(document.activeElement?.closest("[data-beside='version']")).toBe(pane);
   expect(document.activeElement?.getAttribute("tabindex")).toBe("-1");
   expect(document.activeElement?.className).toContain("outline-none");
-  expect(document.activeElement?.className).toContain(
-    "focus-visible:outline-ring",
-  );
+  expect(document.activeElement?.className).not.toContain("outline-ring");
 });
 
 /** A level-1 anchor of page `label` at the start of `blockId`. */
