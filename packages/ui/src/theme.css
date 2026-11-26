@@ -527,6 +527,11 @@ html[data-white-page] .mn-pages {
   --chip-line: transparent;
   --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
   --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.5), 0 16px 48px rgb(0 0 0 / 0.5);
+  /* neutral avatar tokens resolved explicitly in the demo dark scope so Light mode never draws white-on-white */
+  --avatar-neutral-bg: var(--p-demo-800);
+  --avatar-neutral-edge: var(--p-demo-600);
+  --avatar-neutral-motif-hi: rgb(255 255 255 / 0.14);
+  --avatar-neutral-motif-lo: rgb(0 0 0 / 0.28);
 }
 
 /* --------------------------------------------------------------------------
@@ -1089,21 +1094,21 @@ html[data-white-page] .mn-pages {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
-/* On the demo bar it is drawn inverted, its edge the fill: the bar's edge is
-   the Tour ring's hue, which marks a Tour step and nothing else. */
+/* On the demo bar active toggles use the calm aubergine selected fill (--p-demo-700)
+   rather than an inverted bright block, keeping the bar visually subordinate to the page. */
 @media (forced-colors: none) {
   [data-surface="demo"]
     :is([data-slot^="toggle"], [class~="group/button"])[aria-pressed="true"] {
-    background-color: var(--fg);
-    color: var(--bg-chrome);
-    border-color: var(--fg);
+    background-color: var(--bg-selected);
+    color: var(--fg);
+    border-color: var(--fg-muted);
   }
   [data-surface="demo"]
     :is(
       [data-slot^="toggle"],
       [class~="group/button"]
     )[aria-pressed="true"]:not(:focus-visible) {
-    outline-color: var(--fg);
+    outline-color: var(--fg-muted);
   }
 }
 
@@ -1708,10 +1713,21 @@ button:not(:disabled, [aria-disabled="true"]):active
 .mn-desk {
   background: var(--bg-desk);
   padding: calc(var(--desk-pad) * var(--page-zoom));
+  padding-inline-start: clamp(
+    calc(var(--desk-pad) * var(--page-zoom)),
+    calc(100% - 816px - var(--desk-gutter)),
+    var(--desk-gutter)
+  );
   padding-inline-end: max(
     var(--desk-gutter),
     calc(var(--desk-pad) * var(--page-zoom))
   );
+}
+@media (width < 40rem) {
+  .mn-desk {
+    padding: 8px;
+    padding-inline: 8px;
+  }
 }
 .mn-desk > .mn-pages {
   width: fit-content;

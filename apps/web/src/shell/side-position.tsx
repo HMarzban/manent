@@ -1,9 +1,14 @@
 // The side position: the present tabs of a side panel's list, at the width the person chose, with an edge to resize it.
 import type { SideTab } from "@manent/commands";
 import { DOCUMENT_WORDS, PanelTabs } from "@manent/ui";
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { panelsActions, usePanel } from "../state/panels.store.ts";
+import {
+  panelWidthCss,
+  rootFontScalePx,
+  useNarrowPanelOverlay,
+} from "./narrow-window.ts";
 import type { PanelTab } from "./panel-tab.ts";
 import { ShellRegion } from "./regions.tsx";
 
@@ -55,10 +60,15 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { x: event.clientX, widthPx };
   };
-  const onPointerMove = (event: PointerEvent): void => {
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
     const start = drag.current;
-    if (start !== null)
-      panelsActions.resize("side", start.widthPx + start.x - event.clientX);
+    if (start !== null) {
+      const scale = 16 / rootFontScalePx(event.currentTarget.ownerDocument);
+      panelsActions.resize(
+        "side",
+        Math.round(start.widthPx + (start.x - event.clientX) * scale),
+      );
+    }
   };
   const stopDrag = (): void => {
     drag.current = null;
@@ -89,9 +99,22 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
 export function SidePosition(props: {
   docId: string | null;
   tabs: readonly PanelTab<SideTab>[];
+  /** True when the caller already wraps SidePosition in its own overlay/scrim. */
+  overlayManaged?: boolean;
 }): ReactNode {
-  const { docId, tabs } = props;
+  const { docId, tabs, overlayManaged = false } = props;
   const { tab, widthPx } = usePanel("side");
+  const narrowViewport = useNarrowPanelOverlay();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [outerOverlay, setOuterOverlay] = useState(false);
+  useLayoutEffect(() => {
+    if (overlayManaged || !narrowViewport) {
+      setOuterOverlay(false);
+      return;
+    }
+    const parent = rootRef.current?.parentElement ?? null;
+    setOuterOverlay(parent?.closest("[data-overlay]") !== null);
+  }, [overlayManaged, narrowViewport, tab]);
   // screens pass a list fixed when it loads, so each tab's hook runs in the same order every render
   const present = tabs
     .map((entry) => ({ entry, ...entry.useTab(docId) }))
@@ -100,13 +123,18 @@ export function SidePosition(props: {
   const current = present.find((t) => t.entry.id === tab);
   if (current === undefined) return null;
   const { Tab } = current.entry;
-  return (
+  const narrowOverlay = narrowViewport && !overlayManaged && !outerOverlay;
+  const panel = (
     <ShellRegion
       region="side_panel"
-      className="flex min-h-0 bg-chrome"
-      style={{ width: widthPx }}
+      className={
+        narrowOverlay
+          ? "fixed inset-y-0 end-0 z-30 flex min-h-0 border-s border-line bg-chrome shadow-overlay animate-in fade-in-0 slide-in-from-end-4 duration-(--dur-base) ease-out"
+          : "flex min-h-0 shrink-0 bg-chrome"
+      }
+      style={{ width: panelWidthCss(widthPx), maxWidth: "100vw" }}
     >
-      <ResizeEdge widthPx={widthPx} />
+      {narrowOverlay ? null : <ResizeEdge widthPx={widthPx} />}
       <div className="min-w-0 flex-1">
         <PanelTabs
           label={DOCUMENT_WORDS.sidePanel}
@@ -120,5 +148,21 @@ export function SidePosition(props: {
         </PanelTabs>
       </div>
     </ShellRegion>
+  );
+  if (!narrowOverlay)
+    return (
+      <div ref={rootRef} className="contents">
+        {panel}
+      </div>
+    );
+  return (
+    <div ref={rootRef} data-overlay="">
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-20 bg-scrim animate-in fade-in-0 duration-(--dur-fast) ease-out"
+        onClick={() => panelsActions.close("side")}
+      />
+      {panel}
+    </div>
   );
 }

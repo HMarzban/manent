@@ -1,17 +1,20 @@
 // The app's routes, defined in code: the root route here, and each group of screens in `routes/`.
 
 import { PANEL_IDS } from "@manent/commands";
-import { Skeleton } from "@manent/ui";
+import { Button, Skeleton } from "@manent/ui";
 import {
   createRootRoute,
   createRouter,
   redirect,
   useBlocker,
+  useRouter,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
+import { FileQuestionIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
+import { EmptyHeroCard } from "./empty-hero-card.tsx";
 import { RootLayout } from "./root-layout.tsx";
 import { ROUTE_GROUPS } from "./routes/index.ts";
 import type { AppRouterDeps } from "./routes/index.ts";
@@ -23,6 +26,7 @@ import { chooseUrl, choosePerson } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
 import { panelsActions } from "./state/panels.store.ts";
 import { tourActions } from "./state/tour.store.ts";
+import { TEXT } from "./text.ts";
 
 /** `importer`, except that a load failing after the page has begun to leave never settles: a navigation cancels the pending load, and the router would take that failure for a newer build and reload the page, cancelling the navigation. */
 export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
@@ -136,6 +140,29 @@ function RoutePending(): ReactNode {
   );
 }
 
+/** Shown for any address that matches no route, inside the root layout with a direct way back to the Library. */
+export function RouteNotFound(): ReactNode {
+  const router = useRouter();
+  return (
+    <main className="flex min-h-0 flex-1 items-center justify-center bg-chrome p-6">
+      <EmptyHeroCard
+        icon={<FileQuestionIcon aria-hidden="true" className="size-5" />}
+        headingAs="h2"
+        title={TEXT.notFoundTitle}
+        description={TEXT.notFoundBody}
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => void router.navigate({ href: "/" })}
+          >
+            {TEXT.backToLibrary}
+          </Button>
+        }
+      />
+    </main>
+  );
+}
+
 /**
  * Leaving a document this device cannot save asks first, though never for that document's own Send screen. Nothing
  * awaits a navigation this stops: its promise never settles.
@@ -204,12 +231,14 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
     component: function Root() {
       return <RootLayout {...deps} />;
     },
+    notFoundComponent: RouteNotFound,
   });
 
   const router = createRouter({
     routeTree: rootRoute.addChildren(
       ROUTE_GROUPS.flatMap((group) => group(rootRoute, deps)),
     ),
+    defaultNotFoundComponent: RouteNotFound,
     defaultPendingComponent: RoutePending,
     defaultPendingMs: 250,
     defaultPendingMinMs: 0,
