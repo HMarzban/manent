@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
   useCommandState,
 } from "@manent/ui";
+import { EllipsisIcon } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { HistoryRow } from "../../history/history-rows.ts";
@@ -165,7 +166,7 @@ export function HistoryRowMenu(props: {
             />
           }
         >
-          <span aria-hidden="true">⋯</span>
+          <EllipsisIcon aria-hidden="true" className="size-icon" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {entries.map((entry) => (

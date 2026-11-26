@@ -56,10 +56,11 @@ function targetsOf(
 export function AddRow(props: {
   access: ShareAccess;
   choices: readonly SignInChoice[];
+  colours: ReadonlyMap<string, number>;
   refusal: string | null;
   actions: ShareActions;
 }): ReactNode {
-  const { actions } = props;
+  const { actions, colours } = props;
   const [chosen, setChosen] = useState<string | null>(null);
   const [role, setRole] = useState<ShareRole | null>(null);
   // a refusal is said while the one refused is still chosen
@@ -82,7 +83,7 @@ export function AddRow(props: {
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-surface border border-line bg-subtle p-2.5">
+    <div className="flex flex-col gap-2 rounded-surface border border-line bg-subtle p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Select
           items={items}
@@ -102,7 +103,7 @@ export function AddRow(props: {
                   <Avatar
                     name={item.label}
                     initials={initialsOf(item.label)}
-                    colour={null}
+                    colour={colours.get(item.target.choice.userId) ?? null}
                     size="sm"
                     decorative
                   />

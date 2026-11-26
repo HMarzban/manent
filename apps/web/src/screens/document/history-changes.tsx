@@ -161,8 +161,8 @@ function BaselineMenu(props: {
   const sinceOpened =
     lastOpened === null ? null : sinceOpenedBaseline(lastOpened);
   return (
-    <div className="flex flex-wrap items-center gap-2 text-ui">
-      <span>{HISTORY_WORDS.changesSince}</span>
+    <div className="flex items-center gap-2 text-ui">
+      <span className="shrink-0">{HISTORY_WORDS.changesSince}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           data-changes-since=""
@@ -171,7 +171,7 @@ function BaselineMenu(props: {
             <Button
               variant="outline"
               size="sm"
-              className="min-w-0 max-w-full"
+              className="min-w-0 flex-1 justify-between"
             />
           }
         >

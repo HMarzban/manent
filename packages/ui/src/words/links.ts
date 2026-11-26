@@ -11,4 +11,8 @@ export const LINKS_WORDS = Object.freeze({
     `This link compared two earlier versions, so '${name}' is open as it was.`,
   notInHistory:
     "Couldn't open this link: that version is not in this script's history.",
+  linkUnavailable: "This link can't be opened",
+  versionUnavailable: "Version not in history",
+  backToLibrary: "Back to Library",
+  openScript: "Open this script",
 });

@@ -292,7 +292,7 @@ test("someone else's restore while you type keeps your later changes", async ({
     page,
     "Restore 'First draft'?",
     "The script as it is now is kept as 'Before restore'.",
-    "Restore 'First draft'",
+    "Restore",
   );
   await expectRestoredBy(
     sam,

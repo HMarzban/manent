@@ -10,10 +10,11 @@ import {
   SELECTION_WORDS,
   SHARING_WORDS,
   Skeleton,
+  useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { LogInIcon, SendIcon, WifiOffIcon, XIcon } from "lucide-react";
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import type { ReactNode } from "react";
 import { sendPath } from "../screens/send/form-ids.ts";
 import { useEnvironment } from "../services/context.tsx";
@@ -35,7 +36,7 @@ function ShareSkeleton(): ReactNode {
     <div aria-busy="true" className="flex flex-col gap-4">
       <div
         aria-hidden="true"
-        className="flex items-center gap-2 rounded-surface border border-line bg-subtle p-2.5"
+        className="flex items-center gap-2 rounded-surface border border-line bg-subtle p-3"
       >
         <Skeleton className="h-control min-w-0 flex-1" />
         <Skeleton className="h-control w-28 shrink-0" />
@@ -47,12 +48,12 @@ function ShareSkeleton(): ReactNode {
             key={index}
             className={
               index > 0
-                ? "flex min-h-row-2 items-center gap-2.5 border-t border-line px-3 py-1.5"
-                : "flex min-h-row-2 items-center gap-2.5 px-3 py-1.5"
+                ? "flex min-h-row-2 items-center gap-2 border-t border-line px-3 py-2"
+                : "flex min-h-row-2 items-center gap-2 px-3 py-2"
             }
           >
             <Skeleton className="size-avatar shrink-0 rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               <Skeleton className="h-3.5 w-32" />
               <Skeleton className="h-3 w-24" />
             </div>
@@ -62,11 +63,11 @@ function ShareSkeleton(): ReactNode {
       </div>
       <div
         aria-hidden="true"
-        className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-3.5"
+        className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-4"
       >
         <Skeleton className="h-3 w-12" />
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Skeleton className="size-avatar shrink-0 rounded-full" />
             <Skeleton className="h-3.5 w-36" />
           </div>
@@ -79,7 +80,7 @@ function ShareSkeleton(): ReactNode {
 
 function NoticeBanner(props: { icon: ReactNode; text: string }): ReactNode {
   return (
-    <div className="flex items-center gap-2.5 rounded-surface border border-line bg-subtle px-3.5 py-2.5 text-ui text-fg">
+    <div className="flex items-center gap-2 rounded-surface border border-line bg-subtle px-4 py-3 text-ui text-fg">
       <span aria-hidden="true" className="flex shrink-0 text-fg-muted">
         {props.icon}
       </span>
@@ -99,7 +100,7 @@ function ShareFooter(props: {
   const reasonId = useId();
   if (!showSendDraft) {
     return (
-      <div className="flex justify-end border-t border-line pt-3.5">
+      <div className="flex justify-end border-t border-line pt-4">
         <DialogClose render={<Button variant="outline" />}>
           {WORDS.close}
         </DialogClose>
@@ -107,7 +108,7 @@ function ShareFooter(props: {
     );
   }
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-3.5">
+    <div className="flex flex-col gap-2 border-t border-line pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           variant="outline"
@@ -139,8 +140,12 @@ function ShareFooter(props: {
 }
 
 /** What Share holds in each state: the owner online changes access; anyone else, or the owner offline, sees the list. */
-function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
-  const { docId, view } = props;
+function ShareBody(props: {
+  docId: string;
+  view: ShareView;
+  colours: ReadonlyMap<string, number>;
+}): ReactNode {
+  const { docId, view, colours } = props;
   const { access, owner, refusals, actions } = view;
   if (view.state === "sign_in")
     return (
@@ -162,6 +167,7 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
         <AddRow
           access={access}
           choices={view.choices}
+          colours={colours}
           refusal={refusals.get("add") ?? null}
           actions={actions}
         />
@@ -175,6 +181,7 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
           docId={docId}
           access={access}
           editing={editing}
+          colours={colours}
           refusals={refusals}
           actions={actions}
         />
@@ -201,6 +208,11 @@ export function ShareDialog(props: {
   const { dom } = useEnvironment();
   const open = useOpenDialog() === SHARE;
   const view = useShare(props.docId, props.doc, open);
+  const people = useSubscribable(props.doc.people);
+  const colours = useMemo(
+    () => new Map(people.map((person) => [person.userId, person.colour])),
+    [people],
+  );
   const editing = view.owner && view.state === "ready";
   const onOpenChange = (next: boolean): void => {
     if (next) return;
@@ -212,7 +224,7 @@ export function ShareDialog(props: {
       <DialogContent
         showCloseButton={false}
         finalFocus={false}
-        className="max-h-[calc(100dvh-4rem)] gap-4 overflow-y-auto p-5"
+        className="max-h-[calc(100dvh-4rem)] w-[calc(100%-1.5rem)] gap-4 overflow-y-auto p-6"
         style={{ maxWidth: "var(--dialog-w-wide)" }}
       >
         <div className="flex flex-col gap-1 pe-8">
@@ -228,7 +240,7 @@ export function ShareDialog(props: {
             </DialogDescription>
           ) : null}
         </div>
-        <ShareBody docId={props.docId} view={view} />
+        <ShareBody docId={props.docId} view={view} colours={colours} />
         <ShareFooter
           docId={props.docId}
           showSendDraft={view.owner && view.state !== "sign_in"}

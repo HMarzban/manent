@@ -73,7 +73,9 @@ function fakeDocument(
     status,
     waitingByScene: createValue([]),
     stateFacts: createValue([]),
-    people: createValue([]),
+    people: createValue([
+      { userId: "dana", name: "Dana Reyes", initials: "DR", colour: 3 },
+    ]),
     viewers: createValue(0),
     scriptBag: createMemoryBag({ initial: {}, writable: () => true }),
     exportJson: () => ({}),
@@ -249,6 +251,16 @@ describe("ShareDialog", () => {
     expect(items[0]?.textContent).toContain("Dana Reyes");
     expect(items[0]?.textContent).toContain(SHARING_WORDS.roles.owner);
     expect(items[0]?.querySelector('[role="combobox"]')).toBeNull();
+    const ownerBadge = [...(items[0]?.querySelectorAll("span") ?? [])].find(
+      (span) =>
+        span.children.length === 0 &&
+        span.textContent === SHARING_WORDS.roles.owner,
+    );
+    expect(ownerBadge?.className).toContain("rounded-micro");
+    expect(ownerBadge?.className).not.toContain("rounded-full");
+    expect(
+      items[0]?.querySelector(".mn-avatar")?.getAttribute("data-who"),
+    ).toBe("3");
 
     // E2E selector contract: any div/li inside dialog containing "Leo Marsh" has Leo's RoleSelect as its first combobox
     const leoDivs = [...dialog.querySelectorAll("li, div")].filter((el) =>
@@ -443,6 +455,7 @@ describe("ShareDialog", () => {
     expect(dialog.querySelector(".mn-table")).not.toBeNull();
     expect(dialog.querySelector('[role="combobox"]')).toBeNull();
     expect(dialog.querySelector('[role="switch"]')).toBeNull();
+    expect(dialog.querySelector('[data-tour="workspace:can_also"]')).toBeNull();
     expect(dialog.textContent).not.toContain(SHARING_WORDS.sendDraft);
     expect(dialog.textContent).not.toContain(SHARING_WORDS.remove);
   });

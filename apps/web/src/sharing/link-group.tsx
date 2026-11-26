@@ -69,13 +69,13 @@ export function LinkGroup(props: {
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-3.5"
+      className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-4"
     >
       <h2 id={headingId} className="mn-group-label p-0!">
         {WORDS.link}
       </h2>
       <div className="flex items-center justify-between gap-3 text-ui">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden="true"
             className="flex size-avatar shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
@@ -101,7 +101,7 @@ export function LinkGroup(props: {
         <Switch id={switchId} checked={on} onCheckedChange={turn} />
       </div>
       {on ? (
-        <div className="flex flex-col gap-2.5 border-t border-line pt-3 animate-in fade-in-0 duration-(--dur-fast) ease-out">
+        <div className="flex flex-col gap-3 border-t border-line pt-3 animate-in fade-in-0 duration-(--dur-fast) ease-out">
           <div className="flex flex-wrap items-center gap-2 text-ui">
             <RoleSelect value={role} onChange={setRole} />
             <span className="text-meta text-fg-muted">{WORDS.expires}</span>

@@ -30,7 +30,7 @@ tourScenario(
     await (await step(0)).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Restore 'First draft'", exact: true })
+      .getByRole("button", { name: "Restore", exact: true })
       .click();
     for (const window of windows) await messageShown(window, "'First draft'");
     await step(1);
@@ -41,7 +41,7 @@ tourScenario(
     // others can open the script, so the restore asks first
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Restore 'Before restore'", exact: true })
+      .getByRole("button", { name: "Restore", exact: true })
       .click();
   },
 );

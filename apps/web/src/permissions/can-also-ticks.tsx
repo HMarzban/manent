@@ -10,7 +10,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { ChevronDownIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -106,7 +106,7 @@ function CanAlsoForProject(props: {
                 key={tick.id}
                 title={canEdit ? undefined : WORKSPACE_WORDS.canAlsoReadOnly}
                 className={cn(
-                  "flex items-start gap-2 rounded-control px-1.5 py-1 text-ui select-none",
+                  "flex items-start gap-2 rounded-control px-2 py-1 text-ui select-none",
                   canEdit
                     ? "cursor-pointer text-fg hover:bg-subtle"
                     : "cursor-not-allowed text-fg-muted opacity-60",
@@ -116,10 +116,7 @@ function CanAlsoForProject(props: {
                   type="checkbox"
                   checked={checked}
                   disabled={!canEdit}
-                  className={cn(
-                    "mt-0.5 size-4 shrink-0 rounded-sm border border-line accent-accent",
-                    canEdit ? "cursor-pointer" : "cursor-not-allowed",
-                  )}
+                  className="peer sr-only"
                   onChange={(event) => {
                     void controller.toggle(
                       userId,
@@ -129,6 +126,22 @@ function CanAlsoForProject(props: {
                     );
                   }}
                 />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-micro border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-1",
+                    checked
+                      ? "border-accent-solid bg-accent-solid text-fg-on-accent"
+                      : "border-line-strong bg-raised",
+                  )}
+                >
+                  {checked ? (
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="size-3 stroke-[2.5]"
+                    />
+                  ) : null}
+                </span>
                 <span className="leading-snug">{tick.label}</span>
               </label>
             );

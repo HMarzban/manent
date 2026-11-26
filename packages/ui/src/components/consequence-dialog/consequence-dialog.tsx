@@ -198,6 +198,7 @@ export function ConsequenceDialog({
     >
       <AlertDialogContent
         initialFocus={cancelRef}
+        className="w-[calc(100%-1.5rem)] gap-4 p-6"
         style={{ maxWidth: wide ? "var(--dialog-w-wide)" : "var(--dialog-w)" }}
       >
         <AlertDialogTitle className="text-title">{title}</AlertDialogTitle>
@@ -211,7 +212,7 @@ export function ConsequenceDialog({
           disabledLine={disabledLine}
           lineId={lineId}
         />
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
           <Button ref={cancelRef} variant="outline" onClick={onCancel}>
             {DIALOG_WORDS.cancel}
           </Button>

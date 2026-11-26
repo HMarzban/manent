@@ -5,8 +5,10 @@ import type { ReactNode } from "react";
 export interface EmptyHeroCardProps {
   icon: ReactNode;
   title?: string | null;
-  headingAs?: "h2" | "p";
+  headingAs?: "h1" | "h2" | "p";
+  headingTabIndex?: number;
   description?: string | null;
+  descriptionRole?: "alert";
   actions?: ReactNode;
   compact?: boolean;
 }
@@ -17,7 +19,9 @@ export function EmptyHeroCard(props: EmptyHeroCardProps): ReactNode {
     icon,
     title = null,
     headingAs = "p",
+    headingTabIndex,
     description = null,
+    descriptionRole,
     actions = null,
     compact = false,
   } = props;
@@ -41,17 +45,20 @@ export function EmptyHeroCard(props: EmptyHeroCardProps): ReactNode {
       </div>
       {title === null || title === "" ? null : (
         <Heading
-          className={
+          tabIndex={headingTabIndex}
+          className={cn(
             compact
               ? "text-ui font-semibold text-fg"
-              : "text-title font-semibold text-fg"
-          }
+              : "text-title font-semibold text-fg",
+            headingTabIndex !== undefined && "outline-none",
+          )}
         >
           {title}
         </Heading>
       )}
       {description === null || description === "" ? null : (
         <p
+          role={descriptionRole}
           className={
             compact ? "text-ui text-fg-muted" : "max-w-sm text-ui text-fg-muted"
           }

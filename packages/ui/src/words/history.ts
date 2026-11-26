@@ -103,6 +103,7 @@ export const HISTORY_WORDS = {
   /** `ref` is `versionRef`'s. */
   restoreTitle: (ref: string): string => `Restore ${ref}?`,
   restoreBody: "The script as it is now is kept as 'Before restore'.",
+  restore: "Restore",
   restoreButton: (ref: string): string => `Restore ${ref}`,
   restoreSceneTitle: (scene: string, ref: string): string =>
     `Restore scene ${scene} from ${ref}?`,

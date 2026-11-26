@@ -130,7 +130,12 @@ test("online refusal evicts previously cached offline draft", async () => {
   });
   await flush();
 
+  expect(container.querySelector("h1")?.textContent).toBe(
+    "This link can't be opened",
+  );
   expect(container.textContent).toContain("This link no longer works.");
+  const backLink = container.querySelector<HTMLAnchorElement>('a[href="/"]');
+  expect(backLink?.textContent).toBe("Back to Library");
   expect(readCachedDraft(storage, "tok-revoked", "leo")).toBeNull();
 });
 
