@@ -1,7 +1,11 @@
 name: pages
 
-# Publishes site/ to GitHub Pages as it is, with no build step. It runs only when started by hand.
+# Publishes site/ to GitHub Pages as it is, with no build step, after verifying site pages and asset stamps.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +27,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Verify site pages and asset stamps
+        run: bun test tools/test/site.test.ts
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

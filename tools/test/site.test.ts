@@ -1,7 +1,14 @@
 // The pages under site/: their links and references, pictures, measured figures, files, icons and security policy.
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  SITE_BASE_PATH,
+  hashFile,
+  stampOf,
+  stripStamp,
+} from "../stamp-site.ts";
 
 const site = join(import.meta.dir, "..", "..", "site");
 const index = await Bun.file(join(site, "index.html")).text();
@@ -104,7 +111,8 @@ test("every link from one page to another names a page of the site and an elemen
   );
   const missing: string[] = [];
   for (const href of new Set(links)) {
-    const [path = "", id] = href.split("#");
+    const [rawPath = "", id] = href.split("#");
+    const path = stripStamp(rawPath);
     const target = PAGES[path === "./" ? "index.html" : path];
     const found = target
       ? id === undefined || valuesIn(target, "id").includes(id)
@@ -113,7 +121,7 @@ test("every link from one page to another names a page of the site and an elemen
   }
   expect(links).toContain("compare.html");
   expect(links).toContain("./#compare");
-  expect(links).toContain("media/demo-recording.mp4");
+  expect(links.map(stripStamp)).toContain("media/demo-recording.mp4");
   expect(missing).toEqual([]);
 });
 
@@ -154,7 +162,7 @@ test("every file each page loads is in the site folder", async () => {
     }),
   )
     .filter((path) => path !== "" && !path.startsWith("data:"))
-    .map((path) => path.replace(/^\/manent\//, ""));
+    .map((path) => stripStamp(path).replace(/^\/manent\//, ""));
   const missing: string[] = [];
   for (const path of new Set(local))
     if (/^[a-z]+:/.test(path) || !(await Bun.file(join(site, path)).exists()))
@@ -359,7 +367,7 @@ test("every site page has valid titles, descriptions, canonical/robots directive
       expect(imgUrl?.startsWith(SITE_ORIGIN), `${name} image origin`).toBe(
         true,
       );
-      const rel = imgUrl!.slice(SITE_ORIGIN.length);
+      const rel = stripStamp(imgUrl!.slice(SITE_ORIGIN.length));
       expect(await Bun.file(join(site, rel)).exists(), `${name} ${rel}`).toBe(
         true,
       );
@@ -384,12 +392,26 @@ test("both index.html and compare.html carry complete, linked JSON-LD graphs", a
   }
 
   const faq = indexGraph.find((n) => n["@type"] === "FAQPage")!;
-  const entities = faq.mainEntity as { name: string }[];
+  const entities = faq.mainEntity as {
+    name: string;
+    acceptedAnswer: { text: string };
+  }[];
   expect(entities.length).toBeGreaterThanOrEqual(8);
   const visibleQuestions = await textOf(index, "#faq summary");
+  const visibleAnswers = await textOf(index, "#faq details p");
   for (const q of entities) {
     expect(visibleQuestions, "FAQ JSON-LD matches visible #faq").toContain(
       q.name,
+    );
+  }
+  for (const name of [
+    "Does it really work with no connection?",
+    "Which computers does it run on?",
+  ]) {
+    const entry = entities.find((q) => q.name === name);
+    expect(entry, `FAQ JSON-LD has ${name}`).toBeDefined();
+    expect(visibleAnswers, `Visible FAQ matches JSON-LD for ${name}`).toContain(
+      entry!.acceptedAnswer.text,
     );
   }
 
@@ -476,11 +498,13 @@ test("every site page has one h1, one main landmark, a skip link, and valid head
   expect(index).not.toContain('<nav class="mv-side">');
 });
 
-test("site.js never links to non-existent .AppImage or .exe release artifacts", async () => {
+test("site.js links to shipped release artifacts and never non-existent .AppImage or .exe installers", async () => {
   const js = await Bun.file(join(site, "assets", "site.js")).text();
   expect(js).not.toMatch(/\.AppImage\b/);
   expect(js).not.toMatch(/Manent-windows\.exe\b/);
   expect(js).not.toMatch(/Manent-mac\.dmg\b/);
+  expect(js).toContain("Manent-macos-arm64.dmg");
+  expect(js).toContain("Manent-macos-x64.dmg");
 });
 
 test("neither index.html nor compare.html contains stale MOS refusal claims", async () => {
@@ -546,5 +570,156 @@ test("index.html and compare.html reflect Stage 5 and Ghost Follow capabilities"
     expect(compareMain, `compare.html <main> includes "${needle}"`).toContain(
       needle,
     );
+  }
+});
+
+const toSiteRel = (ref: string): string => {
+  const bare = stripStamp(ref).split("#")[0]!;
+  if (bare.startsWith(SITE_ORIGIN)) return bare.slice(SITE_ORIGIN.length);
+  if (bare.startsWith(SITE_BASE_PATH)) return bare.slice(SITE_BASE_PATH.length);
+  return bare;
+};
+
+test("every mutable local asset reference across all site/*.html pages carries its exact ?v=<sha256> stamp and font preload matches site.css verbatim", async () => {
+  const htmlFiles = (await readdir(site, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+    .map((entry) => entry.name)
+    .toSorted();
+  expect(htmlFiles).toContain("index.html");
+  expect(htmlFiles).toContain("compare.html");
+  expect(htmlFiles).toContain("404.html");
+
+  const hashCache = new Map<string, string>();
+  const expectedHash = async (relPath: string): Promise<string> => {
+    const hit = hashCache.get(relPath);
+    if (hit !== undefined) return hit;
+    const hash = await hashFile(join(site, relPath));
+    hashCache.set(relPath, hash);
+    return hash;
+  };
+
+  const css = await Bun.file(join(site, "assets", "site.css")).text();
+  const cssFontUrlRe = new RegExp(
+    "url\\(['\"]?(\\.\\./fonts/[^)'\"]+)['\"]?\\)",
+    "g",
+  );
+  const cssFontUrls = [...css.matchAll(cssFontUrlRe)].map(([, u]) =>
+    u!.replace(/^\.\.\//, ""),
+  );
+  expect(cssFontUrls.length).toBeGreaterThan(0);
+  for (const fontUrl of cssFontUrls) {
+    const rel = stripStamp(fontUrl);
+    expect(stampOf(fontUrl), `site.css ${fontUrl}`).toBe(
+      await expectedHash(rel),
+    );
+  }
+
+  const preloadFontUrls: string[] = [];
+  const checkedRefs: string[] = [];
+
+  const assertStamped = async (label: string, ref: string): Promise<void> => {
+    checkedRefs.push(label);
+    const rel = toSiteRel(ref);
+    expect(stampOf(ref), `${label} (${ref})`).toBe(await expectedHash(rel));
+  };
+
+  for (const file of htmlFiles) {
+    const html = await Bun.file(join(site, file)).text();
+    const read = await readPage(html);
+
+    for (const { tag, attributes } of read.elements) {
+      if (tag === "html") {
+        const spriteRef = attributes.get("data-m-sprite");
+        if (spriteRef) await assertStamped(`${file} data-m-sprite`, spriteRef);
+      } else if (tag === "link") {
+        const rel = attributes.get("rel") ?? "";
+        const href = attributes.get("href") ?? "";
+        if (
+          ["stylesheet", "preload", "icon", "apple-touch-icon"].includes(rel) &&
+          href &&
+          !href.startsWith("data:")
+        ) {
+          await assertStamped(`${file} link[rel=${rel}]`, href);
+          if (rel === "preload" && attributes.get("as") === "font") {
+            preloadFontUrls.push(
+              href.startsWith(SITE_BASE_PATH)
+                ? href.slice(SITE_BASE_PATH.length)
+                : href,
+            );
+          }
+        }
+      } else if (tag === "script") {
+        const src = attributes.get("src");
+        if (src) await assertStamped(`${file} script[src]`, src);
+      } else if (tag === "use") {
+        const href = attributes.get("href") ?? "";
+        expect(href, `${file} <use> places ?v= before #`).toMatch(
+          /\?v=[0-9a-f]{8}#/,
+        );
+        await assertStamped(`${file} use[href]`, href);
+      } else if (tag === "meta") {
+        const prop = attributes.get("property");
+        const name = attributes.get("name");
+        const content = attributes.get("content") ?? "";
+        if (prop === "og:image" || name === "twitter:image") {
+          expect(
+            content.startsWith(SITE_ORIGIN),
+            `${file} ${prop ?? name}`,
+          ).toBe(true);
+          await assertStamped(`${file} ${prop ?? name}`, content);
+        }
+      } else if (tag === "video") {
+        const poster = attributes.get("poster");
+        if (poster) await assertStamped(`${file} video[poster]`, poster);
+      } else if (tag === "source" || tag === "track") {
+        const src = attributes.get("src");
+        if (src) await assertStamped(`${file} ${tag}[src]`, src);
+      } else if (tag === "a" && attributes.has("data-watch")) {
+        const href = attributes.get("href") ?? "";
+        await assertStamped(`${file} a[data-watch]`, href);
+      }
+    }
+
+    const ldMatch = html.match(
+      new RegExp('<script type="application/ld\\+json">([\\s\\S]*?)</script>'),
+    );
+    if (ldMatch?.[1]) {
+      const graph = graphOf(JSON.parse(ldMatch[1]) as Record<string, unknown>);
+      for (const node of graph) {
+        for (const key of [
+          "image",
+          "screenshot",
+          "thumbnailUrl",
+          "contentUrl",
+        ]) {
+          const value = node[key];
+          if (typeof value === "string") {
+            expect(
+              value.startsWith(SITE_ORIGIN),
+              `${file} JSON-LD ${key}`,
+            ).toBe(true);
+            await assertStamped(`${file} JSON-LD ${key}`, value);
+          }
+        }
+        const primary = node.primaryImageOfPage as
+          { url?: unknown } | undefined;
+        if (typeof primary?.url === "string") {
+          expect(
+            primary.url.startsWith(SITE_ORIGIN),
+            `${file} JSON-LD primaryImageOfPage.url`,
+          ).toBe(true);
+          await assertStamped(
+            `${file} JSON-LD primaryImageOfPage.url`,
+            primary.url,
+          );
+        }
+      }
+    }
+  }
+
+  expect(checkedRefs.length).toBeGreaterThan(20);
+  expect(preloadFontUrls.length).toBe(htmlFiles.length);
+  for (const fontUrl of preloadFontUrls) {
+    expect(cssFontUrls).toContain(fontUrl);
   }
 });

@@ -109,3 +109,47 @@ test("clone and demo run in parallel on three systems, installing only Chromium 
     "bun run test:demo",
   ]);
 });
+
+test("pages deploys site/ on pushes to main touching site/** and manual dispatch, verifying site tests before upload", async () => {
+  const pages = Bun.YAML.parse(
+    await Bun.file(join(repoRoot, ".github/workflows/pages.yml")).text(),
+  ) as {
+    on: {
+      push?: { branches: string[]; paths: string[] };
+      workflow_dispatch?: unknown;
+    };
+    permissions: unknown;
+    concurrency: { group: string; "cancel-in-progress": boolean };
+    jobs: { deploy: { "runs-on": string; steps: Step[] } };
+  };
+
+  expect(pages.on.push).toEqual({ branches: ["main"], paths: ["site/**"] });
+  expect("workflow_dispatch" in pages.on).toBe(true);
+  expect(pages.permissions).toEqual({
+    contents: "read",
+    pages: "write",
+    "id-token": "write",
+  });
+  expect(pages.concurrency).toEqual({
+    group: "pages",
+    "cancel-in-progress": false,
+  });
+
+  const steps = pages.jobs.deploy.steps;
+  expect(steps[0]!.uses).toBe("actions/checkout@v5");
+  expect(steps[0]!.with).toEqual({ "persist-credentials": false });
+
+  const bunIdx = steps.findIndex(
+    (s) =>
+      s.uses === "oven-sh/setup-bun@v2" && s.with?.["bun-version"] === "1.4.4",
+  );
+  const testIdx = steps.findIndex(
+    (s) => s.run === "bun test tools/test/site.test.ts",
+  );
+  const uploadIdx = steps.findIndex(
+    (s) => s.uses === "actions/upload-pages-artifact@v4",
+  );
+  expect(bunIdx).toBeGreaterThan(0);
+  expect(testIdx).toBeGreaterThan(bunIdx);
+  expect(uploadIdx).toBeGreaterThan(testIdx);
+});
