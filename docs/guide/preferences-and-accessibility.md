@@ -36,8 +36,9 @@ Who you are in the demo, and **Switch person**.
 
 - **Interface size:** 100 %, 125 %, 150 % or 200 %. It sizes the text and controls around the page; the page has its own zoom in **View ▾**.
 - **From your system:** the motion and contrast settings Manent reads from your system. They are shown, not set here.
-- **Stored here:** **Ask the browser to keep it** asks the browser not to clear Manent's storage when space runs low.
-- **About:** the version and the layout engine, "Manent sends no usage data.", and the AI pledge: Manent has no features that write for you, and your scripts are never used to train AI.
+- **Stored here:** **Ask the browser to keep it** asks the browser not to clear Manent's storage when space runs low; **Offline** shows whether offline tools are ready, preparing or paused on Data Saver; **Space used** shows current browser storage usage when available; Safari tabs show a note about installing to avoid seven-day storage clearing; and **Back up everything in this browser** downloads one `.zip` archive of every cached project on this device.
+- **Install:** shown on the web when Manent is not already running as an installed app, offering **Install Manent** on browsers that support install prompts or concise **Add to Dock** / **Add to Home Screen** steps in Safari.
+- **About:** the version, **Check for updates** (and **Reload to update** once a newer build is waiting in the background), the layout engine, "Manent sends no usage data.", the AI pledge (Manent has no features that write for you, and your scripts are never used to train AI) and Hidden Gem icon credits.
 
 **Reset** returns one preference to its default, and **Reset all preferences** returns them all.
 

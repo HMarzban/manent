@@ -4,6 +4,66 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Never fall back missing static assets to index.html, and flip hadController once the first service worker claims
+
+- Date: 2026-11-27
+
+### What happened
+
+Serving `index.html` (`200 text/html`) for missing static asset URLs allowed a browser or service worker fetching an old hashed chunk after a deploy to store HTML under a `.js` or `.css` runtime cache key. Separately, capturing `const hadController = navigator.serviceWorker.controller !== null` once at boot kept `hadController` fixed at `false` even after the first-visit service worker called `clientsClaim()`, so clicking **Reload to update** later in that same opening session sent `SKIP_WAITING` and activated the new worker without reloading the tab.
+
+### How it was caught
+
+The static fallback cache-poisoning hazard was caught during the PWA freshness architecture audit; the immutable `hadController` bug was caught by the live Chromium Playwright update test in `e2e/offline/pwa.e2e.ts` when a waiting build activated during an initial session.
+
+### Rule
+
+Return `404` with `Cache-Control: no-store` from `packages/server-core/src/http/static.ts` for any missing static asset extension, and reject `text/html` responses in service-worker runtime asset caches (`apps/web/src/sw/precache.ts`). In `apps/web/src/boot/sw-lifecycle.ts`, keep `let hadController` mutable so the first `controllerchange` claim sets `hadController = true` without reloading, allowing any subsequent explicit **Reload to update** (`SKIP_WAITING`) in the same session to reload cleanly.
+
+### Enforced by
+
+`packages/server-core/test/http.test.ts`, `apps/web/test/sw-lifecycle.test.ts`, `apps/web/test/sw-manifest.test.ts` and `e2e/offline/pwa.e2e.ts`.
+
+## Desktop local HTTP origins are secure contexts and inject a second inline script into index.html
+
+- Date: 2026-11-27
+
+### What happened
+
+Because `http://127.0.0.1:<port>` is treated as a secure context by Chromium and WebKit, registering `/sw.js` unconditionally in `apps/web/src/main.tsx` could register a service worker inside the Electrobun desktop WebView and cache `local-node`'s per-launch injected desktop bootstrap script. Adding a strict HTML `Content-Security-Policy` in `server-core` also exposed two coupled origins: `packages/local-node/src/http/launch-guard.ts` injects a dynamic inline `<script>` whose hash must be added to `script-src` (with `ETag` removed and `Cache-Control: no-store`), and the demo control server runs on a separate localhost port whose origin must be permitted in `connect-src`.
+
+### How it was caught
+
+The desktop WebView service-worker and `launch-guard` CSP traps were caught during the architecture review; the demo control-port CSP block was caught immediately by live Chromium Playwright execution of `e2e/offline/pwa.e2e.ts` listening for `securitypolicyviolation` events.
+
+### Rule
+
+Never register `/sw.js` when running inside the desktop WebView (`desktopGlobal !== undefined`), and return `404` for `/sw.js` in `packages/local-node/src/http/launch-guard.ts`. Whenever `launch-guard.ts` injects its per-launch inline script into `index.html`, append that script's SHA-256 hash to the response's `Content-Security-Policy` `script-src`, strip `ETag` and set `Cache-Control: no-store`. Pass any configured demo control origin into `applySecurityHeaders` so `connect-src` allows demo control calls without loosening production CSP.
+
+### Enforced by
+
+`packages/local-node/test/launch-guard.test.ts`, `packages/server-core/test/http.test.ts`, `apps/web/test/boot.test.ts` and `e2e/offline/pwa.e2e.ts`.
+
+## Inject root-relative PWA head links after Bun.build and stamp site/ asset hashes deterministically
+
+- Date: 2026-11-27
+
+### What happened
+
+Placing root-relative `<link rel="manifest" href="/manifest.webmanifest">` and `/icons/*` tags directly in `apps/web/src/index.html` caused Bun's HTML bundler to look up `/manifest.webmanifest` on disk at bundle time and stop the build. On the static landing pages under `site/`, unversioned asset URLs (`assets/site.css`, `assets/icons.svg`, `og.png`, fonts and demo media) allowed browsers and GitHub Pages edge caches to keep serving stale assets after updates.
+
+### How it was caught
+
+The Bun HTML bundler constraint was caught immediately by `apps/web/test/build.test.ts`; the static landing-site freshness gap was caught during the delivery audit.
+
+### Rule
+
+Inject root-relative manifest and icon `<link>` tags in `apps/web/build.ts` right after `<meta name="manent-build">` (keeping `<head><script>${BOOT_SCRIPT}</script><meta name="color-scheme" content="light dark" />` first and zero literal hex colours in `apps/web/src/index.html`). After editing any file under `site/`, run `bun tools/stamp-site.ts` so every mutable local CSS, HTML, SVG sprite, OpenGraph and JSON-LD reference carries its exact `?v=<8-char-sha256>` query stamp before running `bun run verify`.
+
+### Enforced by
+
+`apps/web/test/build.test.ts`, `tools/test/colours.test.ts`, `tools/test/stamp-site.test.ts`, `tools/test/site.test.ts` and `.github/workflows/pages.yml`.
+
 ## CSS @container cannot match its own classes, and row hover must preserve active fill
 
 - Date: 2026-11-27

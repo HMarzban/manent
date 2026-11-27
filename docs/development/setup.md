@@ -34,6 +34,7 @@ make demo            # or: bun run demo
 | `make stop` / `bun run stop`   | Stop the server and the supervisor                               |
 | `make reset` / `bun run reset` | Delete the demo data and create it again                         |
 | `bun run build:web`            | Build the web app only                                           |
+| `bun tools/stamp-site.ts`      | Stamp `?v=<sha256>` hashes across `site/` (`--check` verifies)   |
 | `make` (no target)             | List the targets                                                 |
 
 After a change to the web app, stop the demo and run `make demo` again: it rebuilds the app before it starts. There is no watch mode.
