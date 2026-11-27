@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manent — Hidden Gems Museum Edition (24 Studio Themes)</title>
+    <style>
+      :root {
+        --page-bg: #f4f2ee;
+        --page-card: #ffffff;
+        --page-fg: #1d1c1a;
+        --page-muted: #66635d;
+        --page-border: rgba(29, 28, 26, 0.14);
+        --page-accent: #2450be;
+      }
+      :root[data-mode="dark"] {
+        --page-bg: #171614;
+        --page-card: #21201d;
+        --page-fg: #ebe8e1;
+        --page-muted: #a19c92;
+        --page-border: rgba(235, 232, 225, 0.14);
+        --page-accent: #8daeff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 20px 36px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui,
+          sans-serif;
+        background: var(--page-bg);
+        color: var(--page-fg);
+        -webkit-font-smoothing: antialiased;
+        transition:
+          background-color 180ms ease,
+          color 180ms ease;
+      }
+      .shell {
+        max-width: 980px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--page-border);
+      }
+      .topbar-title {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .topbar-title h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .kept-pill {
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--page-muted);
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .pill-btn {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--page-border);
+        background: var(--page-card);
+        color: var(--page-fg);
+        cursor: pointer;
+        transition:
+          border-color 140ms ease,
+          color 140ms ease,
+          background-color 140ms ease;
+      }
+      .pill-btn:hover {
+        border-color: var(--page-accent);
+      }
+      .pill-btn[data-active="true"] {
+        border-color: var(--page-accent);
+        color: var(--page-accent);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 316px;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 780px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .gem-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 7px;
+      }
+      @media (max-width: 560px) {
+        .gem-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .gem-tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 7px 4px;
+        border-radius: 8px;
+        border: 1px solid var(--page-border);
+        background: transparent;
+        color: var(--page-fg);
+        font: inherit;
+        cursor: pointer;
+        transition:
+          transform 140ms ease,
+          border-color 140ms ease,
+          background-color 140ms ease;
+      }
+      .gem-tile:hover {
+        background: var(--page-card);
+        transform: translateY(-1px);
+      }
+      .gem-tile[data-active="true"] {
+        border-color: var(--tile-accent);
+        background: var(--page-card);
+        box-shadow: 0 0 0 1px var(--tile-accent);
+      }
+      .gem-tile-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .gem-tile-label {
+        font-size: 10px;
+        line-height: 1.25;
+        font-weight: 500;
+        width: 100%;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .kept-dot {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 5px;
+        height: 5px;
+        border-radius: 9999px;
+        background: var(--tile-accent);
+        opacity: 0;
+        transition: opacity 180ms ease;
+      }
+      .gem-tile[data-kept="true"] .kept-dot {
+        opacity: 0.9;
+      }
+      .vitrine-card {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid var(--v-line);
+        background-color: var(--v-overlay);
+        color: var(--v-fg);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease;
+      }
+      .vitrine-stage {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 152px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 0;
+        border-bottom: 1px solid var(--v-line);
+        background-color: var(--v-desk);
+        padding: 0;
+        outline: none;
+        user-select: none;
+      }
+      .vitrine-stage:focus-visible {
+        outline: 2px solid var(--v-accent);
+        outline-offset: -2px;
+      }
+      .vitrine-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+      .vitrine-hero-tilt {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        will-change: transform;
+      }
+      .vitrine-hero {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 9999px;
+        color: var(--v-accent);
+        background-color: var(--v-raised);
+        border: 1px solid var(--v-line);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+        pointer-events: none;
+        will-change: transform, opacity;
+      }
+      .vitrine-body {
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .vitrine-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .vitrine-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .vitrine-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--v-line);
+        background-color: var(--v-raised);
+        color: var(--v-muted);
+        font-size: 11px;
+        line-height: 1.4;
+        font-weight: 500;
+      }
+      .vitrine-edition {
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--v-muted);
+      }
+      .vitrine-name {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.25;
+        color: var(--v-fg);
+      }
+      .vitrine-tagline {
+        font-size: 12px;
+        line-height: 1.35;
+        margin-top: 2px;
+        color: var(--v-muted);
+      }
+      .vitrine-whisper {
+        margin: 0;
+        padding-left: 10px;
+        border-left: 2px solid var(--v-accent);
+        font-size: 12px;
+        line-height: 1.42;
+        font-style: italic;
+        color: var(--v-muted);
+      }
+      .vitrine-credit-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--v-muted);
+      }
+      .vitrine-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--v-line);
+        background-color: var(--v-chrome);
+      }
+      .v-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--v-muted);
+        cursor: pointer;
+        transition:
+          background-color 140ms ease,
+          color 140ms ease,
+          border-color 140ms ease;
+      }
+      .v-icon-btn:hover {
+        background-color: var(--v-raised);
+        border-color: var(--v-line);
+        color: var(--v-fg);
+      }
+      .v-replay-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--v-line);
+        background-color: var(--v-raised);
+        color: var(--v-fg);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .hint-copy {
+        font-size: 11px;
+        color: var(--v-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Manent Hidden Gems — Museum Edition</h1>
+          <span id="kept-pill" class="kept-pill">1 of 24 kept</span>
+        </div>
+        <div class="controls">
+          <button
+            id="btn-sound"
+            type="button"
+            class="pill-btn"
+            aria-pressed="false"
+          >
+            Sound off
+          </button>
+          <button id="btn-tour" type="button" class="pill-btn">
+            Auto-tour
+          </button>
+          <button id="btn-mode" type="button" class="pill-btn">Light</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <div id="gem-grid" class="gem-grid"></div>
+
+        <aside id="vitrine" class="vitrine-card">
+          <button
+            id="stage-btn"
+            type="button"
+            class="vitrine-stage"
+            aria-label="Interactive collector stage"
+          >
+            <canvas
+              id="stage-canvas"
+              width="288"
+              height="152"
+              class="vitrine-canvas"
+            ></canvas>
+            <span id="stage-tilt" class="vitrine-hero-tilt">
+              <span id="stage-hero" class="vitrine-hero">
+                <svg
+                  viewBox="0 0 512 512"
+                  width="36"
+                  height="36"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path id="hero-path" d=""></path>
+                </svg>
+              </span>
+            </span>
+          </button>
+
+          <div class="vitrine-body">
+            <div class="vitrine-row">
+              <div class="vitrine-meta">
+                <span id="v-badge" class="vitrine-tag"></span>
+                <span id="v-edition" class="vitrine-edition"></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 2px">
+                <button
+                  id="v-prev"
+                  type="button"
+                  class="v-icon-btn"
+                  aria-label="Previous theme"
+                  title="Previous theme"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <button
+                  id="v-next"
+                  type="button"
+                  class="v-icon-btn"
+                  aria-label="Next theme"
+                  title="Next theme"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+                <button
+                  id="v-sound"
+                  type="button"
+                  class="v-icon-btn"
+                  aria-pressed="false"
+                  aria-label="Sound off"
+                  title="Toggle foley sound"
+                >
+                  <svg
+                    id="v-sound-svg"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  ></svg>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div id="v-name" class="vitrine-name"></div>
+              <div id="v-tagline" class="vitrine-tagline"></div>
+            </div>
+            <p id="v-whisper" class="vitrine-whisper"></p>
+            <div class="vitrine-credit-row">
+              <span id="v-credit"></span>
+              <span
+                id="v-kept"
+                style="font-variant-numeric: tabular-nums"
+              ></span>
+            </div>
+          </div>
+
+          <div class="vitrine-footer">
+            <button id="v-replay" type="button" class="v-replay-btn">
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              Play again
+            </button>
+            <span class="hint-copy">Move · Click · Hold</span>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      /*__GEMS_ENGINE__*/
+    </script>
+    <script>
+      /*__GEMS_DATA__*/
+      const {
+        GEM_SCENES,
+        BURST_DURATION_MS,
+        drawStageBurst,
+        drawBackAtmosphere,
+        drawFrontVignette,
+        drawRegistrationFrame,
+        playGemFoley,
+        clamp01,
+      } = window.__MANENT_GEMS__;
+
+      const STAGE_W = 288;
+      const STAGE_H = 152;
+      const PLAY_MS = 2100;
+      const IDLE_STOP_MS = 6000;
+      const CHARGE_MS = 450;
+
+      const {
+        palettes: PALETTES,
+        paths: PATHS,
+        themes: THEMES,
+      } = window.__MANENT_GEMS_DATA__;
+
+      const prefersDark =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      let mode = prefersDark ? "dark" : "light";
+      let activeIdx = Math.max(
+        0,
+        PALETTES.findIndex((p) => p.id === "chiaroscuro"),
+      );
+      let soundEnabled = false;
+      let tourTimer = null;
+      let rafId = null;
+      let heroAnim = null;
+      const kept = new Set([PALETTES[activeIdx].id]);
+
+      const state = {
+        px: 0,
+        py: 0,
+        targetPx: 0,
+        targetPy: 0,
+        pointerInside: false,
+        chargeStart: null,
+        charge: 0,
+        bursts: [],
+        startTime: null,
+      };
+
+      const gridEl = document.getElementById("gem-grid");
+      const vitrineEl = document.getElementById("vitrine");
+      const stageBtn = document.getElementById("stage-btn");
+      const canvasEl = document.getElementById("stage-canvas");
+      const tiltEl = document.getElementById("stage-tilt");
+      const heroEl = document.getElementById("stage-hero");
+      const heroPathEl = document.getElementById("hero-path");
+      const btnMode = document.getElementById("btn-mode");
+      const btnTour = document.getElementById("btn-tour");
+      const btnSound = document.getElementById("btn-sound");
+      const vSound = document.getElementById("v-sound");
+      const vSoundSvg = document.getElementById("v-sound-svg");
+      const keptPill = document.getElementById("kept-pill");
+      const vKept = document.getElementById("v-kept");
+
+      const currentTokens = (id) => THEMES[mode][id];
+
+      function applyVitrineTokens(id) {
+        const tok = currentTokens(id);
+        vitrineEl.style.setProperty("--v-desk", tok.desk);
+        vitrineEl.style.setProperty("--v-chrome", tok.chrome);
+        vitrineEl.style.setProperty("--v-overlay", tok.overlay);
+        vitrineEl.style.setProperty("--v-raised", tok.surface);
+        vitrineEl.style.setProperty("--v-line", tok.line);
+        vitrineEl.style.setProperty("--v-fg", tok.ink);
+        vitrineEl.style.setProperty("--v-muted", tok.muted);
+        vitrineEl.style.setProperty("--v-accent", tok.accent);
+      }
+
+      function updateKeptUI() {
+        const count = kept.size;
+        const text =
+          count >= PALETTES.length
+            ? "All 24 kept"
+            : `${count} of ${PALETTES.length} kept`;
+        keptPill.textContent = text;
+        vKept.textContent = text;
+        for (const tile of gridEl.children) {
+          const id = tile.dataset.id;
+          tile.dataset.kept = String(kept.has(id));
+          tile.dataset.active = String(id === PALETTES[activeIdx].id);
+        }
+      }
+
+      function renderGrid() {
+        gridEl.innerHTML = "";
+        PALETTES.forEach((p, idx) => {
+          const tok = currentTokens(p.id);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "gem-tile";
+          btn.dataset.id = p.id;
+          btn.dataset.active = String(idx === activeIdx);
+          btn.dataset.kept = String(kept.has(p.id));
+          btn.style.setProperty("--tile-accent", tok.accent);
+          btn.title = `${String(idx + 1).padStart(2, "0")} / 24 · ${p.name}`;
+          btn.innerHTML = `<span class="kept-dot"></span><span class="gem-tile-icon" style="background-color:${tok.surface};color:${tok.accent};border:1px solid ${tok.line}"><svg viewBox="0 0 512 512" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="${PATHS[p.id]}"></path></svg></span><span class="gem-tile-label">${p.name}</span>`;
+          btn.addEventListener("click", () => {
+            stopTour();
+            selectPalette(idx);
+          });
+          gridEl.appendChild(btn);
+        });
+      }
+
+      function paint(ctx, id, t, idle, now) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const bw = Math.round(STAGE_W * dpr);
+        const bh = Math.round(STAGE_H * dpr);
+        if (canvasEl.width !== bw || canvasEl.height !== bh) {
+          canvasEl.width = bw;
+          canvasEl.height = bh;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+        const tok = currentTokens(id);
+        drawBackAtmosphere(
+          ctx,
+          STAGE_W,
+          STAGE_H,
+          state.px,
+          state.py,
+          state.charge,
+          tok,
+        );
+        ctx.save();
+        ctx.translate(-state.px * 4.5, -state.py * 3);
+        GEM_SCENES[id].draw(ctx, {
+          w: STAGE_W,
+          h: STAGE_H,
+          cx: STAGE_W / 2,
+          cy: STAGE_H / 2,
+          t,
+          idle,
+          reduced: false,
+          tokens: tok,
+          px: state.px,
+          py: state.py,
+          charge: state.charge,
+        });
+        ctx.restore();
+        const alive = [];
+        for (const b of state.bursts) {
+          const p = (now - b.startMs) / BURST_DURATION_MS;
+          if (p < 1) {
+            drawStageBurst(ctx, id, b, clamp01(p), tok);
+            alive.push(b);
+          }
+        }
+        state.bursts = alive;
+        drawFrontVignette(
+          ctx,
+          STAGE_W,
+          STAGE_H,
+          STAGE_W / 2,
+          STAGE_H / 2,
+          t,
+          idle,
+          state.px,
+          state.py,
+          state.charge,
+          tok,
+        );
+        drawRegistrationFrame(ctx, STAGE_W, STAGE_H, tok.line, 0.45);
+      }
+
+      function tick(now) {
+        rafId = null;
+        if (state.startTime === null) state.startTime = now;
+        const elapsed = now - state.startTime;
+        const t = Math.min(1, elapsed / PLAY_MS);
+        const idle = elapsed > PLAY_MS ? (elapsed - PLAY_MS) / 1000 : 0;
+
+        state.px += (state.targetPx - state.px) * 0.16;
+        state.py += (state.targetPy - state.py) * 0.16;
+        state.charge =
+          state.chargeStart !== null
+            ? clamp01((now - state.chargeStart) / CHARGE_MS)
+            : state.charge * 0.78;
+        if (state.charge < 0.005) state.charge = 0;
+
+        const rx = (-state.py * 9).toFixed(2);
+        const ry = (state.px * 11).toFixed(2);
+        const tx = (state.px * 4).toFixed(2);
+        const ty = (state.py * 3).toFixed(2);
+        const sc = (1 + state.charge * 0.09).toFixed(3);
+        tiltEl.style.transform = `perspective(420px) translate3d(${tx}px, ${ty}px, 0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${sc})`;
+
+        const ctx = canvasEl.getContext("2d");
+        if (ctx) paint(ctx, PALETTES[activeIdx].id, t, idle, now);
+
+        const moving =
+          Math.abs(state.px - state.targetPx) > 0.004 ||
+          Math.abs(state.py - state.targetPy) > 0.004;
+        if (
+          elapsed < IDLE_STOP_MS ||
+          state.pointerInside ||
+          state.bursts.length > 0 ||
+          state.charge > 0.01 ||
+          moving
+        ) {
+          rafId = requestAnimationFrame(tick);
+        }
+      }
+
+      function wake() {
+        if (rafId === null) rafId = requestAnimationFrame(tick);
+      }
+
+      function playScene(withSound) {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        if (heroAnim) {
+          heroAnim.cancel();
+          heroAnim = null;
+        }
+        const entry = PALETTES[activeIdx];
+        kept.add(entry.id);
+        applyVitrineTokens(entry.id);
+        document.getElementById("v-badge").textContent = entry.badge;
+        document.getElementById("v-edition").textContent =
+          `${String(activeIdx + 1).padStart(2, "0")} / ${PALETTES.length}`;
+        document.getElementById("v-name").textContent = entry.name;
+        document.getElementById("v-tagline").textContent = entry.tagline;
+        document.getElementById("v-whisper").textContent = entry.whisper;
+        document.getElementById("v-credit").textContent =
+          `${entry.iconAuthor} · CC BY 3.0`;
+        heroPathEl.setAttribute("d", PATHS[entry.id]);
+        updateKeptUI();
+
+        state.bursts = [];
+        state.chargeStart = null;
+        state.charge = 0;
+        state.startTime = null;
+
+        if (withSound) {
+          playGemFoley(entry.id, { enabled: soundEnabled, kind: "open" });
+        }
+        if (typeof heroEl.animate === "function") {
+          const scene = GEM_SCENES[entry.id];
+          heroAnim = heroEl.animate(
+            [...scene.hero.keyframes],
+            scene.hero.options,
+          );
+          if (heroAnim.finished) heroAnim.finished.catch(() => {});
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function selectPalette(idx) {
+        activeIdx = (idx + PALETTES.length) % PALETTES.length;
+        playScene(true);
+      }
+
+      function syncSoundUI() {
+        const label = soundEnabled ? "Sound on" : "Sound off";
+        btnSound.textContent = label;
+        btnSound.setAttribute("aria-pressed", String(soundEnabled));
+        btnSound.dataset.active = String(soundEnabled);
+        vSound.setAttribute("aria-pressed", String(soundEnabled));
+        vSound.setAttribute("aria-label", label);
+        vSound.style.color = soundEnabled
+          ? "var(--v-accent)"
+          : "var(--v-muted)";
+        vSoundSvg.innerHTML = soundEnabled
+          ? '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>'
+          : '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>';
+      }
+
+      function toggleSound() {
+        soundEnabled = !soundEnabled;
+        syncSoundUI();
+        if (soundEnabled) {
+          playGemFoley(PALETTES[activeIdx].id, { enabled: true, kind: "open" });
+        }
+      }
+
+      function stopTour() {
+        if (tourTimer !== null) {
+          clearInterval(tourTimer);
+          tourTimer = null;
+          btnTour.textContent = "Auto-tour";
+          btnTour.dataset.active = "false";
+        }
+      }
+
+      function syncModeUI() {
+        document.documentElement.dataset.mode = mode;
+        btnMode.textContent = mode === "dark" ? "Dark" : "Light";
+      }
+
+      stageBtn.addEventListener("pointermove", (e) => {
+        const r = stageBtn.getBoundingClientRect();
+        state.pointerInside = true;
+        state.targetPx = clamp01((e.clientX - r.left) / r.width) * 2 - 1;
+        state.targetPy = clamp01((e.clientY - r.top) / r.height) * 2 - 1;
+        wake();
+      });
+      stageBtn.addEventListener("pointerleave", () => {
+        state.pointerInside = false;
+        state.targetPx = 0;
+        state.targetPy = 0;
+        state.chargeStart = null;
+        wake();
+      });
+      stageBtn.addEventListener("pointerdown", () => {
+        state.chargeStart = performance.now();
+        wake();
+      });
+      stageBtn.addEventListener("click", (e) => {
+        const wasCharged = state.charge >= 0.7;
+        state.chargeStart = null;
+        if (e.detail === 0 || wasCharged) {
+          playScene(true);
+          return;
+        }
+        const r = stageBtn.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * STAGE_W;
+        const y = ((e.clientY - r.top) / r.height) * STAGE_H;
+        const now = performance.now();
+        const entry = PALETTES[activeIdx];
+        const roll =
+          entry.id === "chiaroscuro"
+            ? 1 + Math.floor(Math.random() * 20)
+            : undefined;
+        state.bursts = [
+          ...state.bursts.slice(-4),
+          { x, y, startMs: now, seed: (now % 97) + 1, roll },
+        ];
+        playGemFoley(entry.id, {
+          enabled: soundEnabled,
+          kind: roll === 20 ? "crit" : "burst",
+        });
+        if (typeof heroEl.animate === "function") {
+          const pulse = heroEl.animate(
+            [
+              { transform: "scale(1)" },
+              { transform: "scale(1.09)", offset: 0.35 },
+              { transform: "scale(1)" },
+            ],
+            { duration: 340, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          );
+          if (pulse.finished) pulse.finished.catch(() => {});
+        }
+        wake();
+      });
+
+      document.getElementById("v-prev").addEventListener("click", () => {
+        stopTour();
+        selectPalette(activeIdx - 1);
+      });
+      document.getElementById("v-next").addEventListener("click", () => {
+        stopTour();
+        selectPalette(activeIdx + 1);
+      });
+      document
+        .getElementById("v-replay")
+        .addEventListener("click", () => playScene(true));
+      btnSound.addEventListener("click", toggleSound);
+      vSound.addEventListener("click", toggleSound);
+      btnTour.addEventListener("click", () => {
+        if (tourTimer !== null) {
+          stopTour();
+          return;
+        }
+        btnTour.textContent = "Stop tour";
+        btnTour.dataset.active = "true";
+        selectPalette(activeIdx + 1);
+        tourTimer = setInterval(() => selectPalette(activeIdx + 1), 2700);
+      });
+      btnMode.addEventListener("click", () => {
+        mode = mode === "dark" ? "light" : "dark";
+        syncModeUI();
+        renderGrid();
+        playScene(false);
+      });
+
+      syncModeUI();
+      syncSoundUI();
+      renderGrid();
+      playScene(false);
+    </script>
+  </body>
+</html>

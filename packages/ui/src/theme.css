@@ -3626,15 +3626,175 @@ html[data-gems="off"] .mn-gem-only {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  cursor: pointer;
+  padding: 0.125rem;
+  border-radius: var(--shape-control);
   color: var(--fg-accent);
-  opacity: 0.72;
+  opacity: 0.76;
   transition:
     opacity var(--dur-fast) var(--curve-enter),
-    transform var(--dur-fast) var(--curve-enter);
+    transform var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
 }
-.mn-app-gem:hover {
+.mn-app-gem:hover,
+.mn-app-gem[data-open] {
   opacity: 1;
+  background-color: var(--bg-subtle);
   transform: scale(1.08);
+}
+.mn-app-gem:active {
+  transform: scale(0.96);
+}
+.mn-gem-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--fg-accent);
+  border-radius: var(--shape-surface);
+  border: 1px solid var(--line);
+  background-color: var(--bg-well);
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
+}
+.mn-gem-trigger-btn:hover,
+.mn-gem-trigger-btn[data-popup-open] {
+  border-color: var(--fg-accent);
+  background-color: var(--bg-selected);
+  transform: scale(1.04);
+}
+.mn-gem-trigger-btn:active {
+  transform: scale(0.97);
+}
+.mn-gem-trigger-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Hidden Gem Collector Vitrine popover (Canvas 2D + WAAPI stage) */
+.mn-gem-popover {
+  width: min(20.5rem, calc(100vw - 1.5rem));
+  overflow: hidden;
+  border-radius: var(--shape-surface);
+  border: 1px solid var(--line);
+  background-color: var(--bg-overlay);
+  color: var(--fg);
+  box-shadow: var(--elev-overlay);
+  outline: none;
+  transition:
+    opacity var(--dur-fast) var(--curve-enter),
+    transform var(--dur-base) var(--curve-enter);
+}
+.mn-gem-popover[data-starting-style],
+.mn-gem-popover[data-ending-style] {
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+}
+.mn-gem-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 9.5rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background-color: var(--bg-desk);
+  padding: 0;
+  outline: none;
+  transition: background-color var(--dur-fast) var(--curve-enter);
+}
+.mn-gem-stage:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.mn-gem-stage-probe {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--fg);
+  background-color: var(--bg-raised);
+  border-top-color: var(--fg-accent);
+  border-right-color: var(--gem-accent-2);
+  border-bottom-color: var(--fg-muted);
+  border-left-color: var(--line);
+  outline-color: var(--bg-desk);
+  text-decoration-color: var(--bg-accent);
+  column-rule-color: var(--bg-subtle);
+}
+.mn-gem-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.mn-gem-hero-tilt {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  will-change: transform;
+}
+.mn-gem-hero {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 9999px;
+  color: var(--fg-accent);
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--elev-overlay);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.mn-gem-replay-hint {
+  position: absolute;
+  inset-block-end: 0.5rem;
+  inset-inline-end: 0.5rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background-color: var(--bg-raised);
+  color: var(--fg-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+.mn-gem-stage:is(:hover, :focus-visible) .mn-gem-replay-hint {
+  opacity: 0.92;
+  color: var(--fg-accent);
+  border-color: var(--fg-accent);
+}
+.mn-gem-whisper {
+  margin: 0;
+  padding-inline-start: 0.625rem;
+  border-inline-start: 2px solid var(--fg-accent);
+  font-size: var(--type-meta);
+  line-height: var(--lh-meta);
+  font-style: italic;
+  color: var(--fg-muted);
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -4398,6 +4558,15 @@ html[data-gems="off"] .mn-gem-only {
   .mn-app-gem {
     opacity: 1;
   }
+  .mn-gem-popover {
+    border-color: var(--fg);
+  }
+  .mn-gem-hero {
+    border-color: var(--fg);
+  }
+  .mn-gem-trigger-btn:is(:hover, :focus-visible) {
+    border-color: var(--fg);
+  }
   .mn-choose-stage {
     background-image: none;
   }
@@ -4426,6 +4595,10 @@ html[data-gems="off"] .mn-gem-only {
   .mn-palette-card,
   .mn-card-gem,
   .mn-app-gem,
+  .mn-gem-trigger-btn,
+  .mn-gem-popover,
+  .mn-gem-stage,
+  .mn-gem-replay-hint,
   .mn-choose-brand-badge,
   .mn-choose-theme-opt,
   .mn-choose-theme-icon,
@@ -4451,6 +4624,13 @@ html[data-gems="off"] .mn-gem-only {
   .mn-palette-card:hover .mn-card-gem,
   .mn-palette-card[aria-checked="true"] .mn-card-gem,
   .mn-app-gem:hover,
+  .mn-app-gem[data-open],
+  .mn-app-gem:active,
+  .mn-gem-trigger-btn:hover,
+  .mn-gem-trigger-btn[data-popup-open],
+  .mn-gem-trigger-btn:active,
+  .mn-gem-popover[data-starting-style],
+  .mn-gem-popover[data-ending-style],
   .mn-choose-brand-badge:hover,
   .mn-choose-theme-opt:active,
   .mn-choose-theme-opt[data-active="true"] .mn-choose-theme-icon,
@@ -4644,9 +4824,25 @@ html[data-gems="off"] .mn-gem-only {
   .mn-choose-stage::before,
   .mn-choose-stage::after,
   .mn-app-gem,
+  .mn-gem-canvas,
   .mn-choose-sheet-back-1,
   .mn-choose-sheet-back-2 {
     display: none;
+  }
+  .mn-gem-popover,
+  .mn-gem-hero,
+  .mn-gem-trigger-btn {
+    background-color: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+  .mn-gem-trigger-btn:is(:hover, :focus-visible, [data-popup-open]) {
+    border-color: Highlight;
+    color: Highlight;
+  }
+  .mn-gem-whisper {
+    border-inline-start-color: Highlight;
   }
   .mn-choose-theme-opt[data-active="true"] {
     forced-color-adjust: none;
@@ -4741,7 +4937,8 @@ html[data-gems="off"] .mn-gem-only {
    and keeps its bands, tints and the writer's highlights.
    -------------------------------------------------------------------------- */
 @media print {
-  .mn-app-gem {
+  .mn-app-gem,
+  .mn-gem-popover {
     display: none;
   }
   .mn-print {

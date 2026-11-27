@@ -1,7 +1,6 @@
 // The bar under the page: the readouts, the message slot, View ▾ and Commands; the Element, page and scene readouts.
 import { COMMANDS } from "@manent/commands";
 import {
-  ActivePaletteGem,
   Button,
   CommandMenu,
   DOCUMENT_WORDS,
@@ -13,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import { AppPaletteGem } from "../../shell/app-palette-gem.tsx";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
@@ -178,7 +178,7 @@ export function StatusBar(props: { readouts: ReactNode }): ReactNode {
         trigger={<MenuFace size="sm">{DOCUMENT_WORDS.viewMenu}</MenuFace>}
       />
       <CommandsButton />
-      <ActivePaletteGem className="ms-1 max-sm:hidden" />
+      <AppPaletteGem className="ms-1 max-sm:hidden" />
       {docId === null ? null : <WritingNotices docId={docId} />}
     </ShellRegion>
   );

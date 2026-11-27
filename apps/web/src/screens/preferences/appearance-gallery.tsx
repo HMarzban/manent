@@ -4,6 +4,7 @@ import {
   APPEARANCE_STUDIO_WORDS,
   Button,
   HiddenGemIcon,
+  PaletteGemButton,
   STUDIO_CATEGORY_LABELS,
   STUDIO_CATEGORY_ORDER,
   STUDIO_PALETTES,
@@ -12,6 +13,7 @@ import type { StudioPaletteCategory, StudioPaletteEntry } from "@manent/ui";
 import { CheckIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { useGemCollector } from "../../shell/app-palette-gem.tsx";
 
 function gridColumnCount(grid: HTMLElement, fallback: number): number {
   const view = grid.ownerDocument.defaultView;
@@ -81,6 +83,7 @@ export function AppearanceGallery(props: {
   const [category, setCategory] = useState<StudioPaletteCategory>("all");
   const paletteHeadingId = useId();
   const activeEntry = entryForPalette(palette);
+  const collector = useGemCollector();
 
   const visiblePalettes = useMemo(
     () =>
@@ -244,9 +247,24 @@ export function AppearanceGallery(props: {
 
       <div className="flex flex-col justify-between gap-4 rounded-surface border border-line bg-raised p-4 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="flex size-avatar-lg shrink-0 items-center justify-center rounded-surface border border-line bg-well text-fg-accent">
-            <HiddenGemIcon palette={activeEntry.id} className="size-icon-lg" />
-          </div>
+          {gems ? (
+            <PaletteGemButton
+              palette={activeEntry.id}
+              className="size-avatar-lg"
+              onSelectPalette={(next) => onPickPalette(next, null)}
+              keptPalettes={collector.keptPalettes}
+              onVisitPalette={collector.onVisitPalette}
+              soundEnabled={collector.soundEnabled}
+              onToggleSound={collector.onToggleSound}
+            />
+          ) : (
+            <div className="flex size-avatar-lg shrink-0 items-center justify-center rounded-surface border border-line bg-well text-fg-accent">
+              <HiddenGemIcon
+                palette={activeEntry.id}
+                className="size-icon-lg"
+              />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui font-medium text-fg">
               <span>{activeEntry.name}</span>

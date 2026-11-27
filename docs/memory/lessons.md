@@ -4,6 +4,27 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Resolve light-dark() tokens through a CSS probe for Canvas 2D and swallow WAAPI cancel rejections
+
+- Date: 2026-11-27
+
+### What happened
+
+When building `GemStage` (`packages/ui/src/components/brand/gem-stage.tsx`) with Canvas 2D and the Web Animations API, two subtle runtime issues appeared: (1) reading semantic tokens via `getComputedStyle(el).getPropertyValue("--fg-accent")` returns an unresolved `light-dark(...)` string that Canvas 2D ignores, and (2) calling `heroAnim.cancel()` on replay or unmount rejected `heroAnim.finished` with `AbortError` per the Web Animations specification, surfacing as unhandled rejections under `happy-dom` in Bun tests.
+
+### How it was caught
+
+The unresolved `light-dark(...)` behaviour was caught during design architecture review before writing the renderer, and the `AbortError` rejection was caught immediately by `packages/ui/test/brand-and-palettes.dom.test.tsx`.
+
+### Rule
+
+Never hard-code colour literals in TypeScript for Canvas 2D or read raw CSS custom properties that may hold `light-dark(...)`. Map semantic tokens onto standard CSS colour properties on a zero-layout probe element (`.mn-gem-stage-probe`) in `packages/ui/src/theme.css` and read `getComputedStyle(probe)` once on mount or theme change (never inside `requestAnimationFrame`). Whenever code starts a Web Animations API `Animation` that may be cancelled on replay or unmount, attach `anim.finished?.catch(() => {})` immediately.
+
+### Enforced by
+
+`packages/ui/test/gem-scenes.test.ts`, `packages/ui/test/brand-and-palettes.dom.test.tsx` and `tools/test/colours.test.ts`.
+
+
 ## Resolve private_folder scripts directly in shelves and render Private projects as plain rows
 
 - Date: 2026-11-27

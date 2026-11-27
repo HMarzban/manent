@@ -86,6 +86,7 @@
     "build:web": "bun apps/web/build.ts",
     "bench": "bun bench/run.ts",
     "demo": "bun tools/demo/cli.ts demo",
+    "demo:gems": "bun tools/theme/gems-demo.ts",
     "desktop": "bun tools/demo/cli.ts desktop",
     "reset": "bun tools/demo/cli.ts reset",
     "stop": "bun tools/demo/cli.ts stop",

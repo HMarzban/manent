@@ -366,4 +366,18 @@ export const APPEARANCE_STUDIO_WORDS = Object.freeze({
   paginationGuarantee:
     "Themes change colour and subtle emblems only — line breaks, margins and page counts stay identical across every theme, and print always uses white archival paper.",
   newProjectThemeHint: (themeName: string): string => `Theme: ${themeName}`,
+  gemTrigger: (themeName: string): string => `${themeName} hidden gem`,
+  gemReplay: "Play again",
+  gemOpenAppearance: "Change theme",
+  gemApplyTheme: "Apply theme",
+  gemPrevious: "Previous theme",
+  gemNext: "Next theme",
+  gemSoundOn: "Sound on",
+  gemSoundOff: "Sound off",
+  gemKeptCount: (kept: number, total: number): string =>
+    kept >= total ? `All ${total} kept` : `${kept} of ${total} kept`,
+  gemClose: "Close",
+  gemEdition: (index: number, total: number): string =>
+    `${String(index).padStart(2, "0")} / ${String(total).padStart(2, "0")}`,
+  gemCredit: (author: string): string => `${author} · CC BY 3.0`,
 } as const);

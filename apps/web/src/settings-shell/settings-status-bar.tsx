@@ -1,8 +1,9 @@
 // Shared status bar for full-page settings screens: messages and the command palette trigger.
-import { ActivePaletteGem, MessageSlot } from "@manent/ui";
+import { MessageSlot } from "@manent/ui";
 import type { ReactNode } from "react";
 import { isCommandId } from "../screens/preferences/search-index.ts";
 import { useServices } from "../services/context.tsx";
+import { AppPaletteGem } from "../shell/app-palette-gem.tsx";
 import { CommandsButton } from "../shell/commands-button.tsx";
 import { ShellRegion } from "../shell/regions.tsx";
 
@@ -21,7 +22,7 @@ export function SettingsStatusBar(): ReactNode {
         registered={isCommandId}
       />
       <CommandsButton />
-      <ActivePaletteGem className="ms-1 max-sm:hidden" />
+      <AppPaletteGem className="ms-1 max-sm:hidden" />
     </ShellRegion>
   );
 }
