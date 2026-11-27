@@ -12,6 +12,7 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag22aa"];
 async function expectDemoAxeClean(page: Page): Promise<void> {
   const results = await new AxeBuilder({ page })
     .include("[data-surface='demo']")
+    .exclude("[data-base-ui-focus-guard]")
     .withTags(AXE_TAGS)
     .analyze();
   expect(results.violations).toEqual([]);

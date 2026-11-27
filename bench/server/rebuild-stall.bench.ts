@@ -10,6 +10,7 @@ import type { FakeClock } from "@manent/server-core/testing";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { Storage } from "@manent/storage";
 import { encodeReplayUpdates } from "@manent/sync-protocol";
+import { cached } from "../corpus/cache.ts";
 import { ageScript, editOffline } from "../crdt/aged.ts";
 import { benchMode } from "../env.ts";
 import type { Measurement, Scenario } from "../harness.ts";
@@ -64,7 +65,10 @@ function typeInto(doc: CrdtDoc): Uint8Array[] {
 }
 
 function agedScript(): Script {
-  const aged = ageScript(AGED);
+  const aged = cached(
+    `aged-${AGED.pages}-${AGED.sessions}x${AGED.editsPerSession}-s${AGED.seed}`,
+    () => ageScript(AGED),
+  );
   const state = aged.encodeState();
   aged.destroy();
   const typist = loadDoc(state, { clientId: TYPIST_CLIENT_ID });

@@ -1,7 +1,8 @@
 // Typing in an aged 120-page script (400 sessions, 150 edits each, cached) that is locked for
 // production with 12 issued revisions (Pink active): warm open, keystroke paint, and client IDs.
-import { blockIds, measureDoc } from "@manent/crdt";
-import { createBot } from "@manent/testkit";
+import { join } from "node:path";
+import { blockIds, measureDoc, updateMeta } from "@manent/crdt";
+import { openSqliteStorage } from "@manent/storage";
 import type { Page } from "@playwright/test";
 import { cached } from "../../corpus/cache.ts";
 import { ageScript } from "../../crdt/aged.ts";
@@ -9,7 +10,6 @@ import { NotMeasured, benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
 import { inputBlocks, measurement } from "../../measure.ts";
 import { startBenchDemo } from "../driver.ts";
-import { shareRoles, untilHandleSynced } from "../people.ts";
 import {
   caretAt,
   markRecords,
@@ -109,32 +109,43 @@ const scenario: Scenario = {
     const demo = await startBenchDemo();
     try {
       const token = await demo.token("priya");
-      const bot = createBot({
-        server: { url: demo.url },
-        userId: "priya",
-        token,
+      const docId = crypto.randomUUID();
+      await postProduction(demo.url, token, "create", "/api/docs", {
+        docId,
+        kind: "script",
+        home: `project:${crypto.randomUUID()}`,
       });
-      let docId: string;
-      try {
-        const handle = await bot.client.create({
-          kind: "script",
-          home: `project:${crypto.randomUUID()}`,
-          workspaceId: null,
-        });
-        docId = handle.docId;
-        handle.doc().applyUpdate(state, "bench");
-        await untilHandleSynced(handle);
-      } finally {
-        await bot.close();
-      }
 
-      await shareRoles(demo, docId, [
-        {
-          userId: "priya",
-          role: "owner",
-          capabilities: ["lock_page_numbers", "issue_revisions"],
-        },
-      ]);
+      // Seed the 400-session aged state straight into storage: pushing 401 client IDs in one
+      // WebSocket SUBSCRIBE exceeds the server's per-subscribe client-ID cap (`clientIdsPerSubscribe`).
+      await demo.whileStopped(async (dataDir) => {
+        const storage = openSqliteStorage({
+          dir: join(dataDir, "data"),
+          now: Date.now,
+        });
+        try {
+          const place = storage.directory.placeOf(docId);
+          if (place === null)
+            throw new NotMeasured("the script was not found in demo storage");
+          storage.open(place.home).log.append({
+            docId,
+            generation: 1,
+            update: state,
+            userId: "priya",
+            origin: "import",
+            clocks: updateMeta(state).map(({ clientId, toClock }) => ({
+              clientId,
+              clock: toClock,
+            })),
+          });
+          storage.directory.setRole(docId, "priya", "owner", [
+            "lock_page_numbers",
+            "issue_revisions",
+          ]);
+        } finally {
+          storage.close();
+        }
+      });
 
       const locked = await postProduction(
         demo.url,

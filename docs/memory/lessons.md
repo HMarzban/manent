@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Seed aged multi-session benchmarks directly into storage, cache aged corpora and exclude Base UI focus guards in WebKit axe scans
+
+- Date: 2026-11-27
+
+### What happened
+
+Two cross-tier and cross-browser harness bugs surfaced while triaging failing benchmark runs and running three-browser Playwright verification: (1) `bench/client/locked/locked-120.bench.ts` created a script with `bot.client.create` and pushed an aged 400-session state (`401` distinct Yjs client IDs) over a single WebSocket `SUBSCRIBE`, which exceeded `DEFAULT_LIMITS.clientIdsPerSubscribe` (`256`) in `packages/server-core/src/sync/subscribe.ts` and hung until the 180 s sync timeout across `D-modest`, `D-typical` and `host`, while `bench/server/rebuild-stall.bench.ts` rebuilt an uncached 2,000-page / 60,000-edit aged corpus on every process; and (2) `e2e/interface/demo-stage.e2e.ts` ran `@axe-core/playwright` over an open Base UI `<Popover>` without excluding `[data-base-ui-focus-guard]`, which passed in Chromium and Firefox but failed in WebKit on Base UI's invisible Safari focus-guard `<span role="button">` sentinel.
+
+### How it was caught
+
+Item (1) was caught by inspecting the `could not finish` entries in `docs/benchmark/report.md`, reproducing the hang in `--tier host --quick --filter locked-120`, and matching the aged document's 401 client IDs against `clientIdsPerSubscribe`; item (2) was caught immediately by running `e2e/interface/demo-stage.e2e.ts` against `--project=firefox --project=webkit`.
+
+### Rule
+
+Never push an aged CRDT document with more than `DEFAULT_LIMITS.clientIdsPerSubscribe` (`256`) client IDs through a single client WebSocket `SUBSCRIBE` in a benchmark or test harness: create the document via `POST /api/docs` and append the aged state into SQLite storage during `whileStopped` (mirroring `shareScript` in `bench/server/support.ts`), and wrap expensive `ageScript(...)` builds in `cached(...)` from `bench/corpus/cache.ts`. In every Playwright `@axe-core/playwright` audit that opens a Base UI `<Popover>` or `<Dialog>`, chain `.exclude("[data-base-ui-focus-guard]")` and verify on WebKit as well as Chromium and Firefox.
+
+### Enforced by
+
+`bench/client/locked/locked-120.bench.ts`, `bench/server/rebuild-stall.bench.ts`, `bench/test/aged-cache.test.ts`, `e2e/interface/demo-stage.e2e.ts`, and `packages/server-core/src/sync/subscribe.ts`.
+
 ## Keep `<dl>` groups single-depth, avoid dimming chrome below AA contrast, emit `aria-pressed` on button rows and keep raw benchmark runs unformatted
 
 - Date: 2026-11-27
