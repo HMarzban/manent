@@ -12,7 +12,7 @@
     {
       key: "mac",
       name: "Mac",
-      files: { arm: "Manent-macos-arm64.dmg" },
+      files: { arm: "Manent-macos-arm64.dmg", x86: "Manent-macos-x64.dmg" },
       pattern: /mac/i,
     },
     {
