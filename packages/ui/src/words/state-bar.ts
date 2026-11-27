@@ -57,8 +57,6 @@ type Kind = StateFact["kind"];
 const RIGHT_ORDER: readonly Kind[] = [
   "viewing_version",
   "showing_changes",
-  "prompter_ready",
-  "prompter_held",
   "writing_privately",
   "writing_suggestions",
   "driving",
@@ -66,6 +64,8 @@ const RIGHT_ORDER: readonly Kind[] = [
   "reading_aloud",
   "sprint",
   "prompter_files",
+  "prompter_held",
+  "prompter_ready",
   "scene_writer",
   "changes_since_opened",
 ];
@@ -165,10 +165,26 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
       return line(`Sprint ${fact.left} left`, [
         { label: "End", commandId: "sprint.end" },
       ]);
-    case "prompter_files":
-      return line(`Writing prompter files to ${fact.path}`, [
+    case "prompter_files": {
+      const held = facts.find((f) => f.kind === "prompter_held");
+      const ready = facts.some((f) => f.kind === "prompter_ready");
+      const actions: Action[] = [
         { label: "Stop", commandId: "prompter.stopFiles" },
-      ]);
+      ];
+      if (held !== undefined && held.canTakeOver) {
+        actions.push({
+          label: PROMPTER_CONTROL_WORDS.takeOver,
+          commandId: "prompter.takeOver",
+        });
+      } else if (held === undefined && ready) {
+        actions.push({
+          label: PROMPTER_CONTROL_WORDS.takeControl,
+          commandId: "prompter.takeControl",
+          tourTarget: "prompter:take_control",
+        });
+      }
+      return line(`Writing prompter files to ${fact.path}`, actions);
+    }
     case "scene_writer":
       return line(`${fact.name} is writing this scene`);
     case "changes_since_opened":
