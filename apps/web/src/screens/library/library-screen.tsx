@@ -19,7 +19,7 @@ import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { focusHeading } from "../../focus.ts";
 import { storageOfServices } from "../../services/api-cache.ts";
-import { useServices } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
 import { createDeviceMemory } from "../../services/sync/device-memory.ts";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
@@ -59,13 +59,17 @@ function useShownWorkspace(
   workspaces: readonly WorkspaceRef[] | null;
   serverProblem: boolean;
 } {
+  const environment = useEnvironment();
   const services = useServices();
   const w = useLibraryAddress().workspaceId;
   const signedIn = person.token !== null;
   const memory = useMemo(
     () =>
-      createDeviceMemory({ local: storageOfServices(services), session: null }),
-    [services],
+      createDeviceMemory({
+        local: storageOfServices(services) ?? environment.storage,
+        session: null,
+      }),
+    [services, environment.storage],
   );
   const cached = useMemo(
     () => (signedIn ? memory.workspaces(person.userId) : null),
@@ -76,8 +80,10 @@ function useShownWorkspace(
     cached,
     onListed: (list) => memory.setWorkspaces(person.userId, list),
   });
-  const known = signedIn ? (me.data ?? null) : null;
-  const answered = !signedIn || me.data !== undefined || me.isError;
+  const known = signedIn
+    ? (me.data ?? (cached !== null && cached.length > 0 ? cached : null))
+    : null;
+  const answered = !signedIn || known !== null || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
   return {
     workspaceId: w ?? fallback,

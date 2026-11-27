@@ -1,11 +1,12 @@
 /**
- * Registers /sw.js; a null container (no secure context, as on a LAN address) registers nothing.
- * Nothing here reloads the page: a new version of the worker controls the next launch.
+ * Registers /sw.js with `updateViaCache: "none"`; a null container (no secure context, as on a LAN address)
+ * registers nothing. Nothing here reloads the page: controlled reloads are handled by `sw-lifecycle.ts`.
  */
 export function registerServiceWorker(options: {
   container: ServiceWorkerContainer | null;
-}): void {
-  options.container?.register("/sw.js").catch(() => {
-    // without the worker the app still runs, online only, and the next launch registers again
-  });
+}): Promise<ServiceWorkerRegistration | null> {
+  if (options.container === null) return Promise.resolve(null);
+  return options.container
+    .register("/sw.js", { updateViaCache: "none" })
+    .catch(() => null);
 }

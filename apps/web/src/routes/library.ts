@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
+import type { MeResult } from "../api.ts";
 import { firstRunPath, loadScreen } from "../router.tsx";
 import { CONTINUE_VIEW_ID } from "../screens/library/library-address.ts";
 import { isLibraryViewId } from "../screens/library/view-ids.ts";
@@ -38,6 +39,27 @@ function FirstRun(): null {
     };
   }, [services, navigate]);
   return null;
+}
+
+const BOOT_CONFIRM_TIMEOUT_MS = 2_500;
+
+function raceBootTimeout(
+  pending: Promise<MeResult>,
+  timeoutMs: number,
+): Promise<MeResult> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timedOut = new Promise<MeResult>((resolve) => {
+    timer = setTimeout(
+      () => resolve({ ok: false, reason: "unreachable" }),
+      timeoutMs,
+    );
+  });
+  return Promise.race([
+    pending.finally(() => {
+      if (timer !== null) clearTimeout(timer);
+    }),
+    timedOut,
+  ]);
 }
 
 const ChooseScreen = lazyRouteComponent(
@@ -87,7 +109,10 @@ export function libraryRoutes(
       const { person, setPerson } = usePerson.getState();
       if (
         (await confirmPerson(person, () =>
-          routeConfirmMe(api, person?.token ?? null),
+          raceBootTimeout(
+            routeConfirmMe(api, person?.token ?? null),
+            BOOT_CONFIRM_TIMEOUT_MS,
+          ),
         )) !== null
       )
         return;

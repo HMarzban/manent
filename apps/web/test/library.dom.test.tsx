@@ -37,6 +37,7 @@ import type {
   ProjectItem,
   ProjectKind,
 } from "../src/services/ports.ts";
+import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
 import { createPersonServices } from "../src/services/services.ts";
 import type { TabPerson } from "../src/session.ts";
 import { AppShell } from "../src/shell/app-shell.tsx";
@@ -181,6 +182,7 @@ async function renderLibrary(options: {
   /** The browser's store of each person, kept from one drawing to the next; a store of its own unless given. */
   stores?: { store(userId: string): LocalStore };
   client?: QueryClient;
+  storage?: Storage;
 }): Promise<{ router: AnyRouter; services: PersonServices }> {
   const { person } = options;
   const api = options.api ?? fakeApi();
@@ -190,7 +192,7 @@ async function renderLibrary(options: {
       dom: createShellDom(document),
       now: clock.now,
       schedule: clock.schedule,
-      storage: new MemoryStorage(),
+      storage: options.storage ?? new MemoryStorage(),
     },
     options.stores,
   );
@@ -642,4 +644,28 @@ test("PROJECT_VIEWS projects render outside VirtualRows rather than clamped insi
   expect(list?.textContent ?? "").toContain("The Long Night");
   expect(list?.textContent ?? "").not.toContain("The Harbour");
   expect(section?.textContent ?? "").toContain("The Harbour");
+});
+
+test("cold offline launch falls back to DeviceMemory.workspaces so WorkspaceSwitcher stays visible", async () => {
+  const storage = new MemoryStorage();
+  createDeviceMemory({ local: storage, session: null }).setWorkspaces("dana", [
+    ROOM,
+  ]);
+  const api = fakeApi({
+    me: async () => ({ ok: false, reason: "unreachable" }),
+  });
+  const library = seededIndex({ projects: { medium: [LONG_NIGHT] } });
+  await renderLibrary({ person: DANA, library, api, storage });
+  const problem = [...document.querySelectorAll("p")].find(
+    (p) => p.textContent === LIBRARY_PROBLEM,
+  );
+  expect([
+    problem?.textContent,
+    switcherButton().textContent,
+    rowsOf(region("Projects")).map(rowWords),
+  ]).toEqual([
+    LIBRARY_PROBLEM,
+    "Writers' room",
+    [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
+  ]);
 });

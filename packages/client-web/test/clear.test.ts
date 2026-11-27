@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import { IDBFactory } from "fake-indexeddb";
 import {
   clearManentData,
+  deleteDatabase,
   hasLocalDatabase,
   openIdbStore,
 } from "../src/index.ts";
+import type { IdbBroadcastChannelLike } from "../src/index.ts";
 
 /** Creates a database of another application with raw IndexedDB calls, and leaves it open. */
 function rawOpen(indexedDb: IDBFactory, name: string): Promise<IDBDatabase> {
@@ -103,4 +105,29 @@ test("whether a person's store exists is told without creating it", async () => 
   expect(await hasLocalDatabase(unlisted, "dana")).toBeNull();
   expect(await hasLocalDatabase(refusingListing(), "dana")).toBeNull();
   expect(await hasLocalDatabase(null, "dana")).toBeNull();
+});
+
+test("deleteDatabase invokes onBlocked and nudges peer tabs via BroadcastChannel", async () => {
+  const posted: unknown[] = [];
+  const fakeReq = new EventTarget() as unknown as IDBOpenDBRequest;
+  const fakeFactory = {
+    deleteDatabase: () => fakeReq,
+  } as unknown as IDBFactory;
+  let blocked = 0;
+  const deleting = deleteDatabase(fakeFactory, "manent:dana", {
+    onBlocked: () => {
+      blocked += 1;
+    },
+    createChannel: (): IdbBroadcastChannelLike => ({
+      postMessage: (msg) => posted.push(msg),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      close: () => {},
+    }),
+  });
+  fakeReq.dispatchEvent(new Event("blocked"));
+  fakeReq.dispatchEvent(new Event("success"));
+  await deleting;
+  expect(blocked).toBe(1);
+  expect(posted).toEqual([{ type: "RELEASE_IDB", name: "manent:dana" }]);
 });

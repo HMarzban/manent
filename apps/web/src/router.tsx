@@ -13,6 +13,7 @@ import type { AnyRouter } from "@tanstack/react-router";
 import { FileQuestionIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { getActiveWebUpdate } from "./boot/sw-lifecycle.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { EmptyHeroCard } from "./empty-hero-card.tsx";
 import { RootLayout } from "./root-layout.tsx";
@@ -28,6 +29,23 @@ import { panelsActions } from "./state/panels.store.ts";
 import { tourActions } from "./state/tour.store.ts";
 import { TEXT } from "./text.ts";
 
+const CHUNK_LOAD_PATTERNS = [
+  "Failed to fetch dynamically imported module",
+  "Importing a module script failed",
+  "Loading chunk",
+] as const;
+
+/** True when `cause` looks like a stale or failed dynamic-import chunk fetch. */
+export function isChunkLoadFailure(cause: unknown): boolean {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === "string"
+        ? cause
+        : "";
+  return CHUNK_LOAD_PATTERNS.some((pattern) => message.includes(pattern));
+}
+
 /** `importer`, except that a load failing after the page has begun to leave never settles: a navigation cancels the pending load, and the router would take that failure for a newer build and reload the page, cancelling the navigation. */
 export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
   return async () => {
@@ -40,6 +58,7 @@ export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
       return await importer();
     } catch (cause) {
       if (leaving) return new Promise<T>(() => {});
+      if (isChunkLoadFailure(cause)) void getActiveWebUpdate()?.check();
       // unchanged, so the router still reloads the page for a newer build
       throw cause;
     } finally {

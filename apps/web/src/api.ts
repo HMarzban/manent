@@ -29,13 +29,23 @@ export type MeResult =
   | { ok: true; me: MeResponse }
   | { ok: false; reason: "unauthenticated" | "unreachable" };
 
+export interface ApiRequestOptions {
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface CachedChoicesStore {
+  read(): readonly SignInChoice[] | null;
+  write(choices: readonly SignInChoice[]): void;
+}
+
 export interface Api {
-  /** Throws when the server cannot be reached. */
-  choices(): Promise<readonly SignInChoice[]>;
+  /** Throws when the server cannot be reached and no cached choices exist. */
+  choices(options?: ApiRequestOptions): Promise<readonly SignInChoice[]>;
   signIn(userId: string): Promise<SignInResult>;
-  me(): Promise<MeResult>;
+  me(options?: ApiRequestOptions): Promise<MeResult>;
   /** Null outside demo mode; throws when it cannot tell. */
-  demo(): Promise<DemoResponse | null>;
+  demo(options?: ApiRequestOptions): Promise<DemoResponse | null>;
   /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
   removedDoc(docId: string): Promise<RemovedDocResponse | null>;
   /** The person's role on the document; null without a session, and when the server cannot be reached or gives them none. */
@@ -114,25 +124,65 @@ const UNREACHABLE = Object.freeze({
   reason: "unreachable",
 } as const);
 
+function withTimeoutSignal(
+  init: RequestInit,
+  reqOptions?: ApiRequestOptions,
+): RequestInit {
+  const timeoutMs = reqOptions?.timeoutMs;
+  const callerSignal = reqOptions?.signal ?? init.signal;
+  const hasTimeout =
+    timeoutMs !== undefined &&
+    timeoutMs > 0 &&
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function";
+  if (!hasTimeout)
+    return callerSignal === undefined
+      ? init
+      : { ...init, signal: callerSignal };
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  if (callerSignal === undefined || callerSignal === null)
+    return { ...init, signal: timeoutSignal };
+  if (typeof AbortSignal.any === "function")
+    return { ...init, signal: AbortSignal.any([callerSignal, timeoutSignal]) };
+  return { ...init, signal: timeoutSignal };
+}
+
 export function createApi(options: {
   fetch: typeof fetch;
   getToken: () => string | null;
+  onBuildId?: (buildId: string) => void;
+  cachedChoices?: CachedChoicesStore;
 }): Api {
   // called as a plain function: a browser's fetch refuses another `this`
   const fetchFn = options.fetch;
-  const { getToken } = options;
-  const request = (path: string, init: RequestInit = {}) =>
-    fetchFn(path, {
-      ...init,
-      headers: { ...bearer(getToken()), ...init.headers },
-    });
+  const { getToken, onBuildId, cachedChoices } = options;
+  const request = async (
+    path: string,
+    init: RequestInit = {},
+    reqOptions?: ApiRequestOptions,
+  ): Promise<Response> => {
+    const response = await fetchFn(
+      path,
+      withTimeoutSignal(
+        {
+          ...init,
+          headers: { ...bearer(getToken()), ...init.headers },
+        },
+        reqOptions,
+      ),
+    );
+    const buildId = response.headers.get("X-Manent-Build-Id")?.trim();
+    if (buildId && buildId.length > 0) onBuildId?.(buildId);
+    return response;
+  };
   /** The answer; null when the server cannot be reached. */
   const attempt = async (
     path: string,
     init?: RequestInit,
+    reqOptions?: ApiRequestOptions,
   ): Promise<Response | null> => {
     try {
-      return await request(path, init);
+      return await request(path, init, reqOptions);
     } catch {
       // the request never reached the server
       return null;
@@ -140,10 +190,19 @@ export function createApi(options: {
   };
 
   return {
-    async choices() {
-      const response = await request("/api/sign-in");
-      return (await readOk<SignInOptions>(response, "GET /api/sign-in"))
+    async choices(reqOptions) {
+      let response: Response;
+      try {
+        response = await request("/api/sign-in", {}, reqOptions);
+      } catch (cause) {
+        const cached = cachedChoices?.read() ?? null;
+        if (cached !== null && cached.length > 0) return cached;
+        throw cause;
+      }
+      const list = (await readOk<SignInOptions>(response, "GET /api/sign-in"))
         .choices;
+      cachedChoices?.write(list);
+      return list;
     },
 
     async signIn(userId) {
@@ -160,10 +219,10 @@ export function createApi(options: {
       };
     },
 
-    async me() {
+    async me(reqOptions) {
       // the server knows nobody without a session, so it is not asked
       if (getToken() === null) return { ok: false, reason: "unauthenticated" };
-      const response = await attempt("/api/me");
+      const response = await attempt("/api/me", {}, reqOptions);
       if (response === null) return UNREACHABLE;
       if (!response.ok)
         return (await errorCodeOf(response)) === "unauthenticated"
@@ -172,8 +231,8 @@ export function createApi(options: {
       return { ok: true, me: await readAs<MeResponse>(response) };
     },
 
-    async demo() {
-      const response = await request("/api/demo");
+    async demo(reqOptions) {
+      const response = await request("/api/demo", {}, reqOptions);
       if (response.status === 404) return null;
       return readOk<DemoResponse>(response, "GET /api/demo");
     },

@@ -266,3 +266,64 @@ test("the server control narrows what it reads", async () => {
     method: "POST",
   });
 });
+
+test("createApi notifies X-Manent-Build-Id, caches choices offline, and attaches timeout signals", async () => {
+  const seenBuildIds: string[] = [];
+  const signals: (AbortSignal | null | undefined)[] = [];
+  let cached:
+    | readonly {
+        userId: string;
+        name: string;
+        title: string;
+        registered: boolean;
+      }[]
+    | null = null;
+  let offline = false;
+  const customFetch = (async (
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    signals.push(init?.signal);
+    if (offline) throw new TypeError("Failed to fetch");
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            userId: "leo",
+            name: "Leo Marsh",
+            title: "Writer",
+            registered: true,
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Manent-Build-Id": "build-999",
+        },
+      },
+    );
+  }) as typeof fetch;
+
+  const api = createApi({
+    fetch: customFetch,
+    getToken: () => "tok",
+    onBuildId: (id) => seenBuildIds.push(id),
+    cachedChoices: {
+      read: () => cached,
+      write: (list) => {
+        cached = list;
+      },
+    },
+  });
+
+  const onlineChoices = await api.choices({ timeoutMs: 2_500 });
+  expect(onlineChoices).toHaveLength(1);
+  expect(seenBuildIds).toEqual(["build-999"]);
+  expect(signals[0]).toBeInstanceOf(AbortSignal);
+
+  // Offline falls back to cached choices instead of throwing
+  offline = true;
+  expect(await api.choices()).toEqual(onlineChoices);
+});

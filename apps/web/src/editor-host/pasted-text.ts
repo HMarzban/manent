@@ -1,4 +1,4 @@
-// The web app's reader of pasted text: Fountain and Final Draft text as elements, once @manent/formats has loaded.
+// The web app's reader of pasted text: Fountain and Final Draft text as elements, loaded lazily on first rich paste.
 import type { PastedTextPort } from "@manent/editor";
 import type { readPastedText } from "@manent/formats";
 import type { IdSource } from "@manent/schema";
@@ -6,8 +6,8 @@ import type { MessageQueue } from "@manent/ui";
 import type { sayPastedAs } from "./pasted-message.ts";
 
 /**
- * Starts loading @manent/formats; until it has loaded every paste stays plain text. Each conversion is said in a
- * brief message whose action undoes it.
+ * Loads @manent/formats lazily on the first external paste so opening an editor never eagerly pulls in the formats
+ * bundle. Until it has loaded, paste stays plain text; each conversion is said in a brief message whose action undoes it.
  */
 export function createPastedText(options: {
   ids: IdSource;
@@ -15,15 +15,26 @@ export function createPastedText(options: {
 }): PastedTextPort {
   let loaded: { read: typeof readPastedText; say: typeof sayPastedAs } | null =
     null;
-  void Promise.all([
-    import("@manent/formats"),
-    import("./pasted-message.ts"),
-  ]).then(([formats, message]) => {
-    loaded = { read: formats.readPastedText, say: message.sayPastedAs };
-  });
+  let loading: Promise<void> | null = null;
+  const loadOnce = (): void => {
+    if (loaded !== null || loading !== null) return;
+    loading = Promise.all([
+      import("@manent/formats"),
+      import("./pasted-message.ts"),
+    ])
+      .then(([formats, message]) => {
+        loaded = { read: formats.readPastedText, say: message.sayPastedAs };
+      })
+      .catch(() => {
+        loading = null;
+      });
+  };
   return {
     read(text, elements, plainElement) {
-      if (loaded === null) return null;
+      if (loaded === null) {
+        if (text.trim().length > 0) loadOnce();
+        return null;
+      }
       const pasted = loaded.read(text, {
         ids: options.ids,
         elements,

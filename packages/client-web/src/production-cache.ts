@@ -3,22 +3,55 @@
 import { StoreError, isVersionContent } from "@manent/sync-client";
 import type { CachedProduction, ProductionCache } from "@manent/sync-client";
 import { isProductionState } from "@manent/sync-protocol";
+import { listenIdbRelease, nudgeIdbRelease } from "./idb-tx.ts";
+import type { IdbLifecycleOptions } from "./idb-tx.ts";
 
 /** The IndexedDB database version. A later one adds stores by `oldVersion`, and never deletes or rekeys this one. */
 const PRODUCTION_CACHE_VERSION = 1;
 const STORE = "production";
 
-const STRICT: IDBTransactionOptions = Object.freeze({ durability: "strict" });
+const RELAXED: IDBTransactionOptions = Object.freeze({ durability: "relaxed" });
 
-function open(indexedDb: IDBFactory, userId: string): Promise<IDBDatabase> {
+function open(
+  indexedDb: IDBFactory,
+  userId: string,
+  lifecycle?: IdbLifecycleOptions,
+): Promise<{ db: IDBDatabase; cleanup: () => void }> {
+  // named under manent: so that a new seed forgets it with every other database
+  const name = `manent:production:${userId}`;
   return new Promise((resolve, reject) => {
-    // named under manent: so that a new seed forgets it with every other database
-    const name = `manent:production:${userId}`;
     const request = indexedDb.open(name, PRODUCTION_CACHE_VERSION);
+    request.addEventListener("blocked", (event) => {
+      nudgeIdbRelease(indexedDb, name, lifecycle?.createChannel);
+      lifecycle?.onBlocked?.(event);
+    });
     request.addEventListener("upgradeneeded", (event) => {
       if (event.oldVersion < 1) request.result.createObjectStore(STORE);
     });
-    request.addEventListener("success", () => resolve(request.result));
+    request.addEventListener("success", () => {
+      const db = request.result;
+      let stopRelease: (() => void) | null = null;
+      const cleanup = (): void => {
+        stopRelease?.();
+        stopRelease = null;
+      };
+      stopRelease = listenIdbRelease(
+        indexedDb,
+        name,
+        () => {
+          cleanup();
+          db.close();
+        },
+        lifecycle?.createChannel,
+      );
+      db.addEventListener("versionchange", (event) => {
+        cleanup();
+        db.close();
+        lifecycle?.onVersionChange?.(event);
+      });
+      db.addEventListener("close", cleanup);
+      resolve({ db, cleanup });
+    });
     request.addEventListener("error", () =>
       reject(new StoreError("unavailable", { cause: request.error })),
     );
@@ -31,23 +64,30 @@ async function transact<T>(
   userId: string,
   mode: IDBTransactionMode,
   ask: (store: IDBObjectStore) => IDBRequest<T>,
+  lifecycle?: IdbLifecycleOptions,
 ): Promise<T> {
-  const db = await open(indexedDb, userId);
+  const { db, cleanup } = await open(indexedDb, userId, lifecycle);
   try {
     return await new Promise<T>((resolve, reject) => {
       const tx = db.transaction(
         STORE,
         mode,
-        mode === "readwrite" ? STRICT : {},
+        mode === "readwrite" ? RELAXED : {},
       );
       const request = ask(tx.objectStore(STORE));
       tx.addEventListener("complete", () => resolve(request.result));
       tx.addEventListener("abort", () => {
-        const code = mode === "readonly" ? "unavailable" : "write_failed";
+        const code =
+          mode === "readonly"
+            ? "unavailable"
+            : tx.error?.name === "QuotaExceededError"
+              ? "quota"
+              : "write_failed";
         reject(new StoreError(code, { cause: tx.error }));
       });
     });
   } finally {
+    cleanup();
     db.close();
   }
 }
@@ -68,23 +108,47 @@ function readEntry(value: unknown): CachedProduction | null {
 }
 
 /** Rejects StoreError when the database cannot be opened or a write does not complete. */
-export function createIdbProductionCache(options: {
-  userId: string;
-  indexedDb: IDBFactory;
-}): ProductionCache {
-  const { userId, indexedDb } = options;
+export function createIdbProductionCache(
+  options: {
+    userId: string;
+    indexedDb: IDBFactory;
+  } & IdbLifecycleOptions,
+): ProductionCache {
+  const { userId, indexedDb, onVersionChange, onBlocked, createChannel } =
+    options;
+  const lifecycle: IdbLifecycleOptions = {
+    onVersionChange,
+    onBlocked,
+    createChannel,
+  };
   return {
     read: async (docId) =>
       readEntry(
-        await transact(indexedDb, userId, "readonly", (s) => s.get(docId)),
+        await transact(
+          indexedDb,
+          userId,
+          "readonly",
+          (s) => s.get(docId),
+          lifecycle,
+        ),
       ),
     write: async (docId, value) => {
-      await transact(indexedDb, userId, "readwrite", (s) =>
-        s.put(value, docId),
+      await transact(
+        indexedDb,
+        userId,
+        "readwrite",
+        (s) => s.put(value, docId),
+        lifecycle,
       );
     },
     clear: async (docId) => {
-      await transact(indexedDb, userId, "readwrite", (s) => s.delete(docId));
+      await transact(
+        indexedDb,
+        userId,
+        "readwrite",
+        (s) => s.delete(docId),
+        lifecycle,
+      );
     },
   };
 }

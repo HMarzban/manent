@@ -7,7 +7,9 @@ import {
   LOCAL_STORE_VERSION,
   localDatabaseName,
   openIdbStore,
+  openLocalDatabase,
 } from "../src/index.ts";
+import type { IdbBroadcastChannelLike } from "../src/index.ts";
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 
@@ -260,4 +262,80 @@ test("a database from a newer build is refused and left as it is", async () => {
     openIdbStore({ userId: "dana", indexedDb }),
   ).rejects.toMatchObject({ code: "unavailable" });
   expect((await rawOpen(indexedDb, "manent:dana")).version).toBe(futureVersion);
+});
+
+test("openLocalDatabase fires onVersionChange and closes on upgrade, and nudges peer tabs via BroadcastChannel when blocked", async () => {
+  const indexedDb = new IDBFactory();
+  const peers = new Set<{
+    closed: boolean;
+    listeners: Set<(event: MessageEvent<unknown>) => void>;
+  }>();
+  const createChannel = (): IdbBroadcastChannelLike => {
+    const peer = {
+      closed: false,
+      listeners: new Set<(event: MessageEvent<unknown>) => void>(),
+    };
+    peers.add(peer);
+    return {
+      postMessage(message: unknown) {
+        for (const other of peers) {
+          if (other === peer || other.closed) continue;
+          for (const listener of other.listeners)
+            listener({ data: message } as MessageEvent<unknown>);
+        }
+      },
+      addEventListener(_type, listener) {
+        peer.listeners.add(listener);
+      },
+      removeEventListener(_type, listener) {
+        peer.listeners.delete(listener);
+      },
+      close() {
+        peer.closed = true;
+        peers.delete(peer);
+      },
+    };
+  };
+
+  let versionChanges = 0;
+  const db = await openLocalDatabase(indexedDb, "dana", {
+    onVersionChange: () => {
+      versionChanges += 1;
+    },
+    createChannel,
+  });
+
+  // Opening a higher version triggers versionchange and closes the older connection cleanly.
+  const upgraded = await rawOpen(
+    indexedDb,
+    "manent:dana",
+    LOCAL_STORE_VERSION + 1,
+  );
+  expect(versionChanges).toBe(1);
+  expect(() => db.transaction(["meta"], "readonly")).toThrow();
+  upgraded.close();
+
+  // Simulated blocked request fires onBlocked and nudges peers to release via BroadcastChannel.
+  const indexedDb2 = new IDBFactory();
+  const db2 = await openLocalDatabase(indexedDb2, "sam", { createChannel });
+  let blockedCalls = 0;
+  const fakeReq = new EventTarget() as unknown as IDBOpenDBRequest;
+  const fakeFactory = {
+    open: () => fakeReq,
+  } as unknown as IDBFactory;
+  const pending = openLocalDatabase(fakeFactory, "sam", {
+    onBlocked: () => {
+      blockedCalls += 1;
+    },
+    createChannel,
+  });
+  fakeReq.dispatchEvent(new Event("blocked"));
+  expect(blockedCalls).toBe(1);
+  // The BroadcastChannel release nudge closed db2.
+  expect(() => db2.transaction(["meta"], "readonly")).toThrow();
+  Object.defineProperty(fakeReq, "error", {
+    value: new DOMException("aborted", "AbortError"),
+  });
+  fakeReq.dispatchEvent(new Event("error"));
+  await expect(pending).rejects.toMatchObject({ code: "unavailable" });
 });

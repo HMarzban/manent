@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { StorageManagerLike } from "../src/index.ts";
-import { readPersistence, requestPersistence } from "../src/index.ts";
+import {
+  readPersistence,
+  readStorageEstimate,
+  requestPersistence,
+} from "../src/index.ts";
 
 /** A browser's storage manager that has or has not kept the data, and grants a request when `grant` is true; `asked` counts the requests. */
 function fakeManager(options: {
@@ -42,4 +46,28 @@ test("reading whether storage is kept never asks", async () => {
     await readPersistence({}),
     kept.asked + notKept.asked,
   ]).toEqual(["granted", "not_granted", "unsupported", "unsupported", 0]);
+});
+
+test("readStorageEstimate returns finite usage and quota or null when unavailable or invalid", async () => {
+  expect(
+    await readStorageEstimate({
+      estimate: async () => ({ usage: 1024, quota: 100 * 1024 * 1024 }),
+    }),
+  ).toEqual({ usage: 1024, quota: 100 * 1024 * 1024 });
+  expect([
+    await readStorageEstimate(null),
+    await readStorageEstimate({}),
+    await readStorageEstimate({ estimate: async () => ({ usage: 10 }) }),
+    await readStorageEstimate({
+      estimate: async () => ({ usage: -1, quota: 100 }),
+    }),
+    await readStorageEstimate({
+      estimate: async () => ({ usage: 0, quota: 0 }),
+    }),
+    await readStorageEstimate({
+      estimate: async () => {
+        throw new Error("refused");
+      },
+    }),
+  ]).toEqual([null, null, null, null, null, null]);
 });

@@ -12,7 +12,12 @@ import {
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { createAppRouter, loadScreen } from "../src/router.tsx";
+import { setActiveWebUpdate } from "../src/boot/sw-lifecycle.ts";
+import {
+  createAppRouter,
+  isChunkLoadFailure,
+  loadScreen,
+} from "../src/router.tsx";
 import { ScreenProblem } from "../src/shell/screen-problem.tsx";
 import { createPersonStore } from "../src/state/person.store.ts";
 import { fakeApi } from "./services.fixtures.ts";
@@ -23,6 +28,7 @@ let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  setActiveWebUpdate(null);
   sessionStorage.clear();
 });
 
@@ -134,4 +140,43 @@ test("every screen whose code loads on first visit has the same problem in its o
   expect(container.textContent).toBe(
     "Couldn't load this screen. Your work is unaffected.Reload",
   );
+});
+
+test("chunk load failures trigger webUpdate.check() and Reload applies a waiting update when ready", async () => {
+  expect([
+    isChunkLoadFailure(
+      new TypeError("Failed to fetch dynamically imported module: /x.js"),
+    ),
+    isChunkLoadFailure(new TypeError("Importing a module script failed.")),
+    isChunkLoadFailure(new Error("Loading chunk 42 failed")),
+    isChunkLoadFailure(new TypeError("Load failed")),
+  ]).toEqual([true, true, true, false]);
+
+  let checks = 0;
+  let applies = 0;
+  setActiveWebUpdate({
+    check: async () => {
+      checks += 1;
+    },
+    apply: async () => {
+      applies += 1;
+    },
+    isReady: () => true,
+  });
+
+  await expect(
+    loadScreen(() =>
+      Promise.reject(
+        new TypeError("Failed to fetch dynamically imported module: /x.js"),
+      ),
+    )(),
+  ).rejects.toThrow("Failed to fetch dynamically imported module");
+  expect(checks).toBe(1);
+
+  const reload = spyOn(window.location, "reload").mockImplementation(() => {});
+  const container = await renderFailingScreen(new TypeError("Load failed"));
+  const button = container.querySelector("button");
+  act(() => button?.click());
+  expect([applies, reload.mock.calls.length]).toEqual([1, 0]);
+  reload.mockRestore();
 });

@@ -3,6 +3,8 @@
 import type { IdbAssetStore, StoredAssetRecord } from "./asset-store.ts";
 import { computeSha256Hex, validateLocalAssetBytes } from "./asset-validate.ts";
 import type { ValidatedLocalAsset } from "./asset-validate.ts";
+import { readStorageEstimate } from "./persist.ts";
+import type { StorageEstimate, StorageManagerLike } from "./persist.ts";
 
 export * from "./asset-validate.ts";
 
@@ -40,6 +42,7 @@ export interface AssetUploaderOptions {
   readonly baseDelayMs?: number;
   readonly maxDelayMs?: number;
   readonly maxCacheBytes?: number;
+  readonly storageManager?: StorageManagerLike | null;
   readonly onUploadRefused?: (assetId: string, status: number) => void;
 }
 
@@ -54,7 +57,22 @@ export interface AssetUploader {
 const DEFAULT_BASE_DELAY_MS = 1_000;
 const DEFAULT_MAX_DELAY_MS = 60_000;
 const DEFAULT_MAX_CACHE_BYTES = 100 * 1024 * 1024;
+const MIN_DYNAMIC_CACHE_BYTES = 10 * 1024 * 1024;
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
+
+/** Computes the effective remote asset cache cap from `maxCacheBytes` and browser storage headroom. */
+export function computeAssetCacheCap(
+  maxCacheBytes: number,
+  estimate: StorageEstimate | null,
+): number {
+  if (estimate === null) return maxCacheBytes;
+  const headroom = Math.max(0, estimate.quota - estimate.usage);
+  const dynamicCap = Math.max(
+    MIN_DYNAMIC_CACHE_BYTES,
+    Math.floor(headroom * 0.25),
+  );
+  return Math.min(maxCacheBytes, dynamicCap);
+}
 
 function defaultTimers(): AssetUploaderTimers {
   return {
@@ -92,6 +110,12 @@ export function createAssetUploader(
   const baseDelayMs = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
   const maxDelayMs = options.maxDelayMs ?? DEFAULT_MAX_DELAY_MS;
   const maxCacheBytes = options.maxCacheBytes ?? DEFAULT_MAX_CACHE_BYTES;
+  const storageManager: StorageManagerLike | null =
+    options.storageManager !== undefined
+      ? options.storageManager
+      : typeof navigator !== "undefined" && "storage" in navigator
+        ? navigator.storage
+        : null;
 
   const urlCache = new Map<string, string>();
   const pendingResolutions = new Map<string, Promise<string | null>>();
@@ -229,7 +253,9 @@ export function createAssetUploader(
         height: valid.height,
         bytes,
       });
-      await store.evictUploadedLru(maxCacheBytes);
+      const estimate = await readStorageEstimate(storageManager);
+      const effectiveCap = computeAssetCacheCap(maxCacheBytes, estimate);
+      await store.evictUploadedLru(effectiveCap);
       return cacheObjectUrl(assetId, bytes, valid.mime);
     } catch {
       return null;

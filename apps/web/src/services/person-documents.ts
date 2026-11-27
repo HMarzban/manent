@@ -197,6 +197,21 @@ function laterMaps(indexes: Promise<Indexes | null>): {
   return { maps, ready };
 }
 
+const BOOT_SEED_TIMEOUT_MS = 2_500;
+
+function withBootSeedTimeout(options: PersonOptions): PersonOptions {
+  return {
+    ...options,
+    api: {
+      ...options.api,
+      demo: (reqOptions) =>
+        options.api.demo({
+          timeoutMs: reqOptions?.timeoutMs ?? BOOT_SEED_TIMEOUT_MS,
+        }),
+    },
+  };
+}
+
 /** The person's sync, started once the demo's seed has been followed, and their indexes opened over it. */
 function startPersonSync(
   options: PersonOptions,
@@ -216,6 +231,7 @@ function startPersonSync(
     trust: module,
     askPersistence: module.askPersistenceOnce(options.where),
   }));
+  const seedOptions = withBootSeedTimeout(options);
   // On a clean browser (no remembered seed), start sync immediately in parallel with followSeed.
   // When a seed is remembered, wait for followSeed first so stale demo edits can never push to a reset server.
   const rememberedSeed = createDeviceMemory({
@@ -226,7 +242,7 @@ function startPersonSync(
   if (rememberedSeed === null) {
     sync = options.startSync(options.person, deviceId);
     void trust.then((t) =>
-      t.trust.followSeed(options, async () => {
+      t.trust.followSeed(seedOptions, async () => {
         await sync.then(
           (s) => s.dispose(),
           () => {
@@ -237,7 +253,7 @@ function startPersonSync(
     );
   } else {
     sync = trust
-      .then((t) => t.trust.followSeed(options))
+      .then((t) => t.trust.followSeed(seedOptions))
       .then(() => options.startSync(options.person, deviceId));
   }
   let started: Started | null = null;
@@ -293,7 +309,24 @@ export function createPersonDocuments(
   const updatePrivateSynced = (current: DocStatus): void =>
     privateIndexSynced.set(current.synced && current.waiting === 0);
   let stopPrivateStatus: (() => void) | null = null;
+  let stopAssetDrain: (() => void) | null = null;
   let disposed = false;
+  if (options.person.token !== null) {
+    void sync.then(
+      (s) => {
+        if (disposed) return;
+        void import("../editor-host/asset-pool.ts").then((pool) => {
+          if (disposed) return;
+          stopAssetDrain = pool.startPendingAssetDrain({
+            userId: options.person.userId,
+            messages,
+            network: s.network,
+          });
+        });
+      },
+      () => {},
+    );
+  }
   void indexes.then((opened) => {
     if (disposed || opened === null) return;
     const { status } = opened.privateIndex.handle;
@@ -344,6 +377,7 @@ export function createPersonDocuments(
     dispose() {
       disposed = true;
       stopPrivateStatus?.();
+      stopAssetDrain?.();
       stopRefusals();
       // a sync replaced at sign-in, or left for another person, ended without a crash
       const going = started();
