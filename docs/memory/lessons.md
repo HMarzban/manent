@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Forward benchmark environment overrides explicitly into Docker tier containers
+
+- Date: 2026-11-27
+
+### What happened
+
+Host benchmark runs inherit `process.env` into scenario child processes via `scenarioEnv` in `bench/env.ts`, so a scenario reading `MANENT_SOAK_MINUTES` works on `host` without extra wiring. Inside Docker tier containers (`D-modest`, `D-typical`, `D-small`), however, `dockerRunArgs` in `bench/tiers/tiers.ts` only passed `MANENT_BENCH_TIER` and `MANENT_BENCH_THROTTLE`, so setting `MANENT_SOAK_MINUTES` on the host was silently dropped and containers fell back to the mode default.
+
+### How it was caught
+
+During a Docker-tier soak run and follow-up review of `bench/tiers/orchestrate.ts` and `bench/tiers/tiers.ts`, which also spotted that an empty `soakMinutes: ""` passed directly to `dockerRunArgs` would emit `--env MANENT_SOAK_MINUTES=`.
+
+### Rule
+
+Whenever a benchmark scenario reads a host `MANENT_*` environment variable, forward it explicitly from `runContainer` (`bench/tiers/orchestrate.ts`) through `dockerRunArgs` (`bench/tiers/tiers.ts`), guard against both `undefined` and empty strings at both boundaries, cover both container-argument construction and `runTiers` orchestration in `bench/test/tiers.test.ts`, and keep `docs/development/benchmarks.md` aligned.
+
+### Enforced by
+
+`bench/test/tiers.test.ts` — "a tier's container is started with its caps and its throttle" and "a Docker tier forwards MANENT_SOAK_MINUTES only when non-empty".
+
 ## Resolve light-dark() tokens through a CSS probe for Canvas 2D and swallow WAAPI cancel rejections
 
 - Date: 2026-11-27
