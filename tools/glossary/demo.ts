@@ -23,7 +23,6 @@ export const DEMO_TERMS: readonly Term[] = Object.freeze([
       "p50",
       "p95",
       "samples",
-      "Reorganise",
       "Reset",
       "Tour",
       "Set it up",
