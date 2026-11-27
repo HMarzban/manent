@@ -50,7 +50,15 @@ export function createAnnouncer({ lists }: AnnouncerOptions): Announcer {
       if (to === null || isSamePlace(to, drag.last)) return null;
       drag.last = to;
       const count = countAt(now, drag.from, to);
-      return SORTABLE_WORDS.moved(drag.label, to.index + 1, count);
+      const targetList = now.find((candidate) => candidate.id === to.listId);
+      return to.listId !== drag.from.listId && targetList?.label !== undefined
+        ? SORTABLE_WORDS.movedToList(
+            drag.label,
+            to.index + 1,
+            count,
+            targetList.label,
+          )
+        : SORTABLE_WORDS.moved(drag.label, to.index + 1, count);
     },
     end(targetId, canceled) {
       const ended = drag;
@@ -60,13 +68,23 @@ export function createAnnouncer({ lists }: AnnouncerOptions): Announcer {
       const { label, from } = ended;
       const to =
         canceled || targetId === null ? null : landingOf(now, from, targetId);
-      return to === null
-        ? SORTABLE_WORDS.cancelled(
+      if (to === null) {
+        return SORTABLE_WORDS.cancelled(
+          label,
+          from.index + 1,
+          countAt(now, from, from),
+        );
+      }
+      const count = countAt(now, from, to);
+      const targetList = now.find((candidate) => candidate.id === to.listId);
+      return to.listId !== from.listId && targetList?.label !== undefined
+        ? SORTABLE_WORDS.droppedInList(
             label,
-            from.index + 1,
-            countAt(now, from, from),
+            to.index + 1,
+            count,
+            targetList.label,
           )
-        : SORTABLE_WORDS.dropped(label, to.index + 1, countAt(now, from, to));
+        : SORTABLE_WORDS.dropped(label, to.index + 1, count);
     },
   };
 }

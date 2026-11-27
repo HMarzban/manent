@@ -1,16 +1,10 @@
 // The room window: the document's page held read-only, following the driver's caret with no selections or marks.
 import { DEMO_PEOPLE } from "@manent/demo";
 import type { Identity } from "@manent/sync-protocol";
-import {
-  Avatar,
-  Button,
-  DOCUMENT_WORDS,
-  PRESENT_WORDS,
-  ROOM_WORDS,
-} from "@manent/ui";
+import { Button, DOCUMENT_WORDS, PRESENT_WORDS } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, LockIcon } from "lucide-react";
+import { LockIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import {
@@ -19,13 +13,8 @@ import {
 } from "../../../editor-host/live-editor.ts";
 import { EmptyHeroCard } from "../../../empty-hero-card.tsx";
 import { focusHeading } from "../../../focus.ts";
-import { initialsOf } from "../../../initials.ts";
 import { startRoomFollow } from "../../../room/driver-room.ts";
-import {
-  currentDriver,
-  firstNameOf,
-  subscribeDriver,
-} from "../../../room/driver.ts";
+import { currentDriver, subscribeDriver } from "../../../room/driver.ts";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import type { PersonPresent } from "../../../state/people.store.ts";
 import { pageTitle } from "../../../text.ts";
@@ -33,6 +22,7 @@ import { useOpenDocument } from "../../document/open-document.ts";
 import { useDocumentTitle } from "../../document/title-bar.tsx";
 import { sceneIndexInfo } from "./minimap-logic.ts";
 import { MiniMapToc } from "./minimap-toc.tsx";
+import { PresentHud } from "./present-hud.tsx";
 import {
   jumpToPresentBlock,
   useActivePresentScene,
@@ -236,80 +226,6 @@ function NoAccess(props: { title: string }): ReactNode {
   );
 }
 
-/** Floating top HUD surface: back to script, document title, driver badge and scene progress. */
-function PresentHud(props: {
-  docId: string;
-  title: string;
-  driver: Identity | null;
-  driverColour: number | null;
-  currentScene: number;
-  totalScenes: number;
-}): ReactNode {
-  const { docId, title, driver, driverColour, currentScene, totalScenes } =
-    props;
-  const navigate = useNavigate();
-  return (
-    <header
-      aria-label={PRESENT_WORDS.roomWindowTitle(title)}
-      className="mn-present-hud pointer-events-auto fixed left-1/2 top-3 z-20 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-surface px-2 py-1 text-ui opacity-85 hover:opacity-100 focus-within:opacity-100"
-    >
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={PRESENT_WORDS.backToScript}
-        onClick={() => void navigate({ href: `/s/${docId}` })}
-      >
-        <ArrowLeftIcon
-          aria-hidden="true"
-          className="size-icon text-fg-muted group-hover/button:text-fg"
-        />
-      </Button>
-      <span className="max-w-48 truncate font-medium text-fg" title={title}>
-        {title}
-      </span>
-      <span aria-hidden="true" className="shrink-0 text-meta text-fg-muted">
-        ·
-      </span>
-      <span aria-live="polite" className="flex min-w-0 items-center gap-2">
-        {driver === null ? (
-          <span
-            title={ROOM_WORDS.noDriverHint}
-            className="whitespace-nowrap text-meta text-fg-muted"
-          >
-            {PRESENT_WORDS.roomView}
-          </span>
-        ) : (
-          <>
-            <Avatar
-              name={driver.name}
-              initials={initialsOf(driver.name)}
-              colour={driverColour}
-              size="sm"
-              decorative
-            />
-            <span className="truncate text-meta text-fg-muted">
-              {PRESENT_WORDS.following(firstNameOf(driver.name))}
-            </span>
-          </>
-        )}
-      </span>
-      {totalScenes > 0 ? (
-        <>
-          <span aria-hidden="true" className="shrink-0 text-meta text-fg-muted">
-            ·
-          </span>
-          <span
-            aria-live="polite"
-            className="shrink-0 text-meta tabular-nums text-fg-muted"
-          >
-            {PRESENT_WORDS.sceneProgress(currentScene, totalScenes)}
-          </span>
-        </>
-      ) : null}
-    </header>
-  );
-}
-
 export function RoomMode(props: { docId: string }): ReactNode {
   const { docId } = props;
   const doc = useOpenDocument(docId);
@@ -327,6 +243,13 @@ export function RoomMode(props: { docId: string }): ReactNode {
   const rows = useOutlineRows();
   const { activeBlockId, progress } = useActivePresentScene(rows);
   const { currentScene, totalScenes } = sceneIndexInfo(rows, activeBlockId);
+  const scenes = rows.filter((row) => row.kind === "scene");
+  const prevScene =
+    currentScene > 1 ? (scenes[currentScene - 2] ?? null) : null;
+  const nextScene =
+    currentScene > 0 && currentScene < scenes.length
+      ? (scenes[currentScene] ?? null)
+      : null;
   const onJump = useCallback(
     (blockId: string) => {
       jumpToPresentBlock(blockId, (command) => {
@@ -366,6 +289,12 @@ export function RoomMode(props: { docId: string }): ReactNode {
             driverColour={driverColour}
             currentScene={currentScene}
             totalScenes={totalScenes}
+            onPrevScene={
+              prevScene === null ? undefined : () => onJump(prevScene.blockId)
+            }
+            onNextScene={
+              nextScene === null ? undefined : () => onJump(nextScene.blockId)
+            }
           />
           <MiniMapToc
             docId={docId}

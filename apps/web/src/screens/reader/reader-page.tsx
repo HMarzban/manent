@@ -35,6 +35,7 @@ export function ReaderPage(props: {
     readonly baseline: DocJSON;
     readonly comparison: Comparison;
   } | null;
+  commentedBlockIds?: ReadonlySet<string>;
   ports: PersonServices["pagePorts"];
   title: string;
   tappable: boolean;
@@ -44,6 +45,7 @@ export function ReaderPage(props: {
     content,
     watermark,
     comparison = null,
+    commentedBlockIds,
     ports,
     title,
     tappable,
@@ -116,6 +118,26 @@ export function ReaderPage(props: {
     element.dispatchEvent(new Event("scroll"));
   }, [scaled, unscaledHeight, scale]);
 
+  // Mark public-commented lines subtly so readers can see and re-open comments on the page.
+  useLayoutEffect(() => {
+    const element = placeRef.current;
+    if (element === null) return;
+    const syncMarks = (): void => {
+      for (const node of element.querySelectorAll<HTMLElement>("[data-id]")) {
+        const id = node.getAttribute("data-id");
+        if (id !== null && commentedBlockIds?.has(id)) {
+          node.setAttribute("data-reader-commented", "true");
+        } else {
+          node.removeAttribute("data-reader-commented");
+        }
+      }
+    };
+    syncMarks();
+    const observer = new MutationObserver(syncMarks);
+    observer.observe(element, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [commentedBlockIds, content]);
+
   const handleClick = (event: MouseEvent<HTMLDivElement>): void => {
     if (!tappable) return;
     if (!(event.target instanceof Element)) return;
@@ -164,11 +186,11 @@ export function ReaderPage(props: {
           className={
             scaled
               ? tappable
-                ? "cursor-pointer"
-                : undefined
+                ? "mn-reader-page [&_[data-id]]:cursor-pointer"
+                : "mn-reader-page"
               : tappable
-                ? "mn-desk h-full cursor-pointer overflow-auto [&>.mn-zoom]:mx-auto"
-                : "mn-desk h-full overflow-auto [&>.mn-zoom]:mx-auto"
+                ? "mn-desk mn-reader-page h-full overflow-auto [&>.mn-zoom]:mx-auto [&_[data-id]]:cursor-pointer"
+                : "mn-desk mn-reader-page h-full overflow-auto [&>.mn-zoom]:mx-auto"
           }
           style={
             scaled

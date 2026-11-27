@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useDocKind } from "../screens/document/document-screen.tsx";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
+import { SendFormSkeleton } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useServices } from "../services/context.tsx";
 import { useProductionContext } from "../state/production-context.store.ts";
@@ -101,7 +102,7 @@ function useOffersExport(docId: string): boolean {
 function ExportBody(props: SendFormProps): ReactNode {
   const { Export } = sendBodyOf(useDocKind(props.docId));
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SendFormSkeleton rows={3} />}>
       <Export docId={props.docId} />
     </Suspense>
   );

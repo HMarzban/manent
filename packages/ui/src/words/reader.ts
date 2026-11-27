@@ -24,4 +24,5 @@ export const READER_WORDS = Object.freeze({
     `Offline — showing the copy you opened ${dayDate}`,
   chooseToComment: (title: string): string =>
     `Choose who you are to comment on '${title}'.`,
+  addAnotherComment: "New comment",
 });

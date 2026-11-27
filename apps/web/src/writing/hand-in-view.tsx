@@ -183,18 +183,24 @@ function HandIn(props: { docId: string }): ReactNode {
               ? WRITING_WORDS.nothingToHandIn
               : WRITING_WORDS.handInLine(scenes.length)}
           </p>
-          <ul className="flex flex-col">
-            {scenes.map((scene) => (
-              <li
-                key={scene.sceneId}
-                className="px-2 py-1 text-ui tabular-nums"
-              >
-                {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
-              </li>
-            ))}
-          </ul>
+          {scenes.length > 0 ? (
+            <ul className="flex flex-col divide-y divide-line rounded-surface border border-line bg-raised">
+              {scenes.map((scene) => (
+                <li
+                  key={scene.sceneId}
+                  className="px-2.5 py-1.5 text-ui tabular-nums"
+                >
+                  {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </>
-      ) : null}
+      ) : (
+        <p className="rounded-control border border-line bg-subtle px-2.5 py-2 text-meta text-fg-muted">
+          {WRITING_WORDS.handInUnavailable}
+        </p>
+      )}
       <div className="flex gap-2">
         <Button
           size="sm"

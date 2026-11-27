@@ -25,9 +25,11 @@ import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { useServices } from "../../services/context.tsx";
 import { safeNext } from "../../session.ts";
+import { AppPaletteGem } from "../../shell/app-palette-gem.tsx";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
+import { BackButton, TitleBarAccount } from "../../shell/title-bar-pieces.tsx";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SEND_FORMS } from "./forms.ts";
@@ -112,7 +114,7 @@ function SendStatusBar(): ReactNode {
   return (
     <ShellRegion
       region="status_bar"
-      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
+      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line bg-chrome px-2"
     >
       <MessageSlot
         queue={messages}
@@ -120,6 +122,7 @@ function SendStatusBar(): ReactNode {
         registered={isCommandId}
       />
       <CommandsButton />
+      <AppPaletteGem className="ms-1 max-sm:hidden" />
     </ShellRegion>
   );
 }
@@ -146,10 +149,11 @@ function SendOverlayPanel(props: { open: boolean }): ReactNode {
 function SendHeaderOnly(props: { place: SendPlace }): ReactNode {
   const { place } = props;
   return (
-    <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
-      <Button variant="ghost" className="text-fg-muted" onClick={place.back}>
-        {SEND_WORDS.back(place.name)}
-      </Button>
+    <header className="flex min-h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2.5 py-1">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <BackButton label={SEND_WORDS.back(place.name)} onClick={place.back} />
+      </div>
+      <TitleBarAccount />
     </header>
   );
 }
@@ -162,22 +166,23 @@ function UnavailableForm(props: {
 }): ReactNode {
   const { place, reason, overlay, sideOpen } = props;
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-x-clip">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-x-clip bg-chrome">
       <SendHeaderOnly place={place} />
       <div className="flex min-h-0 flex-1">
-        <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
+        <main className="flex min-h-0 flex-1 overflow-y-auto bg-chrome p-6">
           <div className="flex min-h-full w-full flex-col items-center justify-center">
             <EmptyHeroCard
               icon={<LockIcon aria-hidden="true" className="size-5" />}
               title={SEND_WORDS.unavailableTitle}
-              headingAs="h2"
+              headingAs="h1"
+              headingTabIndex={-1}
               description={reason}
               actions={
                 <Button onClick={place.back}>{SEND_WORDS.backToScript}</Button>
               }
             />
           </div>
-        </div>
+        </main>
         {overlay ? null : <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />}
       </div>
       {overlay ? <SendOverlayPanel open={sideOpen} /> : null}

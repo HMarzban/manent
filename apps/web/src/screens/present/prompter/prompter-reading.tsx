@@ -6,6 +6,7 @@ import {
 } from "@manent/ui";
 import type { SurfaceRenderers, SurfaceStateValue } from "@manent/ui";
 import {
+  ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
   LockIcon,
@@ -306,9 +307,17 @@ export function PrompterReading(props: PrompterReadingProps): ReactNode {
         <div
           aria-hidden="true"
           style={GUIDE_STYLE}
-          className="mn-prompter-guide pointer-events-none absolute inset-x-0 z-10 flex -translate-y-1/2 items-center px-3 text-accent"
+          className={
+            mirror
+              ? "mn-prompter-guide pointer-events-none absolute inset-x-0 z-10 flex -translate-y-1/2 items-center justify-end px-3 text-accent"
+              : "mn-prompter-guide pointer-events-none absolute inset-x-0 z-10 flex -translate-y-1/2 items-center px-3 text-accent"
+          }
         >
-          <ChevronRightIcon className="size-5 shrink-0" />
+          {mirror ? (
+            <ChevronLeftIcon className="size-5 shrink-0" />
+          ) : (
+            <ChevronRightIcon className="size-5 shrink-0" />
+          )}
         </div>
       ) : null}
       <main

@@ -4,6 +4,46 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Gate initial selectionEmpty facts on blockId and rank runnable palette rows ahead of unavailable sections
+
+- Date: 2026-11-27
+
+### What happened
+
+Two subtle context and ranking bugs surfaced when exercising the Smart Command Palette against a live browser session: (1) `INITIAL_FACTS` in `apps/web/src/state/facts.store.ts` initialises `selectionEmpty` to `false` before the editor publishes its first selection fact, so reading `!facts.get("selectionEmpty")` on a newly opened script treated the empty page as having a text selection and recommended `Comment`, `Note` and `Dual dialogue` instead of script-body actions; and (2) `rankRows` in `packages/ui/src/palette/palette-rank.ts` sorted strictly by section kind (`command` before `setting`) ahead of `row.enabled`, allowing an unavailable command (`Numbers — works on a script`, matching `"scene numbers"` only via keywords) to sit at index 0 ahead of enabled exact-prefix setting rows (`Scene numbers: None`).
+
+### How it was caught
+
+Both defects were caught immediately by live Chromium Playwright execution and screenshot inspection of `e2e/interface/smart-palette.e2e.ts` on a fresh script.
+
+### Rule
+
+Never treat `facts.get("selectionEmpty") === false` alone as an active text selection before `facts.get("blockId") !== null` (pair it with `blockId !== null`, `selectedText.length > 0`, or `material?.selection === true`). In `rankRows`, order runnable rows before unavailable rows (`disabled` before `section`) so a disabled command never outranks an actionable setting, place or script match.
+
+### Enforced by
+
+`apps/web/src/shell/palette-context.ts`, `packages/ui/src/palette/palette-rank.ts`, `packages/ui/test/palette.test.ts` and `e2e/interface/smart-palette.e2e.ts`.
+
+## Avoid nested interactive controls inside table rows and keep status announcements outside aria-busy
+
+- Date: 2026-11-27
+
+### What happened
+
+Auditing the Series Overview, Prompter and External Reader surfaces uncovered three recurring accessibility and lifecycle defects: (1) Series episode rows rendered `<button>`, `<Select>` and `<Input>` editors inside a clickable `<button>` row container, tripping WCAG 4.1.2 `nested-interactive` and swallowing inline cell edits; (2) loading states in Prompter and External Reader placed their `"Opening…"` `<p>` inside an `aria-busy="true"` container, which suppresses screen-reader announcements while busy; and (3) `ReaderScreen` started browser Read aloud via `startReaderReadAloud` without subscribing its `StateBar` to `readAloud` state or stopping speech on unmount, leaving no visible `"Reading aloud · Stop"` control and leaking speech across navigation.
+
+### How it was caught
+
+By the four-track Staff Adviser audit across Series Overview, Send, Present/Prompter/Reader and Board prior to implementing the maturity wave.
+
+### Rule
+
+Never nest interactive buttons, menus or inputs inside a clickable row button: make the row container a non-interactive layout element (`.mn-row`) whose title link/button and sibling cell controls sit side by side with a sibling `RowMenu`. Keep `<p role="status">` loading announcements as siblings outside `aria-busy="true"` skeleton wrappers so assistive technology announces loading immediately. Whenever a standalone screen invokes global browser speech (`readAloud`), bind its status bar to a dedicated reactive hook (`useReaderReadAloudFacts`) that stops speech on unmount.
+
+### Enforced by
+
+`apps/web/test/series-overview.dom.test.tsx`, `apps/web/test/present-maturity.dom.test.tsx`, `apps/web/src/read-aloud/state-facts.ts`, and `e2e/interface/ux-maturity.e2e.ts`.
+
 ## Sync page-sheet underlays to rendered page breaks whenever inline diff widgets add height
 
 - Date: 2026-11-27
@@ -24,6 +64,45 @@ Whenever `changesPlugin` renders inline changes (`display: "page"`), keep `.mn-s
 
 `packages/editor/test/sheet-sync.dom.test.ts`, `packages/editor/test/page-scaffold.test.ts`, `packages/editor/test/changes-plugin.test.ts`, `packages/editor/test/page-styles.test.ts`, and `apps/web/test/history-version-view.dom.test.ts`.
 
+## Guard Bun CSS logical-edge merges and hover-revealed action overlays on compact cards
+
+- Date: 2026-11-27
+
+### What happened
+
+During the Series Board redesign and `Fit`-default horizontal scroll pass, two subtle CSS interaction defects surfaced: (1) Bun's CSS bundler merged `[dir="rtl"] .mn-board-fade-start` and `.mn-board-fade-end` because both shared an identical `linear-gradient(to right, …)` declaration, dropping `inset-inline-end: 0` from `.mn-board-fade-end` so the right-edge fade veil rendered on top of the left `STORYLINES` corner; and (2) adding a 3-button hover overlay (`~86 px` wide) in the top-end corner of a `~166 px` card overlapped the card's center click target, while setting `pointer-events: none` at rest blocked direct clicks on the `RowMenu` trigger once focus moved elsewhere (as in the `write-board` Tour scenario).
+
+### How it was caught
+
+The dropped `inset-inline-end: 0` veil was caught by visual inspection of live Playwright screenshots and confirmed via `grep` on `apps/web/dist/*.css`; the hover overlay center interception and `pointer-events: none` block were caught immediately by `e2e/tour/write-board.e2e.ts`.
+
+### Rule
+
+Keep absolutely positioned start/end edge veils and pan buttons on explicit `left`/`right` declarations paired with `[dir="rtl"]` overrides so CSS minifiers never drop an edge position when merging identical gradients. Keep sibling `[data-row-menu]` hover clusters compact (`<= 2` icon buttons, clear of the card's center click target) and never set `pointer-events: none` on resting `RowMenu` triggers so keyboard, screen-reader, and automated clicks work without requiring a prior hover.
+
+### Enforced by
+
+`packages/ui/src/theme.css`, `apps/web/src/screens/board/board-card.tsx`, `apps/web/test/board-redesign.dom.test.tsx`, and `e2e/tour/write-board.e2e.ts`.
+
+## Guard Demo Stage popovers against exit ghosting, duplicate status slots, listener races and premature destructive wipes
+
+- Date: 2026-11-27
+
+### What happened
+
+During the Demo Stage toolbar redesign and live Chromium E2E sweep, four subtle UI and async reliability bugs surfaced: (1) Base UI popovers that triggered a route navigation (`All demo people…` → `/choose`) stayed mounted briefly during their exit animation, leaving duplicate person buttons in the DOM; (2) stopping the server inside **Demo controls** left the popover open while a pinned **Start the server** pill mounted on the bar, creating both a duplicate `[data-slot="bar-status"]` and two **Start the server** buttons; (3) `ReorganiseControl` previously fired `api.rebuild(docId)` synchronously before its `useEffect` attached the handle's `rebuilt` listener, risking a stuck busy state on fast compactions; and (4) `ResetControl` closed `ConsequenceDialog` and wiped Tour progress before `client.reset()` resolved, losing progress silently if the supervisor was unreachable.
+
+### How it was caught
+
+The listener race and premature reset wipe were caught during the reliability architecture audit of `apps/web/src/demo/`; the exiting-popover ghosting, duplicate status slot and open-popover server-button collision were caught immediately by live Chromium Playwright execution of `e2e/smoke/demo-skeleton.e2e.ts`.
+
+### Rule
+
+Add `data-closed:hidden` to demo `PopoverContent` surfaces that navigate or switch global state so closed popovers never ghost over destination screens, close **Demo controls** immediately when triggering a global server action, and mount `[data-slot="bar-status"]` in exactly one branch at a time. Attach async completion listeners (`openHandle(docId)` → `handle.on`) strictly _before_ issuing server mutation requests (`api.rebuild`), with a bounded timeout and explicit refusal announcements. Keep destructive confirmation dialogs (`ConsequenceDialog`) open with `busyLabel` until the remote request resolves, clearing local state only after acceptance and surfacing `refusal` otherwise.
+
+### Enforced by
+
+`apps/web/test/demo-stage.dom.test.tsx`, `apps/web/src/demo/demo-bar-controls.tsx`, `apps/web/src/demo/demo-lab.tsx`, `apps/web/src/demo/reorganise-control.tsx`, `apps/web/src/demo/reset-control.tsx` and `e2e/smoke/demo-skeleton.e2e.ts`.
 
 ## Forward benchmark environment overrides explicitly into Docker tier containers
 
@@ -64,7 +143,6 @@ Never hard-code colour literals in TypeScript for Canvas 2D or read raw CSS cust
 ### Enforced by
 
 `packages/ui/test/gem-scenes.test.ts`, `packages/ui/test/brand-and-palettes.dom.test.tsx` and `tools/test/colours.test.ts`.
-
 
 ## Resolve private_folder scripts directly in shelves and render Private projects as plain rows
 

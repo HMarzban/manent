@@ -28,15 +28,17 @@ export function Choices<T extends string>(props: {
       }}
       onKeyDown={props.onKeyDown}
     >
-      {choices.map((choice) => (
-        <span key={choice.value} className="flex items-center gap-2 text-ui">
-          <RadioGroupItem
-            value={choice.value}
-            aria-labelledby={`${id}-${choice.value}`}
-          />
-          <span id={`${id}-${choice.value}`}>{choice.label}</span>
-        </span>
-      ))}
+      {choices.map((choice) => {
+        const itemId = `${id}-${choice.value}`;
+        return (
+          <span key={choice.value} className="flex items-center gap-2 text-ui">
+            <RadioGroupItem id={itemId} value={choice.value} />
+            <label htmlFor={itemId} className="cursor-pointer">
+              {choice.label}
+            </label>
+          </span>
+        );
+      })}
     </RadioGroup>
   );
 }

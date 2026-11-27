@@ -63,7 +63,7 @@ export function PrompterStoriesBody(props: {
   return (
     <div
       data-prompter-mirror={mirror ? "on" : "off"}
-      className="mx-auto flex w-full shrink-0 flex-col px-12"
+      className="mx-auto flex w-full shrink-0 flex-col px-4 sm:px-12"
       style={wrapperStyle}
     >
       {stories.map((story) => (
@@ -93,12 +93,13 @@ export function PrompterStoriesBody(props: {
 export function PrompterLoadingBody(): ReactNode {
   return (
     <div
-      aria-busy="true"
-      className="mx-auto flex w-full flex-col gap-6 px-12 py-12"
+      className="mx-auto flex w-full flex-col gap-6 px-4 py-12 sm:px-12"
       style={{ maxWidth: PROMPTER_COLUMN_MAX_WIDTH }}
     >
-      <p className="text-ui text-fg-muted">{PROMPTER_WINDOW_WORDS.opening}</p>
-      <div aria-hidden="true" className="flex flex-col gap-6">
+      <p role="status" className="text-ui text-fg-muted">
+        {PROMPTER_WINDOW_WORDS.opening}
+      </p>
+      <div aria-busy="true" aria-hidden="true" className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-7 w-full" />

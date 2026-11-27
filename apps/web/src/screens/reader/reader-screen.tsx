@@ -1,20 +1,16 @@
-// The reader frame (`/r/$token`): whole window, true pages, watermark, phone scaling, Changes since you last read and tap-to-comment.
+// The reader frame (`/r/$token`): whole window, true pages, watermark, phone scaling, Read aloud, Changes since last read and tap-to-comment.
 import { COMMANDS } from "@manent/commands";
 import type { SideTab } from "@manent/commands";
 import { textAnchorAt } from "@manent/schema";
 import {
-  Button,
-  LINKS_WORDS,
   MessageSlot,
   READER_WORDS,
-  Skeleton,
   StateBar,
   createMessageQueue,
   stateBarLines,
   useSubscribable,
 } from "@manent/ui";
 import type { MessageQueue, StateLine } from "@manent/ui";
-import { Link2OffIcon, LockIcon, WifiOffIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -26,16 +22,17 @@ import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { tourTab } from "../../demo/tour-tab.tsx";
 import { browserPagePorts } from "../../editor-host/page-ports.ts";
-import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
-import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
 import {
   startReaderReadAloud,
   stopReadAloud,
 } from "../../read-aloud/runner.ts";
-import { useReadAloudFacts } from "../../read-aloud/state-facts.ts";
+import { useReaderReadAloudFacts } from "../../read-aloud/state-facts.ts";
 import { createReaderCommentsSession } from "../../reader/reader-comments.ts";
-import type { ReaderCommentsSession } from "../../reader/reader-comments.ts";
+import type {
+  ReaderCommentsSession,
+  ReaderCommentsState,
+} from "../../reader/reader-comments.ts";
 import { blockTextOf } from "../../reader/reader-compare.ts";
 import {
   clearPendingTap,
@@ -44,7 +41,6 @@ import {
 } from "../../reader/reader-storage.ts";
 import {
   formatReaderDayDate,
-  readerRefusalText,
   useReaderDraft,
 } from "../../reader/use-reader-draft.ts";
 import { useEnvironment } from "../../services/context.tsx";
@@ -57,24 +53,37 @@ import { ReaderCommentPopover } from "./reader-comment-popover.tsx";
 import type { ReaderPopoverMode } from "./reader-comment-popover.tsx";
 import { ReaderPage } from "./reader-page.tsx";
 import type { TappedLine } from "./reader-page.tsx";
+import {
+  ReaderLoadingView,
+  ReaderRefusalView,
+  openThreadsByBlock,
+  readerInfoLine,
+} from "./reader-states.tsx";
 
 const READER_SIDE_TABS: readonly PanelTab<SideTab>[] = [tourTab];
+const noop = (): void => {};
 
 const isRegistered = (commandId: string): boolean =>
   COMMANDS.some((command) => command.id === commandId);
 
 function useQueueMessage(queue: MessageQueue): boolean {
   const subscribe = useCallback(
-    (listener: () => void) => queue.subscribe(listener),
+    (fn: () => void) => queue.subscribe(fn),
     [queue],
   );
-  return (
-    useSyncExternalStore(
-      subscribe,
-      () => queue.current(),
-      () => queue.current(),
-    ) !== null
+  const read = (): boolean => queue.current() !== null;
+  return useSyncExternalStore(subscribe, read, read);
+}
+
+function useSessionState(
+  session: ReaderCommentsSession | null,
+): ReaderCommentsState | null {
+  const subscribe = useCallback(
+    (fn: () => void) => (session === null ? noop : session.subscribe(fn)),
+    [session],
   );
+  const read = (): ReaderCommentsState | null => session?.getState() ?? null;
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 export function ReaderScreen(props: {
@@ -128,9 +137,8 @@ export function ReaderScreen(props: {
     if (signedIn) setChoosingToComment(false);
   }, [token, userId, bearerToken, signedIn]);
 
-  // Keep comments session strictly on the comments CRDT for signed-in online readers with canComment.
   const readyDraft = state.kind === "ready" ? state.draft : null;
-  const readAloudFacts = useReadAloudFacts(readyDraft?.docId ?? "");
+  const readAloudFacts = useReaderReadAloudFacts();
   const offline = state.kind === "ready" && state.offlineOpenedAt !== null;
   const commentsSession = useMemo<ReaderCommentsSession | null>(() => {
     if (
@@ -156,7 +164,16 @@ export function ReaderScreen(props: {
     };
   }, [commentsSession]);
 
-  // Open pending tap-to-comment popover once a reader returns from Choose who you are.
+  const commentsState = useSessionState(commentsSession);
+  const openThreadByBlock = useMemo(
+    () => openThreadsByBlock(commentsState),
+    [commentsState],
+  );
+  const commentedBlockIds = useMemo(
+    () => new Set(openThreadByBlock.keys()),
+    [openThreadByBlock],
+  );
+
   useEffect(() => {
     if (readyDraft === null || offline || !signedIn || !readyDraft.canComment)
       return;
@@ -213,9 +230,26 @@ export function ReaderScreen(props: {
       const text = blockTextOf(state.draft.content, tapped.blockId);
       if (text === null) return;
       const anchor = textAnchorAt({ id: tapped.blockId, text }, 0, text.length);
+      const existingThreadId = openThreadByBlock.get(tapped.blockId);
+      if (existingThreadId !== undefined) {
+        setPopover({
+          kind: "thread",
+          id: existingThreadId,
+          anchor,
+          place: tapped.place,
+        });
+        return;
+      }
       setPopover({ kind: "comment", anchor, place: tapped.place });
     },
-    [state, signedIn, commentsSession, environment.tabStorage, token],
+    [
+      state,
+      signedIn,
+      commentsSession,
+      openThreadByBlock,
+      environment.tabStorage,
+      token,
+    ],
   );
 
   if (state.kind === "needs_sign_in") {
@@ -249,54 +283,17 @@ export function ReaderScreen(props: {
 
   const frameClass =
     services === null
-      ? "z-10 flex h-screen min-h-0 flex-col bg-desk text-fg"
+      ? "z-10 flex h-dvh min-h-0 flex-col bg-desk text-fg"
       : "z-10 flex min-h-0 flex-1 flex-col bg-desk text-fg";
 
   if (state.kind === "refused") {
-    const Icon =
-      state.reason === "not_sent"
-        ? LockIcon
-        : state.reason === "unreachable"
-          ? WifiOffIcon
-          : Link2OffIcon;
     return (
-      <div
-        className={`z-10 flex items-center justify-center bg-chrome p-6 text-fg ${services === null ? "h-screen" : "min-h-0 flex-1"}`}
-      >
-        <EmptyHeroCard
-          icon={<Icon aria-hidden="true" className="size-5" />}
-          headingAs="h1"
-          headingTabIndex={-1}
-          title={LINKS_WORDS.linkUnavailable}
-          description={readerRefusalText(state.reason)}
-          descriptionRole={state.reason === "unreachable" ? "alert" : undefined}
-          actions={
-            <Button
-              variant="outline"
-              nativeButton={false}
-              render={<a href="/" />}
-            >
-              {LINKS_WORDS.backToLibrary}
-            </Button>
-          }
-        />
-      </div>
+      <ReaderRefusalView reason={state.reason} standalone={services === null} />
     );
   }
 
   if (state.kind === "loading") {
-    return (
-      <div aria-busy="true" className={frameClass}>
-        <div
-          aria-hidden="true"
-          className="flex h-statebar shrink-0 items-center justify-between border-b border-line bg-chrome px-3"
-        >
-          <Skeleton className="h-3.5 w-44" />
-          <Skeleton className="h-3.5 w-28" />
-        </div>
-        <ScriptPageSkeleton />
-      </div>
-    );
+    return <ReaderLoadingView frameClass={frameClass} />;
   }
 
   const { draft, offlineOpenedAt } = state;
@@ -321,21 +318,11 @@ export function ReaderScreen(props: {
 
   let rightLine: StateLine | null = bar.right;
   if (rightLine === null && offlineOpenedAt !== null) {
-    rightLine = {
-      sentence: READER_WORDS.offlineCopy(formatReaderDayDate(offlineOpenedAt)),
-      chip: null,
-      actions: [],
-      dismiss: null,
-      attention: false,
-    };
+    rightLine = readerInfoLine(
+      READER_WORDS.offlineCopy(formatReaderDayDate(offlineOpenedAt)),
+    );
   } else if (rightLine === null && signedIn && draft.canComment) {
-    rightLine = {
-      sentence: READER_WORDS.canComment,
-      chip: null,
-      actions: [],
-      dismiss: null,
-      attention: false,
-    };
+    rightLine = readerInfoLine(READER_WORDS.canComment);
   }
 
   const tappable = offlineOpenedAt === null && (!signedIn || draft.canComment);
@@ -359,6 +346,7 @@ export function ReaderScreen(props: {
             content={draft.content}
             watermark={draft.watermark}
             comparison={comparison}
+            commentedBlockIds={commentedBlockIds}
             ports={pagePorts}
             title={draft.name}
             tappable={tappable}

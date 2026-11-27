@@ -1,4 +1,4 @@
-// Live state for the Board screen: project lookup, seasons, episodes, storylines, cards and server-enforced edit access.
+// Live state for the Board screen: project lookup, seasons, episodes, storylines, cards, writer directory and access.
 import { readEpisodes, readSeasons } from "@manent/crdt";
 import type {
   CrdtDoc,
@@ -6,31 +6,33 @@ import type {
   JsonMapView,
   SeasonEntry,
 } from "@manent/crdt";
-import type { DocHandle } from "@manent/sync-client";
-import { CODE, DOC_ROLES, indexDocId } from "@manent/sync-protocol";
-import type { DocRole } from "@manent/sync-protocol";
-import { createValue, useSubscribable } from "@manent/ui";
+import { DEMO_PEOPLE } from "@manent/demo";
+import { CODE, indexDocId } from "@manent/sync-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProjectIndex } from "../project/project-index.ts";
+import {
+  askProjectApi,
+  readPeopleList,
+  readTargetPages,
+} from "../screens/library/series/series-facts.ts";
+import type { SeriesPerson } from "../screens/library/series/series-facts.ts";
 import {
   createDocRequestDeduper,
   storageOfServices,
 } from "../services/api-cache.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import type { ProjectItem } from "../services/ports.ts";
-import { createDeviceMemory } from "../services/sync/device-memory.ts";
 import { liveMap } from "../services/sync/private-index.ts";
 import { readPerson } from "../session.ts";
+import {
+  askIndexAccess,
+  cachedBoardRole,
+  useBoardProject,
+} from "./board-access.ts";
+import type { ProjectLookup, ServerAccess } from "./board-access.ts";
 import { readBoard } from "./model.ts";
 import type { BoardCard, BoardStoryline } from "./model.ts";
 
-type ServerAccess =
-  "pending" | "edit" | "read_only" | "forbidden" | "not_found" | "offline";
-
-export type ProjectLookup =
-  | { readonly status: "loading" }
-  | { readonly status: "not_series" }
-  | { readonly status: "ready"; readonly project: ProjectItem };
+export type { ProjectLookup };
 
 export interface BoardData {
   readonly lookup: ProjectLookup;
@@ -38,9 +40,12 @@ export interface BoardData {
   readonly index: ProjectIndex;
   readonly seasons: readonly SeasonEntry[];
   readonly activeSeason: SeasonEntry | null;
+  readonly focusedEpisodeId: string | null;
   readonly episodes: readonly EpisodeEntry[];
   readonly storylines: readonly BoardStoryline[];
   readonly cards: readonly BoardCard[];
+  readonly targetPages: number | null;
+  readonly people: readonly SeriesPerson[];
   readonly canEdit: boolean;
   readonly accessReady: boolean;
   readonly accessRemoved: boolean;
@@ -48,169 +53,17 @@ export interface BoardData {
   readonly writableBoardMap: () => Promise<JsonMapView | null>;
 }
 
-const NO_PROJECTS = createValue<readonly ProjectItem[]>(Object.freeze([]));
+const FALLBACK_PEOPLE: readonly SeriesPerson[] = Object.freeze(
+  DEMO_PEOPLE.map((p) => ({ userId: p.userId, name: p.name })),
+);
 const dedupeBoardDescribe =
   createDocRequestDeduper<Exclude<ServerAccess, "pending">>();
+const dedupeBoardPeople = createDocRequestDeduper<readonly SeriesPerson[]>();
 
-const field = (body: unknown, name: string): unknown =>
-  typeof body === "object" && body !== null ? Reflect.get(body, name) : null;
-
-const isDocRole = (value: unknown): value is DocRole =>
-  DOC_ROLES.some((known) => known === value);
 const isRemovedSide = (side: readonly string[]): boolean =>
   side.includes("access_removed") || side.includes("deleted");
 const byNum = <T extends { number: number }>(xs: Iterable<T>): T[] =>
   [...xs].toSorted((a, b) => a.number - b.number);
-type CachedBoardRole = "edit" | "read_only";
-type ServiceStorage = ReturnType<typeof storageOfServices>;
-function cachedBoardRole(
-  storage: ServiceStorage,
-  userId: string,
-  projectId: string,
-  write?: CachedBoardRole,
-): CachedBoardRole | null {
-  const key = `manent.board.role.${userId}.${projectId}`;
-  try {
-    if (write !== undefined) {
-      storage?.setItem(key, write);
-      return write;
-    }
-    const raw = storage?.getItem(key);
-    return raw === "edit" || raw === "read_only" ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-async function askIndexAccess(
-  docId: string,
-  token: string | null,
-): Promise<Exclude<ServerAccess, "pending">> {
-  if (token === null) return "offline";
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-  const answer = await fetch("/api/docs/describe", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ docId }),
-  }).catch(() => null);
-  if (answer === null) return "offline";
-  if (answer.status === 401 || answer.status === 403) return "forbidden";
-  if (answer.status === 404) return "not_found";
-  if (answer.status !== 200) return "read_only";
-  const role = field(await answer.json().catch(() => null), "role");
-  return isDocRole(role) && (role === "owner" || role === "edit")
-    ? "edit"
-    : "read_only";
-}
-
-async function waitWorkspaceSynced(
-  openHandle: (docId: string) => Promise<DocHandle>,
-  workspaceId: string,
-  schedule: (fn: () => void, delayMs: number) => () => void,
-): Promise<void> {
-  const handle = await openHandle(indexDocId("workspace", workspaceId)).catch(
-    () => null,
-  );
-  if (handle === null) return;
-  const settled = (): boolean => {
-    const { synced, side, link } = handle.status.get();
-    return synced || side.length > 0 || link === "offline";
-  };
-  try {
-    if (!settled())
-      await new Promise<void>((resolve) => {
-        const done = (): void => (stop(), cancel(), resolve());
-        const stop = handle.status.subscribe(() => settled() && done());
-        const cancel = schedule(done, 3_000);
-      });
-  } finally {
-    await handle.close();
-  }
-}
-
-function useBoardProject(projectId: string): ProjectLookup {
-  const services = useServices();
-  const { api, library, openHandle, userId } = services;
-  const { online, schedule } = useEnvironment();
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    let shown = true;
-    const stops: (() => void)[] = [];
-    const watched = new Set<string>();
-    let found: string | null = null;
-    setChecked(false);
-    setWorkspaceId(null);
-    const claimIfFound = (id: string, items: readonly ProjectItem[]): void => {
-      if (shown && items.some((p) => p.projectId === projectId)) {
-        found = id;
-        setWorkspaceId(id);
-      }
-    };
-    const watch = (id: string): void => {
-      if (watched.has(id)) return;
-      watched.add(id);
-      const listed = library.projects(id);
-      const look = (): void => claimIfFound(id, listed.get());
-      stops.push(listed.subscribe(look));
-      look();
-    };
-    const cached =
-      createDeviceMemory({
-        local: storageOfServices(services),
-        session: null,
-      }).workspaces(userId) ?? [];
-    for (const id of new Set([...cached.map((w) => w.id), userId])) watch(id);
-    void api
-      .me()
-      .then(async (me) => {
-        if (!shown) return;
-        const ids = [
-          ...new Set([
-            ...(me.ok ? me.me.workspaces.map(({ id }) => id) : []),
-            userId,
-          ]),
-        ];
-        for (const id of ids) watch(id);
-        if (found === null)
-          await Promise.all(
-            ids.map((id) =>
-              library
-                .readProjects(id)
-                .then((items) => claimIfFound(id, items))
-                .catch(() => {}),
-            ),
-          );
-        if (shown && found === null && online())
-          await Promise.all(
-            ids.map((id) => waitWorkspaceSynced(openHandle, id, schedule)),
-          );
-      })
-      .catch(() => {})
-      .finally(() => shown && setChecked(true));
-    return () => {
-      shown = false;
-      for (const stop of stops) stop();
-    };
-  }, [services, api, library, openHandle, online, schedule, userId, projectId]);
-
-  const projects = useMemo(
-    () => (workspaceId === null ? NO_PROJECTS : library.projects(workspaceId)),
-    [library, workspaceId],
-  );
-  const project = useSubscribable(projects).find(
-    (item) => item.projectId === projectId,
-  );
-  if (project !== undefined)
-    return project.kind === "series"
-      ? { status: "ready", project }
-      : { status: "not_series" };
-  return checked ? { status: "not_series" } : { status: "loading" };
-}
 
 type IndexState = {
   loaded: boolean;
@@ -230,6 +83,7 @@ const INITIAL_INDEX_STATE: Readonly<IndexState> = Object.freeze({
 export function useBoardData(
   projectId: string,
   seasonParam: string | null,
+  epParam: string | null = null,
 ): BoardData {
   const services = useServices();
   const { projectIndex, userId } = services;
@@ -246,7 +100,16 @@ export function useBoardData(
     episodes: readonly EpisodeEntry[];
     storylines: readonly BoardStoryline[];
     cards: readonly BoardCard[];
-  }>({ seasons: [], episodes: [], storylines: [], cards: [] });
+    targetPages: number | null;
+  }>({
+    seasons: [],
+    episodes: [],
+    storylines: [],
+    cards: [],
+    targetPages: null,
+  });
+  const [people, setPeople] =
+    useState<readonly SeriesPerson[]>(FALLBACK_PEOPLE);
   const [indexState, setIndexState] = useState<IndexState>(INITIAL_INDEX_STATE);
   const [serverAccess, setServerAccess] = useState<ServerAccess>("pending");
 
@@ -262,6 +125,7 @@ export function useBoardData(
           ...d,
           seasons: byNum(readSeasons(doc).values()),
           episodes: byNum(readEpisodes(doc).values()),
+          targetPages: readTargetPages(doc),
         }));
     };
     void index.handle().then(
@@ -307,7 +171,7 @@ export function useBoardData(
               setIndexState((s) => ({ ...s, pushForbidden: true }));
           }),
           boardView.subscribe(readBoardNow),
-          ...(["seasons", "episodes"] as const).map((name) =>
+          ...(["seasons", "episodes", "template"] as const).map((name) =>
             liveMap(handle, name).subscribe(() =>
               readSeasonsAndEpisodes(handle.doc()),
             ),
@@ -341,8 +205,20 @@ export function useBoardData(
       () => askIndexAccess(docId, token),
       (result) => result === "edit" || result === "read_only",
     ).then((result) => {
-      if (result === "edit" || result === "read_only")
+      if (result === "edit" || result === "read_only") {
         cachedBoardRole(storage, userId, projectId, result);
+        void dedupeBoardPeople(
+          `board-people:${docId}`,
+          token,
+          async () =>
+            readPeopleList(
+              await askProjectApi("/api/docs/people", docId, token),
+            ),
+          (list) => list.length > 0,
+        ).then((listed) => {
+          if (shown && listed.length > 0) setPeople(listed);
+        });
+      }
       if (shown) setServerAccess(result);
     });
     return () => {
@@ -350,15 +226,37 @@ export function useBoardData(
     };
   }, [notSeries, projectId, tabStorage, userId, online, neverSynced, storage]);
 
-  const { seasons, episodes: allEpisodes, storylines, cards } = data;
+  const {
+    seasons,
+    episodes: allEpisodes,
+    storylines,
+    cards,
+    targetPages,
+  } = data;
+  const focusedEpisode = useMemo(
+    () =>
+      epParam === null
+        ? null
+        : (allEpisodes.find(
+            (ep) =>
+              ep.id === epParam ||
+              ep.docIds.script === epParam ||
+              ep.docIds.outline === epParam ||
+              ep.docIds.roomLog === epParam,
+          ) ?? null),
+    [allEpisodes, epParam],
+  );
   const activeSeason = useMemo(
     () =>
       (seasonParam !== null
         ? seasons.find((s) => s.id === seasonParam)
         : undefined) ??
+      (focusedEpisode !== null
+        ? seasons.find((s) => s.id === focusedEpisode.seasonId)
+        : undefined) ??
       seasons.at(-1) ??
       null,
-    [seasons, seasonParam],
+    [seasons, seasonParam, focusedEpisode],
   );
   const episodes = useMemo(
     () =>
@@ -388,9 +286,17 @@ export function useBoardData(
     index,
     seasons,
     activeSeason,
+    focusedEpisodeId:
+      focusedEpisode !== null &&
+      activeSeason !== null &&
+      focusedEpisode.seasonId === activeSeason.id
+        ? focusedEpisode.id
+        : null,
     episodes,
     storylines,
     cards,
+    targetPages,
+    people,
     canEdit,
     accessReady: serverAccess !== "pending",
     accessRemoved: accessDenied,

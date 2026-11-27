@@ -75,6 +75,8 @@ export const DRAFTS_WORDS = Object.freeze({
   watermark: "Watermark",
   watermarkLine:
     "Each reader's name on every page, on screen and in their PDF.",
+  watermarkLockedLine:
+    "Required by a selected group. Each reader's name appears on every page.",
 
   addPlaceholder: "Add a person or group",
   anyoneWithThisLink: "Anyone with this link",

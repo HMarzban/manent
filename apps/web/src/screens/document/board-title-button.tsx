@@ -42,7 +42,9 @@ export function BoardTitleButton(props: { readonly docId: string }): ReactNode {
             data-tour="title:board"
             className="h-control cursor-pointer gap-1.5 px-2 text-ui font-medium text-fg-muted hover:bg-subtle hover:text-fg @max-2xl:w-control @max-2xl:px-0"
             onClick={() =>
-              void router.navigate({ href: `/p/${projectId}/board` })
+              void router.navigate({
+                href: `/p/${projectId}/board?ep=${encodeURIComponent(docId)}`,
+              })
             }
           />
         }

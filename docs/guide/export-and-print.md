@@ -21,6 +21,8 @@ If the script holds a character that the script font cannot draw, the **Checks**
 
 Choose **Print…** from **Title ▾** or press Ctrl+P (⌘P). The Print screen says how many pages will print. Manent prepares the pages ("Preparing 12 pages…") and then opens the browser's print dialog.
 
+On the **Series Board**, click **Print board**, choose **Print board** from the command palette, or press Ctrl+P (⌘P) to print a landscape archival wall-board sheet with the season masthead and unclipped beat cards.
+
 ## Import a script
 
 Choose **Import…** in the Library or from the command palette, or drop a file anywhere on the window. Manent opens `.fdx`, `.fountain`, text-based `.pdf`, Word (`.docx`) and plain-text files of up to 32 MB offline, each as a new script in the workspace you are in, and says what came in: "Imported '<title>': 12 pages, 30 scenes, 4 notes."

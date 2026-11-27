@@ -1,13 +1,13 @@
-// Lists side by side whose items a person drags within a list and from one list to another; commands move an item
-// through its handle.
+// Lists side by side (or in a 2D grid) whose items a person drags within a list and from one list to another; commands
+// move an item through its handle.
 import { useDroppable } from "@dnd-kit/react";
-import { useImperativeHandle, useState } from "react";
-import type { ReactNode, Ref } from "react";
+import { Fragment, useImperativeHandle, useState } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from "react";
 import { SORTABLE_WORDS } from "../../words/sortable.ts";
 import { useFollowFocus } from "./follow-focus.ts";
 import { placeOf } from "./landing.ts";
 import type { EntryList } from "./landing.ts";
-import { SortableArea } from "./sortable-area.tsx";
+import { SortableArea, useDropMark } from "./sortable-area.tsx";
 import { DropIndicator, SortableItem } from "./sortable-item.tsx";
 
 // below an item's priority, so the pointer over an item lands by that item and only the list's free space lands last
@@ -19,28 +19,41 @@ export interface SortableListsHandle {
   move(itemId: string, toListId: string, toIndex: number): void;
 }
 
+export type SortableCellProps = HTMLAttributes<HTMLDivElement> &
+  Partial<Record<`data-${string}`, string | undefined>>;
+
 interface ItemListProps {
   list: EntryList;
+  index: number;
   renderItem(id: string): ReactNode;
+  listClassName?: string;
+  renderFooter?: (list: EntryList, index: number) => ReactNode;
+  getCellProps?: (list: EntryList, index: number) => SortableCellProps;
 }
 
-function ItemList({ list, renderItem }: ItemListProps): ReactNode {
+function ItemList({
+  list,
+  index,
+  renderItem,
+  listClassName,
+  renderFooter,
+  getCellProps,
+}: ItemListProps): ReactNode {
   const { ref } = useDroppable({
     id: list.id,
     collisionPriority: LIST_COLLISION_PRIORITY,
   });
-  return (
-    <div
-      ref={ref}
-      role="list"
-      aria-label={list.label}
-      className="relative flex min-h-row min-w-0 flex-1 flex-col"
-    >
-      {list.items.map((entry, index) => (
+  const mark = useDropMark();
+  const activeTarget =
+    mark !== null &&
+    (mark.id === list.id || list.items.some((entry) => entry.id === mark.id));
+  const items = (
+    <>
+      {list.items.map((entry, itemIndex) => (
         <div key={entry.id} role="listitem">
           <SortableItem
             id={entry.id}
-            index={index}
+            index={itemIndex}
             group={list.id}
             orientation="vertical"
           >
@@ -49,6 +62,38 @@ function ItemList({ list, renderItem }: ItemListProps): ReactNode {
         </div>
       ))}
       <DropIndicator id={list.id} layout="list" />
+    </>
+  );
+  if (renderFooter === undefined && getCellProps === undefined) {
+    return (
+      <div
+        ref={ref}
+        role="list"
+        aria-label={list.label}
+        data-drop-target={activeTarget ? "active" : undefined}
+        className={
+          listClassName ?? "relative flex min-h-row min-w-0 flex-1 flex-col"
+        }
+      >
+        {items}
+      </div>
+    );
+  }
+  const cellProps = getCellProps?.(list, index);
+  return (
+    <div
+      ref={ref}
+      {...cellProps}
+      data-drop-target={activeTarget ? "active" : undefined}
+    >
+      <div
+        role="list"
+        aria-label={list.label}
+        className={listClassName ?? "relative flex min-w-0 flex-col gap-2"}
+      >
+        {items}
+      </div>
+      {renderFooter?.(list, index)}
     </div>
   );
 }
@@ -59,6 +104,16 @@ interface SortableListsProps {
   onMove(itemId: string, toListId: string, toIndex: number): void;
   renderItem(id: string): ReactNode;
   label?: string;
+  instructions?: string;
+  areaClassName?: string;
+  areaStyle?: CSSProperties;
+  areaDataRing?: string;
+  listClassName?: string;
+  beforeLists?: ReactNode;
+  afterLists?: ReactNode;
+  renderBeforeList?: (list: EntryList, index: number) => ReactNode;
+  renderListFooter?: (list: EntryList, index: number) => ReactNode;
+  getCellProps?: (list: EntryList, index: number) => SortableCellProps;
   ref?: Ref<SortableListsHandle>;
 }
 
@@ -68,6 +123,16 @@ export function SortableLists({
   onMove,
   renderItem,
   label,
+  instructions,
+  areaClassName,
+  areaStyle,
+  areaDataRing,
+  listClassName,
+  beforeLists,
+  afterLists,
+  renderBeforeList,
+  renderListFooter,
+  getCellProps,
   ref,
 }: SortableListsProps): ReactNode {
   const focus = useFollowFocus(lists);
@@ -96,7 +161,16 @@ export function SortableLists({
             from.listId === toListId
               ? target.items.length
               : target.items.length + 1;
-          setSaid(SORTABLE_WORDS.moved(item.label, clamped + 1, count));
+          setSaid(
+            from.listId !== toListId && target.label !== undefined
+              ? SORTABLE_WORDS.movedToList(
+                  item.label,
+                  clamped + 1,
+                  count,
+                  target.label,
+                )
+              : SORTABLE_WORDS.moved(item.label, clamped + 1, count),
+          );
         }
         focus.follow(itemId);
         onMove(itemId, toListId, clamped);
@@ -105,19 +179,36 @@ export function SortableLists({
     [lists, onMove, focus],
   );
   return (
-    <SortableArea
-      lists={lists}
-      area={focus.area}
-      label={label}
-      className="flex gap-3"
-      onDrop={(itemId, _from, to) => onMove(itemId, to.listId, to.index)}
-    >
-      {lists.map((list) => (
-        <ItemList key={list.id} list={list} renderItem={renderItem} />
-      ))}
+    <>
+      <SortableArea
+        lists={lists}
+        area={focus.area}
+        label={label}
+        instructions={instructions}
+        className={areaClassName ?? "flex gap-3"}
+        style={areaStyle}
+        dataRing={areaDataRing}
+        onDrop={(itemId, _from, to) => onMove(itemId, to.listId, to.index)}
+      >
+        {beforeLists}
+        {lists.map((list, index) => (
+          <Fragment key={list.id}>
+            {renderBeforeList?.(list, index)}
+            <ItemList
+              list={list}
+              index={index}
+              renderItem={renderItem}
+              listClassName={listClassName}
+              renderFooter={renderListFooter}
+              getCellProps={getCellProps}
+            />
+          </Fragment>
+        ))}
+        {afterLists}
+      </SortableArea>
       <div role="status" className="sr-only">
         {said}
       </div>
-    </SortableArea>
+    </>
   );
 }

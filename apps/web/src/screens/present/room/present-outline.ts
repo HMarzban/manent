@@ -68,7 +68,8 @@ function findActiveHeading(
     const element = region.querySelector(
       `[data-id="${escapeSelector(row.blockId)}"]`,
     );
-    if (element !== null) headings.push({ blockId: row.blockId, element });
+    if (element !== null && !element.classList.contains("el-hidden"))
+      headings.push({ blockId: row.blockId, element });
   }
   if (headings.length === 0) return null;
   if (headings[0]!.element.getBoundingClientRect().top > cutoff) return null;

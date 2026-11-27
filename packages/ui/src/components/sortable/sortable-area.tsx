@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import type {
+  CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   RefObject,
@@ -59,9 +60,11 @@ const idOf = (entity: { id: string | number } | null): string | null =>
   entity === null ? null : String(entity.id);
 
 // every sentence a person hears is the component's: the library's own are replaced
-const accessibilityFor = (announcer: Announcer) =>
+const accessibilityFor = (announcer: Announcer, instructions?: string) =>
   Accessibility.configure({
-    screenReaderInstructions: { draggable: SORTABLE_WORDS.instructions },
+    screenReaderInstructions: {
+      draggable: instructions ?? SORTABLE_WORDS.instructions,
+    },
     announcements: {
       dragstart: ({ operation }: DragStartEvent) =>
         announcer.start(idOf(operation.source)) ?? undefined,
@@ -109,6 +112,9 @@ interface SortableAreaProps {
   /** The element around the lists, for a list that brings a moved item into view. */
   area?: RefObject<HTMLDivElement | null>;
   className?: string;
+  style?: CSSProperties;
+  dataRing?: string;
+  instructions?: string;
   label?: string;
   children: ReactNode;
 }
@@ -118,6 +124,9 @@ export function SortableArea({
   onDrop,
   area,
   className,
+  style,
+  dataRing,
+  instructions,
   label,
   children,
 }: SortableAreaProps): ReactNode {
@@ -126,7 +135,10 @@ export function SortableArea({
     latest.current = lists;
   }, [lists]);
   const [accessibility] = useState(() =>
-    accessibilityFor(createAnnouncer({ lists: () => latest.current })),
+    accessibilityFor(
+      createAnnouncer({ lists: () => latest.current }),
+      instructions,
+    ),
   );
   const [dragging, setDragging] = useState<Dragging | null>(null);
   const [mark, setMark] = useState<DropMark | null>(null);
@@ -172,6 +184,8 @@ export function SortableArea({
           ref={area}
           aria-label={label}
           data-dragging={dragging ?? undefined}
+          data-ring={dataRing}
+          style={style}
           className={className}
           onKeyDownCapture={onKeyDownCapture}
         >

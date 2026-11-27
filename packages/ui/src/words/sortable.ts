@@ -11,8 +11,22 @@ export const SORTABLE_WORDS = {
     `Picked up ${label}, at position ${formatPosition(position, count)}.`,
   moved: (label: string, position: number, count: number): string =>
     `Moved ${label} to position ${formatPosition(position, count)}.`,
+  movedToList: (
+    label: string,
+    position: number,
+    count: number,
+    listLabel: string,
+  ): string =>
+    `Moved ${label} to position ${formatPosition(position, count)} in ${listLabel}.`,
   dropped: (label: string, position: number, count: number): string =>
     `Dropped ${label} at position ${formatPosition(position, count)}.`,
+  droppedInList: (
+    label: string,
+    position: number,
+    count: number,
+    listLabel: string,
+  ): string =>
+    `Dropped ${label} at position ${formatPosition(position, count)} in ${listLabel}.`,
   cancelled: (label: string, position: number, count: number): string =>
     `Put ${label} back at position ${formatPosition(position, count)}.`,
 } as const;

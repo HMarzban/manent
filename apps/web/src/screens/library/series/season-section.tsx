@@ -1,12 +1,12 @@
-// One season of a series: its heading with Board, New episode and New season, and either its episode table or its empty state.
+// One season of a series: collapsible heading, summary strip, filter bar and episode table.
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
-import { Button, SERIES_WORDS, VirtualRows, cn } from "@manent/ui";
-import { useNavigate } from "@tanstack/react-router";
-import { FilmIcon, PlusIcon } from "lucide-react";
+import { Button, SERIES_WORDS, VirtualRows } from "@manent/ui";
+import { FilmIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../../../empty-hero-card.tsx";
 import type { RowPlace } from "../../../services/ports.ts";
-import { DOCUMENT_ROW_LINES } from "../document-row-lines.ts";
+import { fullNameOf } from "../../../services/sync/index-entries.ts";
 import {
   COL_DUE,
   COL_EDITED,
@@ -16,12 +16,16 @@ import {
   COL_STAGE,
   COL_TITLE,
   COL_WRITER,
-  SERIES_PLACE_COLUMN,
+  resolvedEpisodeStage,
 } from "./episode-cells.tsx";
 import { EpisodeRow } from "./episode-row.tsx";
+import { SeasonHeaderBar } from "./season-header.tsx";
+import { SeasonToolbar } from "./season-toolbar.tsx";
+import { computeSeasonStats, episodeNeedsAttention } from "./series-facts.ts";
 import type { EpisodeLastEdited, SeriesPerson } from "./series-facts.ts";
 
 const VIRTUAL_LIMIT = 100;
+const FILTER_BAR_MIN_EPISODES = 6;
 
 export function seasonHeadingText(
   projectTitle: string,
@@ -33,22 +37,28 @@ export function seasonHeadingText(
 }
 
 export function SeasonSection(props: {
-  projectId: string;
-  projectTitle: string;
-  season: SeasonEntry;
-  episodes: readonly EpisodeEntry[];
-  targetPages: number | null;
-  canEdit: boolean;
-  creating: boolean;
-  people: readonly SeriesPerson[];
-  lastEditedByDoc: ReadonlyMap<string, EpisodeLastEdited>;
-  placeByDoc: ReadonlyMap<string, RowPlace>;
-  shell: "web" | "desktop";
-  now: number;
+  readonly projectId: string;
+  readonly projectTitle: string;
+  readonly season: SeasonEntry;
+  readonly episodes: readonly EpisodeEntry[];
+  readonly targetPages: number | null;
+  readonly ladder?: readonly string[];
+  readonly boardCardCount?: number;
+  readonly collapsible?: boolean;
+  readonly defaultCollapsed?: boolean;
+  readonly hideNewSeasonButton?: boolean;
+  readonly canEdit: boolean;
+  readonly creating: boolean;
+  readonly people: readonly SeriesPerson[];
+  readonly lastEditedByDoc: ReadonlyMap<string, EpisodeLastEdited>;
+  readonly placeByDoc: ReadonlyMap<string, RowPlace>;
+  readonly shell: "web" | "desktop";
+  readonly now: number;
   open(docId: string): void;
   onSaveEpisode(next: EpisodeEntry, renamedTitle?: string | null): void;
+  onRenameSeason?(season: SeasonEntry, title: string | null): void;
   onNewEpisode(season: SeasonEntry): void;
-  onNewSeason(): void;
+  onNewSeason?(): void;
 }): ReactNode {
   const {
     projectId,
@@ -56,6 +66,11 @@ export function SeasonSection(props: {
     season,
     episodes,
     targetPages,
+    ladder = [],
+    boardCardCount = 0,
+    collapsible = false,
+    defaultCollapsed = false,
+    hideNewSeasonButton = false,
     canEdit,
     creating,
     people,
@@ -65,19 +80,97 @@ export function SeasonSection(props: {
     now,
     open,
     onSaveEpisode,
+    onRenameSeason,
     onNewEpisode,
     onNewSeason,
   } = props;
-  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [query, setQuery] = useState("");
+  const [selectedWriterId, setSelectedWriterId] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [attentionOnly, setAttentionOnly] = useState(false);
+
   const heading = seasonHeadingText(projectTitle, season);
+  const stats = useMemo(
+    () => computeSeasonStats(episodes, targetPages, boardCardCount, now),
+    [episodes, targetPages, boardCardCount, now],
+  );
+
+  const filterWriters = useMemo(() => {
+    const ids = new Set<string>();
+    for (const ep of episodes) {
+      if (ep.writerUserId !== null) ids.add(ep.writerUserId);
+    }
+    return [...ids].map((userId) => ({
+      userId,
+      name: people.find((p) => p.userId === userId)?.name ?? fullNameOf(userId),
+    }));
+  }, [episodes, people]);
+
+  const filterStages = useMemo(() => {
+    const stages = new Set<string>();
+    for (const ep of episodes) {
+      const stage = resolvedEpisodeStage(ep);
+      if (stage !== null) stages.add(stage);
+    }
+    return [...stages];
+  }, [episodes]);
+
+  const attentionCount = useMemo(
+    () =>
+      episodes.filter((ep) => episodeNeedsAttention(ep, targetPages, now))
+        .length,
+    [episodes, targetPages, now],
+  );
+
+  const hasActiveFilter =
+    query.trim() !== "" ||
+    selectedWriterId !== null ||
+    selectedStage !== null ||
+    attentionOnly;
+
+  const visibleEpisodes = useMemo(() => {
+    if (!hasActiveFilter) return episodes;
+    const needle = query.trim().toLowerCase();
+    return episodes.filter((ep) => {
+      if (selectedWriterId !== null && ep.writerUserId !== selectedWriterId)
+        return false;
+      if (selectedStage !== null && resolvedEpisodeStage(ep) !== selectedStage)
+        return false;
+      if (attentionOnly && !episodeNeedsAttention(ep, targetPages, now))
+        return false;
+      if (needle === "") return true;
+      const title = (ep.title ?? SERIES_WORDS.untitledEpisode).toLowerCase();
+      return title.includes(needle) || String(ep.number).includes(needle);
+    });
+  }, [
+    episodes,
+    hasActiveFilter,
+    query,
+    selectedWriterId,
+    selectedStage,
+    attentionOnly,
+    targetPages,
+    now,
+  ]);
+
+  const clearFilters = (): void => {
+    setQuery("");
+    setSelectedWriterId(null);
+    setSelectedStage(null);
+    setAttentionOnly(false);
+  };
+
   const renderRow = (index: number): ReactNode => {
-    const episode = episodes[index];
+    const episode = visibleEpisodes[index];
     if (episode === undefined) return null;
     const targetDocId = episode.docIds.script ?? episode.docIds.outline;
     return (
       <EpisodeRow
+        projectId={projectId}
         episode={episode}
         targetPages={targetPages}
+        ladder={ladder}
         canEdit={canEdit}
         people={people}
         lastEdited={
@@ -93,45 +186,32 @@ export function SeasonSection(props: {
       />
     );
   };
+
   return (
-    <section aria-label={heading} className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="min-w-44 basis-full truncate text-title @md:basis-auto @md:flex-1">
-          {heading}
-        </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            void navigate({
-              href: `/p/${projectId}/board?season=${encodeURIComponent(season.id)}`,
-            })
-          }
-        >
-          {SERIES_WORDS.stages.board}
-        </Button>
-        {episodes.length > 0 ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canEdit || creating}
-            onClick={() => onNewEpisode(season)}
-          >
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            {SERIES_WORDS.newEpisode}
-          </Button>
-        ) : null}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!canEdit || creating}
-          onClick={onNewSeason}
-        >
-          <PlusIcon aria-hidden="true" data-icon="inline-start" />
-          {SERIES_WORDS.newSeason}
-        </Button>
-      </div>
-      {episodes.length === 0 ? (
+    <section
+      id={`season-${season.id}`}
+      aria-label={heading}
+      className="flex flex-col gap-2"
+    >
+      <SeasonHeaderBar
+        projectId={projectId}
+        season={season}
+        heading={heading}
+        episodeCount={episodes.length}
+        targetPages={targetPages}
+        stats={stats}
+        collapsible={collapsible}
+        collapsed={collapsed}
+        hideNewSeasonButton={hideNewSeasonButton}
+        canEdit={canEdit}
+        creating={creating}
+        onToggleCollapse={() => setCollapsed((v) => !v)}
+        onRenameSeason={onRenameSeason}
+        onNewEpisode={onNewEpisode}
+        onNewSeason={onNewSeason}
+      />
+
+      {collapsed ? null : episodes.length === 0 ? (
         <EmptyHeroCard
           compact
           icon={<FilmIcon aria-hidden="true" className="size-5" />}
@@ -149,33 +229,70 @@ export function SeasonSection(props: {
           }
         />
       ) : (
-        <div
-          data-tour="episode_table"
-          className={cn("mn-table flex flex-col", SERIES_PLACE_COLUMN)}
-        >
-          <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
-            <span className={COL_EP}>{SERIES_WORDS.columns.ep}</span>
-            <span className={COL_TITLE}>{SERIES_WORDS.columns.title}</span>
-            <span className={COL_WRITER}>{SERIES_WORDS.columns.writer}</span>
-            <span className={COL_STAGE}>{SERIES_WORDS.columns.stage}</span>
-            <span className={COL_DUE}>{SERIES_WORDS.columns.due}</span>
-            <span className={COL_PAGES}>{SERIES_WORDS.columns.pages}</span>
-            <span className={COL_EDITED}>
-              {SERIES_WORDS.columns.lastEdited}
-            </span>
-            <span aria-hidden="true" className={COL_PLACE} />
-          </div>
-          <div
-            className={episodes.length > VIRTUAL_LIMIT ? "h-96" : "shrink-0"}
-          >
-            <VirtualRows
-              count={episodes.length}
-              rowHeight={DOCUMENT_ROW_LINES.length > 0 ? "two" : "one"}
-              label={heading}
-              renderRow={renderRow}
+        <>
+          {episodes.length >= FILTER_BAR_MIN_EPISODES || hasActiveFilter ? (
+            <SeasonToolbar
+              query={query}
+              writers={filterWriters}
+              selectedWriterId={selectedWriterId}
+              stages={filterStages}
+              selectedStage={selectedStage}
+              attentionOnly={attentionOnly}
+              attentionCount={attentionCount}
+              shownCount={visibleEpisodes.length}
+              totalCount={episodes.length}
+              hasActiveFilter={hasActiveFilter}
+              onQueryChange={setQuery}
+              onSelectWriter={setSelectedWriterId}
+              onSelectStage={setSelectedStage}
+              onToggleAttention={() => setAttentionOnly((v) => !v)}
+              onClearFilters={clearFilters}
             />
-          </div>
-        </div>
+          ) : null}
+
+          {visibleEpisodes.length === 0 ? (
+            <EmptyHeroCard
+              compact
+              icon={<SearchIcon aria-hidden="true" className="size-5" />}
+              description={SERIES_WORDS.noFilterMatches}
+              actions={
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  {SERIES_WORDS.clearFilters}
+                </Button>
+              }
+            />
+          ) : (
+            <div data-tour="episode_table" className="mn-table flex flex-col">
+              <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
+                <span className={COL_EP}>{SERIES_WORDS.columns.ep}</span>
+                <span className={COL_TITLE}>{SERIES_WORDS.columns.title}</span>
+                <span className={COL_WRITER}>
+                  {SERIES_WORDS.columns.writer}
+                </span>
+                <span className={COL_STAGE}>{SERIES_WORDS.columns.stage}</span>
+                <span className={COL_DUE}>{SERIES_WORDS.columns.due}</span>
+                <span className={COL_PAGES}>{SERIES_WORDS.columns.pages}</span>
+                <span className={COL_EDITED}>
+                  {SERIES_WORDS.columns.lastEdited}
+                </span>
+                <span aria-hidden="true" className="w-6 shrink-0" />
+                <span aria-hidden="true" className={COL_PLACE} />
+              </div>
+              <div
+                className={
+                  visibleEpisodes.length > VIRTUAL_LIMIT ? "h-96" : "shrink-0"
+                }
+              >
+                <VirtualRows
+                  count={visibleEpisodes.length}
+                  rowHeight="two"
+                  label={heading}
+                  renderRow={renderRow}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

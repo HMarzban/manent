@@ -14,13 +14,11 @@ import {
   PROMPTER_CONTROL_WORDS,
   PROMPTER_WINDOW_WORDS,
   Segmented,
-  Skeleton,
   Switch,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  formatClockTime,
 } from "@manent/ui";
 import {
   ArrowLeftIcon,
@@ -28,23 +26,19 @@ import {
   PauseIcon,
   PlayIcon,
   PlusIcon,
-  TriangleExclamationPointIcon,
 } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import type { PrompterFollowMode } from "../../../prompter/remote-scroll.ts";
+import { PrompterFeedStatus } from "./prompter-feed-status.tsx";
+import type { PrompterBarStatus } from "./prompter-feed-status.tsx";
 import { PROMPTER_TEXT_SIZES } from "./prompter-storage.ts";
 import type {
   PrompterTextSize,
   PrompterViewState,
 } from "./prompter-storage.ts";
 
-export type PrompterBarStatus =
-  | { readonly kind: "loading" }
-  | { readonly kind: "live" }
-  | { readonly kind: "nothing_sent" }
-  | { readonly kind: "lost"; readonly lastReceivedAt: number | null }
-  | { readonly kind: "refused" };
+export type { PrompterBarStatus };
 
 interface PrompterBarProps {
   readonly status: PrompterBarStatus;
@@ -69,80 +63,6 @@ const FOLLOW_OPTIONS = Object.freeze([
   { value: "follow" as const, label: PROMPTER_CONTROL_WORDS.follow },
   { value: "free" as const, label: PROMPTER_CONTROL_WORDS.freeScroll },
 ]);
-
-function FeedStatus(props: {
-  readonly status: PrompterBarStatus;
-  readonly remotePausedOnLoss: boolean;
-}): ReactNode {
-  const { status, remotePausedOnLoss } = props;
-  switch (status.kind) {
-    case "loading":
-      return (
-        <span aria-busy="true" className="flex items-center gap-2">
-          <Skeleton
-            aria-hidden="true"
-            className="size-2 shrink-0 rounded-full"
-          />
-          <Skeleton aria-hidden="true" className="h-4 w-24" />
-        </span>
-      );
-    case "live":
-      return (
-        <>
-          <span
-            aria-hidden="true"
-            className="size-2 shrink-0 rounded-full bg-ok"
-          />
-          <span className="font-medium text-fg">
-            {PROMPTER_WINDOW_WORDS.live}
-          </span>
-        </>
-      );
-    case "nothing_sent":
-      return (
-        <span className="text-fg-muted">
-          {PROMPTER_WINDOW_WORDS.nothingSent}
-        </span>
-      );
-    case "lost":
-      return (
-        <>
-          <TriangleExclamationPointIcon
-            aria-hidden="true"
-            className="size-icon shrink-0 text-attention"
-          />
-          <span className="font-medium text-attention tabular-nums">
-            {remotePausedOnLoss
-              ? status.lastReceivedAt === null
-                ? PROMPTER_CONTROL_WORDS.offlinePaused
-                : PROMPTER_CONTROL_WORDS.feedLostPaused(
-                    formatClockTime(status.lastReceivedAt),
-                  )
-              : status.lastReceivedAt === null
-                ? PROMPTER_WINDOW_WORDS.feedLostNothing
-                : PROMPTER_WINDOW_WORDS.feedLost(
-                    formatClockTime(status.lastReceivedAt),
-                  )}
-          </span>
-        </>
-      );
-    case "refused":
-      return (
-        <>
-          <TriangleExclamationPointIcon
-            aria-hidden="true"
-            className="size-icon shrink-0 text-attention"
-          />
-          <span className="font-medium text-attention">
-            {PROMPTER_WINDOW_WORDS.linkRefused}
-          </span>
-        </>
-      );
-    default:
-      status satisfies never;
-      return null;
-  }
-}
 
 function StepButton(props: {
   readonly label: string;
@@ -241,11 +161,16 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
   const remotePausedOnLoss = status.kind === "lost" && scroll?.playing === true;
   const speed = scroll?.linesPerSecond ?? PROMPTER_DEFAULT_SPEED_LPS;
   const playing = scroll?.playing === true && status.kind === "live";
+  const showRemotePill =
+    operator !== null &&
+    onTogglePlay === undefined &&
+    scroll !== null &&
+    status.kind === "live";
 
   return (
     <header
       aria-label={PROMPTER_WINDOW_WORDS.barLabel}
-      className="flex min-h-titlebar shrink-0 items-center justify-between gap-2 border-b border-line bg-chrome px-2 py-1 text-ui sm:gap-4 sm:px-4"
+      className="flex min-h-titlebar shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-chrome px-2 py-1 text-ui sm:gap-4 sm:px-4"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {onBack !== undefined ? (
@@ -265,7 +190,10 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
           data-tour="prompter:feed"
           className="flex min-w-0 items-center gap-2 text-ui"
         >
-          <FeedStatus status={status} remotePausedOnLoss={remotePausedOnLoss} />
+          <PrompterFeedStatus
+            status={status}
+            remotePausedOnLoss={remotePausedOnLoss}
+          />
         </div>
         <span
           role="status"
@@ -278,6 +206,21 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
             ? PROMPTER_CONTROL_WORDS.controlsPrompter(operator.name)
             : null}
         </span>
+        {showRemotePill ? (
+          <span className="inline-flex items-center gap-1.5 rounded-control border border-line bg-raised px-2 py-0.5 text-meta font-medium text-fg tabular-nums">
+            <span
+              aria-hidden="true"
+              className={
+                playing
+                  ? "size-1.5 shrink-0 rounded-full bg-ok"
+                  : "size-1.5 shrink-0 rounded-full bg-fg-muted"
+              }
+            />
+            {playing
+              ? PROMPTER_CONTROL_WORDS.playingAt(speed)
+              : PROMPTER_CONTROL_WORDS.paused}
+          </span>
+        ) : null}
         {onFollowModeChange !== undefined ? (
           <div data-tour="prompter:follow_switch">
             <Segmented
@@ -339,7 +282,7 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
           </div>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-1 sm:gap-2">
           <span className="hidden text-meta text-fg-muted sm:inline">
             {PROMPTER_WINDOW_WORDS.textSize}

@@ -370,7 +370,9 @@ export function AsRowContent(props: {
           </label>
         </div>
         <p id={watermarkDescId} className="text-meta text-fg-muted">
-          {DRAFTS_WORDS.watermarkLine}
+          {watermarkLocked
+            ? DRAFTS_WORDS.watermarkLockedLine
+            : DRAFTS_WORDS.watermarkLine}
         </p>
       </div>
     </div>

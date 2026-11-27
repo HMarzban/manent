@@ -1,29 +1,46 @@
-// Column widths and read-only episode cells: Stage (with revision chip when matching), Pages (with ▲N over target) and Last edited.
+// Column widths and episode cells: interactive Stage picker (with revision chip & attention open count), Pages (with target bar & ▲N) and Last edited.
 import type { EpisodeEntry } from "@manent/crdt";
 import { COLOUR_NAMES, REVISION_COLOURS } from "@manent/revisions";
 import type { RevisionColour } from "@manent/revisions";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   LIBRARY_WORDS,
   SERIES_WORDS,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
   formatCount,
   formatWhen,
 } from "@manent/ui";
+import { CheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { EpisodeLastEdited } from "./series-facts.ts";
 
 export const COL_EP = "w-11 shrink-0 tabular-nums";
 export const COL_TITLE = "min-w-0 flex-1";
-export const COL_WRITER = "hidden w-24 shrink-0 @2xl:flex";
-export const COL_STAGE = "hidden w-28 shrink-0 @xl:flex";
-export const COL_DUE = "hidden w-16 shrink-0 tabular-nums @2xl:flex";
-export const COL_PAGES = "hidden w-20 shrink-0 pe-3 mn-num @lg:flex";
-export const COL_EDITED = "hidden w-40 shrink-0 @2xl:flex";
+export const COL_WRITER = "hidden w-32 shrink-0 @2xl:flex";
+export const COL_STAGE = "hidden w-32 shrink-0 @xl:flex";
+export const COL_DUE = "hidden w-20 shrink-0 tabular-nums @2xl:flex";
+export const COL_PAGES = "hidden w-20 shrink-0 pe-2 mn-num @lg:flex";
+export const COL_EDITED = "hidden w-36 shrink-0 @2xl:flex";
 export const COL_PLACE = "w-28 shrink-0";
-export const SERIES_PLACE_COLUMN =
-  "[&_.mn-row>span:last-child]:w-28 [&_.mn-row>span:last-child]:shrink-0";
+export const SERIES_PLACE_COLUMN = "";
 
-function revisionColourFor(stage: string): RevisionColour | null {
+const DEFAULT_STAGES: readonly string[] = [
+  SERIES_WORDS.stages.outline,
+  SERIES_WORDS.stages.board,
+  SERIES_WORDS.stages.writersFirst,
+  SERIES_WORDS.stages.studio,
+  SERIES_WORDS.stages.network,
+  SERIES_WORDS.stages.white,
+];
+
+export function revisionColourFor(stage: string): RevisionColour | null {
   const lower = stage.toLowerCase();
   return (
     REVISION_COLOURS.find(
@@ -37,32 +54,124 @@ export function episodeDisplayTitle(episode: EpisodeEntry): string {
   return `${episode.number} ${title}`;
 }
 
-export function StageCell(props: { episode: EpisodeEntry }): ReactNode {
-  const { episode } = props;
-  const { stage, openCount, docIds } = episode;
-  const fallbackStage =
-    docIds.script === null && docIds.outline !== null
+export function resolvedEpisodeStage(episode: EpisodeEntry): string | null {
+  const fallback =
+    episode.docIds.script === null && episode.docIds.outline !== null
       ? SERIES_WORDS.stages.outline
       : null;
-  const baseStage = stage ?? fallbackStage;
+  return episode.stage ?? fallback;
+}
+
+export function StageCell(props: {
+  readonly episode: EpisodeEntry;
+  readonly canEdit?: boolean;
+  readonly ladder?: readonly string[];
+  onSave?(next: EpisodeEntry): void;
+}): ReactNode {
+  const { episode, canEdit = false, ladder = [], onSave } = props;
+  const { openCount } = episode;
+  const baseStage = resolvedEpisodeStage(episode);
   const revColour = baseStage === null ? null : revisionColourFor(baseStage);
+  const hasOpen = openCount !== null && openCount.open > 0;
   let text: string = SERIES_WORDS.blank;
-  if (openCount !== null && openCount.open > 0) {
+  if (hasOpen) {
     text = SERIES_WORDS.draftOpen(baseStage ?? openCount.round, openCount.open);
   } else if (baseStage !== null) {
     text = baseStage;
   }
-  return (
-    <span
-      className={cn(
-        COL_STAGE,
-        "items-center gap-1.5 truncate text-meta text-fg-muted",
-      )}
-    >
+
+  const content = (
+    <>
       {revColour === null ? null : (
-        <span data-rev={revColour} aria-hidden="true" className="mn-rev-chip" />
+        <span
+          data-rev={revColour}
+          aria-hidden="true"
+          className="mn-rev-chip shrink-0"
+        />
       )}
-      <span className="truncate">{text}</span>
+      <span className={cn("truncate", hasOpen ? "text-attention" : undefined)}>
+        {text}
+      </span>
+    </>
+  );
+
+  if (!canEdit || onSave === undefined) {
+    return (
+      <span
+        className={cn(
+          COL_STAGE,
+          "items-center gap-1.5 truncate text-meta text-fg-muted",
+        )}
+      >
+        {content}
+      </span>
+    );
+  }
+
+  const options = [
+    ...new Set([
+      SERIES_WORDS.stages.outline,
+      SERIES_WORDS.stages.board,
+      ...(ladder.length > 0 ? ladder : DEFAULT_STAGES),
+      ...(baseStage !== null ? [baseStage] : []),
+    ]),
+  ];
+  const label = SERIES_WORDS.cellLabel(
+    SERIES_WORDS.columns.stage,
+    episodeDisplayTitle(episode),
+  );
+
+  return (
+    <span className={cn(COL_STAGE, "items-center")}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label={label}
+              title={text}
+              className="-mx-1 inline-flex min-h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-control px-1 text-start text-meta text-fg-muted transition-colors duration-(--dur-fast) hover:bg-subtle hover:text-fg focus-visible:outline-2 focus-visible:outline-focus"
+            />
+          }
+        >
+          {content}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {options.map((stage) => {
+            const chip = revisionColourFor(stage);
+            return (
+              <DropdownMenuItem
+                key={stage}
+                onClick={() => onSave({ ...episode, stage })}
+              >
+                {chip !== null ? (
+                  <span
+                    data-rev={chip}
+                    aria-hidden="true"
+                    className="mn-rev-chip shrink-0"
+                  />
+                ) : null}
+                <span className="flex-1 truncate">{stage}</span>
+                {episode.stage === stage ? (
+                  <CheckIcon aria-hidden="true" className="text-fg-accent" />
+                ) : null}
+              </DropdownMenuItem>
+            );
+          })}
+          {episode.stage !== null ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onSave({ ...episode, stage: null })}
+              >
+                <span className="flex-1 truncate">
+                  {SERIES_WORDS.clearStage}
+                </span>
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </span>
   );
 }
@@ -83,15 +192,44 @@ export function PagesCell(props: {
     targetPages !== null && episode.pages > targetPages
       ? episode.pages - targetPages
       : 0;
-  return (
-    <span className={cn(COL_PAGES, "items-center gap-1 text-meta text-fg")}>
-      <span>{formatCount(episode.pages)}</span>
-      {over > 0 ? (
-        <span className="text-attention">
-          {SERIES_WORDS.changedCount(over)}
+  const ratio =
+    targetPages !== null && targetPages > 0
+      ? Math.min(1, episode.pages / targetPages)
+      : null;
+
+  const cell = (
+    <span className={cn(COL_PAGES, "flex-col justify-center gap-0.5")}>
+      <span className="flex items-center gap-1 text-meta text-fg">
+        <span>{formatCount(episode.pages)}</span>
+        {over > 0 ? (
+          <span className="text-attention">
+            {SERIES_WORDS.changedCount(over)}
+          </span>
+        ) : null}
+      </span>
+      {ratio !== null ? (
+        <span aria-hidden="true" className="mn-progress-track h-0.5 w-12">
+          <span
+            data-over={over > 0 ? "true" : undefined}
+            style={{ transform: `scaleX(${ratio})` }}
+            className={cn(
+              "mn-progress-fill",
+              over > 0 ? "bg-attention!" : undefined,
+            )}
+          />
         </span>
       ) : null}
     </span>
+  );
+
+  if (targetPages === null) return cell;
+  return (
+    <Tooltip>
+      <TooltipTrigger render={cell} />
+      <TooltipContent>
+        {SERIES_WORDS.pagesOfTarget(episode.pages, targetPages)}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

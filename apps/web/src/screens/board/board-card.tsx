@@ -1,41 +1,58 @@
-// One card on the Board: accessible name, in-place text edit, linked scene place, row menu and scene picker.
+// One card on the Board: lane rail, grip, sibling menu/edit actions, in-place text edit, linked scene preview and scene picker.
 import type { EpisodeEntry } from "@manent/crdt";
 import {
   BOARD_WORDS,
+  Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-  PLACE_WORDS,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Textarea,
 } from "@manent/ui";
-import { CheckIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  FileTextIcon,
+  FlagIcon,
+  GripVerticalIcon,
+  PencilIcon,
+  Unlink2Icon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from "react";
 import { requestEpisodeScenes } from "../../board/episode-scenes.ts";
-import type { EpisodeScene } from "../../board/episode-scenes.ts";
-import type { BoardCard, BoardStoryline } from "../../board/model.ts";
+import type { EpisodeScenesState } from "../../board/episode-scenes.ts";
+import type {
+  BoardCard,
+  BoardStoryline,
+  StorylineTone,
+} from "../../board/model.ts";
 import { useServices } from "../../services/context.tsx";
 import { RowMenu } from "../library/row-place.tsx";
 import { CardMenuItems } from "./board-card-menu.tsx";
+import { BoardScenePeek } from "./board-scene-peek.tsx";
+import type { BoardDensity } from "./board-view.ts";
+import { ScenePickerPopover } from "./scene-picker-popover.tsx";
 
 export interface BoardCardProps {
   readonly card: BoardCard;
   readonly storyline: BoardStoryline;
+  readonly lane: StorylineTone;
   readonly episode: EpisodeEntry;
   readonly storylines: readonly BoardStoryline[];
+  readonly laneByStoryline: ReadonlyMap<string, StorylineTone>;
   readonly episodes: readonly EpisodeEntry[];
-  readonly scenes: readonly EpisodeScene[];
+  readonly scenesState: EpisodeScenesState | undefined;
+  readonly density: BoardDensity;
   readonly selected: boolean;
   readonly canEdit: boolean;
   readonly linkingOpen: boolean;
+  readonly peekingOpen?: boolean;
   onLinkingOpenChange(open: boolean): void;
+  onPeekingOpenChange?(open: boolean): void;
   onSelect(): void;
   onOpen(): void;
   onEditText(text: string): void;
   onLinkScene(blockId: string | null): void;
+  onDuplicate?(): void;
+  onToggleFlag?(): void;
   onMoveToEpisode(episodeId: string): void;
   onMoveToStoryline(storylineId: string): void;
   onRemove(): void;
@@ -47,18 +64,25 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
   const {
     card,
     storyline,
+    lane,
     episode,
     storylines,
+    laneByStoryline,
     episodes,
-    scenes,
+    scenesState,
+    density,
     selected,
     canEdit,
     linkingOpen,
+    peekingOpen = false,
     onLinkingOpenChange,
+    onPeekingOpenChange,
     onSelect,
     onOpen,
     onEditText,
     onLinkScene,
+    onDuplicate,
+    onToggleFlag,
     onMoveToEpisode,
     onMoveToStoryline,
     onRemove,
@@ -66,33 +90,60 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
   const services = useServices();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const settledEditRef = useRef(false);
   const scriptId = episode.docIds.script;
   const needsScenes = linkingOpen || card.link !== null;
+
   useEffect(() => {
     if (needsScenes && scriptId !== null)
       requestEpisodeScenes(services, scriptId);
   }, [services, needsScenes, scriptId]);
 
+  const scenes = scenesState?.status === "ready" ? scenesState.scenes : [];
   const linkedScene =
     card.link === null
       ? null
       : (scenes.find((scene) => scene.blockId === card.link?.blockId) ?? null);
+  const linkMissing =
+    card.link !== null &&
+    scenesState?.status === "ready" &&
+    linkedScene === null;
+  const linkLoading =
+    card.link !== null &&
+    (scenesState === undefined || scenesState.status === "loading");
+
   const cardAriaLabel = BOARD_WORDS.cardLabel(
     card.text,
     episode.number,
     storyline.title,
   );
 
+  const restoreCardFocus = (): void => {
+    requestAnimationFrame(() => surfaceRef.current?.focus());
+  };
+
   const startEdit = (): void => {
     if (!canEdit) return;
+    settledEditRef.current = false;
     setDraft(card.text);
     setEditing(true);
   };
 
-  const commitEdit = (): void => {
+  const commitEdit = (restoreFocus: boolean): void => {
+    if (settledEditRef.current) return;
+    settledEditRef.current = true;
     setEditing(false);
     const trimmed = draft.trim();
     if (trimmed !== "" && trimmed !== card.text) onEditText(trimmed);
+    if (restoreFocus) restoreCardFocus();
+  };
+
+  const cancelEdit = (): void => {
+    if (settledEditRef.current) return;
+    settledEditRef.current = true;
+    setEditing(false);
+    restoreCardFocus();
   };
 
   const onEditKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -103,10 +154,10 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
       !event.nativeEvent.isComposing
     ) {
       event.preventDefault();
-      commitEdit();
+      commitEdit(true);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      setEditing(false);
+      cancelEdit();
     }
   };
 
@@ -127,8 +178,18 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
       card={card}
       episode={episode}
       storylines={storylines}
+      laneByStoryline={laneByStoryline}
       episodes={episodes}
-      scenes={scenes}
+      scenesState={scenesState}
+      onOpen={onOpen}
+      onStartEdit={startEdit}
+      onPreviewScene={
+        onPeekingOpenChange === undefined
+          ? undefined
+          : () => onPeekingOpenChange(true)
+      }
+      onDuplicate={onDuplicate}
+      onToggleFlag={onToggleFlag}
       onLinkScene={onLinkScene}
       onMoveToEpisode={onMoveToEpisode}
       onMoveToStoryline={onMoveToStoryline}
@@ -136,21 +197,38 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
     />
   );
 
+  const hasOutlineOnly = scriptId === null && episode.docIds.outline !== null;
+  const showFooter =
+    linkedScene !== null || linkLoading || linkMissing || hasOutlineOnly;
+  const isCompact = density === "compact";
+  const clampClass =
+    density === "compact"
+      ? " line-clamp-2"
+      : density === "fit"
+        ? " line-clamp-3"
+        : "";
+
   const surface = (
     <div
+      ref={surfaceRef}
       role="group"
       tabIndex={0}
       data-board-card={card.id}
+      data-lane={lane}
       aria-label={cardAriaLabel}
       aria-current={selected ? "true" : undefined}
       onFocus={onSelect}
       onClick={onSelect}
       onDoubleClick={canEdit ? startEdit : onOpen}
       onKeyDown={onCardKeyDown}
-      className="mn-card group/card flex cursor-pointer flex-col gap-1 p-2 text-start text-ui"
+      className="mn-card mn-board-card flex w-full cursor-pointer flex-col gap-1.5 text-start text-ui"
     >
       {editing && canEdit ? (
-        <div onClick={stopEvent} onKeyDown={stopEvent}>
+        <div
+          onClick={stopEvent}
+          onPointerDown={stopEvent}
+          onKeyDown={stopEvent}
+        >
           <Textarea
             autoFocus
             rows={2}
@@ -158,110 +236,144 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
             placeholder={BOARD_WORDS.cardPlaceholder}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitEdit}
+            onBlur={() => commitEdit(false)}
             onKeyDown={onEditKeyDown}
             className="min-h-0 resize-none p-2 text-ui"
           />
         </div>
       ) : (
-        <div className="flex items-start gap-1">
-          <span className="min-w-0 flex-1 break-words text-fg">
+        <div className="flex min-w-0 items-start gap-1.5">
+          {canEdit ? (
+            <GripVerticalIcon
+              aria-hidden="true"
+              className="mt-0.5 size-3.5 shrink-0 text-fg-muted opacity-40 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100 print:hidden"
+            />
+          ) : null}
+          <span
+            title={density !== "comfortable" ? card.text : undefined}
+            className={`mn-board-card-text min-w-0 flex-1 leading-snug break-words text-fg${clampClass}`}
+          >
             {card.text}
           </span>
-          {canEdit ? (
-            <span className="opacity-0 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-popup-open]]:opacity-100 [@media(hover:none)]:opacity-100">
-              <RowMenu title={card.text}>{menuItems}</RowMenu>
+          {card.flagged === true ? (
+            <span
+              role="img"
+              aria-label={BOARD_WORDS.flaggedBadge}
+              title={BOARD_WORDS.flaggedBadge}
+              className="mt-0.5 shrink-0 text-attention"
+            >
+              <FlagIcon aria-hidden="true" className="size-3.5" />
             </span>
           ) : null}
         </div>
       )}
-      {linkedScene !== null ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen();
-          }}
-          onKeyDown={stopEvent}
-          className="cursor-pointer self-start text-meta text-fg-accent tabular-nums hover:underline"
-        >
-          {BOARD_WORDS.linkedPlace(episode.number, linkedScene.number)}
-        </button>
+
+      {showFooter && !editing ? (
+        <div className="mt-auto flex min-w-0 items-center border-t border-line pt-1.5">
+          {linkedScene !== null ? (
+            <BoardScenePeek
+              open={peekingOpen}
+              episode={episode}
+              scene={linkedScene}
+              compact={isCompact}
+              onOpenChange={(next) => onPeekingOpenChange?.(next)}
+              onOpenScene={onOpen}
+              onRestoreFocus={restoreCardFocus}
+            />
+          ) : linkLoading ? (
+            <button
+              type="button"
+              onPointerDown={stopEvent}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+              onKeyDown={stopEvent}
+              className="mn-board-scene-pill cursor-pointer text-meta text-fg-muted tabular-nums"
+            >
+              <span>{BOARD_WORDS.openLinkedScene(episode.number)}</span>
+            </button>
+          ) : linkMissing ? (
+            <button
+              type="button"
+              onPointerDown={stopEvent}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (canEdit) onLinkingOpenChange(true);
+                else onOpen();
+              }}
+              onKeyDown={stopEvent}
+              className="-mx-1.5 inline-flex min-h-6 cursor-pointer items-center gap-1 rounded-control px-1.5 text-meta text-attention transition-colors duration-(--dur-fast) hover:bg-subtle"
+            >
+              <Unlink2Icon aria-hidden="true" className="size-3 shrink-0" />
+              <span className="truncate">{BOARD_WORDS.sceneMissing}</span>
+            </button>
+          ) : hasOutlineOnly ? (
+            <button
+              type="button"
+              onPointerDown={stopEvent}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+              onKeyDown={stopEvent}
+              className="-mx-1.5 inline-flex min-h-6 cursor-pointer items-center gap-1 rounded-control px-1.5 text-meta text-fg-muted transition-colors duration-(--dur-fast) hover:bg-subtle hover:text-fg"
+            >
+              <FileTextIcon aria-hidden="true" className="size-3 shrink-0" />
+              <span>{BOARD_WORDS.openOutline}</span>
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
 
-  const onScenePickerKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const items = [...event.currentTarget.querySelectorAll("button")];
-    if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      onLinkingOpenChange(false);
-      return;
-    }
-    if (items.length === 0) return;
-    const index = items.findIndex((item) => item === event.target);
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      items[(index + 1) % items.length]?.focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      items[index <= 0 ? items.length - 1 : index - 1]?.focus();
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      items[0]?.focus();
-    } else if (event.key === "End") {
-      event.preventDefault();
-      items.at(-1)?.focus();
-    }
-  };
-
-  const withScenePicker =
-    linkingOpen && canEdit && episode.docIds.script !== null ? (
-      <Popover
-        open
-        onOpenChange={(open) => {
-          if (!open) onLinkingOpenChange(false);
-        }}
-      >
-        <PopoverTrigger nativeButton={false} render={surface} />
-        <PopoverContent
-          align="start"
-          className="flex w-auto max-w-menu-max min-w-menu-min flex-col p-1"
-          onKeyDown={onScenePickerKeyDown}
-        >
-          {scenes.map((scene) => (
-            <button
-              key={scene.blockId}
-              type="button"
-              onClick={() => {
-                onLinkScene(scene.blockId);
-                onLinkingOpenChange(false);
-              }}
-              className="flex min-h-row cursor-pointer items-center gap-2 rounded-control px-2 text-start text-ui text-fg transition-colors hover:bg-subtle active:bg-control"
-            >
-              <span className="flex-1 truncate">
-                {PLACE_WORDS.scene(scene.number, scene.heading)}
-              </span>
-              {card.link?.blockId === scene.blockId ? (
-                <CheckIcon
-                  aria-hidden="true"
-                  className="size-icon shrink-0 text-fg-accent"
-                />
-              ) : null}
-            </button>
-          ))}
-        </PopoverContent>
-      </Popover>
-    ) : (
+  const cardSurface =
+    !canEdit || editing ? (
       surface
+    ) : (
+      <ContextMenu>
+        <ContextMenuTrigger render={surface} />
+        <ContextMenuContent>{menuItems}</ContextMenuContent>
+      </ContextMenu>
     );
 
-  if (!canEdit || editing) return withScenePicker;
   return (
-    <ContextMenu>
-      <ContextMenuTrigger render={withScenePicker} />
-      <ContextMenuContent>{menuItems}</ContextMenuContent>
-    </ContextMenu>
+    <div data-row-menu className="group/card relative w-full">
+      {cardSurface}
+
+      {canEdit && !editing ? (
+        <span
+          onPointerDown={stopEvent}
+          className="mn-board-card-actions absolute top-1 end-1 flex flex-row-reverse items-center gap-0.5"
+        >
+          <RowMenu title={card.text}>{menuItems}</RowMenu>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={BOARD_WORDS.editCard}
+            title={BOARD_WORDS.editCard}
+            onClick={(event) => {
+              event.stopPropagation();
+              startEdit();
+            }}
+          >
+            <PencilIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </span>
+      ) : null}
+
+      {canEdit && scriptId !== null ? (
+        <ScenePickerPopover
+          open={linkingOpen}
+          linkedBlockId={card.link?.blockId ?? null}
+          scenesState={scenesState}
+          onOpenChange={onLinkingOpenChange}
+          onSelect={onLinkScene}
+          onRestoreFocus={restoreCardFocus}
+        />
+      ) : null}
+    </div>
   );
 }

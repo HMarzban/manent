@@ -1,67 +1,50 @@
-// In-place editors for the episode table's Ep, Title, Writer and Due cells.
+// In-place editors for the episode table's Ep and Title cells (click opens script/outline, F2/menu/double-click renames, lock & secondary doc cues).
 import type { EpisodeEntry } from "@manent/crdt";
 import {
-  ASSIGNMENT_WORDS,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  Button,
   Input,
   SERIES_WORDS,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
-  formatDate,
 } from "@manent/ui";
-import { CheckIcon } from "lucide-react";
-import { useState } from "react";
-import type { KeyboardEvent, ReactNode, SyntheticEvent } from "react";
-import { fullNameOf } from "../../../services/sync/index-entries.ts";
 import {
-  COL_DUE,
-  COL_EP,
-  COL_TITLE,
-  COL_WRITER,
-  episodeDisplayTitle,
-} from "./episode-cells.tsx";
-import type { SeriesPerson } from "./series-facts.ts";
+  ArrowUpRightIcon,
+  ListTreeIcon,
+  LockIcon,
+  NotebookPenIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import type { KeyboardEvent, ReactNode, SyntheticEvent } from "react";
+import { COL_EP, COL_TITLE, episodeDisplayTitle } from "./episode-cells.tsx";
+
+export { DueCell, WriterCell } from "./episode-meta-editors.tsx";
 
 const stopRowEvent = (event: SyntheticEvent): void => event.stopPropagation();
 
 const cellButtonClass =
-  "cursor-pointer truncate rounded-control px-1 -mx-1 text-start hover:bg-subtle";
-
-const toDateInput = (at: number): string => {
-  const d = new Date(at);
-  const y = String(d.getFullYear()).padStart(4, "0");
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
-const fromDateInput = (value: string): number | null => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (match === null) return null;
-  const ms = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-  ).getTime();
-  return Number.isSafeInteger(ms) ? ms : null;
-};
+  "inline-flex min-h-6 cursor-pointer items-center truncate rounded-control px-1 -mx-1 text-start transition-colors duration-(--dur-fast) hover:bg-subtle focus-visible:outline-2 focus-visible:outline-focus";
 
 export function EpCell(props: {
   episode: EpisodeEntry;
   canEdit: boolean;
+  editing: boolean;
+  onEditingChange(next: boolean): void;
   onSave(next: EpisodeEntry): void;
 }): ReactNode {
-  const { episode, canEdit, onSave } = props;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const { episode, canEdit, editing, onEditingChange, onSave } = props;
+  const [draft, setDraft] = useState(String(episode.number));
+  useEffect(() => {
+    if (editing) setDraft(String(episode.number));
+  }, [editing, episode.number]);
+
   const label = SERIES_WORDS.cellLabel(
     SERIES_WORDS.columns.ep,
     episodeDisplayTitle(episode),
   );
   const commit = (): void => {
-    setEditing(false);
+    onEditingChange(false);
     const parsed = Number(draft.trim());
     if (
       Number.isSafeInteger(parsed) &&
@@ -74,9 +57,9 @@ export function EpCell(props: {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     event.stopPropagation();
     if (event.key === "Enter") commit();
-    if (event.key === "Escape") setEditing(false);
+    if (event.key === "Escape") onEditingChange(false);
   };
-  if (editing) {
+  if (editing && canEdit) {
     return (
       <span className={COL_EP} onClick={stopRowEvent} onKeyDown={stopRowEvent}>
         <Input
@@ -105,10 +88,8 @@ export function EpCell(props: {
         aria-label={label}
         onClick={(e) => {
           e.stopPropagation();
-          setDraft(String(episode.number));
-          setEditing(true);
+          onEditingChange(true);
         }}
-        onKeyDown={stopRowEvent}
         className={cn(cellButtonClass, "text-fg-muted tabular-nums")}
       >
         {episode.number}
@@ -120,18 +101,33 @@ export function EpCell(props: {
 export function TitleCell(props: {
   episode: EpisodeEntry;
   canEdit: boolean;
+  editing: boolean;
+  primaryDocId: string | null;
+  onEditingChange(next: boolean): void;
+  onOpenDoc(docId: string): void;
   onSave(next: EpisodeEntry, titleText: string | null): void;
 }): ReactNode {
-  const { episode, canEdit, onSave } = props;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const {
+    episode,
+    canEdit,
+    editing,
+    primaryDocId,
+    onEditingChange,
+    onOpenDoc,
+    onSave,
+  } = props;
+  const [draft, setDraft] = useState(episode.title ?? "");
+  useEffect(() => {
+    if (editing) setDraft(episode.title ?? "");
+  }, [editing, episode.title]);
+
   const shown = episode.title ?? SERIES_WORDS.untitledEpisode;
   const label = SERIES_WORDS.cellLabel(
     SERIES_WORDS.columns.title,
     episodeDisplayTitle(episode),
   );
   const commit = (): void => {
-    setEditing(false);
+    onEditingChange(false);
     const trimmed = draft.trim();
     const nextTitle = trimmed === "" ? null : trimmed;
     if (nextTitle !== episode.title) {
@@ -141,9 +137,9 @@ export function TitleCell(props: {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     event.stopPropagation();
     if (event.key === "Enter") commit();
-    if (event.key === "Escape") setEditing(false);
+    if (event.key === "Escape") onEditingChange(false);
   };
-  if (editing) {
+  if (editing && canEdit) {
     return (
       <span
         className={COL_TITLE}
@@ -162,172 +158,95 @@ export function TitleCell(props: {
       </span>
     );
   }
-  if (!canEdit) {
-    return (
-      <span className={cn(COL_TITLE, "truncate font-semibold")}>{shown}</span>
-    );
-  }
-  return (
-    <span className={cn(COL_TITLE, "flex items-center")}>
-      <button
-        type="button"
-        aria-label={label}
-        onClick={(e) => {
-          e.stopPropagation();
-          setDraft(episode.title ?? "");
-          setEditing(true);
-        }}
-        onKeyDown={stopRowEvent}
-        className={cn(cellButtonClass, "max-w-full font-semibold")}
-      >
-        {shown}
-      </button>
-    </span>
-  );
-}
+  const hasSecondaryOutline =
+    episode.docIds.script !== null && episode.docIds.outline !== null;
+  const hasRoomLog = episode.docIds.roomLog !== null;
 
-export function WriterCell(props: {
-  episode: EpisodeEntry;
-  canEdit: boolean;
-  people: readonly SeriesPerson[];
-  onSave(next: EpisodeEntry): void;
-}): ReactNode {
-  const { episode, canEdit, people, onSave } = props;
-  const writerId = episode.writerUserId;
-  const writerName =
-    writerId === null
-      ? null
-      : (people.find((p) => p.userId === writerId)?.name ??
-        fullNameOf(writerId));
-  const shown = writerName ?? SERIES_WORDS.blank;
-  const label = SERIES_WORDS.cellLabel(
-    SERIES_WORDS.columns.writer,
-    episodeDisplayTitle(episode),
-  );
-  if (!canEdit) {
-    return (
-      <span
-        title={writerName ?? undefined}
-        className={cn(COL_WRITER, "truncate text-meta text-fg-muted")}
-      >
-        {shown}
-      </span>
-    );
-  }
   return (
-    <span
-      className={cn(COL_WRITER, "items-center")}
-      onClick={stopRowEvent}
-      onKeyDown={stopRowEvent}
-    >
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <button
-              type="button"
-              aria-label={label}
-              title={writerName ?? undefined}
-              className={cn(
-                cellButtonClass,
-                "max-w-full text-meta text-fg-muted",
-              )}
-            />
+    <span className={cn(COL_TITLE, "flex items-center gap-1.5")}>
+      {primaryDocId !== null ? (
+        <button
+          type="button"
+          onClick={() => onOpenDoc(primaryDocId)}
+          onDoubleClick={
+            canEdit
+              ? (e) => {
+                  e.stopPropagation();
+                  onEditingChange(true);
+                }
+              : undefined
           }
+          onKeyDown={(e) => {
+            if (e.key === "F2" && canEdit) {
+              e.preventDefault();
+              onEditingChange(true);
+            }
+          }}
+          className="group/ep-open -mx-1 inline-flex min-h-6 min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-control px-1 text-start font-semibold text-fg transition-colors duration-(--dur-fast) hover:text-fg-accent focus-visible:outline-2 focus-visible:outline-focus"
         >
-          {shown}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {people.map((person) => (
-            <DropdownMenuItem
-              key={person.userId}
-              onClick={() =>
-                onSave({ ...episode, writerUserId: person.userId })
-              }
-            >
-              <span className="flex-1 truncate">{person.name}</span>
-              {writerId === person.userId ? (
-                <CheckIcon aria-hidden="true" className="text-fg-accent" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem
-            onClick={() => onSave({ ...episode, writerUserId: null })}
+          <span className="truncate">{shown}</span>
+          <ArrowUpRightIcon
+            aria-hidden="true"
+            className="size-3 shrink-0 text-fg-muted opacity-0 transition-opacity duration-(--dur-fast) group-hover/ep-open:opacity-100 group-focus-visible/ep-open:opacity-100"
+          />
+        </button>
+      ) : (
+        <span className="truncate font-semibold text-fg">{shown}</span>
+      )}
+      {episode.locked ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                role="img"
+                aria-label={SERIES_WORDS.pagesLocked}
+                className="inline-flex shrink-0 items-center text-fg-muted"
+              />
+            }
           >
-            <span className="flex-1 truncate">{ASSIGNMENT_WORDS.noWriter}</span>
-            {writerId === null ? (
-              <CheckIcon aria-hidden="true" className="text-fg-accent" />
-            ) : null}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </span>
-  );
-}
-
-export function DueCell(props: {
-  episode: EpisodeEntry;
-  canEdit: boolean;
-  onSave(next: EpisodeEntry): void;
-}): ReactNode {
-  const { episode, canEdit, onSave } = props;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const shown =
-    episode.dueAt === null ? SERIES_WORDS.blank : formatDate(episode.dueAt);
-  const label = SERIES_WORDS.cellLabel(
-    SERIES_WORDS.columns.due,
-    episodeDisplayTitle(episode),
-  );
-  const commit = (raw: string): void => {
-    setEditing(false);
-    const nextDue = raw.trim() === "" ? null : fromDateInput(raw);
-    if (nextDue !== episode.dueAt) {
-      onSave({ ...episode, dueAt: nextDue });
-    }
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    event.stopPropagation();
-    if (event.key === "Enter") commit(draft);
-    if (event.key === "Escape") setEditing(false);
-  };
-  if (editing) {
-    return (
-      <span className={COL_DUE} onClick={stopRowEvent} onKeyDown={stopRowEvent}>
-        <Input
-          type="date"
-          aria-label={label}
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => commit(draft)}
-          onKeyDown={onKeyDown}
-          className="h-control-sm w-28 px-1 text-meta tabular-nums"
-        />
-      </span>
-    );
-  }
-  if (!canEdit) {
-    return (
-      <span className={cn(COL_DUE, "items-center text-meta text-fg-muted")}>
-        {shown}
-      </span>
-    );
-  }
-  return (
-    <span className={cn(COL_DUE, "items-center")}>
-      <button
-        type="button"
-        aria-label={label}
-        onClick={(e) => {
-          e.stopPropagation();
-          setDraft(episode.dueAt === null ? "" : toDateInput(episode.dueAt));
-          setEditing(true);
-        }}
-        onKeyDown={stopRowEvent}
-        className={cn(cellButtonClass, "text-meta text-fg-muted tabular-nums")}
-      >
-        {shown}
-      </button>
+            <LockIcon aria-hidden="true" className="size-3" />
+          </TooltipTrigger>
+          <TooltipContent>{SERIES_WORDS.pagesLocked}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {hasSecondaryOutline ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={SERIES_WORDS.openOutline}
+                onClick={() => onOpenDoc(episode.docIds.outline!)}
+                className="shrink-0 text-fg-muted hover:text-fg"
+              />
+            }
+          >
+            <ListTreeIcon aria-hidden="true" className="size-3.5" />
+          </TooltipTrigger>
+          <TooltipContent>{SERIES_WORDS.openOutline}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {hasRoomLog ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={SERIES_WORDS.openRoomLog}
+                onClick={() => onOpenDoc(episode.docIds.roomLog!)}
+                className="shrink-0 text-fg-muted hover:text-fg"
+              />
+            }
+          >
+            <NotebookPenIcon aria-hidden="true" className="size-3.5" />
+          </TooltipTrigger>
+          <TooltipContent>{SERIES_WORDS.openRoomLog}</TooltipContent>
+        </Tooltip>
+      ) : null}
     </span>
   );
 }

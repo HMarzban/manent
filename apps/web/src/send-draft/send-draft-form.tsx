@@ -1,10 +1,16 @@
 // The Send draft form: Checks, Name (from ladder), What, As, To, remembering last choices per group.
-import { Button, DIALOG_WORDS } from "@manent/ui";
+import { Button, DIALOG_WORDS, DRAFTS_WORDS } from "@manent/ui";
+import { WifiOffIcon } from "lucide-react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { checksRow } from "../checks/send-row.tsx";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
-import { SendFormSkeleton, SendFrame } from "../screens/send/send-frame.tsx";
+import {
+  SendFormSkeleton,
+  SendFrame,
+  SendNoticeFrame,
+} from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { TEXT } from "../text.ts";
 import { useDraftSendAccess } from "./access.ts";
@@ -136,14 +142,18 @@ function SendDraftBody(props: SendFormProps): ReactNode {
   if (access.pending) return <SendFormSkeleton rows={5} />;
   if (access.unverified) {
     return (
-      <div className="flex flex-1 flex-col items-start gap-3 p-6">
-        <p role="alert" className="text-ui text-fg">
-          {TEXT.chooseUnreachable}
-        </p>
-        <Button variant="outline" onClick={access.retry}>
-          {DIALOG_WORDS.tryAgain}
-        </Button>
-      </div>
+      <SendNoticeFrame title={DRAFTS_WORDS.sendAction(0)}>
+        <EmptyHeroCard
+          icon={<WifiOffIcon aria-hidden="true" className="size-5" />}
+          description={TEXT.chooseUnreachable}
+          descriptionRole="alert"
+          actions={
+            <Button variant="outline" onClick={access.retry}>
+              {DIALOG_WORDS.tryAgain}
+            </Button>
+          }
+        />
+      </SendNoticeFrame>
     );
   }
   if (!access.ready) return null;

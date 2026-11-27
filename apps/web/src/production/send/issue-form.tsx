@@ -281,13 +281,20 @@ function Issue(props: {
       id: "colour",
       content: (
         <div className="flex flex-col gap-1">
-          <p className="whitespace-pre">
-            {WORDS.colourLine(
-              name.toUpperCase(),
-              colourOrderStart(order, ORDER_COLOURS),
-            )}
+          <p className="flex flex-wrap items-center gap-2">
+            <span
+              data-rev={active.colour}
+              aria-hidden="true"
+              className="mn-rev-chip shrink-0"
+            />
+            <span className="whitespace-pre">
+              {WORDS.colourLine(
+                name.toUpperCase(),
+                colourOrderStart(order, ORDER_COLOURS),
+              )}
+            </span>
           </p>
-          <p>
+          <p className="text-meta text-fg-muted">
             {WORDS.startsNext(name, revisionName(order, active.ordinal + 1))}
           </p>
         </div>

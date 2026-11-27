@@ -37,6 +37,8 @@ export const WRITING_WORDS = Object.freeze({
   handIn: "Hand in",
   keepWriting: "Keep writing",
   nothingToHandIn: "Nothing to hand in yet.",
+  handInUnavailable:
+    "Couldn't compare your private copy right now. Keep writing or try again shortly.",
   needsChange: "needs a change",
   handInTitle: (n: number): string => `Hand in ${scenes(n)}?`,
   handInBody: (n: number, title: string): string =>

@@ -1,33 +1,25 @@
-// The one frame every Send form draws: the way back, the title, the rows, the pages and the action that sends them.
-import {
-  BusyButton,
-  Button,
-  CANCEL_AFTER_MS,
-  DIALOG_WORDS,
-  PROGRESS_AFTER_MS,
-  SEND_WORDS,
-  STILL_WORKING_MS,
-  Skeleton,
-  useTiming,
-} from "@manent/ui";
-import { TriangleExclamationPointIcon } from "lucide-react";
+// The one frame every Send form draws: the way back, the title, the raised archival form card, the pages and the action that sends them.
+import { BusyButton, DIALOG_WORDS, SEND_WORDS, Skeleton } from "@manent/ui";
 import {
   createContext,
   useContext,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BackButton,
   TitleBarAccount,
   TitleBarDivider,
 } from "../../shell/title-bar-pieces.tsx";
+import { ActionLine, BusyAside, useBusyStep } from "./send-action-bar.tsx";
+import { SEND_PAIR_CLASS } from "./send-skeletons.tsx";
+
+export { PageTilesSkeleton, SendFormSkeleton } from "./send-skeletons.tsx";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
 export const SEND_ROW_IDS = [
@@ -109,7 +101,7 @@ export function SendLayout(props: {
         />
         <TitleBarAccount />
       </header>
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 bg-chrome">
         <div className="flex min-w-0 flex-1 flex-col">
           {host === null ? null : (
             <SendHostContext value={host}>{children}</SendHostContext>
@@ -121,25 +113,40 @@ export function SendLayout(props: {
   );
 }
 
-const BUSY_STEPS = [
-  PROGRESS_AFTER_MS,
-  STILL_WORKING_MS,
-  CANCEL_AFTER_MS,
-] as const;
-
-/** How many of BUSY_STEPS have passed since `busy` became true; 0 while idle. */
-function useBusyStep(busy: boolean): number {
-  const { schedule } = useTiming();
-  const [step, setStep] = useState(0);
-  useLayoutEffect(() => {
-    setStep(0);
-    if (!busy) return undefined;
-    const cancels = BUSY_STEPS.map((afterMs, index) =>
-      schedule(() => setStep(index + 1), afterMs),
-    );
-    return () => cancels.forEach((cancel) => cancel());
-  }, [busy, schedule]);
-  return step;
+/** Fills SendLayout's title bar with Back + h1 and renders centred notice content (e.g. unverified offline state). */
+export function SendNoticeFrame(props: {
+  title: string;
+  children: ReactNode;
+}): ReactNode {
+  const { place, titleBar } = useSendHost();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => headingRef.current?.focus(), []);
+  return (
+    <>
+      {createPortal(
+        <>
+          <BackButton
+            label={SEND_WORDS.back(place.name)}
+            onClick={place.back}
+          />
+          <TitleBarDivider />
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="truncate text-title font-semibold text-fg outline-none"
+          >
+            {props.title}
+          </h1>
+        </>,
+        titleBar,
+      )}
+      <main className="flex min-h-0 flex-1 overflow-y-auto bg-chrome p-6">
+        <div className="flex min-h-full w-full flex-col items-center justify-center">
+          {props.children}
+        </div>
+      </main>
+    </>
+  );
 }
 
 function Rows(props: { rows: readonly SendRow[] }): ReactNode {
@@ -154,12 +161,12 @@ function Rows(props: { rows: readonly SendRow[] }): ReactNode {
           key={row.id}
           // the Tour points at the checks, and at no other row
           data-tour={row.id === "checks" ? "send:checks" : undefined}
-          className="flex gap-4"
+          className="flex flex-col gap-1 px-5 py-3.5 @[34rem]:flex-row @[34rem]:gap-4 @[34rem]:py-0"
         >
-          <dt className="mn-group-label w-key shrink-0 px-0!">
+          <dt className="mn-group-label w-key shrink-0 px-0! pb-0 @[34rem]:pb-1.5">
             {SEND_WORDS[row.id]}
           </dt>
-          <dd className="min-w-0 flex-1 py-4 text-ui break-words">
+          <dd className="min-w-0 flex-1 text-ui break-words @[34rem]:py-4">
             {row.content}
           </dd>
         </div>
@@ -168,142 +175,10 @@ function Rows(props: { rows: readonly SendRow[] }): ReactNode {
   );
 }
 
-/** The line above the button: the refusal, which takes focus when it appears, else why the button is disabled. */
-function ActionLine(props: {
-  problem: string | null;
-  disabledLine: string | null;
-  lineId: string;
-}): ReactNode {
-  const { problem, disabledLine, lineId } = props;
-  const problemRef = useRef<HTMLParagraphElement>(null);
-  const shown = useRef<string | null>(null);
-  useEffect(() => {
-    if (problem !== null && shown.current === null) problemRef.current?.focus();
-    shown.current = problem;
-  }, [problem]);
-  if (problem !== null)
-    return (
-      <p
-        ref={problemRef}
-        tabIndex={-1}
-        data-arrival
-        className="flex items-start gap-2 text-ui outline-none"
-      >
-        <TriangleExclamationPointIcon
-          aria-hidden="true"
-          className="mt-0.5 shrink-0 text-attention"
-        />
-        {problem}
-      </p>
-    );
-  if (disabledLine === null) return null;
-  return (
-    <p id={lineId} className="text-ui text-fg-muted">
-      {disabledLine}
-    </p>
-  );
-}
-
-// the form and its pages side by side, centred, once the screen holds both (1,100 px); the pages under the form before then
-const PAIR =
-  "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
-const SKELETON_TILES = 4;
-const TILE_SCALE = 0.085;
-// US Letter proportions (612 × 792 pt) scaled to tile size
-const PLACEHOLDER_FRAME: CSSProperties = Object.freeze({
-  width: `${612 * TILE_SCALE}pt`,
-  height: `${792 * TILE_SCALE}pt`,
-});
-
-/** Realistic page-aspect skeleton tiles while the script's pagination is still loading. */
-export function PageTilesSkeleton(): ReactNode {
-  return (
-    <div aria-busy="true" className="flex flex-wrap gap-x-2 gap-y-3">
-      {Array.from({ length: SKELETON_TILES }, (_, index) => (
-        <div
-          key={index}
-          aria-hidden="true"
-          className="flex flex-col items-center gap-1"
-        >
-          <Skeleton className="rounded-none" style={PLACEHOLDER_FRAME} />
-          <Skeleton className="h-3 w-4" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Structured form placeholder matching SendFrame's layout while a Send form or its access check loads. */
-export function SendFormSkeleton(props: { rows?: number }): ReactNode {
-  const rowCount = props.rows ?? 3;
-  return (
-    <div aria-busy="true" className="@container min-h-0 flex-1 overflow-auto">
-      <div className={PAIR}>
-        <div
-          aria-hidden="true"
-          className="flex w-content max-w-full min-w-0 flex-col divide-y divide-line"
-        >
-          {Array.from({ length: rowCount }, (_, index) => (
-            <div key={index} className="flex items-center gap-4 py-4">
-              <Skeleton className="h-3.5 w-key shrink-0" />
-              <Skeleton className="h-control flex-1" />
-            </div>
-          ))}
-          <div className="flex justify-end pt-4">
-            <Skeleton className="h-control-lg w-32" />
-          </div>
-        </div>
-        <div
-          aria-hidden="true"
-          className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
-        >
-          <div className="flex flex-wrap gap-x-2 gap-y-3">
-            {Array.from({ length: SKELETON_TILES }, (_, index) => (
-              <Skeleton key={index} className="h-24 w-16 rounded-none" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** What long work shows beside its busy button: its progress, Still working…, and Cancel when it can be cancelled. */
-function BusyAside(props: { action: SendAction; step: number }): ReactNode {
-  const { action, step } = props;
-  const { progress, cancel } = action;
-  const showProgress = action.busy && progress !== null && step >= 1;
-  const showStillWorking = action.busy && step >= 2;
-  const hasStatus = showProgress || showStillWorking;
-  return (
-    <>
-      <span
-        role="status"
-        aria-live="polite"
-        className={hasStatus ? "flex flex-wrap items-center gap-3" : "sr-only"}
-      >
-        {showProgress ? (
-          <span className="text-ui text-fg-muted">{progress}</span>
-        ) : null}
-        {showStillWorking ? (
-          <span className="text-ui text-fg-muted">
-            {DIALOG_WORDS.stillWorking}
-          </span>
-        ) : null}
-      </span>
-      {action.busy && cancel !== null && step >= 3 ? (
-        <Button variant="outline" size="lg" onClick={cancel}>
-          {DIALOG_WORDS.cancel}
-        </Button>
-      ) : null}
-    </>
-  );
-}
-
 /**
  * The Send screen's frame: in the layout's title bar, Back to the place it was opened from, the title (focused on arrival)
- * and `aside`; under it, the rows in the order of SEND_ROW_IDS beside the pages, which stack below them when the frame is
- * narrower than both; then the line above the button and the button. Throws a TypeError outside a SendLayout.
+ * and `aside`; under it, the rows in the order of SEND_ROW_IDS framed in a raised archival card beside the pages; then
+ * the line above the button and the button. Throws a TypeError outside a SendLayout.
  */
 export function SendFrame(props: {
   title: string;
@@ -348,20 +223,20 @@ export function SendFrame(props: {
         </>,
         titleBar,
       )}
-      <div className="@container min-h-0 flex-1 overflow-auto">
-        <div className={PAIR}>
-          <div className="flex w-content max-w-full min-w-0 flex-col">
+      <main className="@container min-h-0 flex-1 overflow-auto bg-chrome">
+        <div className={SEND_PAIR_CLASS}>
+          <div className="@container flex w-content max-w-full min-w-0 flex-col rounded-surface border border-line bg-raised">
             {props.checksPending ? (
               <div
                 aria-busy="true"
-                className="flex items-center gap-4 border-b border-line py-4"
+                className="flex items-center gap-4 border-b border-line px-5 py-4"
               >
                 <Skeleton aria-hidden="true" className="h-3.5 w-key shrink-0" />
                 <Skeleton aria-hidden="true" className="h-4 w-48" />
               </div>
             ) : null}
             <Rows rows={rows} />
-            <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
+            <div className="flex flex-col items-end gap-3 border-t border-line px-5 py-4">
               {props.notice ?? null}
               <ActionLine
                 problem={action.problem}
@@ -393,7 +268,7 @@ export function SendFrame(props: {
             </section>
           )}
         </div>
-      </div>
+      </main>
     </>
   );
 }

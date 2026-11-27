@@ -28,13 +28,17 @@ export function boardRoutes(
       path: "/p/$projectId/board",
       validateSearch: (
         search: Record<string, unknown>,
-      ): { season: string | null } => ({
+      ): { season: string | null; ep: string | null } => ({
         season:
           typeof search.season === "string" && search.season.length > 0
             ? search.season
             : null,
+        ep:
+          typeof search.ep === "string" && search.ep.length > 0
+            ? search.ep
+            : null,
       }),
-      search: { middlewares: [stripSearchParams({ season: null })] },
+      search: { middlewares: [stripSearchParams({ season: null, ep: null })] },
       beforeLoad: async ({ location }) => {
         const { person, setPerson } = usePerson.getState();
         if (

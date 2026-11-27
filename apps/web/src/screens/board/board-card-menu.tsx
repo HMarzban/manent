@@ -13,17 +13,26 @@ import {
   SERIES_WORDS,
 } from "@manent/ui";
 import {
+  ArrowUpRightIcon,
   CheckIcon,
   ClapperboardIcon,
+  CopyIcon,
+  EyeIcon,
+  FlagIcon,
   LayersIcon,
   Link2Icon,
+  PencilIcon,
   Trash2Icon,
   Unlink2Icon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { requestEpisodeScenes } from "../../board/episode-scenes.ts";
-import type { EpisodeScene } from "../../board/episode-scenes.ts";
-import type { BoardCard, BoardStoryline } from "../../board/model.ts";
+import type { EpisodeScenesState } from "../../board/episode-scenes.ts";
+import type {
+  BoardCard,
+  BoardStoryline,
+  StorylineTone,
+} from "../../board/model.ts";
 import type { PersonServices } from "../../services/ports.ts";
 
 const episodeOptionLabel = (ep: EpisodeEntry): string =>
@@ -34,8 +43,14 @@ export function CardMenuItems(props: {
   card: BoardCard;
   episode: EpisodeEntry;
   storylines: readonly BoardStoryline[];
+  laneByStoryline: ReadonlyMap<string, StorylineTone>;
   episodes: readonly EpisodeEntry[];
-  scenes: readonly EpisodeScene[];
+  scenesState: EpisodeScenesState | undefined;
+  onOpen(): void;
+  onStartEdit(): void;
+  onPreviewScene?(): void;
+  onDuplicate?(): void;
+  onToggleFlag?(): void;
   onLinkScene(blockId: string | null): void;
   onMoveToEpisode(episodeId: string): void;
   onMoveToStoryline(storylineId: string): void;
@@ -46,8 +61,14 @@ export function CardMenuItems(props: {
     card,
     episode,
     storylines,
+    laneByStoryline,
     episodes,
-    scenes,
+    scenesState,
+    onOpen,
+    onStartEdit,
+    onPreviewScene,
+    onDuplicate,
+    onToggleFlag,
     onLinkScene,
     onMoveToEpisode,
     onMoveToStoryline,
@@ -55,12 +76,61 @@ export function CardMenuItems(props: {
   } = props;
   const scriptId = episode.docIds.script;
   const hasScript = scriptId !== null;
+  const hasOutline = episode.docIds.outline !== null;
+  const canOpen = hasScript || hasOutline;
+  const openLabel =
+    card.link !== null && hasScript
+      ? BOARD_WORDS.openScene
+      : hasScript
+        ? BOARD_WORDS.openScript
+        : BOARD_WORDS.openOutline;
   const loadScenes = (): void => {
     if (scriptId !== null) requestEpisodeScenes(services, scriptId);
   };
   const needsScript = BOARD_WORDS.needsScript(episode.number);
+  const scenes = scenesState?.status === "ready" ? scenesState.scenes : [];
   return (
     <>
+      {canOpen ? (
+        <DropdownMenuItem onClick={onOpen}>
+          <ArrowUpRightIcon aria-hidden="true" className="size-icon shrink-0" />
+          <span>{openLabel}</span>
+        </DropdownMenuItem>
+      ) : null}
+      {card.link !== null && hasScript && onPreviewScene !== undefined ? (
+        <DropdownMenuItem onClick={onPreviewScene}>
+          <EyeIcon aria-hidden="true" className="size-icon shrink-0" />
+          <span>{BOARD_WORDS.previewScene}</span>
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuItem onClick={onStartEdit}>
+        <PencilIcon aria-hidden="true" className="size-icon shrink-0" />
+        <span>{BOARD_WORDS.editCard}</span>
+      </DropdownMenuItem>
+      {onDuplicate !== undefined ? (
+        <DropdownMenuItem onClick={onDuplicate}>
+          <CopyIcon aria-hidden="true" className="size-icon shrink-0" />
+          <span>{BOARD_WORDS.duplicateCard}</span>
+        </DropdownMenuItem>
+      ) : null}
+      {onToggleFlag !== undefined ? (
+        <DropdownMenuItem onClick={onToggleFlag}>
+          <FlagIcon
+            aria-hidden="true"
+            className={
+              card.flagged === true
+                ? "size-icon shrink-0 text-attention"
+                : "size-icon shrink-0"
+            }
+          />
+          <span>
+            {card.flagged === true
+              ? BOARD_WORDS.clearFlag
+              : BOARD_WORDS.flagCard}
+          </span>
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuSeparator />
       {hasScript ? (
         <DropdownMenuSub onOpenChange={(open) => open && loadScenes()}>
           <DropdownMenuSubTrigger
@@ -69,12 +139,24 @@ export function CardMenuItems(props: {
             onFocus={loadScenes}
           >
             <Link2Icon aria-hidden="true" className="size-icon shrink-0" />
-            {BOARD_WORDS.linkToScene}
+            <span>
+              {card.link !== null
+                ? BOARD_WORDS.changeScene
+                : BOARD_WORDS.linkToScene}
+            </span>
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {scenes.length === 0 ? (
+          <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+            {scenesState === undefined || scenesState.status === "loading" ? (
               <DropdownMenuItem disabled>
-                {PRODUCTION_OUTPUTS_WORDS.noScenesForSides}
+                <span>{BOARD_WORDS.loadingScenes}</span>
+              </DropdownMenuItem>
+            ) : scenesState.status === "unavailable" ? (
+              <DropdownMenuItem disabled>
+                <span>{BOARD_WORDS.scenesUnavailable}</span>
+              </DropdownMenuItem>
+            ) : scenes.length === 0 ? (
+              <DropdownMenuItem disabled>
+                <span>{PRODUCTION_OUTPUTS_WORDS.noScenesForSides}</span>
               </DropdownMenuItem>
             ) : (
               scenes.map((scene) => (
@@ -86,7 +168,10 @@ export function CardMenuItems(props: {
                     {PLACE_WORDS.scene(scene.number, scene.heading)}
                   </span>
                   {card.link?.blockId === scene.blockId ? (
-                    <CheckIcon aria-hidden="true" className="text-fg-accent" />
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="size-icon shrink-0 text-fg-accent"
+                    />
                   ) : null}
                 </DropdownMenuItem>
               ))
@@ -111,13 +196,13 @@ export function CardMenuItems(props: {
       {card.link !== null ? (
         <DropdownMenuItem onClick={() => onLinkScene(null)}>
           <Unlink2Icon aria-hidden="true" className="size-icon shrink-0" />
-          {BOARD_WORDS.removeLink}
+          <span>{BOARD_WORDS.removeLink}</span>
         </DropdownMenuItem>
       ) : null}
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <ClapperboardIcon aria-hidden="true" className="size-icon shrink-0" />
-          {BOARD_WORDS.moveToEpisode}
+          <span>{BOARD_WORDS.moveToEpisode}</span>
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
           {episodes.map((ep) => (
@@ -127,7 +212,10 @@ export function CardMenuItems(props: {
             >
               <span className="flex-1 truncate">{episodeOptionLabel(ep)}</span>
               {ep.id === card.episodeId ? (
-                <CheckIcon aria-hidden="true" className="text-fg-accent" />
+                <CheckIcon
+                  aria-hidden="true"
+                  className="size-icon shrink-0 text-fg-accent"
+                />
               ) : null}
             </DropdownMenuItem>
           ))}
@@ -136,7 +224,7 @@ export function CardMenuItems(props: {
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <LayersIcon aria-hidden="true" className="size-icon shrink-0" />
-          {BOARD_WORDS.moveToStoryline}
+          <span>{BOARD_WORDS.moveToStoryline}</span>
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
           {storylines.map((row) => (
@@ -144,9 +232,17 @@ export function CardMenuItems(props: {
               key={row.id}
               onClick={() => onMoveToStoryline(row.id)}
             >
+              <span
+                aria-hidden="true"
+                data-lane={laneByStoryline.get(row.id)}
+                className="mn-board-lane-dot"
+              />
               <span className="flex-1 truncate">{row.title}</span>
               {row.id === card.storylineId ? (
-                <CheckIcon aria-hidden="true" className="text-fg-accent" />
+                <CheckIcon
+                  aria-hidden="true"
+                  className="size-icon shrink-0 text-fg-accent"
+                />
               ) : null}
             </DropdownMenuItem>
           ))}
@@ -155,7 +251,7 @@ export function CardMenuItems(props: {
       <DropdownMenuSeparator />
       <DropdownMenuItem variant="destructive" onClick={onRemove}>
         <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
-        {BOARD_WORDS.remove}
+        <span>{BOARD_WORDS.remove}</span>
       </DropdownMenuItem>
     </>
   );

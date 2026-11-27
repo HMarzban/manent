@@ -5,6 +5,8 @@ import {
   runAddStoryline,
   runLinkScene,
   runMoveCard,
+  runMoveCardEpisode,
+  runPrintBoard,
 } from "../board/board-actions.ts";
 import type { HandlerDeps } from "./index.ts";
 
@@ -13,7 +15,10 @@ type BoardCommandId =
   | "board.addCard"
   | "board.linkScene"
   | "board.moveCardUp"
-  | "board.moveCardDown";
+  | "board.moveCardDown"
+  | "board.moveCardLeft"
+  | "board.moveCardRight"
+  | "board.print";
 
 export function boardHandlers(
   _deps: HandlerDeps,
@@ -24,5 +29,8 @@ export function boardHandlers(
     "board.linkScene": () => runLinkScene(),
     "board.moveCardUp": () => runMoveCard(-1),
     "board.moveCardDown": () => runMoveCard(1),
+    "board.moveCardLeft": () => runMoveCardEpisode(-1),
+    "board.moveCardRight": () => runMoveCardEpisode(1),
+    "board.print": () => runPrintBoard(),
   };
 }

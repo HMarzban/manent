@@ -195,12 +195,15 @@ export function PrompterMode(props: { docId: string }): ReactNode {
   };
 
   const { barStatus, surfaceState } = derivePresentation(feed);
+  const backToRundown = standalone
+    ? () => void navigate({ href: `/s/${docId}` })
+    : undefined;
 
   return (
     <div
       data-tour="prompter:window"
       data-theme={view.dark ? "dark" : "light"}
-      className="z-10 flex h-screen min-h-0 flex-col bg-desk text-fg"
+      className="z-10 flex h-dvh min-h-0 flex-col bg-desk text-fg"
       style={FRAME_AREA}
     >
       <h1 tabIndex={-1} className="sr-only">
@@ -209,9 +212,7 @@ export function PrompterMode(props: { docId: string }): ReactNode {
       <PrompterBar
         status={barStatus}
         view={view}
-        onBack={
-          standalone ? () => void navigate({ href: `/s/${docId}` }) : undefined
-        }
+        onBack={backToRundown}
         operator={feed.operator}
         scroll={feed.remoteScroll.state}
         followMode={followMode}
@@ -230,6 +231,7 @@ export function PrompterMode(props: { docId: string }): ReactNode {
         remoteScroll={feed.remoteScroll}
         followMode={followMode}
         onFollowModeChange={setFollowMode}
+        onBack={backToRundown}
         clock={clock}
       />
     </div>

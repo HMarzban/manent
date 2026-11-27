@@ -67,16 +67,6 @@ for (const scheme of ["light", "dark"] as const) {
       await settleAnimations(page, "body");
       expect(await violationsOf(page)).toEqual([]);
 
-      // 1b. Series episode: contextual Board button opens the series board
-      await page.goto(`${SERIES_EP_PATH}?panels=closed`);
-      await expect(
-        page.locator("[data-tour='page'] .ProseMirror"),
-      ).toBeVisible();
-      const boardButton = page.locator("[data-tour='title:board']");
-      await expect(boardButton).toBeVisible();
-      await boardButton.click();
-      await expect(page).toHaveURL(/\/p\/[^/]+\/board/);
-
       // 2. Ink script: contextual Play button, Beside region + keyboard separator, Variables aria-controls, auto-close on doc switch
       await page.goto(`${INK_PATH}?panels=closed`);
       await expect(
@@ -158,6 +148,32 @@ for (const scheme of ["light", "dark"] as const) {
     }
   });
 }
+
+test("Series Board opens from an episode script and passes WCAG 2.2 AA in light and dark themes", async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  for (const scheme of ["light", "dark"] as const) {
+    const context = await browser.newContext({ colorScheme: scheme });
+    try {
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await signedInAs(page, "sam", `${SERIES_EP_PATH}?panels=closed`);
+      await expect(
+        page.locator("[data-tour='page'] .ProseMirror"),
+      ).toBeVisible();
+      const boardButton = page.locator("[data-tour='title:board']");
+      await expect(boardButton).toBeVisible();
+      await boardButton.click();
+      await expect(page).toHaveURL(/\/p\/[^/]+\/board/);
+      await expect(page.locator("[data-tour='board']").first()).toBeVisible();
+      await settleAnimations(page, "body");
+      expect(await violationsOf(page)).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  }
+});
 
 test("Ink Play and Rundown Prompter collapse cleanly at 375px narrow viewport and 200% interface size without horizontal overflow", async ({
   browser,

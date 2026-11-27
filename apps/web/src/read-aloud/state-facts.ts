@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import {
   readAloudActions,
   useReadAloudDocId,
+  useReadingAloud,
 } from "../state/read-aloud.store.ts";
 import { stopReadAloud } from "./runner.ts";
 
@@ -21,4 +22,18 @@ export function useReadAloudFacts(docId: string): readonly StateFact[] {
     };
   }, [docId]);
   return activeDocId === docId ? READING_FACT : EMPTY;
+}
+
+/** Returns the `reading_aloud` state fact while the external reader frame is reading aloud, and stops on unmount. */
+export function useReaderReadAloudFacts(): readonly StateFact[] {
+  const active = useReadingAloud();
+  const activeDocId = useReadAloudDocId();
+  useEffect(() => {
+    return () => {
+      if (readAloudActions.get() && readAloudActions.docId() === null) {
+        stopReadAloud();
+      }
+    };
+  }, []);
+  return active && activeDocId === null ? READING_FACT : EMPTY;
 }

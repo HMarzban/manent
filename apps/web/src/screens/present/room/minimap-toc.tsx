@@ -25,7 +25,7 @@ const FILTER_THRESHOLD = 8;
 const ICON_BUTTON_PROPS = {
   type: "button",
   variant: "ghost",
-  size: "icon-xs",
+  size: "icon-sm",
 } as const;
 const TICK_BUTTON_CLASS = "flex items-center justify-end py-1 ps-2 pe-1";
 const ICON_CLASS = "size-3.5 text-fg-muted";

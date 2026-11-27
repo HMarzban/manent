@@ -5,6 +5,8 @@ export interface BoardController {
   addCard(): void;
   linkScene(): void;
   moveCard(by: -1 | 1): void;
+  moveCardEpisode(by: -1 | 1): void;
+  printBoard(): void;
 }
 
 let active: BoardController | null = null;
@@ -33,4 +35,12 @@ export function runLinkScene(): void {
 
 export function runMoveCard(by: -1 | 1): void {
   active?.moveCard(by);
+}
+
+export function runMoveCardEpisode(by: -1 | 1): void {
+  active?.moveCardEpisode(by);
+}
+
+export function runPrintBoard(): void {
+  active?.printBoard();
 }

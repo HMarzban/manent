@@ -59,12 +59,10 @@ export function Tick(props: {
   const id = useId();
   return (
     <span className="flex items-center gap-2">
-      <Switch
-        checked={props.on}
-        onCheckedChange={props.onChange}
-        aria-labelledby={id}
-      />
-      <span id={id}>{props.label}</span>
+      <Switch id={id} checked={props.on} onCheckedChange={props.onChange} />
+      <label htmlFor={id} className="cursor-pointer">
+        {props.label}
+      </label>
     </span>
   );
 }

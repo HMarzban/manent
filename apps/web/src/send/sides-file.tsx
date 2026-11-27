@@ -225,7 +225,7 @@ function SidesRangeControls(props: SendWhatControlsProps): ReactNode {
           <SelectTrigger
             id={firstControlId}
             aria-label={PRODUCTION_OUTPUTS_WORDS.firstScene}
-            className="min-w-0 flex-1 cursor-pointer hover:bg-accent"
+            className="min-w-0 flex-1 cursor-pointer"
           >
             <SelectValue />
           </SelectTrigger>
@@ -257,7 +257,7 @@ function SidesRangeControls(props: SendWhatControlsProps): ReactNode {
           <SelectTrigger
             id={lastControlId}
             aria-label={PRODUCTION_OUTPUTS_WORDS.lastScene}
-            className="min-w-0 flex-1 cursor-pointer hover:bg-accent"
+            className="min-w-0 flex-1 cursor-pointer"
           >
             <SelectValue />
           </SelectTrigger>

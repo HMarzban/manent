@@ -12,6 +12,7 @@ import {
   livePagination,
   subscribeLiveEditors,
 } from "../editor-host/live-editor.ts";
+import { PageTilesSkeleton } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useServices } from "../services/context.tsx";
 import { outsideFontRow } from "./output-checks.tsx";
@@ -162,7 +163,11 @@ export function useSendPages(
       { id: "what", content: EDITOR_WORDS.send.wholeScript },
     ],
     tiles:
-      preview === null ? null : <PageTiles p={preview} indices={indices} />,
+      preview === null ? (
+        <PageTilesSkeleton />
+      ) : (
+        <PageTiles p={preview} indices={indices} />
+      ),
     back: () =>
       void navigate({ to: "/s/$docId", params: { docId }, replace: true }),
   };

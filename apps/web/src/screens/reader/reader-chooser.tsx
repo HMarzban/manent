@@ -18,7 +18,7 @@ export function ReaderChooser(props: {
   const { api, person, setPerson, next, commentTitle, onCancel } = props;
   return (
     <div
-      className="z-10 flex h-screen min-h-0 flex-col overflow-y-auto bg-chrome text-fg"
+      className="z-10 flex h-dvh min-h-0 flex-col overflow-y-auto bg-chrome text-fg"
       style={{ gridColumn: "1 / -1", gridRow: "1 / -1" }}
     >
       {commentTitle !== null || onCancel !== null ? (

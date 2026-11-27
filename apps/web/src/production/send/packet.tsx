@@ -56,8 +56,6 @@ function Tile(props: {
   }, [p, index, sources]);
   const { widthPt, heightPt } = p.profile.geometry;
   const frame: CSSProperties = {
-    // the paper's light colours, as White page draws them in a dark theme: the packet is the file, not the screen
-    colorScheme: "light",
     width: `${widthPt * TILE_SCALE}pt`,
     height: `${heightPt * TILE_SCALE}pt`,
     boxShadow: "0 0 0 1px var(--page-edge)",
@@ -65,9 +63,11 @@ function Tile(props: {
   return (
     <li className="flex flex-col items-center gap-1">
       <div aria-hidden="true" className="overflow-hidden" style={frame}>
-        <div ref={sheet} style={SHEET_SCALE} />
+        <div ref={sheet} className="mn-tile" style={SHEET_SCALE} />
       </div>
-      <p className="text-meta text-fg-muted">{p.pages[index]?.label}</p>
+      <p className="text-meta text-fg-muted tabular-nums">
+        {p.pages[index]?.label}
+      </p>
     </li>
   );
 }

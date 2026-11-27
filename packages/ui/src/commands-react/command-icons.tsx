@@ -124,8 +124,10 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   "library.newScript": FilePlus2Icon,
   "library.newProject": FolderPlusIcon,
   "library.newFolder": FolderPlusIcon,
+  "library.search": SearchIcon,
   "library.favourite": StarIcon,
   "library.exportProject": DownloadIcon,
+  "workspace.settings": SettingsIcon,
   "file.import": UploadIcon,
   "file.open": FolderOpenIcon,
   "share.open": Share2Icon,
@@ -167,6 +169,12 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   "writing.forEveryone": GlobeIcon,
   "writing.asSuggestions": MessageSquareDiffIcon,
   "writing.privately": LockIcon,
+  "writing.handIn": SendIcon,
+  "comment.add": MessageSquarePlusIcon,
+  "comment.onScene": MessageSquarePlusIcon,
+  "comment.onScript": MessageSquarePlusIcon,
+  "note.add": PenLineIcon,
+  "alternate.add": CopyPlusIcon,
   "setting.writing.checkSpelling": SpellCheck2Icon,
   "setting.writing.typewriterScrolling": AlignCenterVerticalIcon,
   "setting.writing.showCursors": MousePointer2Icon,
@@ -267,6 +275,7 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   "room.follow": EyeIcon,
   "room.takeKeys": KeyRoundIcon,
   "room.pitch": MessageSquarePlusIcon,
+  "board.print": PrinterIcon,
 });
 
 const SUBMENU_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({

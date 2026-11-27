@@ -1,6 +1,6 @@
 // Scene headings of episode scripts requested on demand (never eagerly opening every episode on Board mount).
-import { scriptBody } from "@manent/crdt";
-import type { CrdtDoc, EpisodeEntry } from "@manent/crdt";
+import { readSceneProgress, scriptBody } from "@manent/crdt";
+import type { CrdtDoc, EpisodeEntry, SceneProgress } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
 import type { DocHandle, ViewHandle } from "@manent/sync-client";
 import { useEffect, useRef, useState } from "react";
@@ -11,7 +11,17 @@ export interface EpisodeScene {
   readonly blockId: string;
   readonly number: string;
   readonly heading: string;
+  readonly synopsis?: string;
+  readonly omitted?: boolean;
+  readonly progress?: SceneProgress;
+  readonly excerpt?: readonly string[];
+  readonly characters?: readonly string[];
 }
+
+export type EpisodeScenesState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly scenes: readonly EpisodeScene[] }
+  | { readonly status: "unavailable" };
 
 interface DemandState {
   readonly scripts: Set<string>;
@@ -19,6 +29,20 @@ interface DemandState {
 }
 
 const HEADING_TYPES: ReadonlySet<string> = new Set(["scene_heading", "slug"]);
+const BOUNDARY_TYPES: ReadonlySet<string> = new Set([
+  "scene_heading",
+  "slug",
+  "act",
+  "section",
+]);
+const EXCERPT_TYPES: ReadonlySet<string> = new Set([
+  "action",
+  "character",
+  "dialogue",
+  "parenthetical",
+]);
+const MAX_EXCERPT_LINES = 3;
+const MAX_CHARACTERS = 5;
 const noop = (): void => {};
 
 const demandByServices = new WeakMap<PersonServices, DemandState>();
@@ -50,13 +74,22 @@ function textOf(block: BlockJSON): string {
     .trim();
 }
 
-/** Scene headings and slugs of `blocks`, numbered by stored `num` or sequential count from 1. */
+function cleanCharacterName(raw: string): string {
+  return raw
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+/** Scene headings and slugs of `blocks`, with synopsis, omitted state, excerpt and character cast for on-demand peek. */
 export function scenesFromBlocks(
   blocks: readonly BlockJSON[],
+  progressFor?: (blockId: string) => SceneProgress,
 ): readonly EpisodeScene[] {
   const scenes: EpisodeScene[] = [];
   let count = 0;
-  for (const block of blocks) {
+  for (let i = 0; i < blocks.length; i += 1) {
+    const block = blocks[i]!;
     const type = block.attrs?.type;
     if (typeof type !== "string" || !HEADING_TYPES.has(type)) continue;
     count++;
@@ -66,7 +99,49 @@ export function scenesFromBlocks(
     const stored = block.attrs?.num;
     const number =
       typeof stored === "string" && stored !== "" ? stored : String(count);
-    scenes.push({ blockId, number, heading });
+    const rawSynopsis = block.attrs?.synopsis;
+    const synopsis =
+      typeof rawSynopsis === "string" && rawSynopsis.trim() !== ""
+        ? rawSynopsis.trim()
+        : undefined;
+    const omitted = block.attrs?.omitted === true ? true : undefined;
+    const excerpt: string[] = [];
+    const chars: string[] = [];
+    const seenChars = new Set<string>();
+    for (let j = i + 1; j < blocks.length; j += 1) {
+      const next = blocks[j]!;
+      const nextType = next.attrs?.type;
+      if (typeof nextType === "string" && BOUNDARY_TYPES.has(nextType)) break;
+      const line = textOf(next);
+      if (line === "") continue;
+      if (nextType === "character" && chars.length < MAX_CHARACTERS) {
+        const name = cleanCharacterName(line);
+        if (name !== "" && !seenChars.has(name)) {
+          seenChars.add(name);
+          chars.push(name);
+        }
+      }
+      if (
+        excerpt.length < MAX_EXCERPT_LINES &&
+        typeof nextType === "string" &&
+        EXCERPT_TYPES.has(nextType)
+      ) {
+        excerpt.push(line);
+      }
+    }
+    const progress = progressFor?.(blockId);
+    scenes.push({
+      blockId,
+      number,
+      heading,
+      ...(synopsis !== undefined ? { synopsis } : {}),
+      ...(omitted ? { omitted } : {}),
+      ...(progress !== undefined && progress !== "not_started"
+        ? { progress }
+        : {}),
+      ...(excerpt.length > 0 ? { excerpt } : {}),
+      ...(chars.length > 0 ? { characters: chars } : {}),
+    });
   }
   return scenes;
 }
@@ -75,7 +150,7 @@ function scenesFromDoc(doc: CrdtDoc): readonly EpisodeScene[] {
   const blocks = (scriptBody(doc).materialize().content ?? []).flatMap(
     (section) => section.content ?? [],
   );
-  return scenesFromBlocks(blocks);
+  return scenesFromBlocks(blocks, (id) => readSceneProgress(doc, id));
 }
 
 function watchScriptHandle(
@@ -136,11 +211,11 @@ function watchScriptHandle(
 /** Lazily watches scene headings only for episode scripts explicitly requested via `requestEpisodeScenes`. */
 export function useEpisodeScenes(
   episodes: readonly EpisodeEntry[],
-): ReadonlyMap<string, readonly EpisodeScene[]> {
+): ReadonlyMap<string, EpisodeScenesState> {
   const services = useServices();
   const { openHandle } = services;
   const [scenesByScript, setScenesByScript] = useState<
-    ReadonlyMap<string, readonly EpisodeScene[]>
+    ReadonlyMap<string, EpisodeScenesState>
   >(() => new Map());
   const [demandVersion, setDemandVersion] = useState(0);
   const watchedRef = useRef<Map<string, () => void>>(new Map());
@@ -192,8 +267,10 @@ export function useEpisodeScenes(
         return next;
       });
     }
+    const newlyAdded: string[] = [];
     for (const scriptId of wanted) {
       if (watched.has(scriptId)) continue;
+      newlyAdded.push(scriptId);
       let cancelled = false;
       let stopWatching: (() => void) | null = null;
       let openedHandle: DocHandle | null = null;
@@ -217,15 +294,29 @@ export function useEpisodeScenes(
             if (cancelled) return;
             setScenesByScript((prev) => {
               const next = new Map(prev);
-              next.set(scriptId, scenes);
+              next.set(scriptId, { status: "ready", scenes });
               return next;
             });
           });
         },
         () => {
-          // a script that cannot open leaves its scene list empty
+          if (cancelled) return;
+          setScenesByScript((prev) => {
+            const next = new Map(prev);
+            next.set(scriptId, { status: "unavailable" });
+            return next;
+          });
         },
       );
+    }
+    if (newlyAdded.length > 0) {
+      setScenesByScript((prev) => {
+        const next = new Map(prev);
+        for (const id of newlyAdded) {
+          if (!next.has(id)) next.set(id, { status: "loading" });
+        }
+        return next;
+      });
     }
   }, [scriptIdsKey, openHandle, demandVersion]);
 

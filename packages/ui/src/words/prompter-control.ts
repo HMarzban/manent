@@ -27,4 +27,6 @@ export const PROMPTER_CONTROL_WORDS = Object.freeze({
     `Feed lost ${time} — scrolling paused`,
   offlinePaused: "Offline — scrolling paused",
   linesPerSecond: (n: number): string => `${n} l/s`,
+  playingAt: (n: number): string => `Playing · ${n} l/s`,
+  paused: "Paused",
 });

@@ -20,4 +20,6 @@ export const PRESENT_WORDS = Object.freeze({
   progressPercent: (pct: number): string => `${formatCount(pct)}%`,
   sceneProgress: (current: number, total: number): string =>
     `Scene ${formatCount(current)} of ${formatCount(total)}`,
+  previousScene: "Previous scene",
+  nextScene: "Next scene",
 });
