@@ -28,8 +28,16 @@ function struck(view: EditorView, text: string): HTMLElement {
   return del;
 }
 
-function removedBlock(view: EditorView, text: string): HTMLElement {
+const TRAILING_SIDE_BASE = -1_000_000_000;
+
+function removedBlock(
+  view: EditorView,
+  text: string,
+  blockType: string | null,
+): HTMLElement {
   const del = struck(view, text);
+  del.className =
+    blockType !== null ? `mn-removed el el-${blockType}` : "mn-removed el";
   del.setAttribute("data-changes", "removed");
   del.setAttribute("contenteditable", "false");
   return del;
@@ -83,12 +91,19 @@ function blockDecorations(
 }
 
 // A removed block, drawn at `pos` with its text struck through; its spec names it as `removedId`.
-function removedDecoration(entry: BlockEntry, pos: number): Decoration {
+function removedDecoration(
+  entry: BlockEntry,
+  pos: number,
+  trailing: boolean,
+): Decoration {
   const text = entry.older === null ? "" : textOf(entry.older);
-  return Decoration.widget(pos, (view) => removedBlock(view, text), {
-    // widgets at one position are drawn in the order of their sides
-    side: 1 + (entry.olderIndex ?? 0),
-    key: `removed:${entry.id}:${hashOf(text)}`,
+  const rawType = entry.older?.attrs?.type;
+  const blockType = typeof rawType === "string" ? rawType : null;
+  const order = entry.olderIndex ?? 0;
+  return Decoration.widget(pos, (view) => removedBlock(view, text, blockType), {
+    // widgets at one position are drawn in the order of their sides; trailing removals sit strictly before pb-last (side 1)
+    side: trailing ? TRAILING_SIDE_BASE + order : 1 + order,
+    key: `removed:${entry.id}:${blockType ?? ""}:${hashOf(text)}`,
     removedId: entry.id,
   });
 }
@@ -108,10 +123,12 @@ function removedDecorations(
   index: BlockIndex,
   placed: readonly PlacedRemoval[],
 ): Decoration[] {
+  const lastBlock = index.blocks.length - 1;
   return placed.map(({ entry, after }) =>
     removedDecoration(
       entry,
       after < 0 ? blockPos(index, 0) : blockEnd(index, after),
+      after >= 0 && after === lastBlock,
     ),
   );
 }

@@ -76,6 +76,16 @@ p.el {
   line-height: calc(var(--el-spacing) * var(--geo-line));
   text-indent: calc(var(--el-first) * var(--geo-cell));
 }
+del.el {
+  display: block;
+  margin: 0;
+  clear: both;
+  padding-top: calc(var(--el-before) * var(--geo-line));
+  margin-left: calc((var(--el-indent) - var(--el-slack-left)) * var(--geo-cell));
+  width: calc((var(--el-width) + ${BLOCK_SLACK_CELLS}) * var(--geo-cell));
+  line-height: calc(var(--el-spacing) * var(--geo-line));
+  text-indent: calc(var(--el-first) * var(--geo-cell));
+}
 p.el.pg-first {
   padding-top: calc(var(--el-drop, 0) * var(--geo-line));
 }
@@ -105,7 +115,7 @@ p.el.pg-first {
   padding-left: calc(var(--geo-left) + var(--geo-cue-indent) * var(--geo-cell));
 }
 .pb-fill {
-  height: calc(max(0, var(--fill)) * var(--geo-unit));
+  height: max(0px, calc(max(0, var(--fill)) * var(--geo-unit) - var(--fill-trim, 0px)));
 }
 .pb-foot {
   height: calc(var(--geo-bottom) + min(0, var(--fill)) * var(--geo-unit));
@@ -276,6 +286,9 @@ export const REFLOW_CSS = `
   width: auto;
 }
 .mn-reflow p.el:not(.dual-l, .dual-r, .el-group) {
+  width: auto;
+}
+.mn-reflow del.el {
   width: auto;
 }
 .pb.pb-rule {

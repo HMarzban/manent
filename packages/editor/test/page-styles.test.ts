@@ -273,3 +273,21 @@ test("omitted scene body blocks and replaced original headings take no layout ro
   ).toEqual(["display: none"]);
   expect(rule(PAGE_CSS, ".mn-omitted")).toEqual(["user-select: none"]);
 });
+
+test("removed block widgets lay out as screenplay blocks and pb-fill honours --fill-trim", () => {
+  expect(rule(PAGE_CSS, "del.el")).toEqual(
+    expect.arrayContaining([
+      "display: block",
+      "margin: 0",
+      "clear: both",
+      "padding-top: calc(var(--el-before) * var(--geo-line))",
+      "margin-left: calc((var(--el-indent) - var(--el-slack-left)) * var(--geo-cell))",
+      `width: calc((var(--el-width) + ${BLOCK_SLACK_CELLS}) * var(--geo-cell))`,
+      "line-height: calc(var(--el-spacing) * var(--geo-line))",
+      "text-indent: calc(var(--el-first) * var(--geo-cell))",
+    ]),
+  );
+  expect(rule(PAGE_CSS, ".pb-fill")).toEqual([
+    "height: max(0px, calc(max(0, var(--fill)) * var(--geo-unit) - var(--fill-trim, 0px)))",
+  ]);
+});

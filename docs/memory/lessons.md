@@ -4,6 +4,27 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Sync page-sheet underlays to rendered page breaks whenever inline diff widgets add height
+
+- Date: 2026-11-27
+
+### What happened
+
+In Version history (`On the page` and both panes of `Side by side`), `changesPlugin` injects inline `<del class="mn-removed">` widgets and block-level `del[data-changes="removed"]` widgets into `.mn-page-view` without changing `@manent/pagination`'s page table. Because `.mn-sheet` underlays and `.mn-zoom` height stayed on fixed `index × (pageHeight + PAGE_GAP_PX)` geometry, cumulative extra height from earlier removed scenes and wrapped deletions shifted every subsequent page break downward by up to `1,152 px` on _203 Undertow_, pushing text across sheet gaps and onto page-number headers (`11.`) while overflowing the final page past `.mn-zoom`. At the same time, removed block widgets lacked block screenplay classes (collapsing consecutive removed elements onto one inline run), trailing removed blocks used `side >= 1` (sorting after `pb-last`), and `mountHistoryWorkingView` omitted `changeMarksPlugin()`, leaving `Asterisks only` without margin asterisks.
+
+### How it was caught
+
+By visual inspection of _203 Undertow_ on `/s/$docId/history` comparing `Working` against `Network draft`, followed by live Chromium DOM geometry measurements across all five History view modes.
+
+### Rule
+
+Whenever `changesPlugin` renders inline changes (`display: "page"`), keep `.mn-sheet` underlays and `.mn-zoom` height synchronised with rendered `.pb-head` / `.pb-foot` boundaries via `sheetBoxSyncPlugin` and `PageScaffold.setPageBoxes`, absorbing excess height into each page's `.pb-fill` via `--fill-trim` before expanding that sheet and anchoring footers from the sheet's bottom edge. Style removed block widgets with their screenplay element classes (`mn-removed el el-<type>`), place trailing removed blocks strictly before `pb-last` (`side < 1`), and pair `changesPlugin()` with `changeMarksPlugin()` on read-only History views so `Asterisks only` draws right-margin asterisks.
+
+### Enforced by
+
+`packages/editor/test/sheet-sync.dom.test.ts`, `packages/editor/test/page-scaffold.test.ts`, `packages/editor/test/changes-plugin.test.ts`, `packages/editor/test/page-styles.test.ts`, and `apps/web/test/history-version-view.dom.test.ts`.
+
+
 ## Forward benchmark environment overrides explicitly into Docker tier containers
 
 - Date: 2026-11-27

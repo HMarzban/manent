@@ -1,12 +1,6 @@
 // The page's frame: a zoomed container over one sheet per page in view, beneath the editable document.
 import type { PageProfile } from "@manent/pagination";
-import {
-  CONTAINMENT,
-  PAGE_GAP_PX,
-  SHEET_NEIGHBOURS,
-  ZOOM_MAX,
-  ZOOM_MIN,
-} from "./config.ts";
+import { CONTAINMENT, PAGE_GAP_PX } from "./config.ts";
 import type { BrowserEngine, LayoutView } from "./config.ts";
 import {
   applyFurnitureReplaces,
@@ -21,55 +15,20 @@ import type {
 import { PAGE_FURNITURE } from "./furniture/registry.ts";
 import { PAGE_CSS, REFLOW_CSS } from "./page-css.ts";
 import { profileCss, screenPagePx } from "./profile-css.ts";
+import {
+  detectEngine,
+  isSameBoxes,
+  visibleSheetBoxes,
+  visibleSheets,
+  zoomBox,
+} from "./sheet-geometry.ts";
+import type { PageBox } from "./sheet-geometry.ts";
+
+export { detectEngine, visibleSheetBoxes, visibleSheets, zoomBox };
+export type { PageBox };
 
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
-
-export function detectEngine(userAgent: string): BrowserEngine {
-  if (userAgent.includes("Firefox/")) return "firefox";
-  const chromium =
-    userAgent.includes("Chrome/") || userAgent.includes("Chromium/");
-  return userAgent.includes("AppleWebKit/") && !chromium
-    ? "webkit"
-    : "chromium";
-}
-
-/** The scale and the zoomed size of the content, the percentage clamped to the zoom limits. */
-export function zoomBox(
-  pageWidthPx: number,
-  contentHeightPx: number,
-  percent: number,
-): { scale: number; widthPx: number; heightPx: number } {
-  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, percent)) / 100;
-  return {
-    scale,
-    widthPx: pageWidthPx * scale,
-    heightPx: contentHeightPx * scale,
-  };
-}
-
-/** The sheets to draw: every page in view plus `SHEET_NEIGHBOURS` each side (zoomed scroll/viewport, unzoomed tops). */
-export function visibleSheets(
-  pageCount: number,
-  pageHeightPx: number,
-  gapPx: number,
-  scrollTop: number,
-  viewportHeight: number,
-  scale: number,
-): { index: number; top: number }[] {
-  const pitch = pageHeightPx + gapPx;
-  const top = scrollTop / scale;
-  const bottom = (scrollTop + viewportHeight) / scale;
-  const first = Math.floor((top - pageHeightPx) / pitch) + 1 - SHEET_NEIGHBOURS;
-  const end = Math.min(
-    pageCount - 1,
-    Math.ceil(bottom / pitch) - 1 + SHEET_NEIGHBOURS,
-  );
-  const sheets: { index: number; top: number }[] = [];
-  for (let index = Math.max(0, first); index <= end; index++)
-    sheets.push({ index, top: index * pitch });
-  return sheets;
-}
 
 /** What a sheet shows of a revision. `key` changes whenever any sheet would. */
 export interface SheetDecor {
@@ -84,6 +43,7 @@ export interface PageScaffold {
   setFrontHeight(px: number): void;
   setProfile(profile: PageProfile): void;
   setPageCount(count: number): void;
+  setPageBoxes(boxes: readonly PageBox[] | null): void;
   applyZoom(percent: number): void;
   setRoomAbove(px: number): void;
   setFontState(state: "loading" | "ready" | "fallback"): void;
@@ -102,10 +62,16 @@ interface SheetFrame {
   entries: readonly PageFurniture[];
 }
 
+interface PlacedSheet {
+  readonly index: number;
+  readonly top: number;
+  readonly height?: number;
+}
+
 /** Places the sheet and redraws its furniture only when `input` differs from `drawn`. */
 function drawSheet(
   sheet: HTMLElement,
-  at: { index: number; top: number },
+  at: PlacedSheet,
   frame: SheetFrame,
   profile: PageProfile,
   drawn: WeakMap<HTMLElement, PageFurnitureInput>,
@@ -114,6 +80,8 @@ function drawSheet(
   if (sheet.dataset["page"] !== page) sheet.dataset["page"] = page;
   const top = `${at.top}px`;
   if (sheet.style.top !== top) sheet.style.top = top;
+  const height = at.height === undefined ? "" : `${at.height}px`;
+  if (sheet.style.height !== height) sheet.style.height = height;
   const { furniture, labels } = frame;
   const input: PageFurnitureInput = {
     pageIndex: at.index,
@@ -143,7 +111,7 @@ function drawSheet(
 function drawSheets(
   pages: HTMLElement,
   sheets: HTMLElement[],
-  wanted: readonly { index: number; top: number }[],
+  wanted: readonly PlacedSheet[],
   frame: SheetFrame,
   profile: PageProfile,
   drawn: WeakMap<HTMLElement, PageFurnitureInput>,
@@ -212,13 +180,24 @@ function createFrame(
 function sizeFrame(
   frame: { zoom: HTMLElement; front: HTMLElement; pages: HTMLElement },
   page: { width: number; height: number },
-  heights: { count: number; frontPx: number; view: LayoutView },
+  heights: {
+    count: number;
+    frontPx: number;
+    view: LayoutView;
+    pageBoxes: readonly PageBox[] | null;
+  },
   percent: number,
 ): number {
   const { zoom, front, pages } = frame;
-  const { count, frontPx } = heights;
+  const { count, frontPx, pageBoxes } = heights;
+  const lastBox =
+    pageBoxes !== null && pageBoxes.length > 0
+      ? pageBoxes[pageBoxes.length - 1]
+      : undefined;
   const contentHeight =
-    frontPx + count * page.height + (count - 1) * PAGE_GAP_PX;
+    lastBox !== undefined
+      ? frontPx + lastBox.top + lastBox.height
+      : frontPx + count * page.height + (count - 1) * PAGE_GAP_PX;
   const box = zoomBox(page.width, contentHeight, percent);
   pages.dataset["zoom"] = String(box.scale);
   if (heights.view === "reflow") {
@@ -269,6 +248,7 @@ export function createPageScaffold(options: {
   applyFurnitureReplaces(pages, entries);
   let profile = options.profile;
   let count = 1;
+  let pageBoxes: readonly PageBox[] | null = null;
   let frontPx = 0;
   let percent = 100;
   let scale = 1;
@@ -276,7 +256,7 @@ export function createPageScaffold(options: {
   let furniture: PageFurnitureOptions = options.furniture ?? {};
   let labels: readonly string[] = [];
   let viewBox: { top: number; height: number } | null = null;
-  let placed: readonly { index: number; top: number }[] = [];
+  let placed: readonly PlacedSheet[] = [];
   let dirty: "none" | "redraw" | "layout" = "none";
   let destroyed = false;
   let lastPagesKey = "";
@@ -286,7 +266,7 @@ export function createPageScaffold(options: {
   const drawPlaced = (): void => {
     const f: SheetFrame = { count, decor, furniture, labels, entries };
     drawSheets(pages, sheets, placed, f, profile, drawn);
-    const nextKey = `${scale}|${placed.map((w) => w.index).join(",")}`;
+    const nextKey = `${scale}|${placed.map((w) => (w.height === undefined ? String(w.index) : `${w.index}:${w.top}:${w.height}`)).join(",")}`;
     if (nextKey === lastPagesKey) return;
     lastPagesKey = nextKey;
     for (const fn of listeners) fn();
@@ -298,11 +278,13 @@ export function createPageScaffold(options: {
     placed =
       view === "reflow"
         ? []
-        : visibleSheets(count, h, PAGE_GAP_PX, offset, height, scale);
+        : pageBoxes !== null
+          ? visibleSheetBoxes(pageBoxes, offset, height, scale)
+          : visibleSheets(count, h, PAGE_GAP_PX, offset, height, scale);
     drawPlaced();
   };
   const applyLayout = (top: number, height: number): void => {
-    const dims = { count, frontPx, view };
+    const dims = { count, frontPx, view, pageBoxes };
     scale = sizeFrame(frame, screenPagePx(profile), dims, percent);
     redrawAt(top, height);
   };
@@ -353,6 +335,14 @@ export function createPageScaffold(options: {
     },
     setPageCount(next) {
       count = next;
+      if (destroyed || defer("layout")) return;
+      if (viewBox !== null && viewBox.height > 0)
+        applyLayout(viewBox.top, viewBox.height);
+      else applyLayout(scroller.scrollTop, scroller.clientHeight);
+    },
+    setPageBoxes(next) {
+      if (isSameBoxes(pageBoxes, next)) return;
+      pageBoxes = next;
       if (destroyed || defer("layout")) return;
       if (viewBox !== null && viewBox.height > 0)
         applyLayout(viewBox.top, viewBox.height);

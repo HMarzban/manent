@@ -7,6 +7,7 @@ import {
   faceDescriptors,
   loadScriptFonts,
   scriptFontsReady,
+  visibleSheetBoxes,
   visibleSheets,
   withBatchedScaffold,
   zoomBox,
@@ -294,4 +295,66 @@ test("a batched scaffold destroyed before the batch ends draws no sheets on exit
     made.destroy();
   });
   expect(draws).toBe(0);
+});
+
+test("visibleSheetBoxes selects variable-height sheets in view plus neighbours", () => {
+  const boxes = [
+    { top: 0, height: 1056 },
+    { top: 1080, height: 1408 },
+    { top: 2512, height: 1056 },
+    { top: 3592, height: 1056 },
+  ];
+  expect(visibleSheetBoxes(boxes, 0, 800, 1)).toEqual([
+    { index: 0, top: 0, height: 1056 },
+    { index: 1, top: 1080, height: 1408 },
+  ]);
+  expect(visibleSheetBoxes(boxes, 2600, 800, 1)).toEqual([
+    { index: 1, top: 1080, height: 1408 },
+    { index: 2, top: 2512, height: 1056 },
+    { index: 3, top: 3592, height: 1056 },
+  ]);
+  expect(
+    visibleSheetBoxes(boxes, 1300, 400, 0.5).map((sheet) => sheet.index),
+  ).toEqual([1, 2, 3]);
+});
+
+test("setPageBoxes places sheets at measured tops and heights, updates zoom height, and resets on null", () => {
+  const host = document.createElement("div");
+  Object.defineProperty(host, "clientHeight", { value: 900 });
+  const scaffold = createPageScaffold({
+    place: host,
+    profile: profileFor("screenplay")!,
+    engine: "chromium",
+  });
+  try {
+    scaffold.setPageCount(3);
+    const zoom = host.querySelector<HTMLElement>(".mn-zoom")!;
+    expect(zoom.style.height).toBe("3216px");
+    scaffold.setPageBoxes([
+      { top: 0, height: 1056 },
+      { top: 1080, height: 1408 },
+      { top: 2512, height: 1056 },
+    ]);
+    expect(zoom.style.height).toBe("3568px");
+    const drawn = () =>
+      [...scaffold.pages.querySelectorAll<HTMLElement>(".mn-sheet")]
+        .map((sheet) => ({
+          page: Number(sheet.dataset["page"]),
+          top: sheet.style.top,
+          height: sheet.style.height,
+        }))
+        .toSorted((a, b) => a.page - b.page);
+    expect(drawn()).toEqual([
+      { page: 0, top: "0px", height: "1056px" },
+      { page: 1, top: "1080px", height: "1408px" },
+    ]);
+    scaffold.setPageBoxes(null);
+    expect(zoom.style.height).toBe("3216px");
+    expect(drawn()).toEqual([
+      { page: 0, top: "0px", height: "" },
+      { page: 1, top: "1080px", height: "" },
+    ]);
+  } finally {
+    scaffold.destroy();
+  }
 });

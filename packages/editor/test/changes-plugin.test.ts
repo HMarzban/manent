@@ -242,7 +242,7 @@ test("a block deleted now appears as removed where it was", () => {
   ]).toEqual([
     [["widget", "del", "The ferry leaves."]],
     true,
-    "mn-removed",
+    "mn-removed el el-action",
     [
       ["data-changes", "removed"],
       ["contenteditable", "false"],
@@ -535,4 +535,25 @@ test("typing in the first block keeps a removed opening block drawn above it", (
     widgets.map((w) => [w.from, drawn(w).textContent]),
     drawingOf(typed),
   ]).toEqual([[[posIn(typed, 0) - 1, "Opening"]], drawingOf(fresh)]);
+});
+
+test("removed blocks carry their screenplay element class and trailing removals stay before pb-last", () => {
+  const baseline = doc(
+    b("scene_heading", "INT. DOCK - DAY"),
+    b("character", "CAL"),
+    b("dialogue", "Wait for the tide."),
+  );
+  const live = edited(baseline, (block, k) => (k === 0 ? [block] : []));
+  const s = withChanges(live, baseline);
+  const widgets = changesKey
+    .getState(s)!
+    .decorations.find()
+    .filter((d) => shapeOf(s, d) === "widget");
+  const sides = widgets.map((w) => (w.spec as { side?: number }).side ?? 0);
+  expect(widgets.map((w) => drawn(w).className)).toEqual([
+    "mn-removed el el-character",
+    "mn-removed el el-dialogue",
+  ]);
+  // both trailing removals sit strictly before pb-last (side: 1) and stay in original order
+  expect(sides[0]! < sides[1]! && sides[1]! < 1).toBe(true);
 });

@@ -8,8 +8,9 @@ export {
   PAGE_VIEW_CLASS,
   createPageScaffold,
   detectEngine,
+  visibleSheetBoxes,
   visibleSheets,
   withBatchedScaffold,
   zoomBox,
 } from "./scaffold.ts";
-export type { PageScaffold, SheetDecor } from "./scaffold.ts";
+export type { PageBox, PageScaffold, SheetDecor } from "./scaffold.ts";

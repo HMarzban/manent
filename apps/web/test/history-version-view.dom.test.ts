@@ -11,6 +11,7 @@ import { HISTORY_WORDS } from "@manent/ui";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
+import { mountHistoryWorkingView } from "../src/editor-host/history-page-view.ts";
 import { mountVersionView } from "../src/editor-host/version-view.ts";
 import { VERSION_LAYOUTS } from "../src/history/version-layouts.ts";
 import { VersionPane } from "../src/screens/document/version-pane.tsx";
@@ -277,4 +278,39 @@ test("mountVersionView renders watermark on sheets when given", () => {
       (el) => el.textContent,
     ),
   ).toEqual(["Leo Marsh", "Leo Marsh"]);
+});
+
+test("mountHistoryWorkingView draws margin asterisks in asterisks-only mode", () => {
+  const place = document.createElement("div");
+  Object.defineProperty(place, "clientHeight", { value: 900 });
+  document.body.append(place);
+  const olderBlocks = [
+    block("blocka01", "scene_heading", "INT. FERRY - NIGHT"),
+    block("blocka02", "action", "The harbour is still."),
+  ];
+  const older = sectionize(olderBlocks);
+  const working = sectionize([
+    block("blocka01", "scene_heading", "INT. FERRY - NIGHT"),
+    block("blocka02", "action", "The harbour is loud with rain."),
+  ]);
+  const view = mountHistoryWorkingView({
+    place,
+    snapshot: {
+      doc: working,
+      engineVersion: ENGINE_VERSION,
+      settings: { "script.format": "screenplay" },
+    },
+    ports: PORTS,
+    offFontNote: "Outside Courier Prime",
+    changes: {
+      baseline: {
+        ...CONTENT,
+        blocks: olderBlocks,
+      },
+      comparison: compareDocs(older, working),
+      display: "asterisks",
+    },
+  });
+  cleanups.push(() => view.destroy());
+  expect(place.querySelectorAll(".mn-asterisk").length).toBeGreaterThan(0);
 });

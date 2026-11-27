@@ -29,6 +29,7 @@ import type { DriftReport } from "./drift.ts";
 import { paginationKey, paginationPlugin } from "./plugin.ts";
 import type { PaginationOptions } from "./plugin.ts";
 import { sectionNodeView, spellcheckFor } from "./section-view.ts";
+import { sheetBoxSyncPlugin } from "./sheet-sync.ts";
 
 /** Whether a transaction came from another writer; whoever binds the shared document supplies it. */
 export type IsRemote = (tr: Transaction) => boolean;
@@ -183,6 +184,7 @@ export function mountPageView(
           ...plugins,
           graphicSelectionPlugin(),
           labelSyncPlugin,
+          ...(options.view === "reflow" ? [] : [sheetBoxSyncPlugin(scaffold)]),
           ...(options.plugins ?? []),
         ],
       }),

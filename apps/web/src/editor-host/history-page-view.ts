@@ -1,5 +1,10 @@
 // Read-only script view mounter for the dedicated Version history page (/s/$docId/history): editing is always blocked.
-import { changesPlugin, mountPageView, setChanges } from "@manent/editor";
+import {
+  changeMarksPlugin,
+  changesPlugin,
+  mountPageView,
+  setChanges,
+} from "@manent/editor";
 import type { ChangesDisplay, PageViewPorts } from "@manent/editor";
 import {
   DEFAULT_LAYOUT_SETTINGS,
@@ -179,7 +184,7 @@ export function mountHistoryWorkingView(options: {
     locks: toLockTable([]),
     layout: null,
     editable: () => false,
-    plugins: hasMarks ? [changesPlugin()] : [],
+    plugins: hasMarks ? [changesPlugin(), changeMarksPlugin()] : [],
   });
   if (hasMarks) {
     page.view.dispatch(
@@ -272,7 +277,7 @@ export function mountHistorySnapshotView(options: {
 /** Finds the first block element whose bottom edge sits inside the visible scroll container. */
 export function visibleBlockAtTop(scroller: Element): string | null {
   const top = scroller.getBoundingClientRect().top + 24;
-  const blocks = scroller.querySelectorAll("[data-id]");
+  const blocks = scroller.querySelectorAll("[data-id]:not(.el-hidden)");
   let low = 0;
   let high = blocks.length - 1;
   let found: Element | null = null;

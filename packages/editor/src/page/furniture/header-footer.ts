@@ -106,7 +106,7 @@ function createBand(
   className: string,
   leftPt: number,
   widthPx: number,
-  topPx: number,
+  vertical: { top: number } | { bottom: number },
 ): HTMLDivElement {
   const band = doc.createElement("div");
   band.className = className;
@@ -114,7 +114,9 @@ function createBand(
     position: "absolute",
     left: `${leftPt}pt`,
     width: `${widthPx}px`,
-    top: `${topPx}px`,
+    ...("top" in vertical
+      ? { top: `${vertical.top}px` }
+      : { bottom: `${vertical.bottom}px` }),
     height: `${LINE_PX}px`,
     font: '12pt/12pt "Courier Prime", monospace',
     fontKerning: "none",
@@ -151,7 +153,7 @@ function createRule(
   className: string,
   leftPt: number,
   widthPx: number,
-  topPx: number,
+  vertical: { top: number } | { bottom: number },
 ): HTMLDivElement {
   const line = doc.createElement("div");
   line.className = className;
@@ -159,7 +161,9 @@ function createRule(
     position: "absolute",
     left: `${leftPt}pt`,
     width: `${widthPx}px`,
-    top: `${topPx}px`,
+    ...("top" in vertical
+      ? { top: `${vertical.top}px` }
+      : { bottom: `${vertical.bottom}px` }),
     height: "1px",
     background: "var(--page-ink)",
     pointerEvents: "none",
@@ -190,13 +194,17 @@ function drawBar(
           screen.top + (profile.linesPerPage + 1) * LINE_PX,
           screen.height - geometry.pageNumberTopPt * PX_PER_PT - LINE_PX,
         );
+  const bandVertical =
+    kind === "header"
+      ? { top: topPx }
+      : { bottom: Math.max(0, screen.height - topPx - LINE_PX) };
   const doc = sheet.ownerDocument;
   const band = createBand(
     doc,
     kind === "header" ? "mn-header" : "mn-footer",
     geometry.marginLeftPt,
     widthPx,
-    topPx,
+    bandVertical,
   );
   appendSlot(band, left, "left");
   appendSlot(band, center, "center");
@@ -205,15 +213,17 @@ function drawBar(
   else sheet.append(band);
   if (slots.rule) {
     const gapPx = RULE_GAP_PT * PX_PER_PT;
-    const ruleTopPx =
-      kind === "header" ? topPx + LINE_PT * PX_PER_PT + gapPx : topPx - gapPx;
+    const ruleVertical =
+      kind === "header"
+        ? { top: topPx + LINE_PT * PX_PER_PT + gapPx }
+        : { bottom: Math.max(0, screen.height - (topPx - gapPx) - 1) };
     sheet.append(
       createRule(
         doc,
         kind === "header" ? "mn-header-rule" : "mn-footer-rule",
         geometry.marginLeftPt,
         widthPx,
-        ruleTopPx,
+        ruleVertical,
       ),
     );
   }
