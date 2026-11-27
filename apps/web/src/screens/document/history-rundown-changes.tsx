@@ -79,7 +79,7 @@ export function HistoryRundownChanges(props: {
   const mode: RundownHistoryMode = isRundownMode(rawMode) ? rawMode : "page";
   const effectiveMode: RundownHistoryMode =
     mode === "side" && !canSplit ? "page" : mode;
-  const [step, setStep] = useState(0);
+  const step = useHistory("step") ?? 0;
 
   const baselineRundown = rundownOfContent(content);
   const currentRundown = view?.rundown ?? null;
@@ -96,7 +96,7 @@ export function HistoryRundownChanges(props: {
   );
 
   useLayoutEffect(() => {
-    setStep(0);
+    historyActions.setStep(null);
     const id = offered?.versionId ?? null;
     setBaselineRow(
       id === null ? null : (rows.find((row) => row.item.id === id) ?? null),
@@ -111,7 +111,7 @@ export function HistoryRundownChanges(props: {
           ? 1
           : navChanges.length
         : Math.min(navChanges.length, Math.max(1, step + delta));
-    setStep(next);
+    historyActions.setStep(next);
     const change = navChanges[next - 1];
     if (change !== undefined)
       dom.announce(change.announce(next, navChanges.length));
@@ -200,6 +200,7 @@ export function HistoryRundownChanges(props: {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
+                    data-tour="history.previousChange"
                     className="size-5 cursor-pointer text-fg-muted hover:text-fg"
                     onClick={() => stepBy(-1)}
                   />
@@ -223,6 +224,7 @@ export function HistoryRundownChanges(props: {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
+                    data-tour="history.nextChange"
                     className="size-5 cursor-pointer text-fg-muted hover:text-fg"
                     onClick={() => stepBy(1)}
                   />

@@ -168,6 +168,9 @@ export function HistoryComparisonBanner(props: {
         type="button"
         variant="outline"
         size="sm"
+        data-tour={
+          mode === "as_it_was" ? "history.backToWorking" : "history.hideChanges"
+        }
         className="shrink-0 cursor-pointer"
         onClick={props.onClear}
       >

@@ -15,7 +15,9 @@ tourScenario("together-links", async ({ windows, scenario, step }) => {
   await selectTourStep(dana, scenario.promise, 0);
   await dana.getByRole("heading", { level: 1 }).getByRole("button").click();
   await (await step(0)).click();
-  await dana.getByRole("button", { name: DOCUMENT_WORDS.historyTab }).click();
+  await dana
+    .getByRole("button", { name: DOCUMENT_WORDS.historyTab, exact: true })
+    .click();
   await dana.locator("[data-changes-since]").click();
   await dana
     .getByRole("menuitem", { name: "Studio draft", exact: true })

@@ -312,6 +312,7 @@ export function HistoryScriptCanvas(props: {
               <div
                 ref={primaryRef}
                 data-history-canvas={docId}
+                data-tour="page"
                 tabIndex={-1}
                 className="mn-desk min-h-0 flex-1 overflow-auto p-3! outline-none [&>.mn-zoom]:mx-auto"
               />
@@ -321,6 +322,7 @@ export function HistoryScriptCanvas(props: {
           <div
             ref={primaryRef}
             data-history-canvas={docId}
+            data-tour="page"
             tabIndex={-1}
             aria-label={
               baseline === null ? HISTORY_WORDS.workingPreview : olderLabel

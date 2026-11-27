@@ -78,6 +78,19 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
   { routeId: "/r/$token", screen: "reader", page: "covered", covered: true },
 ];
 
+const TOUR_PANEL_ROUTES: ReadonlySet<string> = new Set([
+  "/",
+  "/s/$docId",
+  "/__stand-in",
+  "/s/$docId/send/$form",
+  "/r/$token",
+]);
+
+/** Whether `routeId` mounts a side panel with the Tour tab; routes without one use the floating Tour bar instead. */
+export function routeHasTourPanel(routeId: string): boolean {
+  return TOUR_PANEL_ROUTES.has(routeId);
+}
+
 /** Whether the editor host under `screen` is covered by the route or by a document kind that draws its own surface. */
 export function isPageCovered(
   screen: Pick<ShellScreen, "page" | "covered">,

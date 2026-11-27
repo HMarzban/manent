@@ -23,7 +23,9 @@ async function messageShown(page: Page, text: string): Promise<void> {
 tourScenario(
   "history-restore-reverse",
   async ({ page, windows, scenario, step }) => {
-    await page.getByRole("button", { name: DOCUMENT_WORDS.historyTab }).click();
+    await page
+      .getByRole("button", { name: DOCUMENT_WORDS.historyTab, exact: true })
+      .click();
     await page
       .getByRole("button", { name: "First draft — row menu", exact: true })
       .click();

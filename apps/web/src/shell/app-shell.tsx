@@ -42,7 +42,11 @@ import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
 import { useMenuChoiceFocus } from "./menu-focus.ts";
 import { ShellRegion } from "./regions.tsx";
-import { SHELL_SCREENS, isPageCovered } from "./shell-screens.ts";
+import {
+  SHELL_SCREENS,
+  isPageCovered,
+  routeHasTourPanel,
+} from "./shell-screens.ts";
 import type { ShellScreen } from "./shell-screens.ts";
 import { useProjectPalette } from "./use-project-palette.ts";
 
@@ -84,6 +88,7 @@ export function useShellScreen(): ShellScreen {
 
 /** Which screen the route shows, the document under it (the stand-in's is made apart), and what it does with the page. */
 function useShellRoute(): {
+  routeId: string;
   screen: ScreenId;
   docId: string | null;
   page: ShellScreen["page"];
@@ -100,6 +105,7 @@ function useShellRoute(): {
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
   const standInOutsideTest = routeId === STAND_IN_ROUTE && !standIn;
   return {
+    routeId,
     screen,
     docId: standIn ? null : routeDocId,
     // the stand-in's row is the test build's only
@@ -192,18 +198,19 @@ function SaveTemplateDialogHost(props: {
   );
 }
 
-function TourFloatingHost(): ReactNode {
+function TourFloatingHost(props: { readonly routeId: string }): ReactNode {
   const { tabStorage } = useEnvironment();
   const active = useTourActive();
   const side = usePanel("side").tab;
   useEffect(() => {
     tourActions.hydrate(tabStorage);
   }, [tabStorage]);
-  if (active === null || side === "tour") return null;
+  if (active === null || (routeHasTourPanel(props.routeId) && side === "tour"))
+    return null;
   return (
     <SurfaceBoundary fallback={() => null}>
       <Suspense fallback={null}>
-        <TourFloatingBar />
+        <TourFloatingBar routeId={props.routeId} />
       </Suspense>
     </SurfaceBoundary>
   );
@@ -378,7 +385,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                     <TrashConfirmDialog />
                     <PrompterFilesHost />
                     <SaveTemplateDialogHost docId={docId} />
-                    <TourFloatingHost />
+                    <TourFloatingHost routeId={route.routeId} />
                   </>
                 )}
               </PeopleContext>

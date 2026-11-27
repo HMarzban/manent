@@ -9,7 +9,7 @@ import {
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { HistoryIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
 import { rundownOfContent } from "../../history/rundown-source.ts";
@@ -71,7 +71,7 @@ function RundownHistoryWorkspace(props: {
   const rawMode = useHistory("mode");
   const content = useBaselineContent(docId);
   const offered = useOfferedBaseline(docId, listed.rows);
-  const [stepIndex] = useState(0);
+  const stepIndex = useHistory("step") ?? 0;
 
   const selectedRow =
     selectedId === null

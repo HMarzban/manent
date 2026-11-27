@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { routeHasTourPanel } from "../shell/shell-screens.ts";
 import { panelsActions, usePanel } from "../state/panels.store.ts";
 import {
   tourActions,
@@ -27,11 +28,17 @@ const FLOAT_GAP_PX = 16;
  * Renders a compact, non-blocking floating step bar in the demo violet scope while a scenario is running and the
  * Tour side panel is not showing, offsetting cleanly beside any other open side panel (Comments, History, Details).
  */
-export function TourFloatingBar(): ReactNode {
+export function TourFloatingBar(props: {
+  readonly routeId?: string;
+}): ReactNode {
+  const routeId = props.routeId;
+  const hasTourPanel = routeId === undefined || routeHasTourPanel(routeId);
   const active = useTourActive();
   const { tab: sideTab, widthPx } = usePanel("side");
+  const railWidthPx =
+    routeId === "/s/$docId/history" ? Math.max(300, widthPx) : null;
   const locateNonce = useTourLocateNonce();
-  const showing = active !== null && sideTab !== "tour";
+  const showing = active !== null && (!hasTourPanel || sideTab !== "tour");
   const scenario =
     showing && active !== null
       ? (TOUR.scenarios.find((s) => s.id === active.scenarioId && isShown(s)) ??
@@ -62,10 +69,16 @@ export function TourFloatingBar(): ReactNode {
     return null;
 
   const total = scenario.steps.length;
+  const offsetWidth =
+    railWidthPx !== null
+      ? railWidthPx
+      : hasTourPanel && sideTab !== null
+        ? widthPx
+        : null;
   const position: CSSProperties | undefined =
-    sideTab === null
+    offsetWidth === null
       ? undefined
-      : { insetInlineEnd: `${widthPx + FLOAT_GAP_PX}px` };
+      : { insetInlineEnd: `${offsetWidth + FLOAT_GAP_PX}px` };
 
   return (
     <aside
@@ -86,17 +99,19 @@ export function TourFloatingBar(): ReactNode {
           ) : null}
         </span>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              tourActions.select(scenario.id);
-              panelsActions.open("side", "tour");
-            }}
-          >
-            <PanelRightIcon aria-hidden="true" className="size-icon" />
-            {TOUR_WORDS.openTour}
-          </Button>
+          {hasTourPanel ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                tourActions.select(scenario.id);
+                panelsActions.open("side", "tour");
+              }}
+            >
+              <PanelRightIcon aria-hidden="true" className="size-icon" />
+              {TOUR_WORDS.openTour}
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-sm"

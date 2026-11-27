@@ -20,13 +20,13 @@ async function ensureTourTab(page: Page): Promise<void> {
   const tour = page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: "Tour" });
-  if (!(await tour.isVisible())) {
-    await page
-      .getByRole("region", { name: DEMO_WORDS.demo })
-      .getByRole("button", { name: DEMO_WORDS.tour })
-      .click();
-    await expect(tour).toBeVisible();
-  }
+  const floating = page.locator("aside[data-tour-chrome='true']");
+  if ((await tour.isVisible()) || (await floating.isVisible())) return;
+  await page
+    .getByRole("region", { name: DEMO_WORDS.demo })
+    .getByRole("button", { name: DEMO_WORDS.tour })
+    .click();
+  await expect(tour.or(floating)).toBeVisible();
 }
 
 tourScenario("rundown-view-and-history", async ({ page, scenario, step }) => {
@@ -115,7 +115,8 @@ tourScenario("rundown-view-and-history", async ({ page, scenario, step }) => {
   await page.getByRole("button", { name: /Ana Costa/i }).click();
   await page.waitForURL((at) => at.pathname !== "/choose");
   const rundownPath = docPath("medium/the-late-desk/rundowns/day");
-  if (!page.url().includes(rundownPath)) await page.goto(rundownPath);
+  if (new URL(page.url()).pathname !== rundownPath)
+    await page.goto(rundownPath);
 
   await expect(page.locator("[data-tour='rundown:grid']")).toBeVisible();
   await ensureTourTab(page);
