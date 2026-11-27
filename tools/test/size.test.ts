@@ -24,6 +24,9 @@ test("no source file is longer than 400 lines", async () => {
           (part) =>
             part === "test" || part === "node_modules" || part === "dist",
         ) ||
+        (parts[0] === "apps" &&
+          parts[1] === "desktop" &&
+          (parts[2] === "build" || parts[2] === "artifacts")) ||
         file.endsWith(".generated.ts") ||
         BANKS.every((part, i) => parts[i] === part)
       )

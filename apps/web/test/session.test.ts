@@ -10,6 +10,7 @@ import {
   readCachedChoices,
   readPerson,
   safeNext,
+  shouldRestoreLastPerson,
   writeCachedChoices,
   writePerson,
 } from "../src/session.ts";
@@ -183,6 +184,21 @@ test("cold PWA launch restores last-active person from localStorage while keepin
     null,
   ]);
   expect(readPerson(fakeStorage(), local)).toBeNull();
+});
+
+test("automatic last-person restore runs only for standalone PWA windows or offline relaunches", () => {
+  expect(shouldRestoreLastPerson({ standalone: false, onLine: true })).toBe(
+    false,
+  );
+  expect(shouldRestoreLastPerson({ standalone: false, onLine: false })).toBe(
+    true,
+  );
+  expect(shouldRestoreLastPerson({ standalone: true, onLine: true })).toBe(
+    true,
+  );
+  expect(shouldRestoreLastPerson({ standalone: true, onLine: false })).toBe(
+    true,
+  );
 });
 
 test("sign-in choices cache round-trips valid entries and ignores corrupt data", () => {

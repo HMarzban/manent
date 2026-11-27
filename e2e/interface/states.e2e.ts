@@ -377,7 +377,7 @@ test("every state's words are the design's", async ({ page }) => {
   }
 });
 
-test("a new script as You shows at most eight controls outside the page, and no dialog in a solo session", async ({
+test("a new script as You shows at most ten controls outside the page, and no dialog in a solo session", async ({
   page,
 }) => {
   await signedInAs(page, "you");
@@ -390,7 +390,8 @@ test("a new script as You shows at most eight controls outside the page, and no 
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     LIBRARY_WORDS.untitledScript,
   );
-  // every control in the window's regions but the page and the demo bar
+  // every control in the window's regions but the page and the demo bar:
+  // ‹ Library, title menu, status, History (ADR 0079), Share, PersonMenu, Element, Page, View, Commands
   const controls = await page.evaluate(
     () =>
       [
@@ -399,7 +400,7 @@ test("a new script as You shows at most eight controls outside the page, and no 
         ),
       ].filter((element) => element.checkVisibility()).length,
   );
-  expect(controls).toBeLessThanOrEqual(8);
+  expect(controls).toBeLessThanOrEqual(10);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });

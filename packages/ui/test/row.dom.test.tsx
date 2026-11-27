@@ -437,3 +437,66 @@ test("Row marks hover-revealed menus with data-menu-reveal so trailing items sit
     [null, true, true],
   ]);
 });
+
+test("activatable Row exposes role=button by default, activates on Space and Enter, and respects explicit role override", () => {
+  let hits = 0;
+  const { el } = render(
+    <div>
+      <Row onActivate={() => hits++}>Harbour Lights</Row>
+      <Row>Static Row</Row>
+      <Row role="option" onActivate={() => hits++}>
+        Option Row
+      </Row>
+    </div>,
+  );
+  const [btnRow, staticRow, optionRow] = [
+    ...el.querySelectorAll<HTMLElement>(".mn-row"),
+  ];
+  expect([
+    btnRow?.getAttribute("role"),
+    staticRow?.getAttribute("role"),
+    optionRow?.getAttribute("role"),
+  ]).toEqual(["button", null, "option"]);
+
+  const spaceEvent = new KeyboardEvent("keydown", {
+    key: " ",
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    btnRow!.dispatchEvent(spaceEvent);
+  });
+  press(btnRow!, "Enter");
+  expect([hits, spaceEvent.defaultPrevented]).toEqual([2, true]);
+});
+
+test("leadingControl renders as a sibling beside an activatable row, never nested inside role=button", () => {
+  let toggled = 0;
+  let opened = 0;
+  const { el } = render(
+    <Row
+      onActivate={() => opened++}
+      leadingControl={
+        <button type="button" onClick={() => toggled++}>
+          Expand
+        </button>
+      }
+      menu={<button type="button">Menu</button>}
+    >
+      Drama
+    </Row>,
+  );
+  const rowBtn = el.querySelector<HTMLElement>('.mn-row[role="button"]');
+  const leading = el.querySelector<HTMLButtonElement>(
+    "[data-leading-control] button",
+  );
+  expect([
+    rowBtn !== null,
+    leading !== null,
+    rowBtn?.contains(leading) ?? true,
+    rowBtn?.querySelector("[data-leading-spacer]") !== null,
+  ]).toEqual([true, true, false, true]);
+  act(() => leading!.click());
+  act(() => rowBtn!.click());
+  expect([toggled, opened]).toEqual([1, 1]);
+});

@@ -939,6 +939,14 @@ test("the README's fixed sections keep their text, and what only they may hold s
       { ...tracked(source), terms: quokka },
     ),
   ).toEqual([`${source}:1 private-term`]);
+  // local-only files outside the public allow-list are never tracked and are skipped by scanTracked
+  const localOnly = ".local-agent/notes.toml";
+  expect(
+    await check(
+      { [localOnly]: "# a quokka\n" },
+      { ...tracked(localOnly), terms: quokka },
+    ),
+  ).toEqual([]);
   // their text is fixed, and both must be there
   expect(
     await check(edit(README, { 9: "Thanks to the Quokka project, and more." })),

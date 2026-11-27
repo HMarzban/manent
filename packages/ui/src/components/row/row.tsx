@@ -16,6 +16,7 @@ const attach = (
 };
 
 interface RowProps {
+  role?: string;
   current?: boolean;
   /** The row's section is currently scrolled into view while the caret is elsewhere (ghost follow). */
   viewed?: boolean;
@@ -28,6 +29,11 @@ interface RowProps {
   busy?: boolean;
   /** A 14 px icon, a 20 px avatar or a number: muted, and accent on the current row. */
   leading?: ReactNode;
+  /**
+   * An optional leading control (such as a folder disclosure button): drawn over room the row keeps at its start as a
+   * sibling beside the row, never inside it, so a row that is a button holds no nested interactive control.
+   */
+  leadingControl?: ReactNode;
   children: ReactNode;
   /** A second line; the row is then two lines high. */
   meta?: ReactNode;
@@ -49,6 +55,7 @@ interface RowProps {
 
 /** Throws a RangeError for more than three trailing items. */
 export function Row({
+  role,
   current,
   viewed,
   currentLabel,
@@ -56,6 +63,7 @@ export function Row({
   unavailable,
   busy,
   leading,
+  leadingControl,
   children,
   meta,
   trailing = [],
@@ -71,14 +79,28 @@ export function Row({
   }
   const stop = useContext(RowTabStop);
   const activate = unavailable === undefined ? onActivate : undefined;
+  const effectiveRole =
+    role ?? (onActivate !== undefined ? "button" : undefined);
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "Enter" || activate === undefined) return;
+    if (activate === undefined) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (
+      event.key === " " &&
+      event.target instanceof HTMLElement &&
+      event.target !== event.currentTarget &&
+      event.target.matches(
+        "input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only']",
+      )
+    ) {
+      return;
+    }
     event.preventDefault();
     activate();
   };
   const row = (
     <div
       ref={(node) => attach(rowRef, node)}
+      role={effectiveRole}
       className={cn(
         "mn-row flex items-center gap-2 px-3 text-ui",
         meta === undefined ? "min-h-row" : "min-h-row-2",
@@ -97,6 +119,13 @@ export function Row({
       onClick={activate}
       onKeyDown={onKeyDown}
     >
+      {leadingControl === undefined ? null : (
+        <span
+          aria-hidden="true"
+          data-leading-spacer=""
+          className="-ms-1 size-4 shrink-0"
+        />
+      )}
       {leading === undefined ? null : (
         <span data-leading className="flex shrink-0 text-fg-muted">
           {leading}
@@ -136,20 +165,32 @@ export function Row({
       )}
     </div>
   );
-  if (menu === undefined) return row;
+  if (menu === undefined && leadingControl === undefined) return row;
   return (
     <div
-      data-row-menu
-      data-menu-reveal={menuReveal === "hover" ? "hover" : undefined}
+      data-row-menu={menu === undefined ? undefined : ""}
+      data-menu-reveal={
+        menu !== undefined && menuReveal === "hover" ? "hover" : undefined
+      }
       className="relative"
     >
       {row}
-      <span
-        data-menu-handle=""
-        className="absolute inset-y-0 end-2 flex items-center"
-      >
-        {menu}
-      </span>
+      {leadingControl === undefined ? null : (
+        <span
+          data-leading-control=""
+          className="absolute inset-y-0 start-2 flex items-center"
+        >
+          {leadingControl}
+        </span>
+      )}
+      {menu === undefined ? null : (
+        <span
+          data-menu-handle=""
+          className="absolute inset-y-0 end-2 flex items-center"
+        >
+          {menu}
+        </span>
+      )}
     </div>
   );
 }

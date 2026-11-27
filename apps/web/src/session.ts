@@ -3,6 +3,7 @@
 
 import type { SignInChoice } from "@manent/sync-protocol";
 import type { Api, MeResult, SignInResult } from "./api.ts";
+import { isStandalone } from "./platform.ts";
 
 export const SESSION_KEY = "manent.demo.session";
 export const LAST_PERSON_KEY = "manent.last.session";
@@ -76,10 +77,26 @@ function serializePerson(person: TabPerson): string {
 }
 
 /**
+ * True when an empty browser tab should restore the last-active person from localStorage:
+ * installed standalone PWA relaunches and cold offline relaunches (where /api/sign-in is unreachable).
+ * Normal online browser tabs stay isolated so each tab can choose a different demo person.
+ */
+export function shouldRestoreLastPerson(env?: {
+  readonly standalone?: boolean;
+  readonly onLine?: boolean;
+}): boolean {
+  const standalone = env?.standalone ?? isStandalone();
+  if (standalone) return true;
+  const onLine =
+    env?.onLine ?? (typeof navigator !== "undefined" ? navigator.onLine : true);
+  return onLine === false;
+}
+
+/**
  * The person this tab keeps; null when there is none or it cannot be read.
- * When `storage` is empty (such as a cold PWA launch with empty sessionStorage), falls back to
- * `fallback` (or `localStorage` when `storage` is the browser's `sessionStorage`) and seeds `storage`
- * so this tab keeps its own independent copy thereafter.
+ * When `storage` is empty, falls back to `fallback` when explicitly provided, or to `localStorage`
+ * for `window.sessionStorage` when running as an installed PWA or cold-launching offline, seeding
+ * `storage` so this tab keeps its own independent copy thereafter.
  */
 export function readPerson(
   storage: TabStorage | null,
@@ -90,7 +107,7 @@ export function readPerson(
   const seedStorage =
     fallback !== undefined
       ? fallback
-      : isBrowserSessionStorage(storage)
+      : isBrowserSessionStorage(storage) && shouldRestoreLastPerson()
         ? safeLocalStorage()
         : null;
   if (seedStorage === null || seedStorage === storage) return null;

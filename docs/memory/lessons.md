@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Gate localStorage session fallback on offline or standalone PWA launch, and keep leading Row disclosures in a sibling slot
+
+- Date: 2026-11-27
+
+### What happened
+
+Two subtle boundary slips appeared after combining multi-tab demo isolation with PWA cold-launch persistence and activatable list rows: (1) reading `localStorage`'s `LAST_PERSON_KEY` unconditionally whenever `sessionStorage` was empty broke online multi-tab demo isolation — opening a second browser tab while online silently inherited the first tab's person instead of showing `"Choose who you are"`; and (2) `FolderBranch` still passed its expand/collapse `<Button>` through `Row`'s `leading` slot after activatable rows gained `role="button"`, nesting a `<button>` inside `role="button"`.
+
+### How it was caught
+
+Multi-tab session bleed was caught by `e2e/smoke/demo-skeleton.e2e.ts` (`"two tabs are two people"`), and the nested folder disclosure control was caught by auditing every `<Row onActivate>` caller alongside `packages/ui/src/components/row/row.tsx`.
+
+### Rule
+
+Only fall back from empty browser `sessionStorage` to `localStorage`'s `LAST_PERSON_KEY` when `shouldRestoreLastPerson()` holds (`isStandalone()` or `navigator.onLine === false`) so online browser tabs remain isolated while installed PWA windows and cold airplane-mode relaunches resume automatically. Never place interactive buttons inside `Row`'s `leading` or `trailing` slots on an activatable row: use `Row`'s sibling `leadingControl` or `menu` slots so interactive controls sit beside `role="button"`, never inside it.
+
+### Enforced by
+
+`apps/web/src/session.ts`, `apps/web/test/session.test.ts`, `e2e/smoke/demo-skeleton.e2e.ts`, `e2e/offline/pwa.e2e.ts`, `packages/ui/src/components/row/row.tsx`, `packages/ui/test/row.dom.test.tsx`, and `apps/web/src/screens/library/folder-tree.tsx`.
+
 ## Separate one-shot completion latches from sticky session flags on transient offline notices
 
 - Date: 2026-11-27

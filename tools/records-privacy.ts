@@ -309,7 +309,12 @@ export async function scanTracked(
   const footer = copyrightFooter(await readIfPresent(join(root, NOTICE_FILE)));
   const found: Violation[] = [];
   for (const file of [...files].toSorted()) {
-    if (documents.has(file) || UNSCANNED.includes(file)) continue;
+    if (
+      documents.has(file) ||
+      UNSCANNED.includes(file) ||
+      untrackable([file]).length > 0
+    )
+      continue;
     const text = await readScannable(join(root, file));
     if (text === null) continue;
     const barred =
