@@ -12,21 +12,14 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
-import {
-  Suspense,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { useFileDrop } from "../import/file-drop.ts";
 import { loadApart } from "../load-apart.ts";
 import { PrompterFilesHost } from "../prompter-files/prompter-files-host.tsx";
-import { startWebPwa, syncWebUpdateNotice } from "../pwa/install.ts";
+import { useWebPwa } from "../pwa/use-web-pwa.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { TrashConfirmDialog } from "../screens/library/trash-view.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -319,7 +312,7 @@ function ProjectPaletteBridge(props: {
  */
 export function AppShell(props: { children: ReactNode }): ReactNode {
   const services = useServices();
-  const { where, now, schedule, dom, updateState } = useEnvironment();
+  const { where, now, schedule, dom } = useEnvironment();
   const route = useShellRoute();
   const { screen, page, standIn } = route;
   const standInDocId = useStandInDocId(standIn);
@@ -340,19 +333,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
   useMenuChoiceFocus();
-  const update = useSubscribable(updateState);
-  const updateNotified = useRef(false);
-  useEffect(() => {
-    if (where.shell === "web") startWebPwa();
-  }, [where.shell]);
-  useEffect(() => {
-    if (where.shell !== "web") return;
-    syncWebUpdateNotice({
-      ready: update === "ready",
-      notified: updateNotified,
-      messages: services.messages,
-    });
-  }, [where.shell, update, services.messages]);
+  useWebPwa();
   const drop = useFileDrop();
   return (
     <SettingsProvider store={services.settings}>

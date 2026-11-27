@@ -342,7 +342,7 @@ test("the web shows none of the desktop rows", async () => {
       "Check for updates",
       "Stored here",
     ].map((text) => texts(container, text).length),
-  ).toEqual([0, 0, 0, 0, 0, 0, 1]);
+  ).toEqual([0, 0, 0, 0, 0, 1, 1]);
 });
 
 const rows = (

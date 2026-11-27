@@ -3,7 +3,7 @@ import { afterEach, expect, test } from "bun:test";
 import { loadDoc, scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocJSON, FormatId } from "@manent/schema";
-import { SettingsProvider, createValue } from "@manent/ui";
+import { SettingsProvider, TimingProvider, createValue } from "@manent/ui";
 import type { StatusFacts } from "@manent/ui";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -677,7 +677,13 @@ function render(node: React.ReactNode, services: PersonServices): HTMLElement {
     root?.render(
       <EnvironmentProvider environment={environment}>
         <ServicesProvider services={services}>
-          <SettingsProvider store={services.settings}>{node}</SettingsProvider>
+          <TimingProvider
+            timing={{ now: environment.now, schedule: environment.schedule }}
+          >
+            <SettingsProvider store={services.settings}>
+              {node}
+            </SettingsProvider>
+          </TimingProvider>
         </ServicesProvider>
       </EnvironmentProvider>,
     ),
