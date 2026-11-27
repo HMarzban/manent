@@ -1,5 +1,5 @@
 // The launch guard: only the app's own window, which was opened with the launch token, reaches the node.
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { ManentServer } from "@manent/server-core";
 import type { ErrorResponse } from "@manent/sync-protocol";
 
@@ -7,6 +7,7 @@ const COOKIE = "manent_launch";
 const HEADER = "x-manent-launch";
 const PARAM = "launch";
 const FIRST_HEAD = new RegExp("<head\\b[^>]*>", "i");
+const SCRIPT_SRC = new RegExp("^script-src(?:\\s|$)", "i");
 
 const encoder = new TextEncoder();
 
@@ -42,11 +43,45 @@ function admit(url: URL, token: string): Response {
   });
 }
 
+function scriptHash(script: string): string {
+  return `sha256-${createHash("sha256").update(script).digest("base64")}`;
+}
+
+function appendScriptHash(csp: string, hash: string): string {
+  const token = `'${hash}'`;
+  let found = false;
+  const directives = csp.split(";").map((part) => {
+    const trimmed = part.trim();
+    if (!SCRIPT_SRC.test(trimmed)) return part;
+    found = true;
+    return trimmed.includes(token) ? part : `${part} ${token}`;
+  });
+  return found ? directives.join(";") : csp;
+}
+
 /** The page with `script` inserted right after its first `<head>` tag; a page without one is unchanged. */
 async function withScript(
   response: Response,
   script: string,
+  isHead: boolean,
 ): Promise<Response> {
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.set("cache-control", "no-store");
+  if (isHead || response.status === 304) {
+    const csp = headers.get("content-security-policy");
+    if (csp !== null)
+      headers.set(
+        "content-security-policy",
+        appendScriptHash(csp, scriptHash(script)),
+      );
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
   const page = await response.text();
   const head = FIRST_HEAD.exec(page);
   const end = head === null ? -1 : head.index + head[0].length;
@@ -54,8 +89,14 @@ async function withScript(
     end === -1
       ? page
       : `${page.slice(0, end)}<script>${script}</script>${page.slice(end)}`;
-  const headers = new Headers(response.headers);
-  headers.delete("content-length");
+  if (end !== -1) {
+    const csp = headers.get("content-security-policy");
+    if (csp !== null)
+      headers.set(
+        "content-security-policy",
+        appendScriptHash(csp, scriptHash(script)),
+      );
+  }
   return new Response(body, {
     status: response.status,
     statusText: response.statusText,
@@ -65,9 +106,9 @@ async function withScript(
 
 /**
  * The node's server behind the launch token. A request with `?launch=` is answered 302 with the cookie, or 403
- * for a wrong token; `GET /health` passes as it is; anything else needs the cookie or the `X-Manent-Launch`
- * header, the socket upgrade included, or is answered 403. With `bootScript`, every `text/html` answer that
- * passed carries its script first.
+ * for a wrong token; `GET /health` passes as it is; `/sw.js` is answered 404 (desktop never uses a service
+ * worker); anything else needs the cookie or the `X-Manent-Launch` header, the socket upgrade included, or is
+ * answered 403. With `bootScript`, every `text/html` answer that passed carries its script first.
  */
 export function createLaunchGuard(options: {
   token: string;
@@ -91,11 +132,20 @@ export function createLaunchGuard(options: {
         !isToken(request.headers.get(HEADER), expected)
       )
         return forbidden();
+      if (url.pathname === "/sw.js")
+        return new Response(request.method === "HEAD" ? null : "Not found", {
+          status: 404,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
       const response = await inner.fetch(request, context);
       if (response === null || bootScript === null) return response;
       const type = response.headers.get("content-type") ?? "";
       return type.startsWith("text/html")
-        ? withScript(response, bootScript())
+        ? withScript(response, bootScript(), request.method === "HEAD")
         : response;
     },
   };

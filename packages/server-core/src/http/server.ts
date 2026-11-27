@@ -41,6 +41,7 @@ import { hearRemovals } from "./routes/docs.ts";
 import { answerMosRequest } from "./routes/mos.ts";
 import { hearReplays } from "./routes/replay.ts";
 import { ROUTES, handleAssetRoute } from "./routes/index.ts";
+import { applySecurityHeaders, readBuildMeta } from "./security.ts";
 import { serveStatic } from "./static.ts";
 
 export interface RequestContext {
@@ -200,16 +201,26 @@ export function createServer(config: ServerConfig): ManentServer {
       directory: config.auth.directory,
       versions,
       sync: socketSync,
+      webBuildId: () => readBuildMeta(webDir)?.buildId ?? null,
     }),
     async fetch(request, peer) {
       const url = new URL(request.url);
       const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
+      const finish = (response: Response | null): Response | null =>
+        response === null
+          ? null
+          : applySecurityHeaders(response, {
+              isApi,
+              meta: readBuildMeta(webDir),
+            });
       if (!allowedHosts.has(url.host)) {
-        if (isApi) return failure("forbidden_host", 403);
-        return new Response(`Open Manent at ${config.http.openUrl}.`, {
-          status: 403,
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
-        });
+        if (isApi) return finish(failure("forbidden_host", 403));
+        return finish(
+          new Response(`Open Manent at ${config.http.openUrl}.`, {
+            status: 403,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          }),
+        );
       }
       const user = () => userOf(request, config.auth);
       const assetResponse = await handleAssetRoute(
@@ -217,24 +228,27 @@ export function createServer(config: ServerConfig): ManentServer {
         { request, peer, config, user },
         assets,
       );
-      if (assetResponse !== null) return assetResponse;
+      if (assetResponse !== null) return finish(assetResponse);
       const route = ROUTES.find(
         (r) => r.method === request.method && r.path === url.pathname,
       );
       if (route !== undefined) {
-        return route.handle({ request, peer, config, user });
+        return finish(await route.handle({ request, peer, config, user }));
       }
       if (config.mos !== undefined) {
         const answered = await answerMosRequest(request, {
           mos: config.mos,
           user: () => userOf(request, config.auth),
         });
-        if (answered !== null) return answered;
+        if (answered !== null) return finish(answered);
       }
-      if (isApi || request.method !== "GET" || webDir === null)
-        return failure("not_found", 404);
-      return (
-        (await serveStatic(webDir, url.pathname)) ?? failure("not_found", 404)
+      const staticMethod =
+        request.method === "GET" || request.method === "HEAD";
+      if (isApi || !staticMethod || webDir === null)
+        return finish(failure("not_found", 404));
+      return finish(
+        (await serveStatic(webDir, url.pathname, request)) ??
+          failure("not_found", 404),
       );
     },
   };

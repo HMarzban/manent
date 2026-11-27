@@ -61,12 +61,17 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
     build: text,
     deviceId: text,
   }),
-  fc.record({
-    type: fc.constant("WELCOME" as const),
-    session: fc.record({ userId: text, name: text }),
-    limits: fc.record({ frameBytes: num, messageBytes: num }),
-    server: fc.record({ current: versions, min: versions }),
-  }),
+  fc
+    .record({
+      type: fc.constant("WELCOME" as const),
+      session: fc.record({ userId: text, name: text }),
+      limits: fc.record({ frameBytes: num, messageBytes: num }),
+      server: fc.record({ current: versions, min: versions }),
+      webBuildId: fc.option(text, { nil: undefined }),
+    })
+    .map(({ webBuildId, ...rest }) =>
+      webBuildId === undefined ? rest : { ...rest, webBuildId },
+    ),
   fc.record({ type: fc.constant("AUTH_EXPIRING" as const), expiresInMs: num }),
   fc.record({ type: fc.constant("AUTH_REFRESH" as const), ticket: text }),
   fc.record({

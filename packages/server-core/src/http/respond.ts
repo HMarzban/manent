@@ -2,7 +2,13 @@
 import type { ErrorResponse, HttpErrorCode } from "@manent/sync-protocol";
 
 export function json<T>(body: T, status = 200): Response {
-  return Response.json(body, { status });
+  return Response.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export function failure(code: HttpErrorCode, status: number): Response {

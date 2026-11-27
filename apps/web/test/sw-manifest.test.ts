@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { buildId, precacheEntries } from "../src/sw/manifest.ts";
+import {
+  allBuildEntries,
+  buildId,
+  precacheEntries,
+  warmAssetUrls,
+} from "../src/sw/manifest.ts";
 import {
   cleanStaleRuntimeCaches,
   runtimeAssetStrategy,
@@ -151,4 +156,80 @@ test("activating a new worker deletes older versioned runtime asset caches only"
     ["manent-runtime-assets-old1", "manent-runtime-assets-v1"],
     ["manent-runtime-assets-cur2", "serwist-precache-v2"],
   ]);
+});
+
+test("manifest.webmanifest and /icons/*.{svg,png} are precached with SHA-256 revisions", () => {
+  const entries = precacheEntries(
+    [
+      out("dist/manifest.webmanifest", '{"name":"Manent"}'),
+      out("dist/icons/icon.svg", "<svg/>"),
+      out("dist/icons/icon-192.png", "png192"),
+      out("dist/icons/icon-maskable-512.png", "pngmask"),
+      out("dist/other/logo.png", "ignored"),
+    ],
+    "dist",
+  );
+  expect(entries).toEqual([
+    { url: "/icons/icon-192.png", revision: sha256Hex("png192") },
+    { url: "/icons/icon-maskable-512.png", revision: sha256Hex("pngmask") },
+    { url: "/icons/icon.svg", revision: sha256Hex("<svg/>") },
+    {
+      url: "/manifest.webmanifest",
+      revision: sha256Hex('{"name":"Manent"}'),
+    },
+  ]);
+});
+
+test("buildId over allBuildEntries rotates on any runtime asset change and warmAssetUrls collects warm targets", () => {
+  const base = [
+    out("dist/index.html", "<html>"),
+    out("dist/chunk-abc12345.js", "shell"),
+    out("dist/chunk-heavy999.js", "pdfjs"),
+    out("dist/ink-compile-deadbeef.worker.js", "ink"),
+    out("dist/courier-abc12345.woff", "font"),
+    out("dist/chunk-abc12345.js.map", "{}"),
+  ];
+  const exclude = new Set([
+    "/chunk-heavy999.js",
+    "/ink-compile-deadbeef.worker.js",
+  ]);
+  expect(warmAssetUrls(base, "dist", exclude)).toEqual([
+    "/chunk-heavy999.js",
+    "/courier-abc12345.woff",
+    "/ink-compile-deadbeef.worker.js",
+  ]);
+  const id0 = buildId(allBuildEntries(base, "dist"));
+  const changedInk = buildId(
+    allBuildEntries(
+      base.map((item) =>
+        item.path.endsWith(".worker.js")
+          ? out("dist/ink-compile-cafebabe.worker.js", "ink-v2")
+          : item,
+      ),
+      "dist",
+    ),
+  );
+  const changedWoff = buildId(
+    allBuildEntries(
+      base.map((item) =>
+        item.path.endsWith(".woff")
+          ? out("dist/courier-abc12345.woff", "font-v2")
+          : item,
+      ),
+      "dist",
+    ),
+  );
+  const changedMapOnly = buildId(
+    allBuildEntries(
+      base.map((item) =>
+        item.path.endsWith(".map")
+          ? out("dist/chunk-abc12345.js.map", '{"v":2}')
+          : item,
+      ),
+      "dist",
+    ),
+  );
+  expect(changedInk).not.toBe(id0);
+  expect(changedWoff).not.toBe(id0);
+  expect(changedMapOnly).toBe(id0);
 });

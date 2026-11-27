@@ -321,6 +321,12 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
     "server",
     "01 00 | 0d 02 7531 09 416461205175696c6c | 05 8020 808004 | 04 01 01 00 00 | 04 01 01 00 00",
   ],
+  [
+    "WELCOME with webBuildId",
+    { ...WELCOME_SAMPLE, webBuildId: "a1b2c3d4e5f67890" },
+    "server",
+    "01 00 | 0d 02 7531 09 416461205175696c6c | 16 8020 808004 10 61316232633364346535663637383930 | 04 01 01 00 00 | 04 01 01 00 00",
+  ],
   ["AUTH_EXPIRING", AUTH_EXPIRING_SAMPLE, "server", "02 00 | b0ea01"],
   ["AUTH_REFRESH", AUTH_REFRESH_SAMPLE, "client", "03 00 | 01 74"],
   [

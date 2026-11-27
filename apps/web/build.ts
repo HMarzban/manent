@@ -1,39 +1,45 @@
 // Builds the web app to static files; run directly, it builds to MANENT_WEB_DIR (apps/web/dist when unset),
 // the directory the server serves, in the test flavour when MANENT_FLAVOUR=test.
 
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import type { BuildMetafile } from "bun";
 import tailwind from "bun-plugin-tailwind";
 import { BOOT_SCRIPT, bootScriptHash } from "./src/boot/boot-script.ts";
 import { renderBenchmarkReportHtml } from "./src/build/benchmark-html.ts";
-import { buildId, precacheEntries } from "./src/sw/manifest.ts";
-import type { PrecacheEntry } from "./src/sw/manifest.ts";
+import {
+  allBuildEntries,
+  buildId,
+  precacheEntries,
+  warmAssetUrls,
+} from "./src/sw/manifest.ts";
+import type { BuiltOutput, PrecacheEntry } from "./src/sw/manifest.ts";
 
 const REPO_ROOT = join(import.meta.dir, "../..");
+const PUBLIC_DIR = join(import.meta.dir, "public");
 const ROOT_MANIFEST = join(REPO_ROOT, "package.json");
 // every manifest in the repository starts at this version
 const UNVERSIONED = "0.0.0";
 const DATA_WOFF2 = new RegExp("data:font/woff2;base64,([A-Za-z0-9+/=]+)", "g");
+const COLOR_SCHEME_META = new RegExp('<meta\\s+name="color-scheme"[^>]*>');
 const ON_DEMAND_INPUTS = ["pdfjs-dist/", "packages/formats/"] as const;
+
+const sha256Short = (bytes: Uint8Array): string =>
+  new Bun.CryptoHasher("sha256").update(bytes).digest("hex").slice(0, 8);
 
 /** Extracts base64-inlined `.woff2` fonts out of built CSS into content-hashed external files. */
 async function extractCssFonts(
   outDir: string,
   cssPaths: readonly string[],
-): Promise<{ path: string; bytes: Uint8Array }[]> {
-  const emitted = new Map<string, { path: string; bytes: Uint8Array }>();
+): Promise<BuiltOutput[]> {
+  const emitted = new Map<string, BuiltOutput>();
   for (const cssPath of cssPaths) {
     const css = await readFile(cssPath, "utf8");
     let changed = false;
     const rewritten = css.replace(DATA_WOFF2, (_match, encoded: string) => {
       changed = true;
       const bytes = Uint8Array.from(Buffer.from(encoded, "base64"));
-      const hash = new Bun.CryptoHasher("sha256")
-        .update(bytes)
-        .digest("hex")
-        .slice(0, 8);
-      const name = `font-${hash}.woff2`;
+      const name = `font-${sha256Short(bytes)}.woff2`;
       if (!emitted.has(name))
         emitted.set(name, { path: join(outDir, name), bytes });
       return `/${name}`;
@@ -108,12 +114,52 @@ async function insertBootScript(outDir: string): Promise<void> {
   );
 }
 
-/** Bundles the Ink compile and live-story worker to `<outDir>/ink-compile.worker.js`. */
-async function buildInkWorker(outDir: string): Promise<Bun.BuildOutput> {
-  return Bun.build({
+/** Inserts `<meta name="manent-build" ...>` right after `<meta name="color-scheme" ...>`. */
+async function insertBuildMetaTag(
+  outDir: string,
+  id: string,
+): Promise<Uint8Array> {
+  const page = join(outDir, "index.html");
+  const html = await readFile(page, "utf8");
+  if (!COLOR_SCHEME_META.test(html))
+    throw new RangeError(`the built page has no color-scheme meta: ${page}`);
+  const updated = html.replace(
+    COLOR_SCHEME_META,
+    (match) => `${match}<meta name="manent-build" content="${id}" />`,
+  );
+  await writeFile(page, updated);
+  return Bun.file(page).bytes();
+}
+
+/** Copies `apps/web/public/manifest.webmanifest` and `apps/web/public/icons/*` into `outDir`. */
+async function copyPublicAssets(outDir: string): Promise<BuiltOutput[]> {
+  const manifestBytes = await Bun.file(
+    join(PUBLIC_DIR, "manifest.webmanifest"),
+  ).bytes();
+  const manifestDest = join(outDir, "manifest.webmanifest");
+  await writeFile(manifestDest, manifestBytes);
+
+  const iconsSrcDir = join(PUBLIC_DIR, "icons");
+  const iconsDestDir = join(outDir, "icons");
+  await mkdir(iconsDestDir, { recursive: true });
+  const iconNames = (await readdir(iconsSrcDir)).toSorted();
+  const iconOutputs = await Promise.all(
+    iconNames.map(async (name): Promise<BuiltOutput> => {
+      const bytes = await Bun.file(join(iconsSrcDir, name)).bytes();
+      const dest = join(iconsDestDir, name);
+      await writeFile(dest, bytes);
+      return { path: dest, bytes };
+    }),
+  );
+  return [{ path: manifestDest, bytes: manifestBytes }, ...iconOutputs];
+}
+
+/** Bundles the Ink compile and live-story worker in memory and returns its hashed filename and bytes. */
+async function buildInkWorker(): Promise<
+  { ok: true; name: string; bytes: Uint8Array } | { ok: false; logs: string[] }
+> {
+  const built = await Bun.build({
     entrypoints: [join(import.meta.dir, "src/ink/compile.worker.ts")],
-    outdir: outDir,
-    naming: "ink-compile.worker.js",
     format: "iife",
     minify: true,
     target: "browser",
@@ -123,12 +169,25 @@ async function buildInkWorker(outDir: string): Promise<Bun.BuildOutput> {
       "import.meta.url": "self.location.href",
     },
   });
+  if (!built.success)
+    return { ok: false, logs: built.logs.map((log) => log.message) };
+  const artifact = built.outputs[0];
+  if (artifact === undefined)
+    return { ok: false, logs: ["the Ink worker build produced no output"] };
+  const bytes = new Uint8Array(await artifact.arrayBuffer());
+  return {
+    ok: true,
+    name: `ink-compile-${sha256Short(bytes)}.worker.js`,
+    bytes,
+  };
 }
 
-/** Bundles the service worker to `<outDir>/sw.js` with the precache list and its hash compiled in. */
+/** Bundles the service worker to `<outDir>/sw.js` with the precache list, build ID, and warm list compiled in. */
 async function buildWorker(
   outDir: string,
   entries: readonly PrecacheEntry[],
+  id: string,
+  warmEntries: readonly string[],
 ): Promise<Bun.BuildOutput> {
   return Bun.build({
     entrypoints: [join(import.meta.dir, "src/sw/worker.ts")],
@@ -140,7 +199,8 @@ async function buildWorker(
     define: {
       "process.env.NODE_ENV": '"production"',
       "self.__SW_MANIFEST": JSON.stringify(entries),
-      "self.__BUILD_ID": JSON.stringify(buildId(entries)),
+      "self.__BUILD_ID": JSON.stringify(id),
+      "self.__WARM_MANIFEST": JSON.stringify(warmEntries),
     },
   });
 }
@@ -158,8 +218,8 @@ async function readBenchmarkReport(): Promise<string | null> {
 
 /**
  * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined,
- * then the service worker that precaches every file of the app, then the third-party notices
- * and the standalone benchmark report page.
+ * the hashed Ink worker, PWA manifest and icons, then the service worker that precaches every shell
+ * file of the app, then build metadata, third-party notices, and the standalone benchmark report page.
  * `files` are the outputs' paths relative to `outDir`, `sw.js` last. The test flavour also serves
  * the development screens.
  */
@@ -171,6 +231,9 @@ export async function buildWeb(options: {
   | { ok: false; logs: string[] }
 > {
   const { outDir, flavour } = options;
+  const inkWorker = await buildInkWorker();
+  if (!inkWorker.ok) return inkWorker;
+
   await rm(outDir, { recursive: true, force: true });
   const result = await Bun.build({
     entrypoints: [join(import.meta.dir, "src/index.html")],
@@ -187,12 +250,14 @@ export async function buildWeb(options: {
       "process.env.NODE_ENV": '"production"',
       MANENT_FLAVOUR: JSON.stringify(flavour),
       MANENT_VERSION: JSON.stringify(await readVersion()),
+      MANENT_INK_WORKER_URL: JSON.stringify(`/${inkWorker.name}`),
     },
   });
   if (!result.success)
     return { ok: false, logs: result.logs.map((log) => log.message) };
   if (result.metafile === undefined)
     return { ok: false, logs: ["the build wrote no metafile"] };
+
   await insertBootScript(outDir);
   const extractedFonts = await extractCssFonts(
     outDir,
@@ -200,30 +265,41 @@ export async function buildWeb(options: {
       .map((output) => output.path)
       .filter((path) => path.endsWith(".css")),
   );
-  const inkWorker = await buildInkWorker(outDir);
-  if (!inkWorker.success)
-    return { ok: false, logs: inkWorker.logs.map((log) => log.message) };
+  const inkWorkerPath = join(outDir, inkWorker.name);
+  await writeFile(inkWorkerPath, inkWorker.bytes);
+  const publicAssets = await copyPublicAssets(outDir);
+
   // read back from disk: the page and CSS have changed since the build wrote them
-  const written = [
+  const written: BuiltOutput[] = [
     ...(await Promise.all(
-      [...result.outputs, ...inkWorker.outputs].map(async (output) => ({
+      result.outputs.map(async (output) => ({
         path: output.path,
         bytes: await Bun.file(output.path).bytes(),
       })),
     )),
     ...extractedFonts,
+    { path: inkWorkerPath, bytes: inkWorker.bytes },
+    ...publicAssets,
   ];
-  const exclude = onDemandAssetUrls(
-    result.metafile,
-    inkWorker.outputs.map((output) => output.path),
-    outDir,
-  );
-  const worker = await buildWorker(
-    outDir,
-    precacheEntries(written, outDir, { exclude }),
-  );
+  const id = buildId(allBuildEntries(written, outDir));
+  const indexBytes = await insertBuildMetaTag(outDir, id);
+  const indexPath = join(outDir, "index.html");
+  for (const output of written)
+    if (output.path === indexPath) output.bytes = indexBytes;
+
+  const exclude = onDemandAssetUrls(result.metafile, [inkWorkerPath], outDir);
+  const entries = precacheEntries(written, outDir, { exclude });
+  const warmEntries = warmAssetUrls(written, outDir, exclude);
+  const worker = await buildWorker(outDir, entries, id, warmEntries);
   if (!worker.success)
     return { ok: false, logs: worker.logs.map((log) => log.message) };
+
+  const buildMetaPath = join(outDir, "build-meta.json");
+  await writeFile(
+    buildMetaPath,
+    `${JSON.stringify({ buildId: id, bootScriptHash: bootScriptHash() }, null, 2)}\n`,
+  );
+
   // a tool, so it runs as its own process: an app never imports tools
   const notices = Bun.spawnSync(
     [
@@ -244,7 +320,9 @@ export async function buildWeb(options: {
     files: [
       ...result.outputs.map((output) => output.path),
       ...extractedFonts.map((font) => font.path),
-      ...inkWorker.outputs.map((output) => output.path),
+      inkWorkerPath,
+      ...publicAssets.map((asset) => asset.path),
+      buildMetaPath,
       ...worker.outputs.map((output) => output.path),
     ].map((path) => relative(outDir, path)),
     metafile: result.metafile,

@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { basename, join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import { buildWeb } from "../build.ts";
-import { BOOT_SCRIPT } from "../src/boot/boot-script.ts";
+import { BOOT_SCRIPT, bootScriptHash } from "../src/boot/boot-script.ts";
 import { renderBenchmarkReportHtml } from "../src/build/benchmark-html.ts";
 
 const trees = createTempTrees("manent-web-build-");
@@ -142,23 +142,30 @@ test("the build writes a service worker holding the whole shell, fonts included"
       )
       .map((chunk) => basename(chunk.name)),
   );
-  heavyOnDemand.add("ink-compile.worker.js");
+  const inkWorkers = built.files.filter((f) =>
+    new RegExp("^ink-compile-[0-9a-f]{8}\\.worker\\.js$").test(basename(f)),
+  );
+  expect(inkWorkers.length).toBe(1);
+  const inkWorkerName = basename(inkWorkers[0]!);
+  expect(built.files).not.toContain("ink-compile.worker.js");
+  heavyOnDemand.add(inkWorkerName);
   for (const file of built.files.filter(
     (f) =>
-      new RegExp("\\.(html|js|css|woff2)$").test(f) &&
+      (new RegExp("\\.(html|js|css|woff2|webmanifest)$").test(f) ||
+        new RegExp("^icons/.+\\.(svg|png)$").test(f.replaceAll("\\", "/"))) &&
       f !== "sw.js" &&
       !heavyOnDemand.has(basename(f)),
   ))
-    expect(sw).toContain(JSON.stringify(`/${basename(file)}`));
+    expect(sw).toContain(JSON.stringify(`/${file.replaceAll("\\", "/")}`));
   // heavy on-demand chunks and legacy .woff PDF fonts stay out of eager precache and use runtime caching
-  for (const file of heavyOnDemand) {
-    if (file === "ink-compile.worker.js") {
-      expect(sw).not.toMatch(new RegExp('url:"/ink-compile\\.worker\\.js"'));
-      expect(sw).toContain('"/ink-compile.worker.js"');
-    } else {
-      expect(sw).not.toContain(JSON.stringify(`/${file}`));
-    }
-  }
+  for (const file of heavyOnDemand)
+    expect(sw).not.toContain(JSON.stringify(`/${file}`));
+  const allJsTexts = await Promise.all(
+    built.files
+      .filter((f) => f.endsWith(".js") && f !== "sw.js" && f !== inkWorkerName)
+      .map((f) => Bun.file(join(outDir, f)).text()),
+  );
+  expect(allJsTexts.some((t) => t.includes(`/${inkWorkerName}`))).toBe(true);
   for (const file of built.files.filter((f) => f.endsWith(".woff")))
     expect(sw).not.toContain(JSON.stringify(`/${basename(file)}`));
   expect(sw).toContain("manent-runtime-assets-");
@@ -269,4 +276,47 @@ test("the build emits a standalone benchmark report page outside the precache ma
   expect(rendered).toContain("&lt;title&gt;x&lt;/title&gt;");
   expect(rendered).not.toContain("<script>");
   expect(rendered).not.toContain("&lt;br&gt;");
+}, 30_000);
+
+test("the build emits manifest.webmanifest, PWA icons, build-meta.json, and manent-build meta tag", async () => {
+  const { outDir, built } = await productionBuild();
+  expect(built.ok).toBe(true);
+  const manifest = (await Bun.file(
+    join(outDir, "manifest.webmanifest"),
+  ).json()) as Record<string, unknown>;
+  expect(manifest).toMatchObject({
+    id: "/",
+    name: "Manent",
+    short_name: "Manent",
+    lang: "en-GB",
+    start_url: "/?source=pwa",
+    scope: "/",
+    display: "standalone",
+    display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+    background_color: "#f6f4f0",
+    theme_color: "#f6f4f0",
+    categories: ["productivity", "utilities"],
+    launch_handler: { client_mode: ["focus-existing", "auto"] },
+  });
+  for (const icon of [
+    "icons/icon.svg",
+    "icons/icon-192.png",
+    "icons/icon-512.png",
+    "icons/icon-maskable-512.png",
+    "icons/apple-touch-icon.png",
+  ]) {
+    expect(await Bun.file(join(outDir, icon)).exists()).toBe(true);
+  }
+  const meta = (await Bun.file(join(outDir, "build-meta.json")).json()) as {
+    buildId: string;
+    bootScriptHash: string;
+  };
+  expect(meta.buildId).toMatch(new RegExp("^[0-9a-f]{16}$"));
+  expect(meta.bootScriptHash).toBe(bootScriptHash());
+  const html = await Bun.file(join(outDir, "index.html")).text();
+  expect(html).toContain(
+    `<meta name="color-scheme" content="light dark" /><meta name="manent-build" content="${meta.buildId}" />`,
+  );
+  const sw = await Bun.file(join(outDir, "sw.js")).text();
+  expect(sw).toContain(meta.buildId);
 }, 30_000);

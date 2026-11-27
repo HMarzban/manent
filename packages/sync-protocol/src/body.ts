@@ -59,6 +59,7 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
       writeStruct(e, (fields) => {
         writeNumber(fields, m.limits.frameBytes);
         writeNumber(fields, m.limits.messageBytes);
+        if (m.webBuildId !== undefined) writeString(fields, m.webBuildId);
       });
       writeVersions(e, m.server.current);
       writeVersions(e, m.server.min);
@@ -194,19 +195,28 @@ export function readBody(
         build: decoding.readVarString(d),
         deviceId: decoding.readVarString(d),
       };
-    case "WELCOME":
+    case "WELCOME": {
+      const session = readStruct(d, (fields) => ({
+        userId: decoding.readVarString(fields),
+        name: decoding.readVarString(fields),
+      }));
+      let webBuildId: string | undefined;
+      const limits = readStruct(d, (fields) => {
+        const frameBytes = readNumber(fields);
+        const messageBytes = readNumber(fields);
+        if (fields.pos < fields.arr.byteLength)
+          webBuildId = decoding.readVarString(fields);
+        return { frameBytes, messageBytes };
+      });
+      const server = { current: readVersions(d), min: readVersions(d) };
       return {
         type: "WELCOME",
-        session: readStruct(d, (fields) => ({
-          userId: decoding.readVarString(fields),
-          name: decoding.readVarString(fields),
-        })),
-        limits: readStruct(d, (fields) => ({
-          frameBytes: readNumber(fields),
-          messageBytes: readNumber(fields),
-        })),
-        server: { current: readVersions(d), min: readVersions(d) },
+        session,
+        limits,
+        server,
+        ...(webBuildId !== undefined ? { webBuildId } : {}),
       };
+    }
     case "AUTH_EXPIRING":
       return { type: "AUTH_EXPIRING", expiresInMs: readNumber(d) };
     case "AUTH_REFRESH":

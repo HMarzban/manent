@@ -94,6 +94,7 @@ export type ConnectionMessage =
       session: Identity;
       limits: Limits;
       server: ServerVersions;
+      webBuildId?: string;
     }
   | { type: "AUTH_EXPIRING"; expiresInMs: number }
   | { type: "AUTH_REFRESH"; ticket: string }

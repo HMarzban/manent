@@ -109,6 +109,8 @@ interface Rules {
   versions: ServerVersions;
   /** Null: no document is served. */
   sync: SocketSync | null;
+  /** Current web build ID when the server serves a built web app. */
+  webBuildId?: () => string | null;
 }
 
 /** The connection's stage ends: nothing waits for its HELLO and its peer leaves the service. */
@@ -205,6 +207,7 @@ function welcome(
   if (user === null)
     return shut(connection, state, CODE.UNAUTHENTICATED, rules);
   stage.cancelHello?.();
+  const buildId = rules.webBuildId?.() ?? null;
   send(connection, stage, {
     type: "WELCOME",
     session: user,
@@ -213,6 +216,7 @@ function welcome(
       messageBytes: MESSAGE_LIMIT_BYTES,
     },
     server: versions,
+    ...(buildId !== null ? { webBuildId: buildId } : {}),
   });
   const welcomed = { ...stage, user, cancelHello: null };
   const peer =
@@ -300,6 +304,7 @@ export function createConnectionHandler(options: {
   directory: Directory;
   versions: ServerVersions;
   sync: SocketSync | null;
+  webBuildId?: () => string | null;
 }): ConnectionHandler {
   const { tickets, directory } = options;
   const rules: Rules = options;

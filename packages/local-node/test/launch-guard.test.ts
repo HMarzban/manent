@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import type { ManentServer, RequestContext } from "@manent/server-core";
 import { createLaunchGuard } from "../src/index.ts";
 
@@ -133,4 +134,73 @@ test("the page the node serves carries the desktop's startup values first", asyn
     bootScript: null,
   });
   expect(await (await none.fetch(req("/", pass), CTX))!.text()).toBe(page);
+});
+
+test("desktop launch guard returns 404 no-store for /sw.js", async () => {
+  const swInner = fakeServer(
+    () =>
+      new Response("self.x = 1;", {
+        headers: { "content-type": "text/javascript" },
+      }),
+  );
+  const guarded = createLaunchGuard({
+    token: TOKEN,
+    inner: swInner,
+    bootScript: null,
+  });
+  const unauth = await guarded.fetch(req("/sw.js"), CTX);
+  expect(unauth!.status).toBe(403);
+  const auth = await guarded.fetch(
+    req("/sw.js", { cookie: `manent_launch=${TOKEN}` }),
+    CTX,
+  );
+  expect([
+    auth!.status,
+    auth!.headers.get("cache-control"),
+    auth!.headers.get("x-content-type-options"),
+  ]).toEqual([404, "no-store", "nosniff"]);
+  const head = await guarded.fetch(
+    new Request("http://127.0.0.1:51234/sw.js", {
+      method: "HEAD",
+      headers: { cookie: `manent_launch=${TOKEN}` },
+    }),
+    CTX,
+  );
+  expect([head!.status, await head!.text()]).toEqual([404, ""]);
+});
+
+test("withScript appends the injected script hash to CSP script-src, drops ETag, and sets no-store", async () => {
+  const script = "window.__DESKTOP=1;";
+  const expectedHash = `sha256-${createHash("sha256").update(script).digest("base64")}`;
+  const html = fakeServer(
+    () =>
+      new Response("<!doctype html><head><script>boot()</script></head>", {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          etag: '"abc123"',
+          "cache-control": "no-cache",
+          "content-security-policy":
+            "default-src 'none'; script-src 'self' 'sha256-BOOT'; worker-src 'self'",
+        },
+      }),
+  );
+  const guarded = createLaunchGuard({
+    token: TOKEN,
+    inner: html,
+    bootScript: () => script,
+  });
+  const response = await guarded.fetch(
+    req("/", { cookie: `manent_launch=${TOKEN}` }),
+    CTX,
+  );
+  expect([
+    response!.headers.get("etag"),
+    response!.headers.get("cache-control"),
+    response!.headers.get("content-security-policy"),
+  ]).toEqual([
+    null,
+    "no-store",
+    `default-src 'none'; script-src 'self' 'sha256-BOOT' '${expectedHash}'; worker-src 'self'`,
+  ]);
+  expect(await response!.text()).toContain(`<script>${script}</script>`);
 });

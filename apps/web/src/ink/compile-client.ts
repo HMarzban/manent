@@ -11,12 +11,15 @@ import type {
 } from "@manent/formats";
 import type { InkWorkerRequest, InkWorkerResponse } from "./compile.worker.ts";
 
-/** Settled compile host strategy: dedicated classic Web Worker precached by the service worker. */
+declare const MANENT_INK_WORKER_URL: string | undefined;
+/** Settled compile host (classic Web Worker) and runtime (live Story alongside Compiler). */
 export const INK_COMPILE = "worker" as const;
-/** Settled runtime strategy: live Story kept alongside Compiler in the worker for 1-based line metadata. */
 export const INK_RUNTIME = "with-compiler" as const;
 export const INK_COMPILE_DEBOUNCE_MS = 150;
-export const INK_WORKER_URL = "/ink-compile.worker.js";
+export const INK_WORKER_URL =
+  typeof MANENT_INK_WORKER_URL === "undefined"
+    ? "/ink-compile.worker.js"
+    : MANENT_INK_WORKER_URL;
 
 export interface InkCompileSnapshot {
   readonly state: "up_to_date" | "compiling";

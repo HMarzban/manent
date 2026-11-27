@@ -203,12 +203,19 @@ test("the web app is served, with a fallback for app routes and none for the API
   const at = (path: string, init?: RequestInit) =>
     fetchAt(`http://localhost:4747${path}`, init, web);
 
-  for (const path of ["/", "/s/01a1b2c3", "/choose?next=%2F", "/missing.js"]) {
+  for (const path of ["/", "/s/01a1b2c3", "/choose?next=%2F"]) {
     const r = await at(path);
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toStartWith("text/html");
     expect(await r.text()).toBe("<!doctype html><title>app</title>");
   }
+  const missingJs = await at("/missing.js");
+  expect([
+    missingJs.status,
+    missingJs.headers.get("content-type"),
+    missingJs.headers.get("cache-control"),
+    missingJs.headers.get("x-content-type-options"),
+  ]).toEqual([404, "text/plain; charset=utf-8", "no-store", "nosniff"]);
   const chunk = await at("/chunk-abc.js");
   expect(chunk.status).toBe(200);
   expect(chunk.headers.get("content-type")).toStartWith("text/javascript");
