@@ -105,6 +105,7 @@ export function dockerRunArgs(
     resultsDir: string;
     readOnly: readonly { from: string; to: string }[];
     readWrite?: readonly { from: string; to: string }[];
+    soakMinutes?: string;
     args: readonly string[];
   },
 ): string[] {
@@ -130,6 +131,9 @@ export function dockerRunArgs(
     `MANENT_BENCH_TIER=${tier.id}`,
     "--env",
     `MANENT_BENCH_THROTTLE=${options.throttle}`,
+    ...(options.soakMinutes === undefined
+      ? []
+      : ["--env", `MANENT_SOAK_MINUTES=${options.soakMinutes}`]),
     "--volume",
     `${options.resultsDir}:/repo/bench/results`,
     ...options.readOnly.flatMap((v) => ["--volume", `${v.from}:${v.to}:ro`]),

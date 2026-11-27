@@ -140,12 +140,16 @@ async function runContainer(
       ? [{ from: tracesDir, to: "/repo/bench/corpus/traces" }]
       : [];
     const readWrite = [{ from: cacheDir, to: "/repo/bench/corpus/cache" }];
+    const soakMinutes = process.env.MANENT_SOAK_MINUTES;
     const args = dockerRunArgs(TIERS[run.tier], {
       image,
       throttle: run.throttle,
       resultsDir,
       readOnly,
       readWrite,
+      ...(soakMinutes === undefined || soakMinutes === ""
+        ? {}
+        : { soakMinutes }),
       args: insideArgs(options, run),
     });
     const ran = await ask(options.docker, args.slice(1));
