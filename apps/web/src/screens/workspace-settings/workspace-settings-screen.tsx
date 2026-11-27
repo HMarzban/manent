@@ -1,31 +1,26 @@
-// Workspace settings screen: left navigation across People, Notifications, and API keys, shared status & role gating.
+// Workspace settings screen: unified left-rail settings shell across People, Notifications, API keys and Broadcast.
 import { DEMO_PEOPLE } from "@manent/demo";
 import { DOC_ROLES, indexDocId } from "@manent/sync-protocol";
 import type { DocRole } from "@manent/sync-protocol";
 import {
-  Button,
-  MessageSlot,
-  Row,
+  SEND_WORDS,
   SHARING_WORDS,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { BellIcon, KeyRoundIcon, RadioIcon, UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
 import { readPerson } from "../../session.ts";
-import { CommandsButton } from "../../shell/commands-button.tsx";
-import { ShellRegion } from "../../shell/regions.tsx";
+import { SettingsNotice } from "../../settings-shell/settings-card.tsx";
+import { SettingsShell } from "../../settings-shell/settings-shell.tsx";
+import type { SettingsNavItem } from "../../settings-shell/settings-shell.tsx";
+import { usePlaceName } from "../../settings-shell/use-place-name.ts";
 import { pageTitle } from "../../text.ts";
-import { isCommandId } from "../preferences/search-index.ts";
 import { GROUP_COMPONENTS, WORKSPACE_SETTINGS_GROUPS } from "./groups.ts";
 import type { WorkspaceSettingsGroup } from "./groups.ts";
 import { createWorkspaceApi, workspacePeopleHolder } from "./workspace-api.ts";
@@ -102,36 +97,32 @@ function useWorkspaceOnline(): boolean {
   return browserOnline && linkOnline;
 }
 
-function WorkspaceSettingsStatusBar(): ReactNode {
-  const { messages, commands } = useServices();
-  return (
-    <ShellRegion
-      region="status_bar"
-      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
-    >
-      <MessageSlot
-        queue={messages}
-        run={(id) => {
-          if (isCommandId(id)) commands.run(id, "control");
-        }}
-        registered={isCommandId}
-      />
-      <CommandsButton />
-    </ShellRegion>
-  );
+function groupIcon(group: WorkspaceSettingsGroup): ReactNode {
+  switch (group) {
+    case "people":
+      return <UsersIcon aria-hidden="true" />;
+    case "notifications":
+      return <BellIcon aria-hidden="true" />;
+    case "api_keys":
+      return <KeyRoundIcon aria-hidden="true" />;
+    case "broadcast":
+      return <RadioIcon aria-hidden="true" />;
+  }
 }
 
 export function WorkspaceSettingsScreen(props: {
   workspaceId: string;
   group: string | null;
+  from?: string | null;
 }): ReactNode {
-  const { workspaceId, group } = props;
+  const { workspaceId, group, from = null } = props;
   const activeGroup: WorkspaceSettingsGroup =
     WORKSPACE_SETTINGS_GROUPS.find((entry) => entry === group) ?? "people";
   const services = useServices();
   const environment = useEnvironment();
   const navigate = useNavigate();
   const online = useWorkspaceOnline();
+  const placeName = usePlaceName(from ?? "/");
   const workspacesQuery = useWorkspaces(services.api, services.userId, true);
   const workspaces = workspacesQuery.data ?? null;
   const workspaceRef = workspaces?.find((ws) => ws.id === workspaceId) ?? null;
@@ -262,106 +253,55 @@ export function WorkspaceSettingsScreen(props: {
     null;
   const canChange = myRole === "owner";
   const ActiveGroup = GROUP_COMPONENTS[activeGroup];
+  const fromQuery = from === null ? "" : `?from=${encodeURIComponent(from)}`;
+  const backHref = from ?? `/?w=${encodeURIComponent(workspaceId)}`;
+  const backLabel =
+    from === null ? WORKSPACE_WORDS.backToLibrary : SEND_WORDS.back(placeName);
+
+  const navItems: readonly SettingsNavItem<WorkspaceSettingsGroup>[] = useMemo(
+    () =>
+      WORKSPACE_SETTINGS_GROUPS.map((id) => ({
+        id,
+        label: WORKSPACE_WORDS.groups[id],
+        icon: groupIcon(id),
+        href: `/w/${encodeURIComponent(workspaceId)}/settings/${id}${fromQuery}`,
+      })),
+    [workspaceId, fromQuery],
+  );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-chrome">
-      <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
-        <Button
-          variant="ghost"
-          className="cursor-pointer text-fg-muted"
-          onClick={() =>
-            void navigate({ href: `/?w=${encodeURIComponent(workspaceId)}` })
-          }
-        >
-          {WORKSPACE_WORDS.backToLibrary}
-        </Button>
-        <h1 tabIndex={-1} className="truncate text-heading outline-none">
-          {workspaceRef === null
-            ? WORKSPACE_WORDS.title
-            : `${workspaceRef.name} · ${WORKSPACE_WORDS.title}`}
-        </h1>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row sm:overflow-hidden">
-        <div className="border-b border-line p-4 sm:hidden">
-          <Select
-            items={WORKSPACE_SETTINGS_GROUPS.map((id) => ({
-              value: id,
-              label: WORKSPACE_WORDS.groups[id],
-            }))}
-            value={activeGroup}
-            onValueChange={(value) => {
-              const next = WORKSPACE_SETTINGS_GROUPS.find(
-                (entry) => entry === value,
-              );
-              if (next !== undefined)
-                void navigate({
-                  href: `/w/${encodeURIComponent(workspaceId)}/settings/${next}`,
-                });
-            }}
-          >
-            <SelectTrigger
-              aria-label={WORKSPACE_WORDS.title}
-              className="h-control text-ui"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WORKSPACE_SETTINGS_GROUPS.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {WORKSPACE_WORDS.groups[id]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <nav
-          aria-label={WORKSPACE_WORDS.title}
-          className="hidden shrink-0 flex-col gap-1 border-e border-line px-2 py-4 sm:flex sm:w-panel-left"
-        >
-          {WORKSPACE_SETTINGS_GROUPS.map((id) => {
-            const current = id === activeGroup;
-            return (
-              <a
-                key={id}
-                href={`/w/${encodeURIComponent(workspaceId)}/settings/${id}`}
-                aria-current={current ? "page" : undefined}
-                className="block cursor-pointer rounded-control no-underline"
-                onClick={(event) => {
-                  event.preventDefault();
-                  void navigate({
-                    href: `/w/${encodeURIComponent(workspaceId)}/settings/${id}`,
-                  });
-                }}
-              >
-                <Row current={current}>{WORKSPACE_WORDS.groups[id]}</Row>
-              </a>
-            );
-          })}
-        </nav>
-        <main className="min-w-0 flex-1 p-6 sm:overflow-auto">
-          <div className="flex max-w-content flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-ui text-fg-muted">{WORKSPACE_WORDS.scope}</p>
-              {!online ? (
-                <p className="text-ui text-fg-muted">
-                  {WORKSPACE_WORDS.needsConnection}
-                </p>
-              ) : cached.people !== null && !canChange ? (
-                <p className="text-ui text-fg-muted">
-                  {WORKSPACE_WORDS.ownersOnly}
-                </p>
-              ) : null}
-            </div>
-            <ActiveGroup
-              workspaceId={workspaceId}
-              canChange={canChange}
-              online={online}
-              api={api}
-            />
-          </div>
-        </main>
-      </div>
-      <WorkspaceSettingsStatusBar />
-    </div>
+    <SettingsShell
+      backLabel={backLabel}
+      backTitle={from === null ? undefined : placeName}
+      onBack={() => void navigate({ href: backHref })}
+      title={
+        workspaceRef === null
+          ? WORKSPACE_WORDS.title
+          : `${workspaceRef.name} · ${WORKSPACE_WORDS.title}`
+      }
+      navLabel={WORKSPACE_WORDS.title}
+      navMode="links"
+      navItems={navItems}
+      activeNavId={activeGroup}
+      onSelectNav={(next) =>
+        void navigate({
+          href: `/w/${encodeURIComponent(workspaceId)}/settings/${next}${fromQuery}`,
+        })
+      }
+      contentClassName="flex flex-col gap-5"
+    >
+      <ActiveGroup
+        workspaceId={workspaceId}
+        canChange={canChange}
+        online={online}
+        api={api}
+      />
+      {cached.people !== null && !canChange && online ? (
+        <SettingsNotice tone="locked">
+          {WORKSPACE_WORDS.ownersOnly}
+        </SettingsNotice>
+      ) : null}
+      <p className="text-meta text-fg-muted">{WORKSPACE_WORDS.scope}</p>
+    </SettingsShell>
   );
 }

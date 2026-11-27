@@ -3,6 +3,7 @@ import { Button, PREFERENCES_WORDS, SettingRow, Skeleton } from "@manent/ui";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment } from "../../services/context.tsx";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { DesktopGroups } from "./desktop-device.tsx";
 import { About } from "./device-about.tsx";
 import { Fact, Group } from "./device-group.tsx";
@@ -128,11 +129,14 @@ export function DevicePane(props: {
   const { desktop } = useEnvironment();
   return (
     <>
-      <SettingRow
-        settingKey="device.interfaceSize"
-        deviceName={props.deviceName}
-        persisted={props.persisted}
-      />
+      <SettingsCard divided>
+        <SettingRow
+          cardRow
+          settingKey="device.interfaceSize"
+          deviceName={props.deviceName}
+          persisted={props.persisted}
+        />
+      </SettingsCard>
       <FromYourSystem />
       {desktop === null ? (
         <>

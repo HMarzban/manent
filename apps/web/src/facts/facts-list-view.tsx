@@ -16,6 +16,7 @@ import {
 import type { ReactNode } from "react";
 import { RowMenu } from "../screens/library/row-place.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { SettingsCard } from "../settings-shell/settings-card.tsx";
 import {
   checkFactsAccess,
   isHandleRevoked,
@@ -234,12 +235,15 @@ function OpenFactsList(props: {
   };
 
   return (
-    <section aria-label={FACTS_WORDS.heading} className="flex flex-col pt-2">
-      <h3 className="mn-group-label px-0!">{FACTS_WORDS.heading}</h3>
+    <SettingsCard
+      asSection
+      aria-label={FACTS_WORDS.heading}
+      title={FACTS_WORDS.heading}
+    >
       {facts.length === 0 ? (
         <p className="text-ui text-fg-muted">{FACTS_WORDS.empty}</p>
       ) : (
-        <div role="list" className="-mx-3">
+        <div role="list" className="-mx-3 divide-y divide-line">
           {facts.map((fact) => (
             <FactRow
               key={fact.id}
@@ -257,7 +261,7 @@ function OpenFactsList(props: {
           ))}
         </div>
       )}
-    </section>
+    </SettingsCard>
   );
 }
 

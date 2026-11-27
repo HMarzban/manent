@@ -138,9 +138,9 @@ export function ReadRateRow(props: {
   return (
     <div
       data-tour={`setting:${settingKey}`}
-      className="flex min-h-row-2 flex-col gap-2 py-1"
+      className="flex min-h-row-2 flex-col gap-2 px-4 py-3"
     >
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <ReadRateLabel
           labelId={ids.label}
           helpId={ids.help}

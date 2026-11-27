@@ -2,6 +2,7 @@
 import type { SettingKey } from "@manent/settings";
 import { Button, PREFERENCES_WORDS, SettingRow } from "@manent/ui";
 import type { ReactNode } from "react";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import {
   ShortcutRow,
   ShortcutTable,
@@ -49,14 +50,17 @@ export function SetByYou(props: {
           reset={PREFERENCES_WORDS.resetAll}
           onReset={props.onResetPreferences}
         >
-          {modified.map((key) => (
-            <SettingRow
-              key={key}
-              settingKey={key}
-              deviceName={deviceName}
-              persisted={persisted}
-            />
-          ))}
+          <SettingsCard divided>
+            {modified.map((key) => (
+              <SettingRow
+                key={key}
+                cardRow
+                settingKey={key}
+                deviceName={deviceName}
+                persisted={persisted}
+              />
+            ))}
+          </SettingsCard>
         </Group>
       )}
       {shortcuts.length === 0 ? null : (

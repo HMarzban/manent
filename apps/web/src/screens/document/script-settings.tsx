@@ -181,8 +181,11 @@ function Groups(props: { doc: DocumentServices; docId: string }): ReactNode {
     const shown = keys.filter((key) => appliesToFormat(key, format));
     if (shown.length === 0) return null;
     return (
-      <section key={group} className="flex flex-col">
-        <h3 className="pt-2 text-ui font-semibold">{GROUP_WORDS[group]}</h3>
+      <section
+        key={group}
+        className="flex flex-col border-t border-line pt-3 first:border-t-0 first:pt-0"
+      >
+        <h3 className="pb-1 text-ui font-semibold">{GROUP_WORDS[group]}</h3>
         {shown.map((key) => (
           <div key={key}>
             <Row settingKey={key} docId={docId} />

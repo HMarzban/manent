@@ -104,7 +104,7 @@ function LabelListRow(props: {
     <div
       role="group"
       aria-labelledby={labelId}
-      className="flex flex-col gap-2 py-1"
+      className="flex flex-col gap-2 px-4 py-3"
     >
       <span id={labelId} className="text-ui font-medium">
         {SETTINGS.get(settingKey).label}
@@ -112,7 +112,6 @@ function LabelListRow(props: {
       {entries.length === 0 ? (
         <p className="text-ui text-fg-muted">{words.empty}</p>
       ) : writable ? (
-        // a row's words start where the setting's label does
         <div className="-mx-3">
           <SortableList
             items={entries}

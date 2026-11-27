@@ -20,13 +20,12 @@ async function characterTextTransform(page: Page): Promise<string> {
 /** Opens Project settings for Harbour Lights and selects `choice` for Character Capitals. */
 async function setCharacterCapitals(page: Page, choice: string): Promise<void> {
   const styleRow = page.locator("[data-tour='setting:project.style']");
-  const characterRow = styleRow
-    .locator("div.py-3")
-    .filter({
-      has: page.locator("span.font-medium", { hasText: /^Character$/ }),
-    })
-    .first();
+  const characterRow = styleRow.locator("[data-element='character']");
   await expect(characterRow).toBeVisible();
+  const toggle = characterRow.locator("button[aria-expanded]").first();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.click();
+  }
   await characterRow.getByLabel(PROJECT_WORDS.styleFields.capitals).click();
   await page.getByRole("option", { name: choice, exact: true }).click();
 }
@@ -137,12 +136,7 @@ test("changing Character Capitals in Project settings updates every unlocked epi
     // Reset Character style in Project settings so later tests see the clean seed
     await page.goto(`/p/${projectId}/settings?from=%2F`);
     const styleRow = page.locator("[data-tour='setting:project.style']");
-    const characterRow = styleRow
-      .locator("div.py-3")
-      .filter({
-        has: page.locator("span.font-medium", { hasText: /^Character$/ }),
-      })
-      .first();
+    const characterRow = styleRow.locator("[data-element='character']");
     const reset = characterRow.getByRole("button", {
       name: PROJECT_WORDS.styleReset,
       exact: true,
