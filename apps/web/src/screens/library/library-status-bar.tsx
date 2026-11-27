@@ -1,7 +1,7 @@
 // The Library's status bar: the message slot, how many projects are on this device when some are not, and Commands.
 import { COMMANDS } from "@manent/commands";
 import type { CommandId } from "@manent/commands";
-import { LIBRARY_WORDS, MessageSlot } from "@manent/ui";
+import { ActivePaletteGem, LIBRARY_WORDS, MessageSlot } from "@manent/ui";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { ProjectItem } from "../../services/ports.ts";
@@ -40,6 +40,7 @@ export function LibraryStatusBar(props: {
         registered={isRegistered}
       />
       <CommandsButton />
+      <ActivePaletteGem className="ms-1 max-sm:hidden" />
     </ShellRegion>
   );
 }

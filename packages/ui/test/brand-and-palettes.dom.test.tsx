@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import {
+  ActivePaletteGem,
   HiddenGemIcon,
   ManentMark,
   ManentStackedLockup,
@@ -67,4 +68,36 @@ test("every one of the 24 studio palettes has metadata and a currentColor Hidden
     expect(path.getAttribute("fill")).toBe("currentColor");
     expect((path.getAttribute("d") ?? "").length).toBeGreaterThan(20);
   }
+});
+
+test("ActivePaletteGem tracks html[data-palette] reactively and stays purely decorative", async () => {
+  document.documentElement.removeAttribute("data-palette");
+  const container = renderIntoHost(<ActivePaletteGem />);
+  const span = container.querySelector<HTMLElement>("[data-palette-gem]");
+  expect(span).not.toBeNull();
+  expect(span?.getAttribute("aria-hidden")).toBe("true");
+  expect(span?.classList.contains("mn-gem-only")).toBe(true);
+  expect(span?.getAttribute("data-palette-gem")).toBe("studio");
+  expect(span?.textContent).toBe("");
+  const studioPath = span?.querySelector("svg path")?.getAttribute("d");
+
+  await act(async () => {
+    document.documentElement.setAttribute("data-palette", "celluloid");
+    await Promise.resolve();
+  });
+  expect(span?.getAttribute("data-palette-gem")).toBe("celluloid");
+  const celluloidPath = span?.querySelector("svg path")?.getAttribute("d");
+  expect(celluloidPath).not.toBe(studioPath);
+
+  await act(async () => {
+    document.documentElement.setAttribute("data-palette", "unknown-palette");
+    await Promise.resolve();
+  });
+  expect(span?.getAttribute("data-palette-gem")).toBe("studio");
+
+  await act(async () => {
+    document.documentElement.removeAttribute("data-palette");
+    await Promise.resolve();
+  });
+  expect(span?.getAttribute("data-palette-gem")).toBe("studio");
 });

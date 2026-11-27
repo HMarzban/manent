@@ -1,6 +1,6 @@
 // Live Studio Desk folio preview and archival craft pillars for Choose who you are.
 import type { SignInChoice } from "@manent/sync-protocol";
-import { CHOOSE_WORDS, HiddenGemIcon } from "@manent/ui";
+import { ActivePaletteGem, CHOOSE_WORDS } from "@manent/ui";
 import type { ChooseSpotlightCopy } from "@manent/ui";
 import {
   CompassIcon,
@@ -216,12 +216,7 @@ export function PersonaSpotlight(props: {
                 </li>
               ))}
             </ul>
-            <span
-              aria-hidden="true"
-              className="mn-gem-only shrink-0 text-fg-accent opacity-60"
-            >
-              <HiddenGemIcon palette="studio" className="size-icon" />
-            </span>
+            <ActivePaletteGem />
           </div>
         </div>
       </div>

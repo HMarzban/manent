@@ -2461,8 +2461,25 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   border-radius: 0;
   border-block-start: 1px solid var(--line);
 }
-.mn-table [aria-posinset="1"] > .mn-row {
+.mn-table [aria-posinset="1"] .mn-row,
+.mn-table > :first-child > .mn-row {
   border-block-start: 0;
+}
+.mn-continue-table {
+  max-block-size: calc(var(--row-h-2) * 3 + 2px);
+}
+@media (min-height: 760px) {
+  .mn-continue-table {
+    max-block-size: calc(var(--row-h-2) * 4 + 2px);
+  }
+}
+@media (min-height: 920px) {
+  .mn-continue-table {
+    max-block-size: calc(var(--row-h-2) * 5 + 2px);
+  }
+}
+.mn-continue-table [role="list"] {
+  overscroll-behavior: contain;
 }
 .mn-num {
   justify-content: flex-end;
@@ -3604,6 +3621,21 @@ html[data-switching] *::after {
 html[data-gems="off"] .mn-gem-only {
   display: none;
 }
+.mn-app-gem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--fg-accent);
+  opacity: 0.72;
+  transition:
+    opacity var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter);
+}
+.mn-app-gem:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -4363,6 +4395,9 @@ html[data-gems="off"] .mn-gem-only {
 }
 
 @media (prefers-contrast: more) {
+  .mn-app-gem {
+    opacity: 1;
+  }
   .mn-choose-stage {
     background-image: none;
   }
@@ -4390,6 +4425,7 @@ html[data-gems="off"] .mn-gem-only {
   .mn-mini-paper,
   .mn-palette-card,
   .mn-card-gem,
+  .mn-app-gem,
   .mn-choose-brand-badge,
   .mn-choose-theme-opt,
   .mn-choose-theme-icon,
@@ -4414,6 +4450,7 @@ html[data-gems="off"] .mn-gem-only {
   .mn-palette-card:active,
   .mn-palette-card:hover .mn-card-gem,
   .mn-palette-card[aria-checked="true"] .mn-card-gem,
+  .mn-app-gem:hover,
   .mn-choose-brand-badge:hover,
   .mn-choose-theme-opt:active,
   .mn-choose-theme-opt[data-active="true"] .mn-choose-theme-icon,
@@ -4606,6 +4643,7 @@ html[data-gems="off"] .mn-gem-only {
   }
   .mn-choose-stage::before,
   .mn-choose-stage::after,
+  .mn-app-gem,
   .mn-choose-sheet-back-1,
   .mn-choose-sheet-back-2 {
     display: none;
@@ -4703,6 +4741,9 @@ html[data-gems="off"] .mn-gem-only {
    and keeps its bands, tints and the writer's highlights.
    -------------------------------------------------------------------------- */
 @media print {
+  .mn-app-gem {
+    display: none;
+  }
   .mn-print {
     color-scheme: light;
     --page-paper: var(--p-warm-0);

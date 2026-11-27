@@ -1,6 +1,7 @@
 // The bar under the page: the readouts, the message slot, View ▾ and Commands; the Element, page and scene readouts.
 import { COMMANDS } from "@manent/commands";
 import {
+  ActivePaletteGem,
   Button,
   CommandMenu,
   DOCUMENT_WORDS,
@@ -177,6 +178,7 @@ export function StatusBar(props: { readouts: ReactNode }): ReactNode {
         trigger={<MenuFace size="sm">{DOCUMENT_WORDS.viewMenu}</MenuFace>}
       />
       <CommandsButton />
+      <ActivePaletteGem className="ms-1 max-sm:hidden" />
       {docId === null ? null : <WritingNotices docId={docId} />}
     </ShellRegion>
   );
