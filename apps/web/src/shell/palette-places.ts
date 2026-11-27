@@ -89,13 +89,21 @@ export function createPlaceSource(options: {
           scene.number === null
             ? scene.heading
             : PLACE_WORDS.scene(scene.number, scene.heading);
-        scenes.push(row(`${SCENE}${scene.blockId}`, "place", label, null));
+        const texts =
+          scene.number === null
+            ? [label]
+            : [label, `scene ${scene.number}`, `sc ${scene.number}`];
+        if (matchesQuery(query, texts))
+          scenes.push(row(`${SCENE}${scene.blockId}`, "place", label, null));
       }
       const p = options.pagination();
-      const pages =
-        p === null
-          ? []
-          : p.pages.map((page) =>
+      const pages: PaletteRow[] = [];
+      if (p !== null) {
+        for (const page of p.pages) {
+          // Match page number without "of <total>" so "page 12" in a 12-page script finds only Page 12
+          const texts = [`page ${page.label}`, `p ${page.label}`, page.label];
+          if (matchesQuery(query, texts)) {
+            pages.push(
               row(
                 `${PAGE}${page.index}`,
                 "place",
@@ -103,13 +111,24 @@ export function createPlaceSource(options: {
                 null,
               ),
             );
+          }
+        }
+      }
       const lines =
         p === null
           ? []
-          : charactersOf(p).map((name) =>
-              row(`${LINE}${name}`, "place", PLACE_WORDS.nextLine(name), null),
+          : matching(
+              query,
+              charactersOf(p).map((name) =>
+                row(
+                  `${LINE}${name}`,
+                  "place",
+                  PLACE_WORDS.nextLine(name),
+                  null,
+                ),
+              ),
             );
-      return matching(query, [...scenes, ...pages, ...lines]);
+      return [...scenes, ...pages, ...lines];
     },
   };
 }

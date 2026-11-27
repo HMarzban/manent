@@ -23,6 +23,7 @@ import type { ReactNode } from "react";
 import { createBesideSource, runBesideRow } from "../beside/beside-source.ts";
 import { BESIDE_BODY } from "../beside/open-beside.ts";
 import { livePagination } from "../editor-host/live-editor.ts";
+import { setPendingNumericInitial } from "../handlers/numeric-settings.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { readPerson } from "../session.ts";
 import {
@@ -47,6 +48,7 @@ import {
   createPlaceSource,
   runPlaceRow,
 } from "./palette-places.ts";
+import { parseNumericCommandQuery } from "./palette-query.ts";
 import { createPaletteUsage } from "./palette-usage.ts";
 
 /** The palette's placeholder for each filter. */
@@ -191,7 +193,11 @@ export function ShellPalette(props: {
     };
     const { library } = services;
     return [
-      createCommandSource(base),
+      createCommandSource({
+        ...base,
+        extraMatch: (query, id) =>
+          parseNumericCommandQuery(query)?.commandId === id,
+      }),
       createSettingSource({
         ...base,
         settings:
@@ -246,7 +252,7 @@ export function ShellPalette(props: {
     tabStorage,
     schedule,
   ]);
-  const run = (row: PaletteRow): void => {
+  const run = (row: PaletteRow, query = ""): void => {
     if (runBesideRow(row.id)) {
       // what is beside the page is opened to be used, so focus moves into it once it is drawn
       frame(() => dom.focusSidePanel(`[${BESIDE_BODY}]`));
@@ -260,6 +266,10 @@ export function ShellPalette(props: {
         navigate: (href) => void router.navigate({ href }),
       });
       return;
+    }
+    const prefill = parseNumericCommandQuery(query);
+    if (prefill !== null && prefill.commandId === row.id) {
+      setPendingNumericInitial(prefill.commandId, prefill.value);
     }
     // only a command that ran is recorded; reportingRuns persists usage into palette-usage
     services.commands.run(row.id, "palette");

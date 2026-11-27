@@ -47,6 +47,8 @@ interface SourceOptions {
   service: CommandService;
   platform: Platform;
   shell: Shell;
+  /** Optional extra matcher (e.g. trailing numeric prefill queries like "lines 50"). */
+  extraMatch?: (query: string, commandId: string) => boolean;
 }
 
 const HOME_PREFERENCES = "homePreferences:";
@@ -120,7 +122,11 @@ export function createCommandSource(options: SourceOptions): PaletteSource {
       listed(options, "command").flatMap(({ def, keywords }) => {
         const label = options.service.state(def.id).label;
         const texts = [label, ...keywords, ...synonymsFor(def.id)];
-        if (!matchesQuery(query, texts)) return [];
+        if (
+          !matchesQuery(query, texts) &&
+          options.extraMatch?.(query, def.id) !== true
+        )
+          return [];
         const row: PaletteRow = {
           ...baseRow(def, options),
           kind: "command",

@@ -125,7 +125,7 @@ test("Smart Command Palette adapts to Library and open Script, toggles settings 
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-checks-section]")).toBeVisible();
 
-  // 4. Track 2: Inline numeric setting ask (Lines per page -> 50 -> Undo announced)
+  // 4. Track 2 & Phase 3: Inline numeric setting ask + power-user trailing prefill ("lines 52")
   await pressKeyOf(page, "app.palette");
   await field.fill("Lines per page");
   await expect(page.locator('[role="option"][data-highlighted]')).toContainText(
@@ -140,11 +140,39 @@ test("Smart Command Palette adapts to Library and open Script, toggles settings 
   await expect(page.locator('[data-tour="message_slot"]')).toContainText(
     "Lines per page is now 50",
   );
+  const undoBtn = page
+    .locator('[data-tour="message_slot"]')
+    .getByRole("button", { name: "Undo" });
+  await expect(undoBtn).toBeVisible();
+  await undoBtn.click();
+  await expect(undoBtn).toHaveCount(0);
+
+  // Power-user trailing numeric prefill ("lines 52") pre-fills PaletteAsk directly
+  await pressKeyOf(page, "app.palette");
+  await field.fill("lines 52");
+  await expect(page.locator('[role="option"][data-highlighted]')).toContainText(
+    "Lines per page",
+  );
+  await page.keyboard.press("Enter");
+  await expect(askInput).toBeFocused();
+  await expect(askInput).toHaveValue("52");
+  await page.keyboard.press("Enter");
+  await expect(askInput).toHaveCount(0);
+  await expect(page.locator('[data-tour="message_slot"]')).toContainText(
+    "Lines per page is now 52",
+  );
+
+  // ARIA active-descendant tracking and Escape focus return to the editor
+  await page.locator(".ProseMirror").click();
+  await pressKeyOf(page, "app.palette");
+  const activeId = await field.getAttribute("aria-activedescendant");
+  expect(activeId).toBeTruthy();
   await expect(
-    page.locator('[data-tour="message_slot"]').getByRole("button", {
-      name: "Undo",
-    }),
-  ).toBeVisible();
+    page.locator('[role="option"][data-highlighted]'),
+  ).toHaveAttribute("id", activeId!);
+  await page.keyboard.press("Escape");
+  await expect(field).toHaveCount(0);
+  await expect(page.locator(".ProseMirror")).toBeFocused();
 
   // 5. Usage persists across reload + WCAG 2.2 AA axe audit (light)
   await page.emulateMedia({ colorScheme: "light" });
@@ -177,4 +205,38 @@ test("Smart Command Palette adapts to Library and open Script, toggles settings 
   );
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/preferences\/appearance/);
+
+  const heroShot = process.env.SMART_PALETTE_HERO_SHOT ?? null;
+  if (heroShot !== null) {
+    await page.setViewportSize({ width: 1200, height: 760 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto(`/s/${DOC_ID}`);
+    await page.waitForSelector(".ProseMirror");
+    // Close side panel if open so the full page frames the palette cleanly
+    const closeSide = page.getByRole("button", { name: "Close side panel" });
+    if (await closeSide.isVisible()) await closeSide.click();
+    const editor = page.locator(".ProseMirror");
+    await editor.click();
+    await page.keyboard.type("INT. LIGHTHOUSE LAMP ROOM - NIGHT");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(
+      "Wind hammers the glass. MARA, sixty, winds the clockwork by hand.",
+    );
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.type("MARA");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Forty years, and she has never once gone dark.");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("A light flickers out at sea.");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.type("MARA");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("That's no fishing boat.");
+    await pressKeyOf(page, "app.palette");
+    await expect(field).toBeFocused();
+    await page.screenshot({ path: heroShot });
+  }
 });

@@ -78,7 +78,7 @@ export const APP_COMMANDS = [
     checked: null,
     passThrough: null,
     menus: [{ menu: "help", group: "shortcuts", order: 10, submenu: null }],
-    palette: { keywords: [] },
+    palette: { keywords: ["preferences keyboard", "preferences shortcuts"] },
     opens: null,
     reach: "self",
     setting: null,

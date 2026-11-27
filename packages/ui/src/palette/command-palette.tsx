@@ -40,7 +40,7 @@ interface PaletteProps {
   placeholder?: string;
   /** When set, switches the open palette to the interactive ask step. */
   ask?: PaletteAsk | null;
-  onRun(row: PaletteRow): void;
+  onRun(row: PaletteRow, query?: string): void;
   onClose(): void;
   /** Ids of the commands run last, most recent first. */
   recent: readonly string[];
@@ -170,12 +170,13 @@ function PaletteFrame(props: {
  * open, so that it is refused and says why, and any other row closes the palette and runs.
  */
 function useActivate(options: {
-  onRun(row: PaletteRow): void;
+  onRun(row: PaletteRow, query?: string): void;
   onClose(): void;
   toMenu(menu: MenuId): void;
   announce(text: string): void;
+  query: string;
 }): (entry: Entry) => void {
-  const { onRun, onClose, toMenu, announce } = options;
+  const { onRun, onClose, toMenu, announce, query } = options;
   const [, setChanges] = useState(0);
   return (entry) => {
     if (entry.type === "menu") {
@@ -183,11 +184,11 @@ function useActivate(options: {
       return;
     }
     if (!entry.row.enabled) {
-      onRun(entry.row);
+      onRun(entry.row, query);
       return;
     }
     if (entry.row.kind === "setting") {
-      onRun(entry.row);
+      onRun(entry.row, query);
       setChanges((count) => count + 1);
       const nextValue =
         entry.row.value === null
@@ -199,7 +200,7 @@ function useActivate(options: {
       return;
     }
     onClose();
-    onRun(entry.row);
+    onRun(entry.row, query);
   };
 }
 
@@ -254,6 +255,7 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
     onClose,
     toMenu,
     announce: setAnnouncement,
+    query,
   });
 
   const handleKeyDown: PaletteInputKeyDown = (event) => {
@@ -371,22 +373,18 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
 }
 
 /**
- * The palette, drawn while `open`, with focus in its field from the first frame. Sources are asked in the
- * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places, and
- * `filter: "beside"` lists the rows of the sources given, which are then Beside's alone, with no menus.
- * A row closes the palette through `onClose`, then runs through `onRun`; a setting row runs and changes in place, and
- * an unavailable row runs with the palette open, for the command service to say why it cannot.
+ * The palette, drawn while `open`, with focus in its field from the first frame.
+ * Sources are queried in order; `filter: "places"` queries places alone and `filter: "beside"` lists Beside rows.
  */
 export function CommandPalette(props: PaletteProps): ReactNode {
   const { open, onClose, ask = null, ...rest } = props;
-  // each close starts the next opening afresh, even one made by the command run from the palette
   const [closes, setCloses] = useState(0);
   const close = (): void => {
     setCloses((count) => count + 1);
     onClose();
   };
   if (!open) return null;
-  if (ask !== null) {
+  if (ask !== null)
     return (
       <PaletteAskView
         key={`${closes}\0${ask.prompt}\0${ask.initial}`}
@@ -394,6 +392,5 @@ export function CommandPalette(props: PaletteProps): ReactNode {
         onClose={close}
       />
     );
-  }
   return <OpenPalette key={closes} {...rest} onClose={close} />;
 }

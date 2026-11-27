@@ -80,7 +80,7 @@ export function matchedRuns(
   return runs;
 }
 
-// 0: exact full label; 1: label starts with whole query; 2: label holds every word; 3: label acronym; 4: keyword/synonym/value
+// 0: exact full label; 1: label starts with whole query at word boundary; 2: label starts with query; 3: label holds every word; 4: label acronym; 5: keyword/synonym/value
 function scoreOf(
   trimmed: string,
   queryWords: readonly string[],
@@ -89,10 +89,11 @@ function scoreOf(
   if (trimmed === "") return 1;
   const label = row.label.toLocaleLowerCase();
   if (label === trimmed) return 0;
-  if (label.startsWith(trimmed)) return 1;
-  if (matchesWords(queryWords, [row.label])) return 2;
-  if (matchesAcronym(queryWords, [row.label])) return 3;
-  return 4;
+  if (label.startsWith(`${trimmed} `)) return 1;
+  if (label.startsWith(trimmed)) return 2;
+  if (matchesWords(queryWords, [row.label])) return 3;
+  if (matchesAcronym(queryWords, [row.label])) return 4;
+  return 5;
 }
 
 // the palette's sections, in the order they are shown: each holds the rows of one kind

@@ -841,3 +841,58 @@ test("Smart Home renders Jump to between Suggested here and Settings here, and P
   await pressEnter();
   expect(submitted).toEqual([""]);
 });
+
+test("CommandPalette tracks aria-activedescendant, announces in-place toggles politely, and forwards query to onRun", async () => {
+  const p = palette();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  const resolved = createValue(
+    resolveBindings({
+      commands: COMMANDS,
+      custom: [],
+      platform: "mac",
+      shell: "web",
+      findings: { failsHere: new Set() },
+    }),
+  );
+  const runs: { id: string; query: string | undefined }[] = [];
+  await act(async () => {
+    root.render(
+      <CommandsProvider service={p.service} resolved={resolved} platform="mac">
+        <CommandPalette
+          open
+          filter="all"
+          sources={p.sources}
+          recent={[]}
+          quickSettings={["setting.writing.typewriterScrolling"]}
+          enableScopes
+          onRun={(row, q) => {
+            runs.push({ id: row.id, query: q });
+            p.service.run(row.id, "palette");
+          }}
+          onClose={noop}
+        />
+      </CommandsProvider>,
+    );
+  });
+
+  // Initial active descendant points to highlighted option
+  const initialActive = field().getAttribute("aria-activedescendant");
+  expect(initialActive).toBeTruthy();
+  const firstHighlighted = document.querySelector(
+    '[role="option"][data-highlighted]',
+  );
+  expect(firstHighlighted?.id).toBe(initialActive ?? "");
+
+  // Toggling a setting announces politely in the sr-only live region
+  await pressEnter();
+  const live = document.querySelector('[aria-live="polite"].sr-only');
+  expect(live?.textContent).toContain("Typewriter scrolling");
+
+  // Typing a query and pressing Enter forwards the query to onRun
+  await type("side panel");
+  await pressEnter();
+  expect(runs.at(-1)).toEqual({ id: "view.sidePanel", query: "side panel" });
+});

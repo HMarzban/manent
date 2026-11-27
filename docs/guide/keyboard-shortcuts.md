@@ -53,6 +53,8 @@ Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#
 
 ## Command palette
 
+![Manent's smart Command Palette open over a screenplay dialogue line, showing scope filters, Suggested here, Jump to MARA's next line, in-place Settings here switches and Last used](../images/command-palette.png)
+
 Open the command palette with **Ctrl+K** (⌘K on a Mac) from anywhere. Before you type, it adapts to where you are — showing a quiet context caption beside the filter strip (`Library`, `Screenplay · Scene 4`, `Locked · Pink`, `Rundown`, `Version history` and so on) and concise contextual sections bounded to stay easy to scan:
 
 - **Suggested here** surfaces runnable actions for the open screen, document kind, caret position, selection or production lock.
@@ -61,12 +63,12 @@ Open the command palette with **Ctrl+K** (⌘K on a Mac) from anywhere. Before y
 - **Last used** keeps your most-used recent commands on this device (deduplicated against the sections above).
 - **Menus** lists the full menu groups; press **Enter** or **→** on a menu to browse inside it, and **←** or **Backspace** on an empty field to return.
 
-Press **Tab** (or **Shift+Tab**) to filter by **All**, **Commands**, **Settings**, **Go to** or **Scripts**, or type a leading prefix shortcut (`>` for Commands, `,` for Settings, `#` for Go to, `/` for Scripts). Search matches word starts, apostrophe-free forms (`contd` finds `(CONT'D)`), multi-word acronyms (`fm` finds `Focus mode`) and common synonyms (`zen`, `sidebar`, `scene numbers`, `checks`, `board`).
+Press **Tab** (or **Shift+Tab**) to filter by **All**, **Commands**, **Settings**, **Go to** or **Scripts**, or type a leading prefix shortcut (`>` for Commands, `,` for Settings, `#` for Go to, `/` for Scripts). Search matches word starts, apostrophe-free forms (`contd` finds `(CONT'D)`), multi-word acronyms (`fm` finds `Focus mode`), exact page and scene numbers (`page 12`, `p 12`, `scene 4`, `sc 4`) and common synonyms (`zen`, `sidebar`, `scene numbers`, `checks`, `board`, `preferences keyboard`).
 
 You can also jump straight to panels, settings panes and numeric figures from the palette:
 
-- **Direct panel and screen jumps:** type **Scenes** (**Chapters** in a manuscript, **Knots** in Ink), **Cuts**, **Details**, **Comments**, **Checks** (opens and expands pre-send Checks in Details), **Board** (on a series episode, keeping the current episode selected), or **Preferences: Writing**, **Preferences: Appearance**, **Preferences: Account** and **Preferences: This browser** (**Preferences: This device** in the desktop app).
-- **Inline numeric settings:** run **Lines per page**, **Read rate** or **Target length** to enter a figure directly inside the palette with immediate validation, Undo, and empty-submission reset on **Lines per page** and **Target length**. Locked scripts and non-owner project roles explain clearly why a figure cannot change.
+- **Direct panel and screen jumps:** type **Scenes** (**Chapters** in a manuscript, **Knots** in Ink), **Cuts**, **Details**, **Comments**, **Checks** (opens and expands pre-send Checks in Details), **Board** (on a series episode, keeping the current episode selected), **Keyboard shortcuts** (`preferences keyboard`), or **Preferences: Writing**, **Preferences: Appearance**, **Preferences: Account** and **Preferences: This browser** (**Preferences: This device** in the desktop app).
+- **Inline numeric settings:** run **Lines per page**, **Read rate** or **Target length** — or type a figure straight after the name (`lines 52`, `read rate 12.5`, `target 110`, `lines default`) to pre-fill the inline prompt — with immediate validation, Undo, and empty-submission reset on **Lines per page** and **Target length**. Locked scripts and non-owner project roles explain clearly why a figure cannot change.
 
 **Escape** closes the palette in one press and returns focus to where you were.
 

@@ -109,6 +109,14 @@ Some tests take a count from the environment, so CI stays quick and a long run i
 
 CI does not pass on every system yet. Until it does, run `bun run verify` and the end-to-end tests that cover a change on your own machine.
 
+## Manual screen-reader audit checklist
+
+Automated `@axe-core/playwright` checks (`wcag2a`, `wcag2aa`, `wcag22aa`) run in `e2e/interface/` across Chromium, Firefox and WebKit, and `palette.dom.test.tsx` / `smart-palette.e2e.ts` assert `aria-activedescendant`, polite live-region announcements and focus restoration. Automated checks do not substitute for assistive-technology users; when auditing manually with VoiceOver (macOS Safari) or NVDA (Windows Firefox/Chrome), verify:
+
+1. **Command palette (`Ctrl+K` / `⌘K`):** opening moves focus to the `Commands` combobox; `ArrowDown` / `ArrowUp` reads each highlighted option's label, live state (`On` / `Off`), shortcut or disabled reason via `aria-activedescendant`; `Tab` announces the active scope button (`All`, `Commands`, `Settings`, `Go to`, `Scripts`); toggling a `Settings here` switch speaks the polite confirmation without losing focus; `Escape` closes in one press and returns focus to the editor or previous control.
+2. **Inline numeric prompts (`Lines per page`, `Read rate`, `Target length`):** the prompt label is read as the input's accessible name, pre-filled values (such as from `lines 52`) are announced as selected, and submitting announces the updated figure and `Undo` action in the status live region.
+3. **Regions and panels:** `F6` / `Shift+F6` cycles regions cleanly, direct jumps (`Scenes`, `Comments`, `Checks`, `Preferences: …`) land focus inside the target panel or heading, and closing dialogs or panels returns focus to its opener.
+
 ## Writing a test
 
 - Write the test first and watch it fail for the reason you expect.

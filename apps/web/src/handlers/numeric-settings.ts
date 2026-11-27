@@ -21,6 +21,24 @@ const RESET_WORDS: ReadonlySet<string> = new Set([
   "none",
 ]);
 
+let pendingPrefill: { commandId: string; value: string } | null = null;
+
+/** Supplies a one-shot initial input value for the next inline numeric setting prompt (e.g. from `"lines 50"`). */
+export function setPendingNumericInitial(
+  commandId: string,
+  value: string,
+): void {
+  pendingPrefill = { commandId, value };
+}
+
+function consumePendingInitial(commandId: string): string | null {
+  if (pendingPrefill === null || pendingPrefill.commandId !== commandId)
+    return null;
+  const { value } = pendingPrefill;
+  pendingPrefill = null;
+  return value;
+}
+
 function pushBrief(deps: HandlerDeps, id: string, text: string): void {
   deps.services.messages.push({
     id,
@@ -59,11 +77,12 @@ export function askLinesPerPage(deps: HandlerDeps): void {
   const paper = store.get("script.paper") === "a4" ? "a4" : "letter";
   const defaultLines = defaultLinesPerPage(format, paper);
   const maxLines = maxLinesPerPage(format, paper);
+  const prefill = consumePendingInitial("doc.linesPerPage");
 
   paletteActions.ask({
     prompt: PALETTE_WORDS.ask.linesPerPage(defaultLines, maxLines),
     choices: null,
-    initial: current === null ? "" : String(current),
+    initial: prefill ?? (current === null ? "" : String(current)),
     placeholder: LAYOUT_SETTINGS_WORDS.formatFigure(defaultLines),
     allowEmpty: true,
     submit(raw) {
@@ -115,10 +134,11 @@ export function askReadRate(deps: HandlerDeps): void {
     return;
   }
   const current = store.get("project.readRate");
+  const prefill = consumePendingInitial("project.readRate");
   paletteActions.ask({
     prompt: PALETTE_WORDS.ask.readRate,
     choices: null,
-    initial: String(Number(current.toFixed(2))),
+    initial: prefill ?? String(Number(current.toFixed(2))),
     placeholder: TIMING_WORDS.readRateValue(11.25),
     allowEmpty: false,
     submit(raw) {
@@ -161,10 +181,11 @@ export function askTargetPages(deps: HandlerDeps): void {
     return;
   }
   const current = store.get("project.targetPages");
+  const prefill = consumePendingInitial("project.targetPages");
   paletteActions.ask({
     prompt: PALETTE_WORDS.ask.targetPages,
     choices: null,
-    initial: current === null ? "" : String(current),
+    initial: prefill ?? (current === null ? "" : String(current)),
     placeholder: PROJECT_WORDS.targetNone,
     allowEmpty: true,
     submit(raw) {
