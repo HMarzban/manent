@@ -1386,7 +1386,12 @@ html[data-white-page] .mn-pages {
 [data-row-menu]:hover
   > .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]),
 button:not(:disabled, [aria-disabled="true"]):hover
-  > .mn-row:not([aria-selected="true"]) {
+  > .mn-row:not(
+    [aria-selected="true"],
+    [aria-current="true"],
+    [aria-current="page"]
+  ),
+a[href]:not([aria-current="page"]):hover > .mn-row:not([aria-selected="true"]) {
   background-color: var(--bg-subtle);
 }
 .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):where(
@@ -1401,13 +1406,16 @@ button:not(:disabled, [aria-disabled="true"]):active
   background-color: var(--bg-control);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
+a[aria-current="page"] > .mn-row,
 .mn-row[aria-selected="true"] {
   background-color: var(--bg-selected);
 }
-.mn-row[aria-current]:not([aria-current="false"]) {
+.mn-row[aria-current]:not([aria-current="false"]),
+a[aria-current="page"] > .mn-row {
   font-weight: 500;
 }
-.mn-row[aria-current]:not([aria-current="false"])::before {
+.mn-row[aria-current]:not([aria-current="false"])::before,
+a[aria-current="page"] > .mn-row::before {
   /* the bar: what is current */
   content: "";
   position: absolute;
@@ -1418,7 +1426,8 @@ button:not(:disabled, [aria-disabled="true"]):active
 .mn-row [data-leading] {
   transition: color var(--dur-fast) var(--curve-enter);
 }
-.mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
+.mn-row[aria-current]:not([aria-current="false"]) [data-leading],
+a[aria-current="page"] > .mn-row [data-leading] {
   color: var(--fg-accent);
 }
 .mn-row[data-viewed="true"] {
@@ -2582,6 +2591,7 @@ html[data-switching] *::after {
   [data-slot^="toggle"][aria-pressed="true"],
   [class~="group/button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
+  a[aria-current="page"] > .mn-row,
   .mn-row[aria-selected="true"],
   [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
@@ -2660,7 +2670,8 @@ html[data-switching] *::after {
     background-color: Canvas;
   }
   .mn-progress-fill,
-  .mn-tour-progress-fill {
+  .mn-tour-progress-fill,
+  .mn-setting-dot {
     forced-color-adjust: none;
     background-color: Highlight;
   }

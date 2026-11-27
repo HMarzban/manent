@@ -1,10 +1,11 @@
-// The pane's groups of rows under a heading, and a row stating a fact.
+// The pane's groups of rows inside a raised SettingsCard section, and a row stating a fact.
 import type { ReactNode } from "react";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 
 export function Fact(props: { label: string; value: string }): ReactNode {
   return (
-    <div className="flex min-h-row items-center justify-between gap-4 text-ui">
-      <span>{props.label}</span>
+    <div className="flex min-h-row flex-wrap items-center justify-between gap-4 text-ui">
+      <span className="text-fg">{props.label}</span>
       <span className="text-fg-muted">{props.value}</span>
     </div>
   );
@@ -15,9 +16,8 @@ export function Group(props: {
   children: ReactNode;
 }): ReactNode {
   return (
-    <section className="flex flex-col">
-      <h3 className="mn-group-label px-0!">{props.heading}</h3>
-      {props.children}
-    </section>
+    <SettingsCard asSection title={props.heading}>
+      <div className="flex flex-col gap-2">{props.children}</div>
+    </SettingsCard>
   );
 }

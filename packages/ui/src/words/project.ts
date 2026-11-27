@@ -108,7 +108,17 @@ export const PROJECT_WORDS = Object.freeze({
     count === 1 ? "1 line" : `${formatCount(count)} lines`,
   styleInches: (inches: string): string => `${inches} in`,
   styleAsFormat: AS_FORMAT,
+  styleFormatDefault: "Format default",
+  styleDefaultValue: (value: string): string => `Default: ${value}`,
+  styleChangedCount: (n: number): string => `${formatCount(n)} changed`,
+  styleValueCapitals: (on: boolean): string =>
+    on ? "Capitals: On" : "Capitals: Off",
+  styleValueSpaceBefore: (count: number): string =>
+    `Space before: ${count === 1 ? "1 line" : `${formatCount(count)} lines`}`,
+  styleValueIndent: (inches: string): string => `Indent: ${inches} in`,
+  styleValueWidth: (inches: string): string => `Width: ${inches} in`,
   styleReset: "Reset",
+  styleResetAll: "Reset all",
   targetNone: "No target",
   targetPages: (count: number): string => `${formatCount(count)} pages`,
   ladderFromTemplate: (name: string): string => `From the ${name} template.`,

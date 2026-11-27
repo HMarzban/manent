@@ -1,4 +1,4 @@
-// People: the project's groups, each with its role, its members by full name and its watermark; only the owner changes them.
+// People: the project's groups as raised cards, each with its role, watermark switch and members; only the owner changes them.
 import { readGroups, writeGroup } from "@manent/crdt";
 import type { CrdtDoc, GroupEntry } from "@manent/crdt";
 import { Avatar, PROJECT_WORDS, Row, Skeleton, Switch } from "@manent/ui";
@@ -6,6 +6,7 @@ import { useId } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../../initials.ts";
 import type { ProjectIndex } from "../../project/project-index.ts";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { PERSON_ROW_SLOTS } from "../../sharing/person-row-slots.ts";
 import { useIndexRead } from "./project-data.ts";
 import type { ProjectPerson } from "./project-data.ts";
@@ -18,9 +19,13 @@ const PLACEHOLDER_GROUPS = 2;
 
 function PeopleGroupSkeleton(): ReactNode {
   return (
-    <div aria-busy="true" className="flex flex-col gap-3 py-2">
+    <div aria-busy="true" className="flex flex-col gap-4">
       {Array.from({ length: PLACEHOLDER_GROUPS }, (_, index) => (
-        <div key={index} aria-hidden="true" className="flex flex-col gap-2">
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-4"
+        >
           <Skeleton className="h-4 w-44" />
           <div className="flex min-h-row-2 items-center justify-between gap-4">
             <div className="flex flex-1 flex-col gap-1.5">
@@ -52,16 +57,20 @@ export function PeopleGroup(props: {
   const write = async (group: GroupEntry): Promise<void> => {
     writeGroup((await index.handle()).doc(), group);
   };
-  return groups.value.map((group) => (
-    <GroupSection
-      key={group.id}
-      group={group}
-      projectId={projectId}
-      people={people}
-      canChange={canChange}
-      onWatermark={(watermark) => void write({ ...group, watermark })}
-    />
-  ));
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.value.map((group) => (
+        <GroupSection
+          key={group.id}
+          group={group}
+          projectId={projectId}
+          people={people}
+          canChange={canChange}
+          onWatermark={(watermark) => void write({ ...group, watermark })}
+        />
+      ))}
+    </div>
+  );
 }
 
 function GroupSection(props: {
@@ -75,18 +84,23 @@ function GroupSection(props: {
   const ids = { group: useId(), watermark: useId(), line: useId() };
   const role =
     group.role === null ? null : PROJECT_WORDS.groupRoles[group.role];
+  const heading = PROJECT_WORDS.groupRow(
+    group.name,
+    role,
+    group.memberUserIds.length,
+  );
   // a member the server has not named is counted, and listed once it is
   const members = group.memberUserIds.flatMap((userId) =>
     people.filter((person) => person.userId === userId),
   );
   return (
-    <section aria-labelledby={ids.group} className="flex flex-col gap-1 py-1">
-      <h3 id={ids.group} className="truncate pt-2 text-ui font-semibold">
-        {PROJECT_WORDS.groupRow(group.name, role, group.memberUserIds.length)}
-      </h3>
-      <div className="flex min-h-row-2 items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-col">
-          <span id={ids.watermark} className="text-ui font-medium">
+    <SettingsCard asSection divided title={heading}>
+      <span id={ids.group} className="sr-only">
+        {heading}
+      </span>
+      <div className="flex min-h-row-2 flex-wrap items-center justify-between gap-4 px-4 py-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span id={ids.watermark} className="text-ui font-medium text-fg">
             {PROJECT_WORDS.watermark}
           </span>
           <p id={ids.line} className="text-meta text-fg-muted">
@@ -102,7 +116,7 @@ function GroupSection(props: {
         />
       </div>
       {members.length === 0 ? null : (
-        <div role="list" className="-mx-3">
+        <div role="list" className="divide-y divide-line px-1 py-1">
           {members.map((person) => (
             <div key={person.userId} role="listitem">
               <Row
@@ -140,6 +154,6 @@ function GroupSection(props: {
           ))}
         </div>
       )}
-    </section>
+    </SettingsCard>
   );
 }

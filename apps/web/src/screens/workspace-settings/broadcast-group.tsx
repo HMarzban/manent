@@ -10,6 +10,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readPerson } from "../../session.ts";
+import { SettingsNotice } from "../../settings-shell/settings-card.tsx";
 import {
   ADVANCED_FIELDS,
   BroadcastAlert,
@@ -197,7 +198,7 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
       </div>
 
       {online ? null : (
-        <p className="text-ui text-fg-muted">{W.needsConnection}</p>
+        <SettingsNotice tone="offline">{W.needsConnection}</SettingsNotice>
       )}
 
       {surface.kind === "loading" ? (
@@ -305,7 +306,10 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
               {W.advancedToggle}
             </button>
             {ui.advancedOpen ? (
-              <div id={`${uid}-adv`} className="mt-3 grid grid-cols-2 gap-3">
+              <div
+                id={`${uid}-adv`}
+                className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+              >
                 {ADVANCED_FIELDS.map(([fieldKey, label, numeric, wide]) => (
                   <BroadcastField
                     key={fieldKey}

@@ -4,7 +4,6 @@ import type { DocRole, WorkspacePerson } from "@manent/sync-protocol";
 import {
   Avatar,
   Button,
-  Row,
   SHARING_WORDS,
   Select,
   SelectContent,
@@ -28,6 +27,10 @@ import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
 import { readPerson } from "../../session.ts";
+import {
+  SettingsCard,
+  SettingsNotice,
+} from "../../settings-shell/settings-card.tsx";
 import type { WorkspaceSettingsGroupProps } from "./groups.ts";
 import { createWorkspaceApi, workspacePeopleHolder } from "./workspace-api.ts";
 
@@ -134,8 +137,8 @@ function WorkspacePersonRow(props: {
     </span>
   );
   return (
-    <Row
-      leading={
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <Avatar
           name={person.name}
           initials={initialsOf(person.name)}
@@ -143,14 +146,15 @@ function WorkspacePersonRow(props: {
           size="sm"
           decorative
         />
-      }
-      meta={meta}
-      trailing={[trailing]}
-    >
-      <span id={nameId} className="truncate font-medium">
-        {person.name}
-      </span>
-    </Row>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span id={nameId} className="truncate text-ui font-medium text-fg">
+            {person.name}
+          </span>
+          {meta === undefined ? null : meta}
+        </div>
+      </div>
+      <div className="shrink-0">{trailing}</div>
+    </div>
   );
 }
 
@@ -305,6 +309,11 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
           {WORKSPACE_WORDS.peopleScope(workspaceName)}
         </p>
       </div>
+      {online ? null : (
+        <SettingsNotice tone="offline">
+          {WORKSPACE_WORDS.needsConnection}
+        </SettingsNotice>
+      )}
       {online && loadError ? (
         <InlineRefusal
           sentence={
@@ -320,7 +329,7 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
       {people === null ? null : people.length === 0 ? (
         <p className="text-ui text-fg-muted">{WORKSPACE_WORDS.nothingSetUp}</p>
       ) : (
-        <div className="divide-y divide-line rounded-surface border border-line bg-raised">
+        <SettingsCard divided>
           {people.map((person) => (
             <WorkspacePersonRow
               key={person.userId}
@@ -332,7 +341,7 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
               onChangeRole={changeRole}
             />
           ))}
-        </div>
+        </SettingsCard>
       )}
     </section>
   );
