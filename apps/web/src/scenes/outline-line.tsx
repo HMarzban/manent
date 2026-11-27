@@ -117,7 +117,7 @@ export const OutlineLine = memo(function OutlineLine(props: {
     row.kind === "act" || row.kind === "knot"
       ? "font-semibold"
       : row.kind === "stitch"
-        ? "pl-4"
+        ? "ps-4"
         : "text-fg-muted italic";
   return (
     <Row current={current} viewed={viewed} onActivate={goTo}>

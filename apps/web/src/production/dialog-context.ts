@@ -3,7 +3,7 @@ import type { CommandId } from "@manent/commands";
 import type { RequestOutcome } from "@manent/sync-client";
 import type { ProductionRefusal } from "@manent/sync-protocol";
 import { PRODUCTION_WORDS, useCommandState } from "@manent/ui";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ProductionServices } from "./services.ts";
 
 export const DialogServices = createContext<ProductionServices | null>(null);
@@ -44,21 +44,37 @@ export function useDialogRequest(
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const runIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      runIdRef.current += 1;
+    };
+  }, []);
+
   // the connection is asked again, and nothing is refused, each time the dialog opens
   useEffect(() => {
     if (open) return;
+    runIdRef.current += 1;
+    setBusy(false);
     setOffline(false);
     setRefusal(null);
   }, [open]);
+
   return {
     busy,
     disabledReason:
       whyNot ?? (offline ? PRODUCTION_WORDS.connectionReason : undefined),
     refusal,
     send(ask, answers) {
+      const runId = ++runIdRef.current;
       setBusy(true);
       setRefusal(null);
       void ask().then((outcome) => {
+        if (!mountedRef.current || runId !== runIdRef.current) return;
         setBusy(false);
         if (outcome.ok) answers.ok(outcome.value);
         else if (outcome.code === "offline") setOffline(true);

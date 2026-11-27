@@ -15,7 +15,7 @@ import {
   ConsequenceDialog,
   PRODUCTION_WORDS,
 } from "@manent/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useLockOnCopy } from "../copies/lock-on-copy.ts";
 import type { LockChoice } from "../copies/lock-on-copy.ts";
@@ -24,7 +24,7 @@ import { useEnvironment, useServices } from "../services/context.tsx";
 import { Choices } from "./choices.tsx";
 import { useDialogRequest, useDialogServices } from "./dialog-context.ts";
 import { lockedMessage } from "./messages.ts";
-import { defaultsLine, deviceDay } from "./state-facts.ts";
+import { colourOf, defaultsLine, deviceDay } from "./state-facts.ts";
 
 const WORDS = PRODUCTION_WORDS;
 
@@ -51,7 +51,7 @@ interface LockChoiceState {
 }
 
 /** The numbering scheme and the colour order the script locks with: Script settings' values until changed here. */
-function useLockChoices(docId: string): LockChoiceState {
+function useLockChoices(docId: string, open: boolean): LockChoiceState {
   const store = useServices().openScriptStore(docId);
   const [numbering, setNumbering] = useState(() =>
     chosenOf(NUMBERING_SCHEMES, store.get("script.numbering")),
@@ -59,39 +59,68 @@ function useLockChoices(docId: string): LockChoiceState {
   const [colourOrder, setColourOrder] = useState(() =>
     chosenOf(COLOUR_ORDER_IDS, store.get("script.colourOrder")),
   );
+  useEffect(() => {
+    if (!open) return;
+    setNumbering(chosenOf(NUMBERING_SCHEMES, store.get("script.numbering")));
+    setColourOrder(chosenOf(COLOUR_ORDER_IDS, store.get("script.colourOrder")));
+  }, [open, store]);
   return { numbering, colourOrder, setNumbering, setColourOrder };
 }
 
 /** The defaults, and with Change the two choices; what is chosen is kept while the dialog is open. */
-function LockChoices(props: { choices: LockChoiceState }): ReactNode {
-  const { choices } = props;
+function LockChoices(props: {
+  choices: LockChoiceState;
+  open: boolean;
+  disabled: boolean;
+}): ReactNode {
+  const { choices, open, disabled } = props;
   const [changing, setChanging] = useState(false);
+  useEffect(() => {
+    if (!open) setChanging(false);
+  }, [open]);
   const order = COLOUR_ORDERS[choices.colourOrder];
+  const previewColours = order
+    .slice(0, 3)
+    .flatMap((colour) => colourOf(colour) ?? []);
   return (
     <div className="flex flex-col gap-3 text-ui">
       <p className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1" aria-hidden="true">
+          {previewColours.map((colour) => (
+            <span key={colour} data-rev={colour} className="mn-rev-chip" />
+          ))}
+        </span>
         <span>{defaultsLine(choices.numbering, order)}</span>
         {changing ? null : (
-          <Button variant="link" size="sm" onClick={() => setChanging(true)}>
+          <Button
+            variant="link"
+            size="sm"
+            disabled={disabled}
+            onClick={() => setChanging(true)}
+          >
             {WORDS.change}
           </Button>
         )}
       </p>
       {changing ? (
-        <>
+        <div className="flex flex-col gap-3 rounded-surface border border-line bg-subtle p-3">
           <Choices
             label={SETTINGS.get("script.numbering").label}
             value={choices.numbering}
             choices={NUMBERING_CHOICES}
+            showLegend
+            disabled={disabled}
             onChoose={choices.setNumbering}
           />
           <Choices
             label={SETTINGS.get("script.colourOrder").label}
             value={choices.colourOrder}
             choices={ORDER_CHOICES}
+            showLegend
+            disabled={disabled}
             onChoose={choices.setColourOrder}
           />
-        </>
+        </div>
       ) : null}
     </div>
   );
@@ -106,7 +135,7 @@ export function LockDialog(props: {
   const { messages } = useServices();
   const { now } = useEnvironment();
   const title = useDocumentTitle(services.docId);
-  const choices = useLockChoices(services.docId);
+  const choices = useLockChoices(services.docId, open);
   const request = useDialogRequest("production.lock", open);
   // the first revision after the White production draft
   const next = revisionName(COLOUR_ORDERS[choices.colourOrder], 1);
@@ -129,11 +158,14 @@ export function LockDialog(props: {
       },
       refused: () => WORDS.lockRefused,
     });
+  const busy = onCopy.copying || request.busy;
   const busyLabel = onCopy.copying
     ? COPIES_WORDS.copying
     : request.busy
       ? WORDS.lockingButton
       : null;
+  const copyDisabled =
+    request.disabledReason !== undefined || onCopy.refusedCopy || busy;
   return (
     <ConsequenceDialog
       open={open}
@@ -151,15 +183,15 @@ export function LockDialog(props: {
       onCancel={onClose}
       alternative={{
         label: COPIES_WORDS.tryOnCopy,
-        disabled: request.disabledReason !== undefined,
+        disabled: copyDisabled,
         tour: "lock:copy",
         // offline the dialog's line already says the connection's reason, and nothing is copied
         onAction: () => {
-          if (request.disabledReason === undefined) onCopy.start(choice());
+          if (!copyDisabled) onCopy.start(choice());
         },
       }}
     >
-      <LockChoices choices={choices} />
+      <LockChoices choices={choices} open={open} disabled={busy} />
     </ConsequenceDialog>
   );
 }

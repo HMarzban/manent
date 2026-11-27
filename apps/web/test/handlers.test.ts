@@ -51,6 +51,7 @@ test("every command but the generated ones has a handler, and only the productio
   expect(Object.keys(createHandlers(deps)).toSorted()).toEqual(ids.toSorted());
   expect(COMMANDS.filter((c) => c.reach === "others").map((c) => c.id)).toEqual(
     [
+      "doc.linesPerPage",
       "production.lock",
       "production.issue",
       "production.recall",
@@ -71,6 +72,8 @@ test("every command but the generated ones has a handler, and only the productio
       "view.marks.since_full_draft",
       "view.marks.none",
       "view.colourRevised",
+      "project.readRate",
+      "project.targetPages",
       "timing.exclude",
       "timing.include",
       "prompter.send",

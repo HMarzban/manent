@@ -173,7 +173,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
         finalFocus={false}
         align="start"
         initialFocus={focusOnOpen(popup)}
-        className="max-h-[min(32rem,var(--available-height))] w-popover max-w-(--available-width) gap-0 overflow-y-auto p-0 text-ui"
+        className="max-h-[min(32rem,var(--available-height))] w-popover max-w-(--available-width) gap-0 overflow-y-auto p-0 text-ui data-closed:hidden"
       >
         <div className="contents" onClickCapture={onClickCapture}>
           <SyncCentre doc={doc} />

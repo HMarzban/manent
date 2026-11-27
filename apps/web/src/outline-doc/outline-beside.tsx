@@ -112,7 +112,7 @@ export function OutlineBeside(props: {
   return (
     <>
       {empty ? (
-        <p className="border-b border-line bg-chrome px-4 py-2 text-ui text-fg-muted">
+        <p className="shrink-0 border-b border-line bg-subtle px-3 py-2 text-meta text-fg-muted">
           {OUTLINE_WORDS.empty}
         </p>
       ) : null}

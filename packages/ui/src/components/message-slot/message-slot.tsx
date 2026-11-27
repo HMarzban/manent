@@ -54,7 +54,7 @@ export function MessageSlot({
                 variant="link"
                 size="sm"
                 data-tour={action.commandId}
-                className="underline"
+                className="shrink-0 underline"
                 onClick={() => run(action.commandId)}
               >
                 {action.label}

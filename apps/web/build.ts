@@ -1,7 +1,14 @@
 // Builds the web app to static files; run directly, it builds to MANENT_WEB_DIR (apps/web/dist when unset),
 // the directory the server serves, in the test flavour when MANENT_FLAVOUR=test.
 
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import type { BuildMetafile } from "bun";
 import tailwind from "bun-plugin-tailwind";
@@ -222,6 +229,28 @@ async function readBenchmarkReport(): Promise<string | null> {
   }
 }
 
+/** Copies published raw benchmark JSON files into `outDir/runs/` so `/benchmark-report.html` links resolve. */
+async function copyBenchmarkRuns(outDir: string): Promise<void> {
+  const runsSrc = join(REPO_ROOT, "docs/benchmark/runs");
+  let names: string[];
+  try {
+    names = await readdir(runsSrc);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return;
+    throw error;
+  }
+  const jsonFiles = names.filter((name) => name.endsWith(".json"));
+  if (jsonFiles.length === 0) return;
+  const runsDest = resolve(outDir, "runs");
+  await mkdir(runsDest, { recursive: true });
+  await Promise.all(
+    jsonFiles.map((name) =>
+      copyFile(join(runsSrc, name), join(runsDest, name)),
+    ),
+  );
+}
+
 /**
  * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined,
  * the hashed Ink worker, PWA manifest and icons, then the service worker that precaches every shell
@@ -321,6 +350,7 @@ export async function buildWeb(options: {
     resolve(outDir, "benchmark-report.html"),
     renderBenchmarkReportHtml(await readBenchmarkReport()),
   );
+  await copyBenchmarkRuns(outDir);
   return {
     ok: true,
     files: [

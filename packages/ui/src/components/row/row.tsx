@@ -109,7 +109,11 @@ export function Row({
       aria-busy={busy ? "true" : undefined}
       aria-current={current ? "true" : undefined}
       data-viewed={viewed && !current ? "true" : undefined}
-      aria-selected={selected ? "true" : undefined}
+      aria-selected={
+        selected && effectiveRole !== "button" ? "true" : undefined
+      }
+      aria-pressed={selected && effectiveRole === "button" ? "true" : undefined}
+      data-selected={selected ? "true" : undefined}
       aria-disabled={
         unavailable !== undefined && onActivate !== undefined
           ? "true"

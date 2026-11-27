@@ -33,8 +33,25 @@ const CHANGES_UNAVAILABLE: CopyChangesState = Object.freeze({
   kind: "unavailable",
 });
 
+function useOnline(): boolean {
+  const [online, setOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine !== false,
+  );
+  useEffect(() => {
+    const onOnline = (): void => setOnline(true);
+    const onOffline = (): void => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+  return online;
+}
+
 /** The copy's changes, drawn on the live page while shown. */
-function useCopyChanges(docId: string): CopyChangesState {
+function useCopyChanges(docId: string, attempt: number): CopyChangesState {
   const services = useServices();
   const privateDocId = writingActions.openTarget(docId);
   const [state, setState] = useState<CopyChangesState>(CHANGES_LOADING);
@@ -66,19 +83,21 @@ function useCopyChanges(docId: string): CopyChangesState {
       shown = false;
       void loadChanges().then(({ showChanges }) => showChanges(docId, null));
     };
-  }, [services, docId, privateDocId]);
+  }, [services, docId, privateDocId, attempt]);
   return state;
 }
 
 /** Hand in's consequence dialog: the request goes once per press, and a retry carries the same key. */
 function HandInDialog(props: {
+  open: boolean;
   docId: string;
   scenes: number;
   onCancel(): void;
 }): ReactNode {
-  const { docId, scenes } = props;
+  const { open, docId, scenes } = props;
   const services = useServices();
   const { now, randomId } = useEnvironment();
+  const online = useOnline();
   const title = useSubscribable(services.library.documentTitle(docId));
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -93,7 +112,16 @@ function HandInDialog(props: {
       cancel.current?.();
     };
   }, []);
+  useEffect(() => {
+    if (open) return;
+    cancel.current?.();
+    cancel.current = null;
+    key.current = null;
+    setBusy(false);
+    setRefusal(null);
+  }, [open]);
   const handIn = async (): Promise<void> => {
+    if (!online) return;
     // a key is 32 lower-case hex digits
     key.current ??= randomId().replaceAll("-", "");
     setBusy(true);
@@ -112,7 +140,7 @@ function HandInDialog(props: {
   };
   return (
     <ConsequenceDialog
-      open
+      open={open}
       title={WRITING_WORDS.handInTitle(scenes)}
       body={WRITING_WORDS.handInBody(
         scenes,
@@ -121,6 +149,7 @@ function HandInDialog(props: {
       action={WRITING_WORDS.handInAction(scenes)}
       busyLabel={busy ? WRITING_WORDS.handingIn(scenes) : null}
       refusal={refusal}
+      disabledReason={online ? undefined : WRITING_WORDS.needsConnection}
       destructive={false}
       actionTour="hand_in:confirm"
       onAction={() => void handIn()}
@@ -131,12 +160,16 @@ function HandInDialog(props: {
 
 function HandIn(props: { docId: string }): ReactNode {
   const { docId } = props;
-  const { messages } = useServices();
-  const copyState = useCopyChanges(docId);
+  const { editor, messages } = useServices();
+  const { dom } = useEnvironment();
+  const [attempt, setAttempt] = useState(0);
+  const copyState = useCopyChanges(docId, attempt);
   const changes = copyState.kind === "ready" ? copyState.changes : null;
   const [asking, setAsking] = useState(false);
   const headingId = useId();
+  const emptyNoteId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const handInButtonRef = useRef<HTMLButtonElement>(null);
   // the view is drawn below the version list, so Hand in… brings it to the keyboard, and into sight again once its
   // changes have been read and drawn below the heading
   useEffect(() => {
@@ -158,8 +191,17 @@ function HandIn(props: { docId: string }): ReactNode {
         }),
       );
   };
+  const closeDialog = (): void => {
+    setAsking(false);
+    requestAnimationFrame(() => {
+      handInButtonRef.current?.focus({ preventScroll: true });
+    });
+  };
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2 p-2">
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-2 px-3 py-2"
+    >
       <h2
         id={headingId}
         ref={heading}
@@ -169,42 +211,69 @@ function HandIn(props: { docId: string }): ReactNode {
         {WRITING_WORDS.handInHeading}
       </h2>
       {copyState.kind === "loading" ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <Skeleton aria-hidden="true" className="h-4 w-48" />
-          <div aria-hidden="true" className="flex flex-col gap-1 px-2">
-            <Skeleton className="h-control-sm w-40" />
-            <Skeleton className="h-control-sm w-36" />
+        <>
+          <p role="status" className="sr-only">
+            {WRITING_WORDS.handInLoading}
+          </p>
+          <div aria-busy="true" className="flex flex-col gap-2">
+            <Skeleton aria-hidden="true" className="h-4 w-48" />
+            <div aria-hidden="true" className="flex flex-col gap-1 px-2">
+              <Skeleton className="h-control-sm w-40" />
+              <Skeleton className="h-control-sm w-36" />
+            </div>
           </div>
-        </div>
+        </>
       ) : changes !== null ? (
         <>
-          <p className="text-ui text-fg-muted">
+          <p
+            id={nothing ? emptyNoteId : undefined}
+            className="text-ui text-fg-muted"
+          >
             {nothing
               ? WRITING_WORDS.nothingToHandIn
               : WRITING_WORDS.handInLine(scenes.length)}
           </p>
           {scenes.length > 0 ? (
-            <ul className="flex flex-col divide-y divide-line rounded-surface border border-line bg-raised">
+            <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-surface border border-line bg-raised">
               {scenes.map((scene) => (
-                <li
-                  key={scene.sceneId}
-                  className="px-2.5 py-1.5 text-ui tabular-nums"
-                >
-                  {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
+                <li key={scene.sceneId}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-start text-ui text-fg tabular-nums hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
+                    onClick={() =>
+                      void editor.run({
+                        kind: "go_to",
+                        blockId: scene.sceneId,
+                        offset: 0,
+                      })
+                    }
+                  >
+                    {WRITING_WORDS.handInRow(scene.scene, scene.changes)}
+                  </button>
                 </li>
               ))}
             </ul>
           ) : null}
         </>
       ) : (
-        <p className="rounded-control border border-line bg-subtle px-2.5 py-2 text-meta text-fg-muted">
-          {WRITING_WORDS.handInUnavailable}
-        </p>
+        <div className="flex flex-col items-start gap-2 rounded-control border border-line bg-subtle px-2.5 py-2 text-meta text-fg-muted">
+          <p>{WRITING_WORDS.handInUnavailable}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
+            {WRITING_WORDS.tryAgain}
+          </Button>
+        </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
+          ref={handInButtonRef}
           size="sm"
-          aria-disabled={scenes.length === 0}
+          aria-disabled={scenes.length === 0 || undefined}
+          aria-describedby={nothing ? emptyNoteId : undefined}
           disabled={changes === null}
           onClick={press}
         >
@@ -213,18 +282,20 @@ function HandIn(props: { docId: string }): ReactNode {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => handInShown.set(null)}
+          onClick={() => {
+            handInShown.set(null);
+            dom.focusPage();
+          }}
         >
           {WRITING_WORDS.keepWriting}
         </Button>
       </div>
-      {asking ? (
-        <HandInDialog
-          docId={docId}
-          scenes={scenes.length}
-          onCancel={() => setAsking(false)}
-        />
-      ) : null}
+      <HandInDialog
+        open={asking}
+        docId={docId}
+        scenes={scenes.length}
+        onCancel={closeDialog}
+      />
     </section>
   );
 }

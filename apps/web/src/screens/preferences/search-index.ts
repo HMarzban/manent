@@ -18,9 +18,11 @@ export const isCommandId = (id: string): id is CommandId =>
 const isFound = (query: string, words: readonly string[]): boolean =>
   words.some((word) => normalise(word).includes(query));
 
-/** The commands a person may look for by name; a setting's own commands are found as its preference. */
+/** The commands a person may look for by name; a setting's own commands and Preferences pane jumps are found as preferences. */
 const isSearchedCommand = (def: CommandDefinition): boolean =>
-  def.setting === null && "keywords" in def.palette;
+  def.setting === null &&
+  "keywords" in def.palette &&
+  !def.id.startsWith("app.preferences");
 
 /**
  * What `query` finds, each list in registry order: the preferences whose label, help text, values or synonyms hold it;

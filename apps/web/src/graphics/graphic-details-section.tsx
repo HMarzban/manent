@@ -19,8 +19,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  formatCount,
   useSubscribable,
 } from "@manent/ui";
+import { MinusIcon, PlusIcon } from "lucide-react";
 import { useId, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import {
@@ -45,6 +47,13 @@ const isGraphicKind = (value: string): value is GraphicKind =>
   GRAPHIC_KINDS.some((kind) => kind === value);
 
 const LINES_PATTERN = /^\s*(\d+)\s*(?:lines?)?\s*$/;
+const KIND_LABEL = "Kind";
+const DECREASE_HEIGHT_LABEL = "Decrease height";
+const INCREASE_HEIGHT_LABEL = "Increase height";
+const PAGE_STEP = 4;
+
+const formatDimensions = (width: number, height: number): string =>
+  `${formatCount(width)} × ${formatCount(height)} px`;
 
 function parseLines(text: string): number | null {
   const match = LINES_PATTERN.exec(text)?.[1];
@@ -60,6 +69,8 @@ function parseLines(text: string): number | null {
 const ARROW_STEPS: Readonly<Record<string, number>> = {
   ArrowUp: 1,
   ArrowDown: -1,
+  PageUp: PAGE_STEP,
+  PageDown: -PAGE_STEP,
 };
 
 function HeightSpinbutton(props: {
@@ -79,11 +90,11 @@ function HeightSpinbutton(props: {
     if (next !== null && next !== value) onCommit(next);
   };
 
-  const step = (by: number): void => {
+  const applyValue = (target: number): void => {
     if (readOnly) return;
     const clamped = Math.min(
       GRAPHIC_MAX_HEIGHT_LINES,
-      Math.max(GRAPHIC_MIN_HEIGHT_LINES, current + by),
+      Math.max(GRAPHIC_MIN_HEIGHT_LINES, target),
     );
     setDraft(GRAPHICS_WORDS.lines(clamped));
     if (clamped !== value) onCommit(clamped);
@@ -94,27 +105,71 @@ function HeightSpinbutton(props: {
       <Label htmlFor={id} className="text-ui">
         {GRAPHICS_WORDS.height}
       </Label>
-      <Input
-        id={id}
-        role="spinbutton"
-        inputMode="numeric"
-        aria-valuemin={GRAPHIC_MIN_HEIGHT_LINES}
-        aria-valuemax={GRAPHIC_MAX_HEIGHT_LINES}
-        aria-valuenow={current}
-        aria-valuetext={GRAPHICS_WORDS.lines(current)}
-        readOnly={readOnly}
-        value={draft ?? GRAPHICS_WORDS.lines(value)}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          const by = ARROW_STEPS[event.key];
-          if (by === undefined && event.key !== "Enter") return;
-          event.preventDefault();
-          if (by === undefined) commit();
-          else step(by);
-        }}
-        onBlur={commit}
-        className="h-control w-24 text-ui"
-      />
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={DECREASE_HEIGHT_LABEL}
+          disabled={readOnly || current <= GRAPHIC_MIN_HEIGHT_LINES}
+          onClick={() => applyValue(current - 1)}
+        >
+          <MinusIcon aria-hidden="true" className="size-icon" />
+        </Button>
+        <Input
+          id={id}
+          role="spinbutton"
+          inputMode="numeric"
+          aria-valuemin={GRAPHIC_MIN_HEIGHT_LINES}
+          aria-valuemax={GRAPHIC_MAX_HEIGHT_LINES}
+          aria-valuenow={current}
+          aria-valuetext={GRAPHICS_WORDS.lines(current)}
+          readOnly={readOnly}
+          value={draft ?? GRAPHICS_WORDS.lines(value)}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              if (draft === null) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setDraft(null);
+              return;
+            }
+            if (event.key === "Home") {
+              event.preventDefault();
+              applyValue(GRAPHIC_MIN_HEIGHT_LINES);
+              return;
+            }
+            if (event.key === "End") {
+              event.preventDefault();
+              applyValue(GRAPHIC_MAX_HEIGHT_LINES);
+              return;
+            }
+            const by = ARROW_STEPS[event.key];
+            if (by !== undefined) {
+              event.preventDefault();
+              applyValue(current + by);
+              return;
+            }
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              commit();
+            }
+          }}
+          onBlur={commit}
+          className="h-control w-20 text-center text-ui tabular-nums"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={INCREASE_HEIGHT_LABEL}
+          disabled={readOnly || current >= GRAPHIC_MAX_HEIGHT_LINES}
+          onClick={() => applyValue(current + 1)}
+        >
+          <PlusIcon aria-hidden="true" className="size-icon" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -151,7 +206,14 @@ function TextAttrField(props: {
         value={draft ?? value}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key !== "Enter") return;
+          if (event.key === "Escape") {
+            if (draft === null) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            return;
+          }
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           event.preventDefault();
           commit();
         }}
@@ -167,6 +229,8 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
   const { docId } = props;
   const services = useServices();
   const editable = useCanEdit(docId);
+  const kindId = useId();
+  const [picking, setPicking] = useState(false);
 
   const selected = useSyncExternalStore(
     (onChange) => subscribeSelectedGraphic(docId, onChange),
@@ -189,11 +253,17 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
   const { blockId, attrs } = selected;
 
   return (
-    <section data-tour="details:graphic" className="flex flex-col gap-2">
-      <h3 className="pt-2 text-ui font-semibold">{GRAPHICS_WORDS.graphic}</h3>
+    <section
+      data-tour="details:graphic"
+      className="flex flex-col gap-2 border-t border-line pt-2"
+    >
+      <h3 className="text-ui font-semibold">{GRAPHICS_WORDS.graphic}</h3>
 
       {isBroadcast ? (
         <div className="flex flex-col gap-1">
+          <Label htmlFor={kindId} className="text-ui">
+            {KIND_LABEL}
+          </Label>
           <Select
             items={KIND_CHOICES}
             value={attrs.kind}
@@ -204,7 +274,8 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
             }}
           >
             <SelectTrigger
-              aria-label={GRAPHICS_WORDS.graphic}
+              id={kindId}
+              aria-label={KIND_LABEL}
               className="w-full"
             >
               <SelectValue />
@@ -221,6 +292,7 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
       ) : null}
 
       <HeightSpinbutton
+        key={blockId}
         value={attrs.heightLines}
         readOnly={!editable}
         onCommit={(lines) => {
@@ -228,15 +300,29 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
         }}
       />
 
+      {attrs.aspectWidth !== null && attrs.aspectHeight !== null ? (
+        <p className="text-meta text-fg-muted tabular-nums">
+          {formatDimensions(attrs.aspectWidth, attrs.aspectHeight)}
+        </p>
+      ) : null}
+
       {editable ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
+            disabled={picking}
+            aria-busy={picking || undefined}
             className="text-ui"
             onClick={() => {
-              void replaceImageFromPicker(services, docId, blockId);
+              if (picking) return;
+              setPicking(true);
+              void replaceImageFromPicker(services, docId, blockId).finally(
+                () => {
+                  setPicking(false);
+                },
+              );
             }}
           >
             {attrs.assetId === null
@@ -248,7 +334,7 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
               type="button"
               variant="ghost"
               size="sm"
-              className="text-ui"
+              className="text-ui text-fg-muted hover:text-danger"
               onClick={() => {
                 runGraphicRemoveImage(docId, blockId);
               }}
@@ -261,8 +347,16 @@ export function GraphicDetailsSection(props: { docId: string }): ReactNode {
 
       <TextAttrField
         key={`${blockId}:label`}
-        label={GRAPHICS_WORDS.cueTag}
-        placeholder={GRAPHICS_WORDS.cueTagPlaceholder}
+        label={
+          scriptFormat === "manuscript"
+            ? GRAPHICS_WORDS.figureLabel
+            : GRAPHICS_WORDS.cueTag
+        }
+        placeholder={
+          scriptFormat === "manuscript"
+            ? GRAPHICS_WORDS.figureLabelPlaceholder
+            : GRAPHICS_WORDS.cueTagPlaceholder
+        }
         value={attrs.label}
         maxLength={GRAPHIC_MAX_LABEL_LENGTH}
         readOnly={!editable}

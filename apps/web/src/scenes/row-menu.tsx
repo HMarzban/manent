@@ -83,7 +83,7 @@ export function MoveItem(props: {
             aria-hidden="true"
             className="size-icon text-fg-muted"
           />
-          {SCENE_MOVE_WORDS.move}
+          <span>{SCENE_MOVE_WORDS.move}</span>
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
           <DropdownMenuItem
@@ -95,7 +95,7 @@ export function MoveItem(props: {
               aria-hidden="true"
               className="size-icon text-fg-muted"
             />
-            {SCENE_MOVE_WORDS.moveUp}
+            <span>{SCENE_MOVE_WORDS.moveUp}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-ui"
@@ -106,7 +106,7 @@ export function MoveItem(props: {
               aria-hidden="true"
               className="size-icon text-fg-muted"
             />
-            {SCENE_MOVE_WORDS.moveDown}
+            <span>{SCENE_MOVE_WORDS.moveDown}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-ui"
@@ -117,7 +117,7 @@ export function MoveItem(props: {
               aria-hidden="true"
               className="size-icon text-fg-muted"
             />
-            {SCENE_MOVE_WORDS.moveToStart}
+            <span>{SCENE_MOVE_WORDS.moveToStart}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-ui"
@@ -128,7 +128,7 @@ export function MoveItem(props: {
               aria-hidden="true"
               className="size-icon text-fg-muted"
             />
-            {SCENE_MOVE_WORDS.moveToEnd}
+            <span>{SCENE_MOVE_WORDS.moveToEnd}</span>
           </DropdownMenuItem>
         </DropdownMenuSubContent>
       </DropdownMenuSub>

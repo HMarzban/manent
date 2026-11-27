@@ -66,20 +66,20 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-2",
+        "flex min-w-0 flex-wrap items-center gap-2",
         line.attention && "text-attention",
       )}
     >
       {line.attention ? (
-        <TriangleExclamationPointIcon aria-hidden="true" className="shrink-0" />
+        <TriangleExclamationPointIcon
+          aria-hidden="true"
+          className="size-icon shrink-0"
+        />
       ) : null}
       {line.chip === null ? null : (
         <span data-rev={line.chip} aria-hidden="true" className="mn-rev-chip" />
       )}
-      <span
-        className="tabular-nums max-sm:whitespace-normal sm:truncate"
-        title={line.sentence}
-      >
+      <span className="min-w-0 tabular-nums" title={line.sentence}>
         {renderSentence(line)}
       </span>
       {line.actions
@@ -89,7 +89,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
             key={action.commandId}
             variant={ACTION_VARIANTS[index]}
             size="sm"
-            className="text-fg"
+            className="shrink-0 text-fg"
             data-tour={action.tourTarget ?? action.commandId}
             onClick={() => run(action.commandId)}
           >

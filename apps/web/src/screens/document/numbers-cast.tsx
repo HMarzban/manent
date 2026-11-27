@@ -35,22 +35,27 @@ export function NumbersCast(props: {
         {shown.map((character) => {
           const share = Math.max(0.04, Math.min(1, character.words / maxWords));
           return (
-            <div key={character.name} className="flex flex-col gap-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <dt className="min-w-0 truncate text-fg">{character.name}</dt>
-                <dd className="shrink-0 text-meta text-fg-muted tabular-nums">
-                  {WRITING_TOOLS_WORDS.numbersCharacterSummary(
-                    character.speeches,
-                    character.words,
-                  )}
-                </dd>
-              </div>
-              <div aria-hidden="true" className="mn-share-track">
-                <div
-                  className="mn-share-fill"
-                  style={{ transform: `scaleX(${share})` }}
-                />
-              </div>
+            <div
+              key={character.name}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-1"
+            >
+              <dt title={character.name} className="min-w-0 truncate text-fg">
+                {character.name}
+              </dt>
+              <dd className="shrink-0 text-meta text-fg-muted tabular-nums">
+                {WRITING_TOOLS_WORDS.numbersCharacterSummary(
+                  character.speeches,
+                  character.words,
+                )}
+              </dd>
+              <dd aria-hidden="true" className="col-span-2">
+                <div className="mn-share-track">
+                  <div
+                    className="mn-share-fill"
+                    style={{ transform: `scaleX(${share})` }}
+                  />
+                </div>
+              </dd>
             </div>
           );
         })}
@@ -61,6 +66,7 @@ export function NumbersCast(props: {
             type="button"
             variant="ghost"
             size="sm"
+            aria-expanded={expanded}
             className="h-control-sm cursor-pointer px-1.5 text-meta text-fg-muted hover:text-fg"
             onClick={() => setExpanded((v) => !v)}
           >

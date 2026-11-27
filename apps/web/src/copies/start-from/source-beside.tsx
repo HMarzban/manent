@@ -2,13 +2,16 @@
 import {
   BESIDE_WORDS,
   COPIES_WORDS,
+  DOCUMENT_WORDS,
   LIBRARY_WORDS,
   StateBar,
   useSubscribable,
 } from "@manent/ui";
 import type { StateLine } from "@manent/ui";
+import { LockIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { registerBesideFacts } from "../../beside/beside-facts.ts";
 import type {
   BesideChoice,
@@ -198,7 +201,18 @@ function SourceBeside(props: {
     frame,
   );
   if (access === "denied")
-    return <p className="p-12 text-ui">{BESIDE_WORDS.noAccess}</p>;
+    return (
+      <div className="flex min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="flex min-h-full w-full flex-col items-center justify-center">
+          <EmptyHeroCard
+            compact
+            icon={<LockIcon aria-hidden="true" className="size-4" />}
+            title={BESIDE_WORDS.noAccess}
+            headingAs="p"
+          />
+        </div>
+      </div>
+    );
   return (
     <>
       <div className="shrink-0 border-t border-line">
@@ -210,7 +224,12 @@ function SourceBeside(props: {
         />
       </div>
       {access === "checking" ? (
-        <ScriptPageSkeleton />
+        <>
+          <p role="status" className="sr-only">
+            {DOCUMENT_WORDS.opening}
+          </p>
+          <ScriptPageSkeleton />
+        </>
       ) : (
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
           <div

@@ -24,4 +24,5 @@ export const ACCOUNT_WORDS = Object.freeze({
   },
   exportFailed: (title: string): string =>
     `Couldn't export '${title}'. Try again.`,
+  waitingMore: (n: number): string => `+${formatCount(n)} more`,
 });

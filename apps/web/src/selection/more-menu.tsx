@@ -126,6 +126,7 @@ function CommandRow(props: {
   const [chord] = state.keys;
   return (
     <DropdownMenuItem
+      aria-current={active === true ? "true" : undefined}
       onClick={() => {
         service.run(id, "menu");
         onApplied();
@@ -168,6 +169,7 @@ function SwatchStrip(props: {
               key={id}
               className="mn-swatch-item flex size-7 items-center justify-center rounded-full p-0"
               aria-label={label}
+              aria-current={active ? "true" : undefined}
               title={label}
               onClick={() => {
                 service.run(id, "menu");

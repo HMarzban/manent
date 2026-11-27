@@ -40,7 +40,7 @@ function Entry(props: {
   const item = (
     <Item disabled={!state.enabled} onClick={() => service.run(id, "menu")}>
       <CommandMenuIcon id={id} />
-      {state.label}
+      <span>{state.label}</span>
     </Item>
   );
   if (state.whyNot === null) return item;

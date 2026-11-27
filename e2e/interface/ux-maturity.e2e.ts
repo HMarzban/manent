@@ -64,6 +64,9 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(page.locator("[data-tour='title:board']")).toHaveCount(0);
       await expect(page.locator("[data-tour='title:prompter']")).toHaveCount(0);
       await expect(page.locator("[data-tour='readout:format']")).toHaveCount(0);
+      await expect(page.locator("[data-tour='status:server']")).toHaveText(
+        "Synced",
+      );
       await settleAnimations(page, "body");
       expect(await violationsOf(page)).toEqual([]);
 
@@ -97,10 +100,12 @@ for (const scheme of ["light", "dark"] as const) {
       await settleAnimations(page, "body");
       expect(await violationsOf(page)).toEqual([]);
 
-      // Switching to another script automatically closes the Ink Beside pane
+      // Switching to another playable script automatically closes the Ink Beside pane while keeping Play unpressed
       await page.goto(`${GAME_PATH}?panels=closed`);
       await expect(page.locator("[data-tour='ink:player']")).toHaveCount(0);
-      await expect(page.locator("[data-tour='title:ink-play']")).toHaveCount(0);
+      await expect(
+        page.locator("[data-tour='title:ink-play']"),
+      ).toHaveAttribute("aria-pressed", "false");
       await expect(page.locator("[data-tour='readout:format']")).toContainText(
         "Game",
       );

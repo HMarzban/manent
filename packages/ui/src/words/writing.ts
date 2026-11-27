@@ -29,6 +29,8 @@ export const WRITING_WORDS = Object.freeze({
   leftPrivately: (n: number): string =>
     `You are writing for everyone now. Your private changes to ${scenes(n)} are kept; choose Privately to go back to them.`,
   handInHeading: "Changes to hand in",
+  handInLoading: "Checking changes to hand in…",
+  tryAgain: "Try again",
   handInLine: (n: number): string =>
     `${scenes(n)} changed since you started writing privately.`,
   /** One scene of the Hand in view: "Sc. 4 · 12 changes". */

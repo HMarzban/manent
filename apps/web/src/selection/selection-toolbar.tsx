@@ -150,7 +150,7 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
     const maxLeft = Math.max(minLeft, window.innerWidth - EDGE_PX - half);
     el.style.left = `${Math.min(Math.max(place.x, minLeft), maxLeft)}px`;
     syncTabStops(el);
-  }, [place.x, itemsKey]);
+  }, [place.x, place.y, itemsKey]);
   if (main.length === 0 && more.length === 0 && state === null) return null;
 
   const refreshMarks = (): void => {
@@ -198,11 +198,12 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
     const buttons = toolbarButtons(root);
     const index = buttons.indexOf(active);
     if (index === -1) return;
+    const step = getComputedStyle(root).direction === "rtl" ? -1 : 1;
     const next =
       event.key === "ArrowRight"
-        ? (index + 1) % buttons.length
+        ? (index + step + buttons.length) % buttons.length
         : event.key === "ArrowLeft"
-          ? (index - 1 + buttons.length) % buttons.length
+          ? (index - step + buttons.length) % buttons.length
           : event.key === "Home"
             ? 0
             : event.key === "End"
@@ -238,7 +239,7 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
       onKeyDown={onKeyDown}
       onFocus={onFocus}
     >
-      <div className="flex h-control-lg animate-in items-center gap-0.5 rounded-surface bg-overlay p-1 shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95">
+      <div className="flex min-h-control-lg max-w-[calc(100vw-1rem)] animate-in flex-wrap items-center gap-0.5 rounded-surface border border-line bg-overlay p-1 shadow-overlay duration-(--dur-fast) ease-out fade-in-0 zoom-in-95">
         {leadingMain.map(barButton)}
         {more.length === 0 ? null : (
           <MoreMenu

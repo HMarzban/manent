@@ -61,13 +61,13 @@ function Choice(props: {
       value={props.position}
       disabled={!enabled}
       title={!enabled && whyNot !== null ? whyNot : undefined}
-      className="items-start text-ui"
+      className="items-start whitespace-normal! text-ui"
       onClick={() => {
         if (enabled) void commands.run(props.commandId, "control");
       }}
     >
       <Icon aria-hidden="true" className="mt-0.5 size-icon shrink-0" />
-      <span className="flex flex-col gap-0.5">
+      <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">
           {WRITING_WORDS.positions[props.position]}
         </span>
@@ -96,9 +96,11 @@ export function WritingSwitch(props: { docId: string }): ReactNode {
     <DropdownMenuSub>
       <DropdownMenuSubTrigger className="text-ui" data-tour="writing_switch">
         <PenLineIcon aria-hidden="true" className="size-icon shrink-0" />
-        {WRITING_WORDS.switchLabel(WRITING_WORDS.positions[position])}
+        <span className="truncate">
+          {WRITING_WORDS.switchLabel(WRITING_WORDS.positions[position])}
+        </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-72">
+      <DropdownMenuSubContent className="w-72 max-w-[min(18rem,var(--available-width))]">
         <DropdownMenuRadioGroup value={position}>
           {CHOICES.map((choice) => (
             <Choice key={choice.position} {...choice} />

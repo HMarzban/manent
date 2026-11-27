@@ -6,7 +6,12 @@ import {
   TimingProvider,
   useSubscribable,
 } from "@manent/ui";
-import { TriangleExclamationPointIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DownloadIcon,
+  LoaderCircleIcon,
+  TriangleExclamationPointIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -28,11 +33,20 @@ type ExportStatus =
   | { readonly kind: "refused"; readonly text: string };
 
 const IDLE: ExportStatus = Object.freeze({ kind: "idle" });
+const WAITING_PREVIEW_LIMIT = 4;
 
 function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
   const { active } = props;
   const [status, setStatus] = useState<ExportStatus>(IDLE);
   const { scripts } = active;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setStatus(IDLE);
@@ -49,6 +63,7 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
       scripts,
       active.now,
     );
+    if (!mountedRef.current) return;
     if (outcome.ok) {
       setStatus({
         kind: "done",
@@ -62,6 +77,9 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
     }
   };
 
+  const shownScripts = scripts.slice(0, WAITING_PREVIEW_LIMIT);
+  const remainingCount = scripts.length - shownScripts.length;
+
   return (
     <ConsequenceDialog
       open
@@ -72,18 +90,41 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
       refusal={null}
       destructive={false}
       actionTour="workspace:sign_out"
-      onAction={active.onConfirm}
+      onAction={() => {
+        if (!busy) active.onConfirm();
+      }}
       onCancel={active.onCancel}
     >
       {scripts.length === 0 ? null : (
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col items-start gap-2 rounded-surface border border-line bg-subtle p-3">
+          <ul className="flex w-full flex-col gap-0.5 text-meta text-fg-muted">
+            {shownScripts.map((script) => (
+              <li key={script.docId} className="truncate text-fg">
+                {script.title}
+              </li>
+            ))}
+            {remainingCount > 0 ? (
+              <li className="tabular-nums">
+                {ACCOUNT_WORDS.waitingMore(remainingCount)}
+              </li>
+            ) : null}
+          </ul>
           <Button
-            variant="link"
-            className="h-auto p-0"
+            type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => void exportAll()}
           >
-            {ACCOUNT_WORDS.exportCopy}
+            {busy ? (
+              <LoaderCircleIcon
+                aria-hidden="true"
+                className="size-icon animate-spin"
+              />
+            ) : (
+              <DownloadIcon aria-hidden="true" className="size-icon" />
+            )}
+            <span>{ACCOUNT_WORDS.exportCopy}</span>
           </Button>
           {status.kind === "exporting" ? (
             <p role="status" className="text-ui text-fg-muted">
@@ -91,15 +132,25 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
             </p>
           ) : null}
           {status.kind === "done" ? (
-            <p role="status" className="text-ui text-fg-muted">
-              {status.text}
+            <p
+              role="status"
+              className="flex items-start gap-1.5 text-ui text-fg-muted"
+            >
+              <CheckIcon
+                aria-hidden="true"
+                className="mt-0.5 size-icon shrink-0 text-ok"
+              />
+              <span>{status.text}</span>
             </p>
           ) : null}
           {status.kind === "refused" ? (
-            <p role="alert" className="flex items-start gap-1 text-ui text-fg">
+            <p
+              role="alert"
+              className="flex items-start gap-1.5 text-ui text-fg"
+            >
               <TriangleExclamationPointIcon
                 aria-hidden="true"
-                className="mt-0.5 size-3.5 shrink-0 text-attention"
+                className="mt-0.5 size-icon shrink-0 text-attention"
               />
               <span>{status.text}</span>
             </p>

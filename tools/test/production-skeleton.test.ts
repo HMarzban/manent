@@ -258,6 +258,15 @@ const SAID: Readonly<Record<keyof typeof PRODUCTION_WORDS, readonly string[]>> =
       W.revisionRow("White", "27 Oct 2026", "*", true),
     ],
     revisedDescription: [W.revisedDescription("Blue")],
+    selectedCount: [W.selectedCount(3)],
+    clearSelection: [W.clearSelection],
+    activeRevision: [W.activeRevision],
+    applyLayoutValue: [W.applyLayoutValue],
+    cancelLayoutValue: [W.cancelLayoutValue],
+    invalidLayoutValue: [W.invalidLayoutValue],
+    layoutCountsUpdated: [W.layoutCountsUpdated],
+    pagesGainingAPages: [W.pagesGainingAPages("12, 14")],
+    pagesEndingEarly: [W.pagesEndingEarly("17")],
   };
 
 const productionStrings = (): StringSource[] =>

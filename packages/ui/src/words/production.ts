@@ -153,4 +153,14 @@ export const PRODUCTION_WORDS = {
   ): string => `${name} · ${date} · ${mark}${fullDraft ? " · full draft" : ""}`,
   /** The description of an element a revision marks: "revised, Blue". */
   revisedDescription: (name: string): string => `revised, ${name}`,
+  selectedCount: (n: number): string => `${formatCount(n)} selected`,
+  clearSelection: "Clear",
+  activeRevision: "Active",
+  applyLayoutValue: "Apply",
+  cancelLayoutValue: "Cancel",
+  invalidLayoutValue: "Enter a different number in range.",
+  layoutCountsUpdated:
+    "The server holds newer page counts. Check the new counts before changing.",
+  pagesGainingAPages: (pages: string): string => `Gain A-pages: ${pages}`,
+  pagesEndingEarly: (pages: string): string => `End early: ${pages}`,
 } as const;

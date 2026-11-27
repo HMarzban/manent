@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep `<dl>` groups single-depth, avoid dimming chrome below AA contrast, emit `aria-pressed` on button rows and keep raw benchmark runs unformatted
+
+- Date: 2026-11-27
+
+### What happened
+
+Four distinct accessibility and release-hygiene defects surfaced during the authoring/production polish, cross-browser WCAG 2.2 AA audit and benchmark publication pass: (1) `NumbersCast` wrapped `<dt>` and `<dd>` inside two nested `<div>` elements under `<dl>`, triggering serious `dlitem` (WCAG 1.3.1) violations; (2) `.mn-bar[data-writing="true"]` dimmed the Demo Stage bar to `opacity: 0.54` while writing, dropping `var(--fg-muted)` labels and controls to `2.4:1`–`3.37:1` contrast (WCAG 1.4.3); (3) `<Row selected onActivate={...}>` emitted `aria-selected="true"` on `role="button"` (disallowed by ARIA 1.2) and `PagesTab` mounted `<RenumberField>` inside `<Row onActivate>` (nesting an `<input>` inside `role="button"`); and (4) publishing raw unedited benchmark JSON files under `docs/benchmark/runs/` would fail `bun run format:check` unless excluded in `.prettierignore`, while relative `runs/*.json` links inside `/benchmark-report.html` 404ed until `apps/web/build.ts` copied them beside the HTML report.
+
+### How it was caught
+
+Items (1) and (2) were caught directly by running `@axe-core/playwright` (`wcag2a`, `wcag2aa`, `wcag21aa`, `wcag22aa`) in `e2e/interface/surfaces-a11y.e2e.ts` across Light and Dark schemes; item (3) was caught during the Production Revisions Staff Adviser audit; and item (4) was caught during the Benchmark & Report pipeline audit before running `bun run bench publish`.
+
+### Rule
+
+Keep `<dl>` children strictly `<dt>`/`<dd>` or a single `<div>` grouping `<dt>`/`<dd>` (use CSS grid on the single wrapper `<div>` rather than nested flex wrappers). Never dim entire toolbars with fractional `opacity` while visible text sits inside them — quiet the chrome with a subtle border token instead so WCAG 1.4.3 contrast holds in every state. On `<Row>`, emit `aria-pressed="true"` + `data-selected="true"` (not `aria-selected="true"`) whenever `effectiveRole === "button"`, and pass `onActivate={undefined}` whenever an inline editing `<Input>` renders inside a row. Keep `docs/benchmark/runs/` in `.prettierignore` so published raw JSON remains unedited, and copy `docs/benchmark/runs/*.json` into `outDir/runs/` during `buildWeb()`.
+
+### Enforced by
+
+`apps/web/src/screens/document/numbers-cast.tsx`, `packages/ui/src/theme.css`, `packages/ui/src/components/row/row.tsx`, `apps/web/src/production/pages-tab.tsx`, `apps/web/test/production-sync-maturity.dom.test.tsx`, `e2e/interface/surfaces-a11y.e2e.ts`, `.prettierignore`, and `apps/web/build.ts`.
+
 ## Accept null docKind on local scripts, avoid opacity over fg-muted, exclude page totals from place search and isolate E2E builds
 
 - Date: 2026-11-27

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { registerBesideFacts } from "../beside/beside-facts.ts";
 import { mountBesideEditor } from "../editor-host/beside-editor.ts";
+import type { EditorControl } from "../editor-host/control.ts";
 import { useOpenDocument } from "../screens/document/open-document.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -43,11 +44,11 @@ function RoomLogTagBar(props: { docId: string; canEdit: boolean }): ReactNode {
   const line = useSubscribable(roomLogLine(docId));
   const enabled = canEdit && line.editable && line.onLine;
   return (
-    <div className="flex h-statebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-3 text-ui">
+    <div className="flex min-h-statebar shrink-0 flex-wrap items-center gap-2 border-b border-line bg-chrome px-3 py-1 text-ui">
       <div
         role="group"
         aria-label={ROOM_LOG_WORDS.tagsGroup}
-        className="flex items-center gap-1"
+        className="flex flex-wrap items-center gap-1"
       >
         {TAG_ORDER.map((tag) => {
           const active = line.tags.includes(tag);
@@ -59,6 +60,7 @@ function RoomLogTagBar(props: { docId: string; canEdit: boolean }): ReactNode {
               size="sm"
               aria-label={ROOM_LOG_WORDS.tagButton(tag)}
               aria-pressed={active}
+              title={!enabled && canEdit ? ROOM_LOG_WORDS.needsLine : undefined}
               disabled={!enabled}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -108,6 +110,10 @@ export function RoomLogBeside(props: {
     outline: createOutlineStore({ guard, schedule, composing: () => false }),
   }));
   const place = useRef<HTMLDivElement>(null);
+  const controlRef = useRef<EditorControl | null>(null);
+  const initialAtRef = useRef(at);
+  initialAtRef.current = at;
+  const appliedAtRef = useRef<{ blockId: string } | null>(null);
   useEffect(
     () => registerBesideFacts(docId, stores.facts.selectors),
     [docId, stores],
@@ -115,24 +121,45 @@ export function RoomLogBeside(props: {
   useEffect(() => {
     const element = place.current;
     if (element === null) return undefined;
-    return mountBesideEditor({
-      services,
+    appliedAtRef.current = initialAtRef.current;
+    const wrappedServices = {
+      ...services,
+      besideMount(control: EditorControl) {
+        controlRef.current = control;
+        return services.besideMount(control);
+      },
+    };
+    const unmount = mountBesideEditor({
+      services: wrappedServices,
       element,
       docId,
-      at,
+      at: initialAtRef.current,
       facts: stores.facts.writer,
       outline: stores.outline.writer,
       settings: services.openScriptStore(docId),
       guard,
     });
-  }, [services, docId, at, stores, guard]);
+    return () => {
+      controlRef.current = null;
+      unmount();
+    };
+  }, [services, docId, stores, guard]);
+  useEffect(() => {
+    if (at === null || at === appliedAtRef.current) return;
+    appliedAtRef.current = at;
+    controlRef.current?.run({
+      kind: "go_to",
+      blockId: at.blockId,
+      offset: 0,
+    });
+  }, [at]);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <RoomLogTagBar docId={docId} canEdit={canEdit} />
       <div className="min-h-0 flex-1 overflow-auto">
         <div
           ref={place}
-          className="mn-desk min-h-full [--desk-gutter:12rem] [--page-zoom:1] [&>.mn-zoom]:mx-auto"
+          className="mn-desk min-h-full [--desk-gutter:160px] [--page-zoom:1] [&>.mn-zoom]:mx-auto"
         />
       </div>
     </div>

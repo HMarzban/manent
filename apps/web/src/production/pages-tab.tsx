@@ -1,6 +1,8 @@
 // The left panel's Pages tab, present once page numbers are locked: each page's label, its lock and its revision,
 // a selection of pages, and the row menu that locks, letters or renumbers them.
 import {
+  Button,
+  CommandButton,
   Input,
   PRODUCTION_WORDS,
   Row,
@@ -30,7 +32,7 @@ const READY = Object.freeze({ kind: "ready" });
 function LockGlyph(): ReactNode {
   return (
     <span role="img" aria-label={WORDS.lockMarkerName} className="flex">
-      <LockIcon aria-hidden="true" />
+      <LockIcon aria-hidden="true" className="size-icon" />
     </span>
   );
 }
@@ -53,14 +55,29 @@ function labelsBetween(
 function RenumberField(props: {
   services: ProductionServices;
   label: string;
+  onDone(): void;
 }): ReactNode {
-  const { services } = props;
+  const { services, onDone } = props;
   const { label } = useCommandState("production.renumber");
   const [value, setValue] = useState(props.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (input === null) return;
+    input.focus({ preventScroll: true });
+    input.select();
+  }, []);
+
   const onKeyDown = (event: KeyboardEvent): void => {
     event.stopPropagation();
-    if (event.key === "Escape") services.open.set(NOTHING_OPEN);
-    if (event.key !== "Enter") return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      services.open.set(NOTHING_OPEN);
+      onDone();
+      return;
+    }
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     const next = value.trim();
     if (next !== "" && next !== props.label)
@@ -70,10 +87,11 @@ function RenumberField(props: {
         label: next,
       });
     services.open.set(NOTHING_OPEN);
+    onDone();
   };
   return (
     <Input
-      ref={(input) => input?.focus({ preventScroll: true })}
+      ref={inputRef}
       aria-label={label}
       value={value}
       onChange={(event) => setValue(event.target.value)}
@@ -90,6 +108,7 @@ function PageLine(props: {
   services: ProductionServices;
   handle: ReactNode;
   onChoose: (() => void) | undefined;
+  onRenumberDone: () => void;
 }): ReactNode {
   const { row, chosen, services, handle } = props;
   const revision =
@@ -116,10 +135,14 @@ function PageLine(props: {
       }
       trailing={revision}
       menu={handle ?? undefined}
-      onActivate={props.onChoose}
+      onActivate={props.renumbering ? undefined : props.onChoose}
     >
       {props.renumbering ? (
-        <RenumberField services={services} label={row.label} />
+        <RenumberField
+          services={services}
+          label={row.label}
+          onDone={props.onRenumberDone}
+        />
       ) : (
         <span className="tabular-nums">{row.label}</span>
       )}
@@ -158,6 +181,15 @@ function PagesList(props: {
   const [since] = useState(now);
   const anchor = useRef(0);
   const pick = useRef<Pick>("alone");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const focusRow = (index: number): void => {
+    requestAnimationFrame(() => {
+      const target = containerRef.current?.querySelector<HTMLElement>(
+        `[role="listitem"][aria-posinset="${index + 1}"] .mn-row`,
+      );
+      target?.focus({ preventScroll: true });
+    });
+  };
   const choose = (index: number, how: Pick): void => {
     const row = pages.row(index);
     if (row === null) return;
@@ -198,6 +230,7 @@ function PagesList(props: {
         services={services}
         handle={handle}
         onChoose={canLock ? () => choose(index, pick.current) : undefined}
+        onRenumberDone={() => focusRow(index)}
       />
     );
     if (!canLock) return line(null);
@@ -219,21 +252,60 @@ function PagesList(props: {
       render={panelRenderers({
         ready: () => (
           <div
-            className="h-full"
+            ref={containerRef}
+            className="flex h-full min-h-0 flex-col"
             onKeyDownCapture={onKeyDown}
             onClickCapture={(event) => {
               pick.current = pickOf(event);
             }}
           >
-            <VirtualRows
-              count={count}
-              rowHeight="one"
-              label={WORDS.pagesTab}
-              renderRow={renderRow}
-              onKeyMove={(index) => {
-                if (pick.current === "range") choose(index, "range");
-              }}
-            />
+            {canLock && chosen.size > 0 ? (
+              <div
+                data-pages-selection-bar=""
+                className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-chrome px-3 py-1.5 text-meta"
+              >
+                <span className="font-medium text-fg tabular-nums">
+                  {WORDS.selectedCount(chosen.size)}
+                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  <CommandButton
+                    id="production.lockPages"
+                    variant="outline"
+                    size="sm"
+                  />
+                  <CommandButton
+                    id="production.lockAPages"
+                    variant="outline"
+                    size="sm"
+                  />
+                  <CommandButton
+                    id="production.renumber"
+                    variant="outline"
+                    size="sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ms-auto text-meta text-fg-muted hover:text-fg"
+                  onClick={() => chosenPages.set([])}
+                >
+                  {WORDS.clearSelection}
+                </Button>
+              </div>
+            ) : null}
+            <div className="min-h-0 flex-1">
+              <VirtualRows
+                count={count}
+                rowHeight="one"
+                label={WORDS.pagesTab}
+                renderRow={renderRow}
+                onKeyMove={(index) => {
+                  if (pick.current === "range") choose(index, "range");
+                }}
+              />
+            </div>
           </div>
         ),
         empty: () => null,

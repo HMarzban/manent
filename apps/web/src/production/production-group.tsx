@@ -20,20 +20,25 @@ function Revisions(props: { state: ProductionState }): ReactNode {
       <p className="text-meta text-fg-muted">
         {defaultsLine(state.numbering, order)}
       </p>
-      <ul className="flex flex-col gap-1 text-meta">
+      <ul className="flex flex-col gap-1.5 rounded-surface border border-line bg-raised p-2.5 text-meta tabular-nums">
         {state.sets.map((set) => (
-          <li key={set.setId} className="flex items-center gap-2">
+          <li key={set.setId} className="flex flex-wrap items-center gap-2">
             <span
               data-rev={colourOf(set.colour) ?? undefined}
               aria-hidden="true"
               className="mn-rev-chip"
             />
-            {WORDS.revisionRow(
-              set.name,
-              formatRevisionDate(set.issuedOn ?? deviceDay(set.startedAt)),
-              set.mark,
-              set.fullDraft,
-            )}
+            <span className="min-w-0 flex-1 text-fg">
+              {WORDS.revisionRow(
+                set.name,
+                formatRevisionDate(set.issuedOn ?? deviceDay(set.startedAt)),
+                set.mark,
+                set.fullDraft,
+              )}
+            </span>
+            {set.issuedAt === null ? (
+              <span className="mn-tag shrink-0">{WORDS.activeRevision}</span>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -45,8 +50,8 @@ function Group(props: { services: ProductionServices }): ReactNode {
   const held = useSubscribable(props.services.client.current());
   const state = held?.state ?? null;
   return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-meta font-semibold">{WORDS.groupTitle}</h3>
+    <section className="flex flex-col gap-2 border-t border-line pt-3">
+      <h3 className="text-ui font-semibold text-fg">{WORDS.groupTitle}</h3>
       {state !== null && state.locked ? (
         <Revisions state={state} />
       ) : (

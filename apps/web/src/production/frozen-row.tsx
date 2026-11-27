@@ -4,13 +4,14 @@ import { formatMemoDate } from "@manent/revisions";
 import { SETTINGS } from "@manent/settings";
 import type { SettingKey } from "@manent/settings";
 import {
+  Button,
   CommandButton,
   Input,
   PRODUCTION_WORDS,
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { valueLabel } from "../screens/document/setting-messages.ts";
 import { useServices } from "../services/context.tsx";
@@ -22,7 +23,7 @@ import type { ProductionServices } from "./services.ts";
 
 const WORDS = PRODUCTION_WORDS;
 
-/** A number for the row, which opens Change layout… once Enter is pressed on one the setting accepts and does not hold. */
+/** A number for the row, which opens Change layout… once Enter or Apply is pressed on a valid changed value. */
 function NumberEntry(props: {
   label: string;
   current: unknown;
@@ -32,24 +33,62 @@ function NumberEntry(props: {
 }): ReactNode {
   const { current, parse, onChoose, onCancel } = props;
   const [typed, setTyped] = useState(String(current ?? ""));
-  const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") onCancel();
-    if (event.key !== "Enter") return;
+  const [invalid, setInvalid] = useState(false);
+  const alertId = useId();
+
+  const submit = (): void => {
     const parsed = parse(typed);
-    if (parsed.ok && !Object.is(parsed.value, current)) onChoose(parsed.value);
+    if (parsed.ok && !Object.is(parsed.value, current)) {
+      setInvalid(false);
+      onChoose(parsed.value);
+      return;
+    }
+    setInvalid(true);
+  };
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onCancel();
+      return;
+    }
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    submit();
   };
   return (
-    <Input
-      type="number"
-      inputMode="decimal"
-      className="w-20 tabular-nums"
-      aria-label={props.label}
-      // the entry appears because Change layout… was pressed for it
-      autoFocus
-      value={typed}
-      onChange={(event) => setTyped(event.target.value)}
-      onKeyDown={onKeyDown}
-    />
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Input
+          type="number"
+          inputMode="decimal"
+          className="w-20 tabular-nums"
+          aria-label={props.label}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? alertId : undefined}
+          // the entry appears because Change layout… was pressed for it
+          autoFocus
+          value={typed}
+          onChange={(event) => {
+            setTyped(event.target.value);
+            if (invalid) setInvalid(false);
+          }}
+          onKeyDown={onKeyDown}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={submit}>
+          {WORDS.applyLayoutValue}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          {WORDS.cancelLayoutValue}
+        </Button>
+      </div>
+      {invalid ? (
+        <p id={alertId} role="alert" className="text-meta text-attention">
+          {WORDS.invalidLayoutValue}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -57,11 +96,11 @@ function NumberEntry(props: {
 function NewValue(props: {
   settingKey: SettingKey;
   services: ProductionServices;
+  onCancel(): void;
 }): ReactNode {
-  const { settingKey, services } = props;
+  const { settingKey, services, onCancel } = props;
   const def = SETTINGS.get(settingKey);
   const current = useServices().openScriptStore(services.docId).get(settingKey);
-  const close = (): void => services.open.set(NOTHING_OPEN);
   const choose = (value: unknown): void =>
     services.open.set({
       kind: "change_layout",
@@ -81,20 +120,24 @@ function NewValue(props: {
           def.type.parse(typed.trim() === "" ? null : Number(typed))
         }
         onChoose={choose}
-        onCancel={close}
+        onCancel={onCancel}
       />
     );
   const choices = (def.type.choices ?? []).filter(
     (choice) => choice.value !== current,
   );
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") close();
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
   };
   return (
     <Choices
       label={def.label}
       value={null}
       choices={choices}
+      autoFocusFirst
       onKeyDown={onKeyDown}
       onChoose={choose}
     />
@@ -120,15 +163,36 @@ function Frozen(props: {
   const open = useSubscribable(services.open);
   const change = useCommandState("production.changeLayout");
   const lockedOn = held?.state.lockedOn ?? null;
+  const triggerWrapRef = useRef<HTMLSpanElement>(null);
+  const isChoosing = open.kind === "choose_layout" && open.key === settingKey;
+  const closeAndRestore = (): void => {
+    services.open.set(NOTHING_OPEN);
+    requestAnimationFrame(() => {
+      triggerWrapRef.current
+        ?.querySelector<HTMLButtonElement>("button")
+        ?.focus({ preventScroll: true });
+    });
+  };
   const offer = canIssue ? (
     // the press names the row Change layout… is for, before the command runs
     <span
-      onClickCapture={() => {
-        if (change.enabled)
-          services.open.set({ kind: "choose_layout", key: settingKey });
+      ref={triggerWrapRef}
+      onClickCapture={(event) => {
+        if (!change.enabled) return;
+        if (isChoosing) {
+          event.stopPropagation();
+          services.open.set(NOTHING_OPEN);
+          return;
+        }
+        services.open.set({ kind: "choose_layout", key: settingKey });
       }}
     >
-      <CommandButton id="production.changeLayout" variant="outline" size="sm" />
+      <CommandButton
+        id="production.changeLayout"
+        variant="outline"
+        size="sm"
+        aria-expanded={isChoosing}
+      />
     </span>
   ) : (
     <span>{WORDS.askToChangeLayout}</span>
@@ -141,8 +205,12 @@ function Frozen(props: {
         )}
         {isChangedHere(settingKey) ? offer : null}
       </p>
-      {open.kind === "choose_layout" && open.key === settingKey ? (
-        <NewValue settingKey={settingKey} services={services} />
+      {isChoosing ? (
+        <NewValue
+          settingKey={settingKey}
+          services={services}
+          onCancel={closeAndRestore}
+        />
       ) : null}
     </div>
   );

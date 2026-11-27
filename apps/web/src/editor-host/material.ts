@@ -309,7 +309,7 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
         focus: shown.focus,
         onUse: (alternateId) => swap({ type: "alternate", alternateId }),
         onType: (text) => swap({ type: "text", text }),
-        onClose: closeToPage,
+        onClose: (reason) => (reason === "outside" ? close() : closeToPage()),
       },
     });
   }

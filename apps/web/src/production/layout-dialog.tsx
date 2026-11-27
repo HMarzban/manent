@@ -2,7 +2,7 @@
 import { SETTINGS } from "@manent/settings";
 import type { SettingsStore } from "@manent/settings";
 import { ConsequenceDialog, PRODUCTION_WORDS } from "@manent/ui";
-import { useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { layoutChangeImpact } from "../editor-host/production.ts";
 import { useServices } from "../services/context.tsx";
@@ -12,6 +12,12 @@ import type { LayoutChange } from "./services.ts";
 
 const WORDS = PRODUCTION_WORDS;
 const NO_IMPACT = Object.freeze({ gainAPages: [], fallShort: [] });
+const PAGE_PREVIEW_CAP = 12;
+
+function formatPagePreview(labels: readonly string[]): string {
+  if (labels.length <= PAGE_PREVIEW_CAP) return labels.join(", ");
+  return `${labels.slice(0, PAGE_PREVIEW_CAP).join(", ")}…`;
+}
 
 /** The script's value of a registered setting; null for any other key. */
 const readOf =
@@ -33,6 +39,12 @@ export function ChangeLayoutDialog(props: {
   const request = useDialogRequest("production.changeLayout", change !== null);
   // a changed answer lays the pages out again, from the document as the server now holds it
   const [counted, countAgain] = useReducer((n: number) => n + 1, 0);
+  const [countsRefreshed, setCountsRefreshed] = useState(false);
+
+  useEffect(() => {
+    if (change === null) setCountsRefreshed(false);
+  }, [change]);
+
   const affected = useMemo(
     () =>
       change === null
@@ -49,6 +61,7 @@ export function ChangeLayoutDialog(props: {
       : `${last.current.noun} to ${last.current.valueLabel}`;
   const send = (): void => {
     if (change === null) return;
+    setCountsRefreshed(false);
     request.send(
       () =>
         services.client.layout({
@@ -63,12 +76,15 @@ export function ChangeLayoutDialog(props: {
         // a changed answer restates the counts in the body, and the person decides again
         refused: (code) => {
           if (code !== "changed") return WORDS.changeLayoutRefused(what);
+          setCountsRefreshed(true);
           countAgain();
           return null;
         },
       },
     );
   };
+  const hasPreview =
+    affected.gainAPages.length > 0 || affected.fallShort.length > 0;
   return (
     <ConsequenceDialog
       open={change !== null}
@@ -85,6 +101,34 @@ export function ChangeLayoutDialog(props: {
       destructive={false}
       onAction={send}
       onCancel={onClose}
-    />
+    >
+      {hasPreview || countsRefreshed ? (
+        <div className="flex flex-col gap-2 text-meta">
+          {hasPreview ? (
+            <div className="flex flex-col gap-1 rounded-surface border border-line bg-subtle px-3 py-2 text-fg-muted tabular-nums">
+              {affected.gainAPages.length > 0 ? (
+                <p>
+                  {WORDS.pagesGainingAPages(
+                    formatPagePreview(affected.gainAPages),
+                  )}
+                </p>
+              ) : null}
+              {affected.fallShort.length > 0 ? (
+                <p>
+                  {WORDS.pagesEndingEarly(
+                    formatPagePreview(affected.fallShort),
+                  )}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {countsRefreshed ? (
+            <p role="status" className="text-attention">
+              {WORDS.layoutCountsUpdated}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </ConsequenceDialog>
   );
 }

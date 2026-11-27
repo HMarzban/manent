@@ -36,8 +36,7 @@ export function startRenameCharacter(deps: HandlerDeps): void {
             submit(to) {
               if (deps.shellState().docId !== docId) return;
               const next = to.trim();
-              if (next === "" || next.toLowerCase() === picked.toLowerCase())
-                return;
+              if (next === "" || next === picked) return;
               const count = countCharacterCues(docId, picked);
               const result = deps.services.editor.run({
                 kind: "rename_character",

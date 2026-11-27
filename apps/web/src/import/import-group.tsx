@@ -61,26 +61,32 @@ export function ImportGroup(props: { docId: string }): ReactNode {
   const said = apart < 0 ? rows : rows.slice(0, apart);
   const listStart = hasLine ? apart + 2 : apart + 1;
   return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-meta font-semibold">{IMPORT_WORDS.groupTitle}</h3>
+    <section className="flex flex-col gap-2 border-t border-line pt-3">
+      <h3 className="text-ui font-semibold text-fg">
+        {IMPORT_WORDS.groupTitle}
+      </h3>
       {said.map((line) => (
-        <p key={line} className="text-meta text-fg-muted">
+        <p key={line} className="break-words text-meta text-fg-muted">
           {line}
         </p>
       ))}
       {apart < 0 ? null : (
         <>
-          <h4 className="text-meta font-semibold">{rows[apart]}</h4>
+          <h4 className="text-meta font-semibold text-fg">{rows[apart]}</h4>
           {hasLine ? (
-            <p className="text-meta text-fg-muted">{rows[apart + 1]}</p>
+            <p className="break-words text-meta text-fg-muted">
+              {rows[apart + 1]}
+            </p>
           ) : null}
-          <div>
+          <ul className="-mx-3 flex flex-col">
             {rows.slice(listStart).map((label) => (
-              <Row key={label}>
-                <span className="whitespace-normal">{label}</span>
-              </Row>
+              <li key={label}>
+                <Row>
+                  <span className="whitespace-normal">{label}</span>
+                </Row>
+              </li>
             ))}
-          </div>
+          </ul>
         </>
       )}
     </section>

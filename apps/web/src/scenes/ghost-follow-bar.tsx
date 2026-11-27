@@ -40,7 +40,7 @@ export function GhostFollowBar(props: {
   return (
     <div
       data-ghost-follow=""
-      className="flex items-center gap-1.5 border-b border-line bg-subtle px-3 py-1 text-meta text-fg-muted"
+      className="flex min-h-control flex-wrap items-center gap-1.5 border-b border-line bg-subtle px-3 py-1 text-meta text-fg-muted"
     >
       <EyeIcon aria-hidden="true" className="size-3 shrink-0 text-fg-accent" />
       <span className="min-w-0 flex-1 truncate tabular-nums">
@@ -51,7 +51,7 @@ export function GhostFollowBar(props: {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-5 shrink-0 gap-1 px-1.5 text-micro font-medium text-fg-accent"
+          className="min-h-control-sm shrink-0 gap-1 px-1.5 text-meta font-medium text-fg-accent"
           onClick={() =>
             void editor.run({
               kind: "go_to",

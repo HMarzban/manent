@@ -2,13 +2,20 @@
 import {
   CommandButton,
   PopoverTitle,
-  cn,
   SYNC_CENTRE_WORDS,
+  cn,
   statusText,
   useSubscribable,
 } from "@manent/ui";
 import type { StatusFacts } from "@manent/ui";
-import { DownloadIcon } from "lucide-react";
+import {
+  CloudCheckIcon,
+  DownloadIcon,
+  LogInIcon,
+  MonitorDotIcon,
+  SaveOffIcon,
+  TriangleExclamationPointIcon,
+} from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
@@ -61,6 +68,10 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
   const words = statusText(facts);
   const line = explanation(facts);
   const settled = isStatusSettled(facts) && waiting.length === 0;
+  const signInExpired =
+    !facts.neverSynced &&
+    facts.network === "online" &&
+    facts.server === "sign_in";
   return (
     <>
       <Part className="gap-1">
@@ -71,26 +82,56 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
       </Part>
       {words.tone === "alert" ? (
         <Part>
-          <p role="alert" className="font-medium text-danger">
-            {words.device ?? words.server}
-          </p>
+          <div className="flex items-start gap-2">
+            <SaveOffIcon
+              aria-hidden="true"
+              className="mt-0.5 size-icon shrink-0 text-danger"
+            />
+            <p role="alert" className="font-medium text-danger">
+              {words.device ?? words.server}
+            </p>
+          </div>
           <CommandAction
             commandId="doc.export"
             label={SYNC_CENTRE_WORDS.exportCopy}
+            icon={DownloadIcon}
           />
         </Part>
       ) : null}
       {facts.neverSynced ? (
         <Part>
-          <p>{SYNC_CENTRE_WORDS.neverSynced(facts.shell === "desktop")}</p>
+          <div className="flex items-start gap-2">
+            <MonitorDotIcon
+              aria-hidden="true"
+              className="mt-0.5 size-icon shrink-0 text-fg-muted"
+            />
+            <p>{SYNC_CENTRE_WORDS.neverSynced(facts.shell === "desktop")}</p>
+          </div>
+          <CommandButton id="app.signInToSync" variant="outline" size="sm" />
+        </Part>
+      ) : signInExpired ? (
+        <Part>
+          <div className="flex items-start gap-2">
+            <LogInIcon
+              aria-hidden="true"
+              className="mt-0.5 size-icon shrink-0 text-attention"
+            />
+            <p>{SYNC_CENTRE_WORDS.signInExpired}</p>
+          </div>
           <CommandButton id="app.signInToSync" variant="outline" size="sm" />
         </Part>
       ) : null}
       {facts.toReview === 0 ? null : (
-        <Part className="flex-row items-center justify-between">
-          <p className="text-attention">
-            {SYNC_CENTRE_WORDS.toReview(facts.toReview)}
-          </p>
+        <Part className="flex-row flex-wrap items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TriangleExclamationPointIcon
+              aria-hidden="true"
+              className="size-icon shrink-0 text-attention"
+            />
+            <p className="text-attention">
+              {SYNC_CENTRE_WORDS.toReview(facts.toReview)}
+            </p>
+          </div>
           <CommandAction
             commandId="history.review"
             label={SYNC_CENTRE_WORDS.review}
@@ -99,7 +140,13 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
       )}
       {settled ? (
         <Part>
-          <p className="text-fg-muted">{SYNC_CENTRE_WORDS.empty}</p>
+          <div className="flex items-center gap-2">
+            <CloudCheckIcon
+              aria-hidden="true"
+              className="size-icon shrink-0 text-ok"
+            />
+            <p className="text-fg-muted">{SYNC_CENTRE_WORDS.empty}</p>
+          </div>
         </Part>
       ) : waiting.length === 0 ? null : (
         <Part>
@@ -116,18 +163,20 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
         <Part>
           <ul className="flex flex-col gap-2">
             {receipts.toReversed().map((receipt, index) => (
-              <li key={index}>{receipt.text}</li>
+              <li key={`${receipt.id}-${index}`}>{receipt.text}</li>
             ))}
           </ul>
         </Part>
       )}
-      <Part className="bg-chrome py-2">
-        <CommandAction
-          commandId="doc.export"
-          label={SYNC_CENTRE_WORDS.exportCopy}
-          icon={DownloadIcon}
-        />
-      </Part>
+      {words.tone === "alert" ? null : (
+        <Part className="sticky bottom-0 bg-chrome py-2">
+          <CommandAction
+            commandId="doc.export"
+            label={SYNC_CENTRE_WORDS.exportCopy}
+            icon={DownloadIcon}
+          />
+        </Part>
+      )}
     </>
   );
 }

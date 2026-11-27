@@ -2,7 +2,7 @@
 // with the Lock dialog's choices, leaving the original as it was.
 import type { LockRequest } from "@manent/sync-protocol";
 import { COPIES_WORDS } from "@manent/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openBeside } from "../beside/open-beside.ts";
 import type { DialogRequest } from "../production/dialog-context.ts";
 import { useProductionServices } from "../production/live-services.ts";
@@ -12,6 +12,8 @@ import { copyLockedMessage, copyRefusedMessage } from "./messages.ts";
 
 /** The numbering scheme, colour order and day the Lock dialog locks with. */
 export type LockChoice = Omit<LockRequest, "docId" | "key">;
+
+const COPY_SERVICES_TIMEOUT_MS = 15_000;
 
 interface Copy {
   docId: string;
@@ -44,32 +46,47 @@ export function useLockOnCopy(options: {
   const [copy, setCopy] = useState<Copy | null>(null);
   const [waiting, setWaiting] = useState<LockChoice | null>(null);
   const copyServices = useProductionServices(copy?.docId ?? null);
+  const requestRef = useRef(request);
+  requestRef.current = request;
+  const onLockedRef = useRef(onLocked);
+  onLockedRef.current = onLocked;
 
-  const lock = (
-    target: ProductionServices,
-    made: Copy,
-    choice: LockChoice,
-  ): void =>
-    request.send(() => target.client.lock(choice), {
-      ok: () => {
-        services.messages.push(copyLockedMessage(made.title));
-        onLocked();
-      },
-      refused: () => COPIES_WORDS.copyLockRefused(made.title),
-    });
+  const lock = useCallback(
+    (target: ProductionServices, made: Copy, choice: LockChoice): void =>
+      requestRef.current.send(() => target.client.lock(choice), {
+        ok: () => {
+          services.messages.push(copyLockedMessage(made.title));
+          onLockedRef.current();
+        },
+        refused: () => COPIES_WORDS.copyLockRefused(made.title),
+      }),
+    [services.messages],
+  );
 
   // a copy refused before the dialog closed is not the one Try again locks once it opens again
   useEffect(() => {
-    if (!open) setCopy(null);
+    if (open) return;
+    setCopy(null);
+    setWaiting(null);
+    setCopying(false);
   }, [open]);
 
   // the copy's services are made by its editor beside the page, a moment after it opens
   useEffect(() => {
-    if (waiting === null || copy === null || copyServices === null) return;
-    setWaiting(null);
-    setCopying(false);
-    lock(copyServices, copy, waiting);
-  });
+    if (waiting === null || copy === null) return undefined;
+    if (copyServices !== null) {
+      setWaiting(null);
+      setCopying(false);
+      lock(copyServices, copy, waiting);
+      return undefined;
+    }
+    const timer = globalThis.setTimeout(() => {
+      setWaiting(null);
+      setCopying(false);
+      services.messages.push(copyRefusedMessage(copy.title));
+    }, COPY_SERVICES_TIMEOUT_MS);
+    return () => globalThis.clearTimeout(timer);
+  }, [waiting, copy, copyServices, lock, services.messages]);
 
   return {
     copying,

@@ -2041,6 +2041,9 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
   margin-inline: 0.25rem;
   opacity: 0.72;
 }
+[data-slot$="menu-content"] > [data-slot$="menu-separator"]:first-child {
+  display: none;
+}
 @media (prefers-contrast: more) {
   [data-slot$="menu-separator"] {
     opacity: 1;
@@ -2280,24 +2283,35 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
    control around it. A selected row keeps its fill under the pointer: the
    fill is all that marks it. A row's menu lies over its end, so the row
    keeps its fill while the pointer is on the menu. */
-.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):hover,
+.mn-row[tabindex]:not(
+    [aria-disabled="true"],
+    [aria-selected="true"],
+    [data-selected="true"]
+  ):hover,
 [data-row-menu]:hover
-  > .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]),
+  > .mn-row[tabindex]:not(
+    [aria-disabled="true"],
+    [aria-selected="true"],
+    [data-selected="true"]
+  ),
 button:not(:disabled, [aria-disabled="true"]):hover
   > .mn-row:not(
     [aria-selected="true"],
+    [data-selected="true"],
     [aria-current="true"],
     [aria-current="page"]
   ),
-a[href]:not([aria-current="page"]):hover > .mn-row:not([aria-selected="true"]) {
+a[href]:not([aria-current="page"]):hover
+  > .mn-row:not([aria-selected="true"], [data-selected="true"]) {
   background-color: var(--bg-subtle);
 }
-.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):where(
-    :not([aria-current]),
-    [aria-current="false"]
-  ):active,
+.mn-row[tabindex]:not(
+    [aria-disabled="true"],
+    [aria-selected="true"],
+    [data-selected="true"]
+  ):where(:not([aria-current]), [aria-current="false"]):active,
 button:not(:disabled, [aria-disabled="true"]):active
-  > .mn-row:not([aria-selected="true"]):where(
+  > .mn-row:not([aria-selected="true"], [data-selected="true"]):where(
     :not([aria-current]),
     [aria-current="false"]
   ) {
@@ -2305,7 +2319,7 @@ button:not(:disabled, [aria-disabled="true"]):active
 }
 .mn-row[aria-current]:not([aria-current="false"]),
 a[aria-current="page"] > .mn-row,
-.mn-row[aria-selected="true"] {
+.mn-row:is([aria-selected="true"], [data-selected="true"]) {
   background-color: var(--bg-selected);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
@@ -2665,7 +2679,7 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
     [data-demo-state="attention"],
     [data-demo-state="danger"]
   ) {
-  opacity: 0.54;
+  border-block-start-color: var(--line-strong);
 }
 .mn-bar[data-writing="true"]:is(:hover, :focus-within) {
   transition-duration: var(--dur-fast);
@@ -3332,6 +3346,11 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   border-style: dashed;
   border-color: var(--line-strong);
 }
+.mn-card[data-new]:focus-within {
+  border-color: var(--focus);
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: var(--focus-gap);
+}
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
 }
@@ -3963,6 +3982,43 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   box-shadow: var(--elev-overlay);
   transition: opacity var(--dur-fast) var(--curve-enter);
 }
+/* Floating Book format bar centred over the manuscript desk (ADR 0086). */
+.mn-book-pill {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--line);
+  box-shadow: var(--elev-overlay);
+  transition: opacity var(--dur-slow) var(--curve-enter);
+}
+.mn-book-pill[data-writing="true"]:not(
+    :hover,
+    :focus-within,
+    :has([aria-expanded="true"], [data-popup-open])
+  ) {
+  opacity: 0.38;
+}
+.mn-book-pill[data-writing="true"]:is(
+    :hover,
+    :focus-within,
+    :has([aria-expanded="true"], [data-popup-open])
+  ) {
+  transition-duration: var(--dur-fast);
+}
+[data-region="page"][data-floating-bar="true"] {
+  scroll-padding-block-start: 4.25rem;
+}
+[data-region="page"][data-floating-bar="true"] .mn-desk {
+  padding-block-start: 4.25rem;
+}
+@media (width < 40rem) {
+  [data-region="page"][data-floating-bar="true"] .mn-desk {
+    padding-block-start: 3.75rem;
+  }
+}
+@media print {
+  .mn-book-pill {
+    display: none;
+  }
+}
 .mn-reader-page [data-reader-commented="true"] {
   border-inline-start: 2px solid var(--page-comment-line);
   padding-inline-start: 0.375rem;
@@ -4151,11 +4207,17 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 }
 @media (prefers-contrast: more) {
   .mn-progress-track,
-  .mn-tour-progress-track {
+  .mn-tour-progress-track,
+  .mn-share-track {
     border: 1px solid var(--line-strong);
   }
-  .mn-offline-prompt {
+  .mn-offline-prompt,
+  [data-selection-toolbar] > div,
+  [data-tour="alternates"] > div {
     border-color: var(--line-strong);
+  }
+  [data-row-menu] .opacity-80 {
+    opacity: 1;
   }
 }
 
@@ -4207,6 +4269,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   }
   .mn-annotation-pill,
   .mn-swatch,
+  .mn-share-fill,
   .mn-progress-fill,
   .mn-tour-progress-fill,
   .mn-offline-prompt-icon,
@@ -5730,9 +5793,13 @@ html[data-gems="off"] .mn-gem-only {
     border-color: var(--fg);
   }
   .mn-present-hud,
+  .mn-book-pill,
   .mn-minimap-card {
     box-shadow: none;
     border-color: var(--fg);
+  }
+  .mn-book-pill[data-writing="true"] {
+    opacity: 1;
   }
   .mn-board-fade-start,
   .mn-board-fade-end {
@@ -5794,6 +5861,7 @@ html[data-gems="off"] .mn-gem-only {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .mn-book-pill,
   .mn-scheme-squircle,
   .mn-mini-win,
   .mn-mini-paper,
@@ -5907,7 +5975,7 @@ html[data-gems="off"] .mn-gem-only {
   [class~="group/button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   a[aria-current="page"] > .mn-row,
-  .mn-row[aria-selected="true"],
+  .mn-row:is([aria-selected="true"], [data-selected="true"]),
   [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
   :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
@@ -6062,6 +6130,16 @@ html[data-gems="off"] .mn-gem-only {
     forced-color-adjust: none;
     border-color: CanvasText;
   }
+  .mn-swatch[data-swatch="text-none"],
+  .mn-swatch[data-swatch="hl-none"] {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  .mn-rev-chip {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+    outline-color: CanvasText;
+  }
   .mn-swatch[data-active] {
     box-shadow: none;
     outline: 2px solid Highlight;
@@ -6092,11 +6170,22 @@ html[data-gems="off"] .mn-gem-only {
     color: Highlight;
   }
   .mn-present-hud,
-  .mn-minimap-card {
+  .mn-book-pill,
+  .mn-minimap-card,
+  .mn-marker-tooltip,
+  [data-selection-toolbar] > div,
+  [data-tour="alternates"] > div {
     background-color: Canvas;
     color: CanvasText;
     border-color: CanvasText;
     box-shadow: none;
+  }
+  .mn-book-pill[data-writing="true"] {
+    opacity: 1;
+  }
+  .mn-card[data-new]:focus-within {
+    border-color: Highlight;
+    outline-color: Highlight;
   }
   .mn-reader-page [data-reader-commented="true"] {
     border-inline-start-color: Highlight;

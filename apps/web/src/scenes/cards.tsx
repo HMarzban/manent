@@ -236,7 +236,10 @@ const SceneCard = memo(function SceneCard(props: {
                 />
               ) : null}
             </span>
-            <span className="line-clamp-2 leading-snug font-semibold text-fg">
+            <span
+              id={`scene-card-title-${row.blockId}`}
+              className="line-clamp-2 leading-snug font-semibold text-fg"
+            >
               {row.omitted ? (
                 DOCUMENT_WORDS.omitted
               ) : (
@@ -264,7 +267,7 @@ const SceneCard = memo(function SceneCard(props: {
                   onChange={(event) => setDraft(event.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={onEditKeyDown}
-                  className="w-full resize-none rounded-control border border-focus bg-well px-2 py-1.5 text-meta leading-relaxed text-fg placeholder:text-fg-muted focus:outline-none"
+                  className="w-full resize-none rounded-control border border-focus bg-well px-2 py-1.5 text-meta leading-relaxed text-fg placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
                 />
               </div>
             ) : row.synopsis === "" ? null : (
@@ -284,7 +287,7 @@ const SceneCard = memo(function SceneCard(props: {
         return (
           <div data-row-menu className="group/card relative h-full w-full">
             {card}
-            <span className="absolute top-2.5 end-2.5 flex flex-row-reverse items-center gap-0.5 opacity-60 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100">
+            <span className="absolute top-2.5 end-2.5 flex flex-row-reverse items-center gap-0.5 opacity-80 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100 [@media(hover:none)]:opacity-100">
               {handle}
               {showEditButton ? (
                 <Button
@@ -292,6 +295,7 @@ const SceneCard = memo(function SceneCard(props: {
                   variant="ghost"
                   size="icon-sm"
                   aria-label={SCENE_MOVE_WORDS.editSynopsis}
+                  aria-describedby={`scene-card-title-${row.blockId}`}
                   title={SCENE_MOVE_WORDS.editSynopsis}
                   onClick={(event) => {
                     event.stopPropagation();

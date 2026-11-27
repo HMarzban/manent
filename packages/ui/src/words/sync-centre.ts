@@ -11,6 +11,7 @@ export const SYNC_CENTRE_WORDS = {
       ? "This script is only on this device, so it is not backed up and you cannot open it anywhere else. Sign in to sync it."
       : "This script is only in this browser, so it is not backed up and you cannot open it anywhere else. Sign in to sync it.",
   signIn: "Sign in to sync",
+  signInExpired: "Sign in again to sync your changes on this device.",
   serverOld:
     "The server runs an older Manent than this app. Your changes are saved here and sync once it runs a newer one.",
   unreachable:

@@ -75,7 +75,7 @@ export function PeopleList(props: {
       )}
       <DropdownMenuGroup>
         <DropdownMenuLabel>{SELECTION_WORDS.hereNow}</DropdownMenuLabel>
-        <div className="max-h-72 overflow-y-auto">
+        <div className="max-h-[min(18rem,60dvh)] overflow-y-auto overscroll-contain">
           {people.map((person) => (
             <PersonRow key={person.userId} docId={docId} person={person} />
           ))}

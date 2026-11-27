@@ -4,3 +4,4 @@ bun.lock
 packages/pagination/src/engines/*/tables/*.generated.ts
 packages/pagination/test/golden/
 site/assets/motion.js
+docs/benchmark/runs/

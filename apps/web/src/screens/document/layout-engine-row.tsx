@@ -65,6 +65,7 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
   const id = useId();
   const labelId = `${id}-label`;
   const noteId = `${id}-note`;
+  const alertId = `${id}-alert`;
 
   const defaultLines = defaultLinesPerPage(format, paper);
   const maxLines = maxLinesPerPage(format, paper);
@@ -113,7 +114,8 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
             {explained.modified ? (
               <Button
                 variant="link"
-                className="h-auto p-0 text-meta"
+                size="sm"
+                className="min-h-control-sm px-1.5 text-meta"
                 disabled={!explained.writable}
                 onClick={() => {
                   setTyped(null);
@@ -137,7 +139,7 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
           placeholder={String(defaultLines)}
           disabled={!explained.writable}
           aria-labelledby={labelId}
-          aria-describedby={noteId}
+          aria-describedby={invalid ? `${noteId} ${alertId}` : noteId}
           aria-invalid={invalid || undefined}
           onChange={(event) => {
             setTyped(event.target.value);
@@ -148,7 +150,11 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
         />
       </div>
       {invalid ? (
-        <p role="alert" className="flex items-start gap-1 text-meta text-fg">
+        <p
+          id={alertId}
+          role="alert"
+          className="flex items-start gap-1 text-meta text-fg"
+        >
           <TriangleExclamationPointIcon
             aria-hidden="true"
             className="mt-0.5 size-3.5 shrink-0 text-attention"
@@ -294,7 +300,7 @@ export function LayoutEngineRow(props: ScriptSettingRowProps): ReactNode {
       </span>
       {canUpdate ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-meta text-fg-muted">
+          <p role="status" className="text-meta text-fg-muted">
             {counts === null
               ? LAYOUT_SETTINGS_WORDS.engineCounting(LATEST_ENGINE)
               : LAYOUT_SETTINGS_WORDS.engineAvailable(

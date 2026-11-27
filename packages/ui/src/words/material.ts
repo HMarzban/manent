@@ -15,6 +15,8 @@ function excerptOf(text: string): string {
 export const MATERIAL_WORDS = Object.freeze({
   /** The popover's accessible name. */
   alternates: "Alternates",
+  closeAlternates: "Close alternates",
+  addAlternate: "Add",
   useThis: "Use this",
   /** The tag of an alternate pitched from the room. */
   pitched: "Pitched",
