@@ -15,10 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { initialsOf } from "../../initials.ts";
 import { TEXT } from "../../text.ts";
-
-export const CHOOSE_GRID_SPLIT = "grid grid-cols-1 gap-3 sm:grid-cols-2";
-export const CHOOSE_GRID_COMPACT =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 min-[68.75rem]:grid-cols-3";
+import { CHOOSE_GRID_COMPACT, CHOOSE_GRID_SPLIT } from "./choose-skeleton.tsx";
 
 function RoleIcon(props: { choice: SignInChoice }): ReactNode {
   const { userId, registered } = props.choice;

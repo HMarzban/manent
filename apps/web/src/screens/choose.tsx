@@ -1,7 +1,6 @@
 import {
   BRAND_WORDS,
   ManentMark,
-  Skeleton,
   SurfaceState,
   TimingProvider,
   buttonVariants,
@@ -23,11 +22,8 @@ import { choosePerson } from "../session.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import type { TabPerson } from "../session.ts";
 import { TEXT, pageTitle } from "../text.ts";
-import {
-  CHOOSE_GRID_COMPACT,
-  CHOOSE_GRID_SPLIT,
-  PeopleGrid,
-} from "./choose/people-grid.tsx";
+import { ChooseBodySkeleton } from "./choose/choose-skeleton.tsx";
+import { PeopleGrid } from "./choose/people-grid.tsx";
 import {
   PersonaSpotlight,
   StudioPillars,
@@ -36,29 +32,6 @@ import { StudioFooter } from "./choose/studio-footer.tsx";
 import { ThemeToggle } from "./choose/theme-toggle.tsx";
 
 const RETRY_CHOICES_MS = 2000;
-const PLACEHOLDER_CARDS = 6;
-
-/** Cards of the final size and anatomy, with no words. */
-function Placeholders(props: { compact: boolean }): ReactNode {
-  return (
-    <ul className={props.compact ? CHOOSE_GRID_COMPACT : CHOOSE_GRID_SPLIT}>
-      {Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (
-        <li
-          key={i}
-          aria-hidden="true"
-          data-placeholder
-          className="flex min-h-[5.5rem] items-start gap-3.5 rounded-surface border border-line bg-raised p-4"
-        >
-          <Skeleton className="size-avatar-lg shrink-0 rounded-full" />
-          <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
-            <Skeleton className="h-4 w-28 rounded-micro" />
-            <Skeleton className="h-3.5 w-44 max-w-full rounded-micro" />
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 // with no list to draw, the alert above it says why when there is a reason
 const nothing = (): ReactNode => null;
@@ -202,7 +175,9 @@ export function ChooseScreen(props: {
 
   const render: SurfaceRenderers = {
     ...WITHOUT_LIST,
-    loading: () => <Placeholders compact={compact} />,
+    loading: () => (
+      <ChooseBodySkeleton compact={compact} showPillars={person === null} />
+    ),
     ready: () => (
       <div
         className="mn-choose-split animate-in fade-in-0 duration-(--dur-fast) ease-out"

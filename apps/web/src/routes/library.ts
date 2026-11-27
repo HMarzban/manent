@@ -10,6 +10,7 @@ import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
 import type { MeResult } from "../api.ts";
 import { firstRunPath, loadScreen } from "../router.tsx";
+import { ChooseRoutePending } from "../screens/choose/choose-skeleton.tsx";
 import { CONTINUE_VIEW_ID } from "../screens/library/library-address.ts";
 import { isLibraryViewId } from "../screens/library/view-ids.ts";
 import { routeConfirmMe } from "../services/api-cache.ts";
@@ -145,6 +146,7 @@ export function libraryRoutes(
       const setPerson = usePerson((s) => s.setPerson);
       return createElement(ChooseScreen, { api, person, setPerson, next });
     },
+    pendingComponent: ChooseRoutePending,
     errorComponent: ScreenProblem,
   });
 

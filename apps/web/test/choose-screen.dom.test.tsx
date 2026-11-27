@@ -15,6 +15,10 @@ import type { Root } from "react-dom/client";
 import type { Api, SignInResult } from "../src/api.ts";
 import { resetBrowserInstallStore } from "../src/pwa/install.ts";
 import { ChooseScreen } from "../src/screens/choose.tsx";
+import {
+  ChooseBodySkeleton,
+  ChooseRoutePending,
+} from "../src/screens/choose/choose-skeleton.tsx";
 import { EnvironmentProvider } from "../src/services/context.tsx";
 import type { TabPerson } from "../src/session.ts";
 import { fakeApi, testEnvironment } from "./services.fixtures.ts";
@@ -259,4 +263,37 @@ test("studio footer links to desktop releases, GitHub, and triggers live PWA ins
     await Promise.resolve();
   });
   expect(prompted).toBe(1);
+});
+
+test("Studio Desk body and route skeletons match two-column layout with exact six data-placeholders and zero text", () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  mounted = createRoot(host);
+
+  act(() => {
+    mounted!.render(<ChooseBodySkeleton compact={false} showPillars />);
+  });
+  expect(host.textContent).toBe("");
+  expect(host.querySelectorAll("[data-placeholder]").length).toBe(6);
+  expect(
+    host.querySelector('.mn-choose-split[data-split="two"]'),
+  ).not.toBeNull();
+  expect(host.querySelector(".mn-choose-desk")).not.toBeNull();
+  expect(host.querySelectorAll(".mn-choose-pillar").length).toBe(3);
+
+  act(() => {
+    mounted!.render(<ChooseBodySkeleton compact showPillars={false} />);
+  });
+  expect(host.textContent).toBe("");
+  expect(host.querySelectorAll("[data-placeholder]").length).toBe(6);
+  expect(host.querySelector(".mn-choose-desk")).toBeNull();
+
+  act(() => {
+    mounted!.render(<ChooseRoutePending />);
+  });
+  expect(host.textContent).toBe("");
+  expect(
+    host.querySelector(".mn-choose-stage[aria-busy='true']"),
+  ).not.toBeNull();
+  expect(host.querySelector(".mn-choose-desk")).not.toBeNull();
 });
