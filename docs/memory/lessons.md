@@ -4,6 +4,46 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## CSS @container cannot match its own classes, and row hover must preserve active fill
+
+- Date: 2026-11-27
+
+### What happened
+
+Placing `@container` and `@[42rem]:flex-row` on the same wrapper `<div>` in `SettingsShell` caused desktop viewports (1440 px) to stack the left rail vertically above `<main>` because CSS container queries only evaluate against descendants. Separately, `button:not(:disabled, [aria-disabled="true"]):hover > .mn-row:not([aria-selected="true"])` in `packages/ui/src/theme.css` had higher specificity than `.mn-row[aria-current]` and did not exclude `[aria-current="true"]` or `[aria-current="page"]`, turning active settings-rail tabs grey under the pointer.
+
+### How it was caught
+
+By capturing and visually inspecting live Chromium screenshots of Preferences, Project settings and Workspace settings at 1440 px, 375 px and 200 % interface size.
+
+### Rule
+
+Always place `@container` on an ancestor wrapper strictly above any element carrying `@[…]` container-query utilities. In `packages/ui/src/theme.css`, exclude `[aria-current="true"]` and `[aria-current="page"]` from `.mn-row` hover rules so active tabs and links keep `--bg-selected` under the pointer, and include `a[href]:not([aria-current="page"]):hover > .mn-row` so navigation links match tab hover feedback.
+
+### Enforced by
+
+`apps/web/src/settings-shell/settings-shell.tsx`, `packages/ui/src/theme.css`, `apps/web/test/settings-unify.dom.test.tsx`, `e2e/interface/preferences.e2e.ts` (200 % and 320 px overflow checks) and `tools/test/theme.test.ts`.
+
+## Unify full-page settings through SettingsShell and collapse default-heavy style matrices
+
+- Date: 2026-11-27
+
+### What happened
+
+Preferences, Project settings and Workspace settings had drifted into three separate chrome shells, headers, status bars and responsive breakpoints (viewport `md:` vs container queries, causing horizontal overflow at 200 % interface size), while Project settings rendered all 48 screenplay element style fields open by default with repeated `"As the format sets it"` placeholders that hid real format defaults and pushed Title page, Names and facts, People and Drafts far down the page.
+
+### How it was caught
+
+By a UX and visual review of live Project settings and Preferences screenshots reported as inconsistent and confusing.
+
+### Rule
+
+Build every full-page settings screen on `apps/web/src/settings-shell/` (`SettingsShell`, flat sibling `SettingsCard`s with no card-in-card nesting, and `SettingsNotice`), preserving the direct `div > header > h1` focus contract, `activeNavId={null}` for filter overlays such as `Set by you`, and `@[42rem]` container-query collapse for narrow viewports and 200 % interface sizes. Collapse large format-default grids (such as `ElementStyleRow`) into single-line summaries reading real defaults from `@manent/pagination`, expanding on demand into a two-column editor with `Default: …` placeholders, per-element `Reset`, an `N changed` badge and `Reset all` with Undo.
+
+### Enforced by
+
+`apps/web/test/settings-unify.dom.test.tsx`, `apps/web/test/ux-library-settings.dom.test.tsx`, `e2e/series/project-style.e2e.ts`, `e2e/tour/together-style.e2e.ts` and `docs/development/design-system.md`.
+
 ## Dropdown checkbox clearance specificity and toggle suffixes in menuModel
 
 - Date: 2026-11-27

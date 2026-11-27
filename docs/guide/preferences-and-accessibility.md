@@ -1,6 +1,8 @@
 # Preferences and accessibility
 
-Open **Preferences** with Ctrl+, (⌘, on a Mac) or from the person menu in the Library. A search at the top finds a preference by name. It also answers for things there is nothing to set for, such as "Auto-save" or "Font".
+Open **Preferences** with Ctrl+, (⌘, on a Mac) or from the person menu in the Library. A search at the top finds a preference by name. It also answers for things there is nothing to set for, such as "Auto-save" or "Font". Choose **Set by you** in the left rail to view only preferences you have changed; each changed row carries a quiet accent dot, its default and **Reset**.
+
+Preferences, **Project settings** (`Format and style`, `Names and facts`, `People`, `Drafts`, plus `Templates` for Show and News) and **Workspace settings** (`People`, `Notifications`, `API keys`, `Broadcast`) share one left-rail layout that switches cleanly to a section menu on narrow windows and at 150–200 % interface sizes without sideways scrolling. In Project settings → **Format and style**, **Element style** lists each screenplay element on one collapsed line showing its real format defaults (capitals, spacing, indent and width); click any element to expand and edit it, reset one element, or **Reset all** with Undo.
 
 Preferences are yours: they follow you to every device you sign in from and change nothing for anyone else. The settings under **This browser** stay in the browser they were set in. Script settings (format, paper, (MORE) and (CONT'D)) belong to the script and are shared; they are in **Details → Script**, under Script settings.
 
