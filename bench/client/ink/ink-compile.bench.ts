@@ -6,6 +6,7 @@ import { NotMeasured, benchMode } from "../../env.ts";
 import type { Scenario } from "../../harness.ts";
 import { measurement, sampleMs } from "../../measure.ts";
 import { startBenchDemo } from "../driver.ts";
+import { settled } from "../typing/run-typing.ts";
 
 const KEEPERS_LOGBOOK_PATH = docPath("medium/game-samples/keepers-logbook");
 const ITERATIONS = { quick: 3, standard: 200, full: 200 } as const;
@@ -26,7 +27,7 @@ async function selectTokenInLine(
     .first();
   if ((await line.count()) === 0) return false;
   await line.scrollIntoViewIfNeeded();
-  return line.evaluate((node, wanted) => {
+  const ok = await line.evaluate((node, wanted) => {
     const editable = node.closest<HTMLElement>("[contenteditable]");
     editable?.focus();
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
@@ -48,6 +49,8 @@ async function selectTokenInLine(
     }
     return false;
   }, target);
+  if (ok) await settled(page);
+  return ok;
 }
 
 /** Resolves true once the Ink problem mark matches `present` (true = visible, false = cleared), or false on timeout. */
@@ -139,7 +142,7 @@ const scenario: Scenario = {
             "could not locate '-> dark' in The Keeper's Logbook",
           );
         }
-        await page.keyboard.insertText("cottag");
+        await page.keyboard.type("cottag");
         const ms = await sampleMs(async () => {
           await page.keyboard.press("e");
           const appeared = await waitForProblemState(
@@ -165,7 +168,7 @@ const scenario: Scenario = {
             "could not locate '-> cottage' to restore The Keeper's Logbook",
           );
         }
-        await page.keyboard.insertText("dark");
+        await page.keyboard.type("dark");
         const cleared = await waitForProblemState(
           page,
           false,

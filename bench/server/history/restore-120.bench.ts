@@ -48,6 +48,8 @@ interface Editor {
   /** Resolves at the next CONTROL the room sends this connection. */
   control(): Promise<void>;
   leave(): void;
+  /** Releases the local CRDT replica's memory after leaving. */
+  destroy(): void;
 }
 
 interface HistoryWorld {
@@ -57,6 +59,8 @@ interface HistoryWorld {
   readonly blockIds: readonly string[];
   /** `userId` joins the script as an editor under `clientId`. */
   join(userId: string, clientId: number): Editor;
+  /** Shuts down the sync service and closes owned storage. */
+  close(): Promise<void>;
 }
 
 const ids = (): string => crypto.randomUUID();
@@ -138,6 +142,9 @@ function joined(
     leave() {
       service.receive(peer, { type: "UNSUBSCRIBE", docId, generation: 1 });
     },
+    destroy() {
+      replica.destroy();
+    },
   };
 }
 
@@ -147,6 +154,7 @@ export function createHistoryWorld(options: {
   storage?: Storage;
 }): HistoryWorld {
   const { clock } = fakeClock(T0);
+  const ownsStorage = options.storage === undefined;
   const storage = options.storage ?? createMemoryStorage({ now: clock.now });
   const versions = {
     protocol: PROTOCOL_VERSION,
@@ -182,6 +190,10 @@ export function createHistoryWorld(options: {
     history,
     blockIds: canonicalBlocksOf(options.script).map((b) => String(b.attrs?.id)),
     join: (userId, clientId) => joined(service, docId, { userId, clientId }),
+    async close() {
+      await service.shutdown();
+      if (ownsStorage) storage.close();
+    },
   };
 }
 
@@ -219,31 +231,38 @@ async function restoreTimes(
   const edited = spread(world.blockIds, edits);
   const times: number[] = [];
   let typist: Editor | null = null;
-  for (let n = 1; n <= samples; n++) {
-    // the next typist joins before the last leaves, so the writer's session never ends
-    const next = world.join(WRITER, 1000 + n);
+  try {
+    for (let n = 1; n <= samples; n++) {
+      // the next typist joins before the last leaves, so the writer's session never ends
+      const next = world.join(WRITER, 1000 + n);
+      typist?.leave();
+      typist?.destroy();
+      typist = next;
+      await typist.type(edited);
+      const restores: Awaited<ReturnType<HistoryService["restore"]>>[] = [];
+      times.push(
+        await sampleMs(async () => {
+          restores.push(
+            await history.restore(OWNER, {
+              docId,
+              key: keyOf(n),
+              versionId,
+              scope: { kind: "script" },
+              clientId: null,
+            }),
+          );
+        }),
+      );
+      const restored = restores[0]!;
+      if (!restored.ok)
+        throw new Error(`the restore was refused: ${restored.code}`);
+    }
+    return times;
+  } finally {
     typist?.leave();
-    typist = next;
-    await typist.type(edited);
-    const restores: Awaited<ReturnType<HistoryService["restore"]>>[] = [];
-    times.push(
-      await sampleMs(async () => {
-        restores.push(
-          await history.restore(OWNER, {
-            docId,
-            key: keyOf(n),
-            versionId,
-            scope: { kind: "script" },
-            clientId: null,
-          }),
-        );
-      }),
-    );
-    const restored = restores[0]!;
-    if (!restored.ok)
-      throw new Error(`the restore was refused: ${restored.code}`);
+    typist?.destroy();
+    await world.close();
   }
-  return times;
 }
 
 /** Restores a process when not given: 8 outside quick mode, so five processes give the 40 a p95 is judged over. */

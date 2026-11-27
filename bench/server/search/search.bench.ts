@@ -113,7 +113,7 @@ const scenario: Scenario = {
   workload: null,
   processes: 5,
   async run() {
-    const demo = await startBenchDemo();
+    const demo = await startBenchDemo({ browser: false });
     try {
       const token = await demo.token("dana");
       await waitForHeavySeed({ url: demo.url, token });

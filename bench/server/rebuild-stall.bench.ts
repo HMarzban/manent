@@ -8,6 +8,7 @@ import type { Checkpointer, SyncService } from "@manent/server-core";
 import { fakeClock } from "@manent/server-core/testing";
 import type { FakeClock } from "@manent/server-core/testing";
 import { createMemoryStorage } from "@manent/storage/testing";
+import type { Storage } from "@manent/storage";
 import { encodeReplayUpdates } from "@manent/sync-protocol";
 import { ageScript, editOffline } from "../crdt/aged.ts";
 import { benchMode } from "../env.ts";
@@ -75,6 +76,7 @@ function agedScript(): Script {
 
 interface World {
   clock: FakeClock;
+  storage: Storage;
   service: SyncService;
   docId: string;
   headSeq: number;
@@ -124,7 +126,7 @@ function createWorld(script: Script): World {
       vector: EMPTY_VECTOR,
     },
   );
-  return { clock, service, docId, headSeq };
+  return { clock, storage, service, docId, headSeq };
 }
 
 /** From the moment the quiet timer fires to the end of the announcement. */
@@ -183,9 +185,13 @@ const scenario: Scenario = {
     const replays: number[] = [];
     for (let n = 0; n < SAMPLES[benchMode()]; n++) {
       const world = createWorld(script);
-      rebuilds.push(await rebuildStall(world));
-      replays.push(await replayStall(world, offlineUpdates(script, n), n));
-      await world.service.shutdown();
+      try {
+        rebuilds.push(await rebuildStall(world));
+        replays.push(await replayStall(world, offlineUpdates(script, n), n));
+      } finally {
+        await world.service.shutdown();
+        world.storage.close();
+      }
     }
     return [
       { metric: "rebuild_stall_ms", unit: "ms", samples: rebuilds },

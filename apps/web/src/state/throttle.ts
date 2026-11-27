@@ -1,5 +1,6 @@
 // Publishing at most once per delay, always from a scheduled callback and so never inside the caller's own work.
 
+import { mark } from "@manent/perf";
 import type { Guard } from "./guard.ts";
 
 type Schedule = (fn: () => void, delayMs: number) => () => void;
@@ -43,6 +44,7 @@ const isShallowEqual = (a: object, b: object): boolean => {
 /** A list of flat records published every 250 ms at most, the latest at the end, never while `composing()`. An item equal to the one at its index keeps that one's reference, and an unchanged list is not published. Each publish is checked with `guard` under `name`. */
 export function createThrottledList<T extends object>(options: {
   name: string;
+  markName?: string;
   guard: Guard;
   schedule: Schedule;
   composing: () => boolean;
@@ -54,6 +56,22 @@ export function createThrottledList<T extends object>(options: {
   let current: readonly T[] = [];
   let latest: readonly T[] = current;
   const listeners = new Set<() => void>();
+  const commit = (): void => {
+    const next = latest.map((item, i) => {
+      const before = current[i];
+      return before !== undefined && isShallowEqual(before, item)
+        ? before
+        : item;
+    });
+    if (
+      next.length === current.length &&
+      next.every((item, i) => item === current[i])
+    )
+      return;
+    options.guard.check(options.name);
+    current = next;
+    for (const listener of listeners) listener();
+  };
   const publishing = throttle(
     {
       delayMs: THROTTLE_MS,
@@ -61,20 +79,8 @@ export function createThrottledList<T extends object>(options: {
       paused: options.composing,
     },
     () => {
-      const next = latest.map((item, i) => {
-        const before = current[i];
-        return before !== undefined && isShallowEqual(before, item)
-          ? before
-          : item;
-      });
-      if (
-        next.length === current.length &&
-        next.every((item, i) => item === current[i])
-      )
-        return;
-      options.guard.check(options.name);
-      current = next;
-      for (const listener of listeners) listener();
+      if (options.markName !== undefined) mark(options.markName, commit);
+      else commit();
     },
   );
   return {

@@ -1,5 +1,6 @@
 // The editor's facts, one primitive each: written by the bridge, published once per frame, read one key at a time.
 
+import { mark } from "@manent/perf";
 import type { Alignment } from "@manent/schema";
 import { useContext, useMemo, useSyncExternalStore } from "react";
 import { FactsContext } from "./bridge-contexts.ts";
@@ -108,10 +109,12 @@ export function createFactsStore(options: {
       .filter(isFactKey)
       .filter((key) => !Object.is(next[key], current[key]));
     if (changed.length === 0) return;
-    options.guard.check("facts");
-    current = next;
-    for (const key of changed)
-      for (const listener of listeners.get(key) ?? []) listener();
+    mark("ui.facts.publish", () => {
+      options.guard.check("facts");
+      current = next;
+      for (const key of changed)
+        for (const listener of listeners.get(key) ?? []) listener();
+    });
   };
 
   return {

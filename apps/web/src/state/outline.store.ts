@@ -50,7 +50,11 @@ export function createOutlineStore(options: {
   schedule: (fn: () => void, delayMs: number) => () => void;
   composing: () => boolean;
 }): { writer: OutlineWriter; selectors: OutlineSelectors } {
-  const rows = createThrottledList<OutlineRow>({ name: "outline", ...options });
+  const rows = createThrottledList<OutlineRow>({
+    name: "outline",
+    markName: "ui.outline.publish",
+    ...options,
+  });
   let currentBlockId: string | null = null;
   let viewedBlockId: string | null = null;
   // true once publishCurrent runs after the latest publish(rows), so a queued structural publish cannot clobber it

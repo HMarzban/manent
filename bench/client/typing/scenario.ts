@@ -119,15 +119,21 @@ async function twoPagesAbove(page: Page, index: number): Promise<number> {
   return starts[Math.max(0, on - 2)]!;
 }
 
-/** The simulated writer typing at the start of block `block`, five characters a second, until the returned stop. */
+/** The simulated writer typing at the start of block `block`, up to five characters a second, until the returned stop. */
 function startWriter(page: Page, block: number): () => Promise<void> {
-  const typed: Promise<unknown>[] = [];
-  const timer = setInterval(() => {
-    typed.push(editorHook(page, ["remote", "type"], block, 0, "x"));
-  }, WRITER_INTERVAL_MS);
+  const controller = new AbortController();
+  const loop = (async () => {
+    while (!controller.signal.aborted) {
+      const startedAt = performance.now();
+      await editorHook(page, ["remote", "type"], block, 0, "x");
+      const remaining = WRITER_INTERVAL_MS - (performance.now() - startedAt);
+      if (!controller.signal.aborted && remaining > 0)
+        await Bun.sleep(remaining);
+    }
+  })();
   return async () => {
-    clearInterval(timer);
-    await Promise.all(typed);
+    controller.abort();
+    await loop;
   };
 }
 
