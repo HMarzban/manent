@@ -202,7 +202,7 @@ Add `data-closed:hidden` to demo `PopoverContent` surfaces that navigate or swit
 
 ### Enforced by
 
-`apps/web/test/demo-stage.dom.test.tsx`, `apps/web/src/demo/demo-bar-controls.tsx`, `apps/web/src/demo/demo-lab.tsx`, `apps/web/src/demo/reorganise-control.tsx`, `apps/web/src/demo/reset-control.tsx` and `e2e/smoke/demo-skeleton.e2e.ts`.
+`apps/web/test/demo-stage.dom.test.tsx`, `apps/web/src/demo/demo-bar-controls.tsx`, `apps/web/src/demo/demo-lab.tsx`, `apps/web/src/demo/reset-control.tsx` and `e2e/smoke/demo-skeleton.e2e.ts`.
 
 ## Forward benchmark environment overrides explicitly into Docker tier containers
 

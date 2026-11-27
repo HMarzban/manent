@@ -61,8 +61,6 @@ export interface Api {
   writers(request: WritersRequest): Promise<WritersResponse>;
   /** The demo's simulated writers typing in a script now, whichever tab started them; throws for any other answer than 200. */
   runningWriters(docId: string): Promise<WritersResponse>;
-  /** Asks the demo's server to reorganise how a script is stored; throws for any other answer than 200. */
-  rebuild(docId: string): Promise<void>;
 }
 
 export interface ServerControl {
@@ -277,12 +275,6 @@ export function createApi(options: {
       const path = "/api/demo/writers/running";
       const response = await request(path, jsonPost({ docId }));
       return readOk<WritersResponse>(response, `POST ${path}`);
-    },
-
-    async rebuild(docId) {
-      const path = "/api/demo/rebuild";
-      const response = await request(path, jsonPost({ docId }));
-      await readOk(response, `POST ${path}`);
     },
   };
 }

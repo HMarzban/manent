@@ -18,7 +18,6 @@ export const TOUR_TARGETS = [
   "demo:writers",
   "demo:server",
   "demo:timings",
-  "demo:reorganise",
   "demo:reset",
   "ruler",
   "page_lock",

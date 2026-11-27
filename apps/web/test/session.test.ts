@@ -117,7 +117,6 @@ test("a person without an account is chosen without asking the server", async ()
     prepareTour: () => Promise.reject(new Error("not asked")),
     writers: () => Promise.reject(new Error("not asked")),
     runningWriters: () => Promise.reject(new Error("not asked")),
-    rebuild: () => Promise.reject(new Error("not asked")),
     signIn(userId): Promise<SignInResult> {
       asked.push(userId);
       return Promise.resolve({ ok: true, person: LEO });

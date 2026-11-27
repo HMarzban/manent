@@ -8,14 +8,13 @@ import {
 
 const OFFLINE = TOUR.scenarios.filter((s) => s.group === "Go offline");
 
-test("Go offline shows all seven scenarios", () => {
+test("Go offline shows all six scenarios", () => {
   expect(OFFLINE.map((s) => [s.id, s.waitsFor, s.hidden])).toEqual([
     ["offline-write", null, null],
     ["offline-overlap", null, null],
     ["offline-recovered", null, null],
     ["offline-slow", null, null],
     ["offline-server-stopped", null, null],
-    ["offline-reorganised", null, null],
     ["offline-sign-out", null, null],
   ]);
 });

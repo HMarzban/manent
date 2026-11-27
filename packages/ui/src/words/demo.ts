@@ -57,12 +57,6 @@ export const DEMO_WORDS = {
     `${kb < 10 ? kb.toFixed(1) : formatCount(Math.round(kb))} KB`,
   nothingMeasured: "—",
   timingsNote: "Measured in this window since it opened.",
-  reorganise: "Reorganise",
-  reorganiseHint:
-    "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
-  /** The control's label and tooltip from the press until the script's message says it is done. */
-  reorganiseWaiting: "Waiting to reorganise…",
-  reorganiseWaitingHint: "Starts once no one is typing in this script.",
   /** The control and its tooltip; its consequence dialog's title, its confirming button (drawn destructive) and its body. */
   reset: "Reset",
   resetHint:
@@ -108,12 +102,9 @@ export const DEMO_WORDS = {
   pausedOffline: "Paused offline",
   pausedServer: "Paused while the server is stopped",
   openScriptPrompt: "Open a script",
-  needsScriptLab:
-    "Open any script to try live writers or reorganise how it is stored.",
+  needsScriptLab: "Open any script to try live writers.",
   hideDemoBar: "Hide demo bar",
   showDemoBar: "Show demo bar",
-  reorganiseDone: "Script reorganised.",
-  reorganiseRefused: "Couldn't reorganise right now.",
   writersRefused: "Couldn't change demo writers right now.",
   serverRefused: "Couldn't reach the demo right now.",
   resetRefused: "Couldn't reach the demo to reset.",

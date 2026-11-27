@@ -218,7 +218,7 @@ export async function rebuiltAway(browser: Browser): Promise<Page> {
   return sam;
 }
 
-/** Reorganises the open script from the demo bar, and waits until the page says the server has done it. */
+/** Triggers a server compaction for the open script via `/api/demo/rebuild`, and waits until the page says it finished. */
 export async function reorganise(page: Page): Promise<void> {
   // a prior reconnect receipt stays until dismissed and holds the message slot ahead of the rebuild notice
   const receipt = page
@@ -226,19 +226,15 @@ export async function reorganise(page: Page): Promise<void> {
     .filter({ hasText: /changes? synced/ });
   if (await receipt.isVisible())
     await receipt.getByRole("button", { name: "Dismiss" }).click();
-  const button = page.getByRole("button", { name: "Reorganise" });
-  if (!(await button.isVisible().catch(() => false))) {
-    await page
-      .getByRole("region", { name: "Demo" })
-      .getByRole("button", { name: "Demo controls" })
-      .click();
-  }
-  await expect(button).toBeEnabled();
-  const requested = page.waitForResponse(
-    (response) => response.url().includes("/api/demo/rebuild") && response.ok(),
+  const token = await page.evaluate(
+    () =>
+      JSON.parse(sessionStorage.getItem("manent.demo.session") ?? "{}").token,
   );
-  await button.click();
-  await requested;
+  const requested = await page.request.post("/api/demo/rebuild", {
+    headers: { Authorization: `Bearer ${String(token)}` },
+    data: { docId: docIdOf(page) },
+  });
+  expect(requested.ok()).toBe(true);
   // rebuildQuietMs is 10 s and postpones by 10 s if a write/checkpoint is busy, so 35 s covers one postpone under load
   await expect(
     message(page, "Manent reorganised how this script is stored."),

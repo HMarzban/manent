@@ -2,6 +2,7 @@
 import { MATERIAL_WORDS, SELECTION_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import { settled } from "../editor/support.ts";
+import { reorganise } from "../offline/scenarios.ts";
 import {
   SECOND_SCENE_ACTION,
   asPerson,
@@ -63,21 +64,9 @@ test("an offline cut survives Reorganise with no Recovered text", async ({
   await expect.poll(() => pageText(sam)).not.toContain(CUT_TEXT);
   await expect.poll(() => readStatus(sam)).toBe("Saved · Offline, 1 waiting");
 
-  // Dana triggers a server Reorganise while Sam is still offline
+  // Dana triggers a server compaction via /api/demo/rebuild while Sam is still offline
   await expect.poll(() => readStatus(dana)).toBe("Saved · Synced");
-  const reorganiseButton = dana.getByRole("button", { name: "Reorganise" });
-  if (!(await reorganiseButton.isVisible().catch(() => false))) {
-    await dana
-      .getByRole("region", { name: "Demo" })
-      .getByRole("button", { name: "Demo controls" })
-      .click();
-  }
-  await expect(reorganiseButton).not.toHaveAttribute("aria-disabled", "true");
-  await reorganiseButton.click();
-  await dana.keyboard.press("Escape");
-  await expect(
-    message(dana, "Manent reorganised how this script is stored."),
-  ).toBeVisible({ timeout: 40_000 });
+  await reorganise(dana);
 
   // Sam reconnects: the cut replays cleanly with no Recovered text
   await setConnection(sam, "online");

@@ -26,7 +26,6 @@ import type { ComponentType, ReactNode } from "react";
 import type { ConnectionControl } from "./connection-transport.ts";
 import { ConnectionChoice } from "./connection.tsx";
 import { DemoFormatJumps } from "./demo-format-jumps.tsx";
-import { ReorganiseControl } from "./reorganise-control.tsx";
 import { ResetControl } from "./reset-control.tsx";
 import { ServerStatusControl } from "./server-status-control.tsx";
 import type { DemoControl } from "./use-demo.ts";
@@ -234,18 +233,11 @@ export function StageSheet(props: {
                     </Button>
                   </div>
                 ) : (
-                  <>
-                    <WritersControl
-                      docId={docId}
-                      signedIn={signedIn}
-                      unreachable={unreachable}
-                    />
-                    <ReorganiseControl
-                      docId={docId}
-                      signedIn={signedIn}
-                      unreachable={unreachable}
-                    />
-                  </>
+                  <WritersControl
+                    docId={docId}
+                    signedIn={signedIn}
+                    unreachable={unreachable}
+                  />
                 )}
               </div>
 

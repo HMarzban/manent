@@ -123,7 +123,6 @@ export function useTourPopoverSync(options: {
     if (activeDemoTarget === "demo:connection") onOpenLive();
     else if (
       activeDemoTarget === "demo:writers" ||
-      activeDemoTarget === "demo:reorganise" ||
       activeDemoTarget === "demo:reset" ||
       (activeDemoTarget === "demo:server" && !serverStopped)
     ) {

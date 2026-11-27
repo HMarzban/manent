@@ -154,6 +154,9 @@ test("Concept A Demo Stage unifies Tour story tracks and Demo controls, adapts p
   await demoBar.getByRole("button", { name: DEMO_WORDS.proofLab }).click();
   await expect(sheet).toBeVisible();
   await expect(sheet.locator("input[type='range']")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Reorganise" })).toHaveCount(
+    0,
+  );
   if (shotDir !== null) {
     await page.screenshot({
       path: `${shotDir}/stage-controls-script-dark.png`,

@@ -592,11 +592,6 @@ test("the screens' words are the design's", () => {
     bytes: ["50 KB", "9.3 KB"],
     nothingMeasured: "—",
     timingsNote: "Measured in this window since it opened.",
-    reorganise: "Reorganise",
-    reorganiseHint:
-      "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
-    reorganiseWaiting: "Waiting to reorganise…",
-    reorganiseWaitingHint: "Starts once no one is typing in this script.",
     reset: "Reset",
     resetHint:
       "Every workspace goes back to its seeded state, for everyone using this demo.",
@@ -638,12 +633,9 @@ test("the screens' words are the design's", () => {
     pausedOffline: "Paused offline",
     pausedServer: "Paused while the server is stopped",
     openScriptPrompt: "Open a script",
-    needsScriptLab:
-      "Open any script to try live writers or reorganise how it is stored.",
+    needsScriptLab: "Open any script to try live writers.",
     hideDemoBar: "Hide demo bar",
     showDemoBar: "Show demo bar",
-    reorganiseDone: "Script reorganised.",
-    reorganiseRefused: "Couldn't reorganise right now.",
     writersRefused: "Couldn't change demo writers right now.",
     serverRefused: "Couldn't reach the demo right now.",
     resetRefused: "Couldn't reach the demo to reset.",

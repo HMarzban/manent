@@ -144,7 +144,6 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
       endsAt: null,
       placement: null,
     }),
-    rebuild: async () => {},
     ...overrides,
   };
 }

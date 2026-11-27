@@ -89,7 +89,6 @@ const fixtureApi = (options: {
   prepareTour: NEVER,
   writers: NEVER,
   runningWriters: NEVER,
-  rebuild: NEVER,
 });
 
 interface Row {
