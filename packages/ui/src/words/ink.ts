@@ -44,4 +44,23 @@ export const INK_WORDS = Object.freeze({
   choicesLabel: "Choices",
   choiceLabel: (n: number, text: string): string => `Choice ${n}: ${text}`,
   lineDescription: (line: number): string => `Line ${line}`,
+  flagsToggle: (n: number): string => `Flags (${formatCount(n)})`,
+  flagsEdited: "Flags edited",
+  cuesToggle: "Cues",
+  cuesShowLabel: "Show emote, camera and engine cues",
+  cuesHideLabel: "Hide emote, camera and engine cues",
+  sceneSelectLabel: "Start scene",
+  sceneOption: (n: number, heading: string): string =>
+    heading === "" ? "Opening" : `${n}. ${heading}`,
+  needsCaretInScene: "needs the caret in a scene",
+  emptyGameScriptTitle: "Nothing to play yet",
+  emptyGameScriptDetail:
+    "Write a scene, dialogue or branching choices on the page to play them here.",
+  cueEmote: "Emote",
+  cueCamera: "Camera",
+  cueEngine: "Engine",
+  cueCondition: "When",
+  cueSet: "Set",
+  cueTag: "Tag",
+  jumpToBlock: "See in script",
 });

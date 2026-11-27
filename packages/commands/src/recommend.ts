@@ -172,10 +172,8 @@ function suggestedCandidates(signals: RecommendationSignals): string[] {
   }
 
   if (ctx.format === "ink" || ctx.format === "game") {
-    if (ctx.format === "ink") {
-      if (signals.besideOpen) add("ink.restart", "ink.back");
-      add("ink.play", "ink.playFromHere");
-    }
+    if (signals.besideOpen) add("ink.restart", "ink.back");
+    add("ink.play", "ink.playFromHere");
     add("doc.export", "doc.openBeside", "edit.find", "history.open");
     return ids;
   }

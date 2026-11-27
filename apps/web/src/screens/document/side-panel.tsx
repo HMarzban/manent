@@ -27,7 +27,9 @@ export function SidePanel(props: {
         <SidePosition docId={props.docId} tabs={SIDE_PANEL_TABS} />
       </PanelPlace>
       {beside === null ||
-      (beside.docId === props.docId && beside.kind !== "ink_player") ? null : (
+      (beside.docId === props.docId &&
+        beside.kind !== "ink_player" &&
+        beside.kind !== "game_player") ? null : (
         <BesidePanel open={beside} />
       )}
     </>

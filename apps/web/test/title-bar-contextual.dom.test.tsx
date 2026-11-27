@@ -283,6 +283,45 @@ test("InkPlayButton shows only for Ink, surfaces problem dot and sr-only count, 
   ]).toEqual(["false", true]);
 });
 
+test("InkPlayButton also shows for Game Script, toggles aria-pressed for game_player, and never shows a compile problem dot", async () => {
+  let playRuns = 0;
+  const { container } = mountInContext({
+    context: baseContext({ format: "game" }),
+    format: "game",
+    handlers: {
+      "ink.play": () => {
+        playRuns += 1;
+        openBeside(DOC_ID, "game_player", null);
+      },
+    },
+    element: <InkPlayButton docId={DOC_ID} />,
+  });
+
+  const btn = () =>
+    container.querySelector(
+      '[data-tour="title:ink-play"]',
+    ) as HTMLButtonElement;
+  expect(btn()).not.toBeNull();
+  expect([
+    btn().getAttribute("aria-pressed"),
+    btn().querySelector(".mn-status-dot"),
+    btn().getAttribute("aria-describedby"),
+  ]).toEqual(["false", null, null]);
+
+  await click(btn());
+  expect([
+    playRuns,
+    btn().getAttribute("aria-pressed"),
+    btn().querySelector(".mn-status-dot"),
+  ]).toEqual([1, "true", null]);
+
+  await click(btn());
+  expect([
+    btn().getAttribute("aria-pressed"),
+    btn().querySelector(".mn-status-dot"),
+  ]).toEqual(["false", null]);
+});
+
 function makeRundownView(
   rows: {
     id: string;

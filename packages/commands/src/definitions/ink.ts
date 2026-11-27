@@ -1,4 +1,4 @@
-// Commands for the Ink player Beside: Play, Play from here, Back, and Restart.
+// Commands for the interactive player Beside on Ink and Game Scripts: Play, Play from here, Back, and Restart.
 import type { Chord, PlatformKeys } from "../chord.ts";
 import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
@@ -8,8 +8,8 @@ const same = (...keys: Chord[]): PlatformKeys =>
 
 const NO_KEYS = same();
 
-const isInkOpen = (ctx: CommandContext): boolean =>
-  ctx.docOpen && ctx.format === "ink";
+const isPlayableOpen = (ctx: CommandContext): boolean =>
+  ctx.docOpen && (ctx.format === "ink" || ctx.format === "game");
 
 const BESIDE = Object.freeze({ surface: "beside", focus: "first" } as const);
 
@@ -24,11 +24,11 @@ export const INK_COMMANDS = defineCommands([
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: isInkOpen,
+    visible: isPlayableOpen,
     checked: null,
     passThrough: null,
     menus: [{ menu: "title", group: "play", order: 10, submenu: null }],
-    palette: { keywords: ["ink", "player", "run"] },
+    palette: { keywords: ["ink", "game", "player", "playtest", "run"] },
     opens: BESIDE,
     reach: "self",
     setting: null,
@@ -43,11 +43,11 @@ export const INK_COMMANDS = defineCommands([
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: isInkOpen,
+    visible: isPlayableOpen,
     checked: null,
     passThrough: null,
     menus: [{ menu: "title", group: "play", order: 20, submenu: null }],
-    palette: { keywords: ["ink", "knot", "player"] },
+    palette: { keywords: ["ink", "game", "knot", "scene", "player"] },
     opens: BESIDE,
     reach: "self",
     setting: null,
@@ -62,11 +62,11 @@ export const INK_COMMANDS = defineCommands([
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: isInkOpen,
+    visible: isPlayableOpen,
     checked: null,
     passThrough: null,
     menus: [],
-    palette: { keywords: ["ink", "player"] },
+    palette: { keywords: ["ink", "game", "player"] },
     opens: null,
     reach: "self",
     setting: null,
@@ -81,11 +81,11 @@ export const INK_COMMANDS = defineCommands([
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: isInkOpen,
+    visible: isPlayableOpen,
     checked: null,
     passThrough: null,
     menus: [],
-    palette: { keywords: ["ink", "player"] },
+    palette: { keywords: ["ink", "game", "player"] },
     opens: null,
     reach: "self",
     setting: null,

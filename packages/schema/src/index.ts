@@ -111,3 +111,19 @@ export type {
   SourceRange,
   SourceRole,
 } from "./source-kinds.ts";
+export {
+  listGameScenes,
+  replayGameScript,
+  sceneIdForBlock,
+} from "./game-playthrough.ts";
+export type {
+  GameChoiceOption,
+  GameEditedFlag,
+  GameFlag,
+  GameFlagValue,
+  GamePlaythroughOptions,
+  GamePlaythroughResult,
+  GameRecordedChoice,
+  GameSceneSummary,
+  GameTranscriptItem,
+} from "./game-playthrough.ts";

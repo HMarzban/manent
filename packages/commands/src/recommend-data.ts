@@ -93,6 +93,8 @@ export const PALETTE_SYNONYMS: Readonly<Record<string, readonly string[]>> =
     "doc.linesPerPage": ["lines per page", "layout"],
     "project.readRate": ["read speed", "prompter pace"],
     "project.targetPages": ["page goal", "target"],
+    "ink.play": ["playtest", "branch", "branches", "game script", "run"],
+    "ink.playFromHere": ["play scene", "playtest scene", "current scene"],
   });
 
 const EMPTY_SYNONYMS: readonly string[] = Object.freeze([]);

@@ -280,6 +280,31 @@ test("locked production, rundown, ink, library, history and offline states surfa
     }).suggested.slice(0, 2),
   ).toEqual(["ink.play", "ink.playFromHere"]);
 
+  const gameCtx: CommandContext = {
+    ...BASE_CTX,
+    format: "game",
+    docKind: "script",
+    projectKind: "game",
+  };
+  const gameSvc = makeService(gameCtx);
+  expect([
+    recommendPalette({
+      signals: { command: gameCtx, besideOpen: false },
+      usage: [],
+      available: gameSvc.available,
+      now: NOW,
+    }).suggested.slice(0, 2),
+    recommendPalette({
+      signals: { command: gameCtx, besideOpen: true },
+      usage: [],
+      available: gameSvc.available,
+      now: NOW,
+    }).suggested.slice(0, 2),
+  ]).toEqual([
+    ["ink.play", "ink.playFromHere"],
+    ["ink.restart", "ink.back"],
+  ]);
+
   const libraryCtx: CommandContext = {
     ...BASE_CTX,
     screen: "library",

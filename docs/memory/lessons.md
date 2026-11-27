@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Place pure format walkers in `@manent/schema` and keep contextual Play chrome aligned across playable formats
+
+- Date: 2026-11-27
+
+### What happened
+
+Game Script (`script.format = "game"`) is the default format for a new Game project and colours `*`/`**` choices, `-` gathers, `#set` flags and `{condition}` gates on the page, yet `ink.play` and `InkPlayButton` were gated strictly to `format === "ink"`, leaving Game Script writers with no Play button beside **History**. While unifying playback across `game` and `ink`, two build and design-system constraints mattered immediately: (1) `apps/web/test/build.test.ts` marks `packages/formats/` as an on-demand heavy boundary (because it bundles `pdfkit`, `inkjs` and `pdfjs-dist`), so statically importing a Game Script walker from `@manent/formats` in the document screen's Beside registry would bloat eager chunks; and (2) combining the Game Script parser, evaluator and walker (or the Beside player and its toolbar/rows) into single files exceeded `tools/test/size.test.ts`'s 400-line ceiling.
+
+### How it was caught
+
+The missing Play button was caught by live user review on _Twelve on Foot — Chapter 1: Fog Bell_; the `packages/formats/` chunk boundary was caught by inspecting `apps/web/test/build.test.ts` before wiring; and the 400-line ceiling was caught immediately by `tools/test/size.test.ts`.
+
+### Rule
+
+When two formats share syntax that signals the same writer action (such as branching choices on `game` and `ink`), unify the contextual title-bar button, command IDs and Command Palette recommendations across both formats rather than stranding one behind a format check—while dispatching to each format's own appropriate engine. Keep pure, zero-dependency document walkers in `@manent/schema` (alongside `classifyLine` and `prompterBlocks`) so `apps/web` never statically imports `@manent/formats` or `@manent/editor` into eager screen chunks, and split parser, evaluator, toolbar and row modules cleanly below 400 lines.
+
+### Enforced by
+
+`packages/schema/test/game-playthrough.test.ts`, `packages/commands/test/recommend.test.ts`, `apps/web/test/game-player.dom.test.tsx`, `apps/web/test/title-bar-contextual.dom.test.tsx`, `apps/web/test/build.test.ts`, `tools/test/size.test.ts`, and `tools/check-boundaries.ts`.
+
 ## Append new foreground seed steps at the tail, initialise project indexes before asset uploads, and keep Tour targets isolated
 
 - Date: 2026-11-27

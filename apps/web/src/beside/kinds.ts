@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import { SOURCE_BESIDE } from "../copies/start-from/source-beside.tsx";
 import { peekSource } from "../copies/start-from/source-cache.ts";
+import { GAME_PLAYER_BESIDE } from "../game/player/game-player.tsx";
 import { INK_PLAYER_BESIDE } from "../ink/player/ink-player.tsx";
 import { outlineBesideKind } from "../outline-doc/outline-beside.tsx";
 import { ROOM_LOG_BESIDE_KIND } from "../room-log/beside-kind.ts";
@@ -11,7 +12,13 @@ import type { PersonServices } from "../services/ports.ts";
 import { ScriptBeside } from "./script-beside.tsx";
 
 export type BesideKindId =
-  "script" | "outline" | "room_log" | "source" | "story" | "ink_player";
+  | "script"
+  | "outline"
+  | "room_log"
+  | "source"
+  | "story"
+  | "ink_player"
+  | "game_player";
 
 /** Where Open beside's list is asked from: the document open on the page, and the person's workspaces. */
 export interface BesideHere {
@@ -81,4 +88,5 @@ export const BESIDE_KINDS: readonly BesideKind[] = [
   ROOM_LOG_BESIDE_KIND,
   STORY_BESIDE_KIND,
   INK_PLAYER_BESIDE,
+  GAME_PLAYER_BESIDE,
 ];

@@ -130,3 +130,5 @@ The evidence or event that would reopen this.
 - [0082. Smart contextual Command Palette](0082-smart-contextual-command-palette.md)
 - [0083. Smart Command Palette direct jumps, inline numeric prompts and contextual Quick Jumps](0083-smart-palette-direct-jumps-and-inline-numeric-settings.md)
 - [0084. Unified Tour story tracks and Smart Director's Rail demo stage](0084-unified-tour-story-and-smart-demo-stage.md)
+- [0085. Game Script playthrough runs as a pure block walker unified with Ink's Play flow](0085-game-script-playthrough-and-unified-player.md)
+- [0086. Book formatting toolbar and manuscript authoring chrome](0086-book-formatting-toolbar-and-manuscript-authoring.md)

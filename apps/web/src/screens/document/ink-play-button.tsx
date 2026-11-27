@@ -1,4 +1,4 @@
-// Contextual Play button in the script title bar: drawn only for Ink scripts, showing compile problem dot and Beside toggle.
+// Contextual Play button in the script title bar: drawn for Ink and Game Scripts, showing Ink compile problem dot and Beside toggle.
 import {
   Button,
   INK_WORDS,
@@ -18,16 +18,17 @@ import {
   inkCompileClient,
   subscribeInkCompile,
 } from "../../ink/compile-client.ts";
-import { useEnvironment } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 
 /**
- * Quiet ghost trigger directly before History on Ink scripts: toggles the Ink player Beside,
- * surfaces a static attention dot when closed with compile problems, and collapses to icon-only below 2xl.
+ * Quiet ghost trigger directly before History on Ink and Game Scripts: toggles the interactive player Beside,
+ * surfaces a static attention dot when closed with Ink compile problems, and collapses to icon-only below 2xl.
  */
 export function InkPlayButton(props: { readonly docId: string }): ReactNode {
   const { docId } = props;
   const { service, platform } = useCommands();
   const { dom } = useEnvironment();
+  const services = useServices();
   const state = useCommandState("ink.play");
   const beside = useBeside();
   const problemDescId = useId();
@@ -36,7 +37,7 @@ export function InkPlayButton(props: { readonly docId: string }): ReactNode {
     (listener: () => void) => subscribeInkCompile(docId, listener),
     [docId],
   );
-  const problemCount = useSyncExternalStore(
+  const rawProblemCount = useSyncExternalStore(
     subscribe,
     () => inkCompileClient(docId)?.snapshot().problems.length ?? 0,
     () => 0,
@@ -44,8 +45,18 @@ export function InkPlayButton(props: { readonly docId: string }): ReactNode {
 
   if (!state.visible) return null;
 
+  let isInk = true;
+  try {
+    isInk = services.openScriptStore(docId).get("script.format") === "ink";
+  } catch {
+    isInk = true;
+  }
+  const problemCount = isInk ? rawProblemCount : 0;
+
   const open =
-    beside !== null && beside.kind === "ink_player" && beside.docId === docId;
+    beside !== null &&
+    (beside.kind === "ink_player" || beside.kind === "game_player") &&
+    beside.docId === docId;
   const showDot = !open && problemCount > 0;
   const [chord] = state.keys;
   const tooltipText = open

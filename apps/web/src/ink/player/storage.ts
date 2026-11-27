@@ -79,15 +79,16 @@ export interface InkPlaythroughStore {
   dispose(): void;
 }
 
-/** Creates a local-only Ink playthrough store backed by `localStorage["manent.ink.<userId>"]`. */
+/** Creates a local-only playthrough store backed by `localStorage["<keyPrefix>.<userId>"]`. */
 export function createInkPlaythroughStore(options: {
   readonly storage: Storage | null;
   readonly events: StorageEvents;
   readonly userId: string;
+  readonly keyPrefix?: string;
 }): InkPlaythroughStore {
   const map = createLocalMap({
     storage: options.storage,
-    key: `manent.ink.${options.userId}`,
+    key: `${options.keyPrefix ?? "manent.ink"}.${options.userId}`,
     events: options.events,
   });
 
