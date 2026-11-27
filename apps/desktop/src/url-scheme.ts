@@ -84,5 +84,7 @@ export function mainWindowUrl(
 
 /** Builds an in-app navigation URL for an already-running main window. */
 export function scriptWindowUrl(nodeUrl: string, path: string): string {
-  return new URL(path, nodeUrl).toString();
+  const url = new URL(path, nodeUrl);
+  url.searchParams.delete("launch");
+  return url.toString();
 }

@@ -16,9 +16,10 @@ const UNORDERED_ITEM = /^[-*]\s+(.*)$/;
 const HEADING_LINE = /^(#{1,4})\s+(.*)$/;
 const SAFE_HREF = /^(https?:\/\/|\/|\.\/|\.\.\/|#|[a-zA-Z0-9_.-]+\/)/;
 const INLINE_TOKEN = new RegExp(
-  "(`[^`]+`|\\*\\*[^*]+\\*\\*|\\*[^*]+\\*|\\[[^\\]]+\\]\\([^)]+\\))",
-  "g",
+  "(`[^`]+`|<br\\s*\\/?>|\\*\\*[^*]+\\*\\*|\\*[^*]+\\*|(?<![\\w])_[^_\\n]+_(?![\\w])|\\[[^\\]]+\\]\\([^)]+\\))",
+  "gi",
 );
+const BR_TOKEN = new RegExp("^<br\\s*\\/?>$", "i");
 
 function escapeHtml(text: string): string {
   return text
@@ -45,9 +46,10 @@ function renderInline(text: string): string {
     const token = match[0];
     if (token.startsWith("`"))
       out += `<code>${escapeHtml(token.slice(1, -1))}</code>`;
+    else if (BR_TOKEN.test(token)) out += "<br />";
     else if (token.startsWith("**"))
       out += `<strong>${escapeHtml(token.slice(2, -2))}</strong>`;
-    else if (token.startsWith("*"))
+    else if (token.startsWith("*") || token.startsWith("_"))
       out += `<em>${escapeHtml(token.slice(1, -1))}</em>`;
     else {
       const split = token.indexOf("](");
@@ -71,8 +73,26 @@ function renderInline(text: string): string {
 }
 
 function splitRow(line: string): string[] {
-  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split("|").map((cell) => cell.trim());
+  let trimmed = line.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|") && !trimmed.endsWith("\\|"))
+    trimmed = trimmed.slice(0, -1);
+  const cells: string[] = [];
+  let current = "";
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]!;
+    if (ch === "\\" && trimmed[i + 1] === "|") {
+      current += "|";
+      i += 1;
+    } else if (ch === "|") {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
 }
 
 function renderTable(lines: readonly string[]): string {

@@ -18,6 +18,7 @@ import {
 import type { Frame } from "./document-frame.fixtures.tsx";
 
 withDom();
+await import("../src/screens/document/script-settings.tsx");
 
 const HISTORY = "../src/screens/document/history-sections.ts";
 const DETAILS = "../src/screens/document/details-sections.ts";

@@ -102,6 +102,8 @@ export function startPrompterFolderReader(
       reader.releaseLock();
     }
   })();
+  // Avoid unhandled rejections if ready rejects and the caller cleans up with kill() instead of stop().
+  void stdoutDone.catch(() => {});
 
   let stopped = false;
 

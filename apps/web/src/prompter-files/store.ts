@@ -104,7 +104,7 @@ function applyStatus(
         actions: [
           {
             label: PROMPTER_FILES_WORDS.command,
-            commandId: "prompter.files",
+            commandId: "prompter.reopenFiles",
           },
         ],
         lifetime: "until_dismissed",
@@ -253,6 +253,7 @@ export function resetPrompterFilesStore(): void {
 
 export const prompterFilesStore: {
   open(rundownId: string): void;
+  reopen(fallbackDocId?: string | null): void;
   close(): void;
   stop(): void;
 } = Object.freeze({
@@ -264,6 +265,16 @@ export const prompterFilesStore: {
     dialogRundownId = target;
     notify();
   },
+  reopen(fallbackDocId: string | null = null) {
+    const target =
+      unwritableRundownId ??
+      (fallbackDocId !== null && binding?.isRundown?.(fallbackDocId) !== false
+        ? fallbackDocId
+        : null);
+    if (target === null) return;
+    dialogRundownId = target;
+    notify();
+  },
   close() {
     if (dialogRundownId === null) return;
     dialogRundownId = null;
@@ -272,6 +283,7 @@ export const prompterFilesStore: {
   stop() {
     const stoppedPath = status?.path ?? lastPath;
     status = null;
+    lastPath = null;
     activeRunKey = null;
     lastReplaced = 0;
     notify();

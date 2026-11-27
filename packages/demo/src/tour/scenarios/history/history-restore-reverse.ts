@@ -14,7 +14,7 @@ export const HISTORY_RESTORE_REVERSE: TourScenario = {
   },
   steps: [
     {
-      text: "In Sam's window open History, choose \"First draft\", then Restore and Restore 'First draft'.",
+      text: 'In Sam\'s window open History, choose "First draft", then Restore and confirm Restore.',
       highlight: "history.restore",
     },
     { text: "Dana's window says what happened.", highlight: "message_slot" },

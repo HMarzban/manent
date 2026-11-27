@@ -124,6 +124,7 @@ export function createPresentWindows(
       win.on("move", placed);
       win.on("resize", placed);
       win.on("close", () => {
+        windowState.flush();
         if (opened.get(key) === win) opened.delete(key);
       });
       opened.set(key, win);

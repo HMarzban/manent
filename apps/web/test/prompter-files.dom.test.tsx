@@ -60,6 +60,12 @@ function mountHost(options: {
   const host = fakeHost({ platform: "mac" });
   const environment = testEnvironment({
     desktop: host,
+    where: {
+      platform: "mac",
+      shell: "desktop",
+      browser: "Chrome",
+      system: "macOS",
+    },
     tabStorage: new MemoryStorage(),
   });
   writePerson(environment.tabStorage, {
@@ -246,7 +252,7 @@ test("dialog renders S3-PF copy, focuses Cancel, handles Choose…/directory_cho
 
 test("hydrates status, notifies replaced counts as they rise, handles unwritable + reopen, and stops cleanly", async () => {
   const deleted: { auth: string | null }[] = [];
-  const { host, services } = mountHost({
+  const { host, environment, services } = mountHost({
     fetchImpl: async (_input, init) => {
       if (init?.method === "DELETE") {
         deleted.push({
@@ -345,19 +351,44 @@ test("hydrates status, notifies replaced counts as they rise, handles unwritable
   expect(services.messages.current()).toEqual({
     id: "prompter_files.unwritable",
     text: "Stopped writing prompter files: Manent couldn't write to /Users/ana/Prompter.",
-    actions: [{ label: "Prompter files…", commandId: "prompter.files" }],
+    actions: [{ label: "Prompter files…", commandId: "prompter.reopenFiles" }],
     lifetime: "until_dismissed",
     ownWork: false,
   });
   services.messages.dismiss(services.messages.current()!.id);
 
-  act(() => prompterFilesStore.open(STORY_ID));
+  // CommandService runs the S3-PF-18 action cleanly from Library (no open doc) while keeping prompter.files rundown-only
+  expect(services.commands.state("prompter.files").visible).toBe(false);
+  let runFromLibrary: string | undefined;
+  act(() => {
+    runFromLibrary = services.commands.run("prompter.reopenFiles", "control");
+  });
+  expect(runFromLibrary).toBe("ran");
   expect(document.body.textContent).toContain(
     PROMPTER_FILES_WORDS.title("Tue 17 Nov"),
   );
   act(() => prompterFilesStore.close());
 
-  // stop() sends DELETE and pushes S3-PF-16 brief message
+  // Also works from a non-rundown script document
+  act(() =>
+    environment.shellState.set({
+      ...environment.shellState.get(),
+      screen: "document",
+      docId: STORY_ID,
+    }),
+  );
+  expect(services.commands.state("prompter.files").visible).toBe(false);
+  let runFromScript: string | undefined;
+  act(() => {
+    runFromScript = services.commands.run("prompter.reopenFiles", "control");
+  });
+  expect(runFromScript).toBe("ran");
+  expect(document.body.textContent).toContain(
+    PROMPTER_FILES_WORDS.title("Tue 17 Nov"),
+  );
+  act(() => prompterFilesStore.close());
+
+  // stop() sends DELETE and pushes S3-PF-16 brief message once (rapid repeat is idempotent)
   act(() => prompterFilesStore.stop());
   await flush();
   expect(deleted).toEqual([{ auth: "Bearer node-tok" }]);
@@ -368,4 +399,8 @@ test("hydrates status, notifies replaced counts as they rise, handles unwritable
     lifetime: "brief",
     ownWork: false,
   });
+  services.messages.dismiss(services.messages.current()!.id);
+  act(() => prompterFilesStore.stop());
+  await flush();
+  expect(services.messages.current()).toBeNull();
 });

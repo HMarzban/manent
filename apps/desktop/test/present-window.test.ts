@@ -290,4 +290,12 @@ test("createPresentWindows restores and persists placement per role and falls ba
     fullScreen: false,
     firstPaint: [],
   });
+
+  // closing within the debounce window flushes pending placement immediately so reopen restores it
+  const movedAgain: Frame = { x: 180, y: 140, width: 1180, height: 790 };
+  created[0]!.frame = movedAgain;
+  created[0]!.emit("move");
+  created[0]!.emit("close");
+  present.open({ role: "room", docId: DOC_A });
+  expect(created[2]?.frame).toEqual(movedAgain);
 });
