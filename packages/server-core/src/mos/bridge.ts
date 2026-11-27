@@ -99,6 +99,7 @@ export function createMosBridgeService(options: {
   const { storage, sync, feed, clock, lookup, handshakeTimeoutMs } = options;
   const store = createMosConfigStore({ storage, sync });
   const runtimes = new Map<string, WorkspaceRuntime>();
+  const workspaceQueues = new Map<string, Promise<void>>();
   const activeRundowns = new Map<string, ActiveRundown>();
   let messageSeq = 0;
   let stopped = false;
@@ -109,6 +110,7 @@ export function createMosBridgeService(options: {
   };
 
   function closeWorkspaceClient(workspaceId: string): void {
+    workspaceQueues.delete(workspaceId);
     const rt = runtimes.get(workspaceId);
     if (rt === undefined) return;
     rt.client?.close();
@@ -157,25 +159,31 @@ export function createMosBridgeService(options: {
     }
   }
 
-  async function sendBatch(
+  function enqueueBatch(
     workspaceId: string,
     messages: readonly MosMessage[],
-  ): Promise<void> {
+  ): void {
     if (messages.length === 0 || stopped) return;
-    const config = store.readWorkspace(workspaceId);
-    if (config === null || !config.enabled) return;
-    const client = await ensureClient(workspaceId, config);
-    if (client === null) return;
-    const rt = runtimes.get(workspaceId);
-    for (const msg of messages) {
-      try {
-        await client.send(msg);
-        if (rt !== undefined) rt.status = "live";
-      } catch {
-        if (rt !== undefined) rt.status = "lost";
-        break;
+    const prev = workspaceQueues.get(workspaceId) ?? Promise.resolve();
+    const run = async (): Promise<void> => {
+      if (stopped) return;
+      const config = store.readWorkspace(workspaceId);
+      if (config === null || !config.enabled) return;
+      const client = await ensureClient(workspaceId, config);
+      if (client === null) return;
+      const rt = runtimes.get(workspaceId);
+      for (const msg of messages) {
+        try {
+          await client.send(msg);
+          if (rt !== undefined) rt.status = "live";
+        } catch {
+          if (rt !== undefined) rt.status = "lost";
+          break;
+        }
       }
-    }
+    };
+    const next = prev.then(run, run);
+    workspaceQueues.set(workspaceId, next);
   }
 
   function deliverFeedUpdate(
@@ -195,7 +203,7 @@ export function createMosBridgeService(options: {
       nextMessageId,
     });
     entry.lastRo = nextRo;
-    void sendBatch(entry.workspaceId, messages);
+    enqueueBatch(entry.workspaceId, messages);
   }
 
   function attachRundown(opt: MosRundownOptIn): void {
@@ -236,7 +244,7 @@ export function createMosBridgeService(options: {
           dialect: config.dialect,
           nextMessageId,
         });
-        void sendBatch(entry.workspaceId, del);
+        enqueueBatch(entry.workspaceId, del);
       }
     }
   }

@@ -54,6 +54,11 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
     const saveBtn = broadcastSection.locator("[data-tour='mos:save']");
     await expect(saveBtn).toBeVisible();
     await saveBtn.click();
+    await expect(
+      broadcastSection.getByRole("button", {
+        name: BROADCAST_MOS_WORDS.remove,
+      }),
+    ).toBeVisible();
     mosConfigured = true;
 
     await broadcastSection
@@ -80,7 +85,7 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
       (messages) =>
         messages.some((m) => m.kind === "roCreate") &&
         messages.some((m) => m.kind === "roStorySend"),
-      10_000,
+      15_000,
     );
 
     // Step 2: Inside the air window, editing story 01 does NOT push to MOS until Send to prompter is clicked.
@@ -102,6 +107,8 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
 
     const beside = page.locator("[data-tour='beside']");
     await expect(beside).toBeVisible();
+    const besideHeader = beside.locator("header").first();
+    await expect(besideHeader).toContainText("Synced");
     const dialogue = beside.locator("[data-type='dialogue']").first();
     await expect(dialogue).toBeVisible();
     await dialogue.click();
@@ -109,6 +116,9 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
     await page.keyboard.press("End");
     await page.keyboard.type(` ${EDIT_PHRASE}`);
     await settled(page);
+    await expect(dialogue).toContainText(EDIT_PHRASE);
+    // Wait until the edit reaches the server so air-window hold and Send to prompter act on the synced copy.
+    await expect(besideHeader).toContainText("Synced");
 
     // Allow debounce to settle and verify air-window hold prevented unsolicited MOS send.
     await page.waitForTimeout(800);
@@ -123,7 +133,15 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
     await expect(sendBtn).toBeVisible();
     await expect(sendBtn).toContainText(sendWord!);
     await expectEvidence([page], { ...scenario, evidence: [sendWord!] });
-    await sendBtn.click();
+    const [sendResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          new URL(res.url()).pathname === "/api/prompter/send",
+      ),
+      sendBtn.click(),
+    ]);
+    expect(sendResponse.status()).toBe(200);
 
     await mockPrompter.waitFor(
       (messages) =>
@@ -132,7 +150,7 @@ tourScenario("broadcast-mos-bridge", async ({ page, scenario }) => {
             m.kind === "roStorySend" &&
             m.paragraphs.some((p) => p.includes(EDIT_PHRASE)),
         ),
-      10_000,
+      15_000,
     );
   } finally {
     if (mosConfigured) {

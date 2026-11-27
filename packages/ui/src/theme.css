@@ -1446,17 +1446,6 @@ button:not(:disabled, [aria-disabled="true"]):active
   [data-row-menu][data-menu-reveal="hover"] [data-menu-spacer] {
     display: none;
   }
-  [data-row-menu][data-menu-reveal="hover"] [data-menu-handle] {
-    pointer-events: none;
-  }
-  [data-row-menu][data-menu-reveal="hover"]:is(
-      :hover,
-      :focus-within,
-      :has([aria-expanded="true"], [data-popup-open])
-    )
-    [data-menu-handle] {
-    pointer-events: auto;
-  }
   [data-row-menu][data-menu-reveal="hover"]:is(
       :hover,
       :focus-within,
