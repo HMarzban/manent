@@ -4,6 +4,12 @@ export * from "./asset-uploader.ts";
 export * from "./browser.ts";
 export * from "./clear.ts";
 export * from "./idb-store.ts";
+export {
+  IDB_RELEASE_CHANNEL,
+  listenIdbRelease,
+  nudgeIdbRelease,
+} from "./idb-tx.ts";
+export type { IdbBroadcastChannelLike, IdbLifecycleOptions } from "./idb-tx.ts";
 export * from "./leader.ts";
 export * from "./lease.ts";
 export * from "./persist.ts";

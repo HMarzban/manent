@@ -31,6 +31,8 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import type { Api } from "../api.ts";
+import type { OfflineReadinessPort } from "../boot/offline-warm.ts";
+import type { WebUpdateController } from "../boot/sw-lifecycle.ts";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
@@ -321,10 +323,14 @@ export interface Environment {
   where: Where;
   /** The desktop app's shell and node; null on the web. */
   desktop: DesktopHost | null;
-  /** The desktop app's last word on updates in this window, or the check just asked for; null until then, and on the web. */
+  /** The desktop app's or web service worker's last word on updates in this window; null until then. */
   updateState: Subscribable<UpdateState | null> & {
     set(state: UpdateState | null): void;
   };
+  /** Web service worker update controls; absent on desktop and in synthetic test environments. */
+  webUpdate?: WebUpdateController;
+  /** Offline tool cache readiness and manual warm trigger; absent on desktop and in synthetic test environments. */
+  offlineReadiness?: OfflineReadinessPort;
   /** The language the browser asks for ("en-GB"). */
   language: string;
   /** The browser's user agent, which the editor's pages read the browser's engine from. */

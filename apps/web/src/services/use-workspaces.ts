@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { Api } from "../api.ts";
 import { POLL_MS } from "../demo/use-demo.ts";
+import { browserStores, createDeviceMemory } from "./sync/device-memory.ts";
 
 /** The person's workspaces; a server that cannot list them throws, so the query keeps the last list it heard. */
 function listWorkspaces(
@@ -24,7 +25,8 @@ function listWorkspaces(
 
 /**
  * `userId`'s workspaces while `enabled`, asked again every POLL_MS while one is getting ready, so that every place
- * showing how far it has come shows the same count. When `cached` is provided, renders immediately while revalidating.
+ * showing how far it has come shows the same count. Seeds initial data from `cached` (or DeviceMemory when omitted)
+ * as stale so cold offline launches retain remembered workspaces even when `api.me()` fails.
  */
 export function useWorkspaces(
   api: Api,
@@ -35,13 +37,20 @@ export function useWorkspaces(
     onListed?: (workspaces: readonly WorkspaceRef[]) => void;
   },
 ): UseQueryResult<readonly WorkspaceRef[]> {
-  const cached = options?.cached ?? undefined;
+  const remembered =
+    options?.cached !== undefined
+      ? options.cached
+      : enabled
+        ? createDeviceMemory(browserStores()).workspaces(userId)
+        : null;
+  const fallback =
+    remembered !== null && remembered.length > 0 ? remembered : undefined;
   return useQuery({
     queryKey: ["me", userId],
     queryFn: listWorkspaces(api, options?.onListed),
     enabled,
-    placeholderData:
-      cached !== undefined && cached.length > 0 ? cached : undefined,
+    initialData: fallback,
+    initialDataUpdatedAt: fallback !== undefined ? 0 : undefined,
     refetchInterval: (query) =>
       query.state.data?.some((ref) => ref.seeding?.failed === false)
         ? POLL_MS

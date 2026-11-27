@@ -2,8 +2,10 @@ import { expect, test } from "bun:test";
 import { createDoc, jsonMap } from "@manent/crdt";
 import type { DocStatus } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
+import { createValue } from "@manent/ui";
 import { writeProjectArchive } from "../src/archive/project-archive.ts";
-import { fakeApi } from "./services.fixtures.ts";
+import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
+import { MemoryStorage, fakeApi } from "./services.fixtures.ts";
 import { SYNCED_STATUS, fakeHandle } from "./sync.fixtures.ts";
 
 const USER = "0b1c2d3e-4f50-4617-8293-a4b5c6d7e8f9";
@@ -44,7 +46,7 @@ function exportWith(status: DocStatus): Promise<unknown> {
       history: { rows: unread, content: unread },
     },
     SCRIPT,
-    () => 2,
+    () => Date.UTC(2026, 10, 27),
   );
 }
 
@@ -65,4 +67,55 @@ test("a script the device cannot read whole stops the export instead of being wr
   const refusal = `${SCRIPT} cannot be read whole on this device`;
   await expect(exportWith(neverFetched)).rejects.toThrow(refusal);
   await expect(exportWith(removed)).rejects.toThrow(refusal);
+});
+
+test("offline team project archive falls back to DeviceMemory.workspaces when api.me() is unreachable", async () => {
+  const TEAM = "workspace-team-alpha";
+  const storage = new MemoryStorage();
+  createDeviceMemory({ local: storage, session: null }).setWorkspaces(USER, [
+    { id: TEAM, name: "Team Alpha", seeding: null },
+  ]);
+  const index = createDoc();
+  jsonMap(index, "projects").set(PROJECT, {
+    title: "Tidewater",
+    kind: "series",
+    createdAt: 1,
+    createdByUserId: USER,
+  });
+  jsonMap(index, "documents").set(SCRIPT, {
+    projectId: PROJECT,
+    title: "Low Water",
+    kind: "script",
+    createdAt: 1,
+    editedAt: null,
+    editedByUserId: null,
+  });
+  const script = fakeHandle(SCRIPT, createDoc());
+  script.status.set({ ...SYNCED_STATUS, link: "offline" });
+  const archive = await writeProjectArchive(
+    {
+      api: fakeApi({ me: async () => ({ ok: false, reason: "unreachable" }) }),
+      userId: USER,
+      storage,
+      openHandle: async (docId) =>
+        docId === indexDocId("workspace", TEAM)
+          ? fakeHandle(docId, index)
+          : docId === SCRIPT
+            ? script
+            : fakeHandle(docId, createDoc()),
+      history: {
+        rows: () =>
+          createValue({
+            rows: [],
+            state: { kind: "ready" },
+            othersCanOpen: null,
+          }),
+        content: async () => null,
+      },
+    },
+    SCRIPT,
+    () => Date.UTC(2026, 10, 27),
+  );
+  expect(archive.name).toBe("Tidewater.zip");
+  expect(archive.bytes.byteLength).toBeGreaterThan(0);
 });

@@ -24,12 +24,18 @@ import type { HistorySource } from "../history/source.ts";
 import { loadArchiveAssetsForProject } from "../send/archive-assets.ts";
 import { fileName } from "../send/script-file.ts";
 import type { WrittenFile } from "../send/script-file.ts";
+import { storageOfServices } from "../services/api-cache.ts";
 import type { PersonServices } from "../services/ports.ts";
+import {
+  browserStores,
+  createDeviceMemory,
+} from "../services/sync/device-memory.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 
 /** What the archive is read with: the person's indexes and scripts, and history's drafts. */
 type ArchiveServices = Pick<PersonServices, "api" | "userId" | "openHandle"> & {
   messages?: PersonServices["messages"];
+  storage?: Storage | null;
   history: Pick<HistorySource, "rows" | "content">;
 };
 
@@ -46,7 +52,18 @@ async function projectOf(
   docId: string,
 ): Promise<ListedProject | null> {
   const me = await services.api.me();
-  const listed = me.ok ? me.me.workspaces.map((w) => w.id) : [];
+  const storage =
+    services.storage !== undefined
+      ? services.storage
+      : (storageOfServices(services as PersonServices) ??
+        browserStores().local);
+  const cached =
+    createDeviceMemory({ local: storage, session: null }).workspaces(
+      services.userId,
+    ) ?? [];
+  const listed = me.ok
+    ? me.me.workspaces.map((w) => w.id)
+    : cached.map((w) => w.id);
   for (const workspaceId of new Set([...listed, services.userId])) {
     const handle = await services.openHandle(
       indexDocId("workspace", workspaceId),

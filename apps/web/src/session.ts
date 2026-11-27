@@ -1,9 +1,12 @@
-// Who this browser tab is. Each tab keeps its own person, so two tabs can be two people.
+// Who this browser tab is. Each tab keeps its own person in sessionStorage so two tabs can be two people,
+// while localStorage mirrors the last-active person and sign-in choices so a cold PWA launch works offline.
 
 import type { SignInChoice } from "@manent/sync-protocol";
 import type { Api, MeResult, SignInResult } from "./api.ts";
 
 export const SESSION_KEY = "manent.demo.session";
+export const LAST_PERSON_KEY = "manent.last.session";
+export const SIGN_IN_CHOICES_KEY = "manent.sign-in.choices";
 
 export interface TabPerson {
   /** Null for a person who has not signed in. */
@@ -28,19 +31,34 @@ export function tabStorage(): TabStorage | null {
   }
 }
 
-function readStored(storage: TabStorage | null): unknown {
+function safeLocalStorage(): TabStorage | null {
   try {
-    const raw = storage?.getItem(SESSION_KEY) ?? null;
-    return raw === null ? null : JSON.parse(raw);
+    return typeof window === "undefined" ? null : window.localStorage;
   } catch {
-    // storage refused, or what it holds is not JSON: the tab has no person
     return null;
   }
 }
 
-/** The person this tab keeps; null when there is none or it cannot be read. */
-export function readPerson(storage: TabStorage | null): TabPerson | null {
-  const value = readStored(storage);
+function isBrowserSessionStorage(storage: TabStorage | null): boolean {
+  if (storage === null) return false;
+  try {
+    return typeof window !== "undefined" && storage === window.sessionStorage;
+  } catch {
+    return false;
+  }
+}
+
+function readJsonAt(storage: TabStorage | null, key: string): unknown {
+  try {
+    const raw = storage?.getItem(key) ?? null;
+    return raw === null ? null : JSON.parse(raw);
+  } catch {
+    // storage refused, or what it holds is not JSON
+    return null;
+  }
+}
+
+function parsePerson(value: unknown): TabPerson | null {
   if (typeof value !== "object" || value === null) return null;
   if (!("token" in value && "userId" in value && "name" in value)) return null;
   const { token, userId, name } = value;
@@ -49,24 +67,110 @@ export function readPerson(storage: TabStorage | null): TabPerson | null {
   return { token, userId, name };
 }
 
-/** Keeps `person` for this tab; when the browser refuses storage, nothing is kept beyond this page load. */
+function serializePerson(person: TabPerson): string {
+  return JSON.stringify({
+    token: person.token,
+    userId: person.userId,
+    name: person.name,
+  });
+}
+
+/**
+ * The person this tab keeps; null when there is none or it cannot be read.
+ * When `storage` is empty (such as a cold PWA launch with empty sessionStorage), falls back to
+ * `fallback` (or `localStorage` when `storage` is the browser's `sessionStorage`) and seeds `storage`
+ * so this tab keeps its own independent copy thereafter.
+ */
+export function readPerson(
+  storage: TabStorage | null,
+  fallback?: TabStorage | null,
+): TabPerson | null {
+  const own = parsePerson(readJsonAt(storage, SESSION_KEY));
+  if (own !== null) return own;
+  const seedStorage =
+    fallback !== undefined
+      ? fallback
+      : isBrowserSessionStorage(storage)
+        ? safeLocalStorage()
+        : null;
+  if (seedStorage === null || seedStorage === storage) return null;
+  const seeded = parsePerson(readJsonAt(seedStorage, LAST_PERSON_KEY));
+  if (seeded !== null) {
+    try {
+      storage?.setItem(SESSION_KEY, serializePerson(seeded));
+    } catch {
+      // storage refused: keep for this page load only
+    }
+  }
+  return seeded;
+}
+
+/**
+ * Keeps `person` for this tab and mirrors it as the last-active person in `fallback` (or `localStorage`
+ * when writing to the browser's `sessionStorage`). Passing `null` clears both so signing out stays signed out.
+ */
 export function writePerson(
   storage: TabStorage | null,
   person: TabPerson | null,
+  fallback?: TabStorage | null,
 ): void {
+  const serialized = person === null ? null : serializePerson(person);
   try {
-    if (person === null) storage?.removeItem(SESSION_KEY);
-    else
-      storage?.setItem(
-        SESSION_KEY,
-        JSON.stringify({
-          token: person.token,
-          userId: person.userId,
-          name: person.name,
-        }),
-      );
+    if (serialized === null) storage?.removeItem(SESSION_KEY);
+    else storage?.setItem(SESSION_KEY, serialized);
   } catch {
     // storage refused: the person store still holds the person for this page load
+  }
+  const mirror =
+    fallback !== undefined
+      ? fallback
+      : isBrowserSessionStorage(storage)
+        ? safeLocalStorage()
+        : null;
+  if (mirror !== null && mirror !== storage) {
+    try {
+      if (serialized === null) mirror.removeItem(LAST_PERSON_KEY);
+      else mirror.setItem(LAST_PERSON_KEY, serialized);
+    } catch {
+      // mirror is best effort
+    }
+  }
+}
+
+function isSignInChoice(value: unknown): value is SignInChoice {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "userId" in value &&
+    "name" in value &&
+    "title" in value &&
+    "registered" in value &&
+    typeof value.userId === "string" &&
+    typeof value.name === "string" &&
+    typeof value.title === "string" &&
+    typeof value.registered === "boolean"
+  );
+}
+
+/** Cached sign-in choices persisted in localStorage for offline chooser availability; null when absent or invalid. */
+export function readCachedChoices(
+  storage?: TabStorage | null,
+): readonly SignInChoice[] | null {
+  const source = storage !== undefined ? storage : safeLocalStorage();
+  const value = readJsonAt(source, SIGN_IN_CHOICES_KEY);
+  return Array.isArray(value) && value.every(isSignInChoice) ? value : null;
+}
+
+/** Persists sign-in choices in localStorage for offline chooser availability. */
+export function writeCachedChoices(
+  choices: readonly SignInChoice[],
+  storage?: TabStorage | null,
+): void {
+  const target = storage !== undefined ? storage : safeLocalStorage();
+  try {
+    target?.setItem(SIGN_IN_CHOICES_KEY, JSON.stringify(choices));
+  } catch {
+    // storage refused: best effort
   }
 }
 

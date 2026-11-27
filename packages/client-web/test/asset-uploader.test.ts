@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import {
   ASSET_MAX_BYTES,
   AssetValidationError,
+  computeAssetCacheCap,
   computeSha256Hex,
   createAssetUploader,
   openIdbAssetStore,
@@ -356,6 +357,60 @@ describe("createAssetUploader", () => {
 
     uploader.destroy();
     expect(revoked).toEqual(["blob:get/1"]);
+    await store.close();
+  });
+
+  test("dynamically caps remote asset cache from storage estimate while keeping pending assets pinned", async () => {
+    const MIB = 1024 * 1024;
+    expect([
+      computeAssetCacheCap(100 * MIB, null),
+      computeAssetCacheCap(100 * MIB, { usage: 0, quota: 1_000 * MIB }),
+      computeAssetCacheCap(100 * MIB, { usage: 20 * MIB, quota: 100 * MIB }),
+      computeAssetCacheCap(100 * MIB, { usage: 95 * MIB, quota: 100 * MIB }),
+      computeAssetCacheCap(5 * MIB, { usage: 0, quota: 1_000 * MIB }),
+    ]).toEqual([100 * MIB, 100 * MIB, 20 * MIB, 10 * MIB, 5 * MIB]);
+
+    const store = await openIdbAssetStore({
+      userId: "user-4",
+      indexedDb: new IDBFactory(),
+    });
+    const evictedCaps: number[] = [];
+    const origEvict = store.evictUploadedLru.bind(store);
+    const wrappedStore = {
+      ...store,
+      putPendingAsset: store.putPendingAsset.bind(store),
+      putUploadedAsset: store.putUploadedAsset.bind(store),
+      markAssetUploaded: store.markAssetUploaded.bind(store),
+      getAsset: store.getAsset.bind(store),
+      listPendingAssets: store.listPendingAssets.bind(store),
+      listProjectAssets: store.listProjectAssets.bind(store),
+      close: store.close.bind(store),
+      evictUploadedLru: (cap: number) => {
+        evictedCaps.push(cap);
+        return origEvict(cap);
+      },
+    };
+    const remotePng = makePng(80, 80);
+    const remoteId = await computeSha256Hex(remotePng);
+    const uploader = createAssetUploader({
+      projectId: "proj-4",
+      store: wrappedStore,
+      isOnline: () => true,
+      maxCacheBytes: 100 * MIB,
+      storageManager: {
+        estimate: async () => ({ usage: 20 * MIB, quota: 100 * MIB }),
+      },
+      createObjectURL: () => "blob:cap/1",
+      revokeObjectURL: () => {},
+      fetch: async () =>
+        new Response(new Uint8Array(remotePng), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        }),
+    });
+    expect(await uploader.resolveAssetUrl(remoteId)).toBe("blob:cap/1");
+    expect(evictedCaps).toEqual([20 * MIB]);
+    uploader.destroy();
     await store.close();
   });
 });

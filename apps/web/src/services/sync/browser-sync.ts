@@ -43,21 +43,34 @@ async function nodeSync(
   };
 }
 
+function readWelcomeWebBuildId(facts: unknown): string | null {
+  if (typeof facts !== "object" || facts === null) return null;
+  const direct: unknown = Reflect.get(facts, "webBuildId");
+  if (typeof direct === "string" && direct.length > 0) return direct;
+  const server: unknown = Reflect.get(facts, "server");
+  if (typeof server === "object" && server !== null) {
+    const nested: unknown = Reflect.get(server, "webBuildId");
+    if (typeof nested === "string" && nested.length > 0) return nested;
+  }
+  return null;
+}
+
 /** `person`'s sync on `deviceId`, in this browser, or through the node of `desktop` when there is one. */
 export async function startBrowserSync(options: {
   desktop: DesktopHost | null;
   person: TabPerson;
   deviceId: string;
   now: () => number;
+  onBuildId?: (buildId: string) => void;
 }): Promise<PersonSync> {
-  const { desktop, person } = options;
+  const { desktop, person, onBuildId } = options;
   const versions = {
     protocol: PROTOCOL_VERSION,
     schema: SCHEMA_VERSION,
     engine: ENGINE_VERSIONS.at(-1)!,
     table: TABLE_VERSION,
   };
-  return createPersonSync({
+  const sync = await createPersonSync({
     person,
     baseUrl: location.origin,
     deviceId: options.deviceId,
@@ -71,4 +84,22 @@ export async function startBrowserSync(options: {
     now: options.now,
     ...(desktop === null ? {} : await nodeSync(person)),
   });
+  if (onBuildId === undefined) return sync;
+  let lastSeen: string | null = null;
+  const notify = (facts: unknown): void => {
+    const webBuildId = readWelcomeWebBuildId(facts);
+    if (webBuildId !== null && webBuildId !== lastSeen) {
+      lastSeen = webBuildId;
+      onBuildId(webBuildId);
+    }
+  };
+  notify(sync.link.get());
+  const stopBuildWatch = sync.link.subscribe(notify);
+  return {
+    ...sync,
+    async dispose() {
+      stopBuildWatch();
+      await sync.dispose();
+    },
+  };
 }

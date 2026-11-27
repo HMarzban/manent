@@ -1,5 +1,7 @@
 // What Manent keeps in this browser: telling whether a person's store exists, and clearing it all.
 import { localDatabaseName } from "./idb-store.ts";
+import { nudgeIdbRelease } from "./idb-tx.ts";
+import type { IdbBroadcastChannelLike } from "./idb-tx.ts";
 
 // every person's database name starts with this
 const DATABASE_PREFIX = localDatabaseName("");
@@ -24,21 +26,38 @@ export async function hasLocalDatabase(
   }
 }
 
-function deleteDatabase(indexedDb: IDBFactory, name: string): Promise<void> {
+export interface DeleteDatabaseOptions {
+  readonly onBlocked?: (event: IDBVersionChangeEvent) => void;
+  readonly createChannel?: (name: string) => IdbBroadcastChannelLike | null;
+}
+
+/** Deletes `name`, nudging peer tabs via `manent:idb-release` and invoking `onBlocked` if another tab holds it open. */
+export function deleteDatabase(
+  indexedDb: IDBFactory,
+  name: string,
+  options?: DeleteDatabaseOptions,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = indexedDb.deleteDatabase(name);
+    request.addEventListener("blocked", (event) => {
+      nudgeIdbRelease(indexedDb, name, options?.createChannel);
+      options?.onBlocked?.(event);
+    });
     request.addEventListener("success", () => resolve());
     request.addEventListener("error", () => reject(request.error));
   });
 }
 
-async function clearDatabases(indexedDb: IDBFactory): Promise<void> {
+async function clearDatabases(
+  indexedDb: IDBFactory,
+  options?: DeleteDatabaseOptions,
+): Promise<void> {
   const names = (await indexedDb.databases()).flatMap(({ name }) =>
     name?.startsWith(DATABASE_PREFIX) ? [name] : [],
   );
   // a database that cannot be deleted is passed over; the others are still deleted
   await Promise.allSettled(
-    names.map((name) => deleteDatabase(indexedDb, name)),
+    names.map((name) => deleteDatabase(indexedDb, name, options)),
   );
 }
 
@@ -59,8 +78,10 @@ export async function clearManentData(options: {
   indexedDb: IDBFactory | null;
   local: Storage | null;
   session: Storage | null;
+  onBlocked?: (event: IDBVersionChangeEvent) => void;
+  createChannel?: (name: string) => IdbBroadcastChannelLike | null;
 }): Promise<void> {
-  const { indexedDb, local, session } = options;
+  const { indexedDb, local, session, onBlocked, createChannel } = options;
   for (const storage of [local, session]) {
     try {
       if (storage) clearKeys(storage);
@@ -69,7 +90,8 @@ export async function clearManentData(options: {
     }
   }
   try {
-    if (indexedDb) await clearDatabases(indexedDb);
+    if (indexedDb)
+      await clearDatabases(indexedDb, { onBlocked, createChannel });
   } catch {
     // a browser that cannot list its databases leaves none that can be found
   }

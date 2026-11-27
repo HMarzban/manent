@@ -1,12 +1,16 @@
 import { expect, test } from "bun:test";
 import type { Api, MeResult, SignInResult } from "../src/api.ts";
 import {
+  LAST_PERSON_KEY,
   SESSION_KEY,
+  SIGN_IN_CHOICES_KEY,
   chooseUrl,
   choosePerson,
   confirmPerson,
+  readCachedChoices,
   readPerson,
   safeNext,
+  writeCachedChoices,
   writePerson,
 } from "../src/session.ts";
 import type { TabStorage } from "../src/session.ts";
@@ -146,4 +150,50 @@ test("next is only ever a path inside the app", () => {
   ])
     expect(safeNext(bad)).toBe("/");
   expect(safeNext("/s/abc")).toBe("/s/abc");
+});
+
+test("cold PWA launch restores last-active person from localStorage while keeping sessionStorage per-tab", () => {
+  const local = fakeStorage();
+  const tab1 = fakeStorage();
+  const tab2 = fakeStorage();
+  const priya = { token: "p-tok", userId: "priya", name: "Priya Nair" };
+
+  writePerson(tab1, LEO, local);
+  expect(local.getItem(LAST_PERSON_KEY)).toBe(
+    '{"token":"tok","userId":"leo","name":"Leo Marsh"}',
+  );
+
+  // Cold launch (empty sessionStorage) seeds from localStorage and copies into tab2's own sessionStorage.
+  expect(readPerson(tab2, local)).toEqual(LEO);
+  expect(tab2.getItem(SESSION_KEY)).toBe(
+    '{"token":"tok","userId":"leo","name":"Leo Marsh"}',
+  );
+
+  // Switching tab2 to Priya keeps tab1 independently on Leo.
+  writePerson(tab2, priya, local);
+  expect([readPerson(tab1, local), readPerson(tab2, local)]).toEqual([
+    LEO,
+    priya,
+  ]);
+
+  // Explicit sign-out clears both tab storage and last-active mirror.
+  writePerson(tab2, null, local);
+  expect([tab2.getItem(SESSION_KEY), local.getItem(LAST_PERSON_KEY)]).toEqual([
+    null,
+    null,
+  ]);
+  expect(readPerson(fakeStorage(), local)).toBeNull();
+});
+
+test("sign-in choices cache round-trips valid entries and ignores corrupt data", () => {
+  const local = fakeStorage();
+  const choices = [
+    { userId: "leo", name: "Leo Marsh", title: "Writer", registered: true },
+    { userId: "you", name: "You", title: "A new person", registered: false },
+  ];
+  writeCachedChoices(choices, local);
+  expect(local.getItem(SIGN_IN_CHOICES_KEY)).not.toBeNull();
+  expect(readCachedChoices(local)).toEqual(choices);
+  local.setItem(SIGN_IN_CHOICES_KEY, '[{"bad":true}]');
+  expect(readCachedChoices(local)).toBeNull();
 });

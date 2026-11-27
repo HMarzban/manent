@@ -6,7 +6,12 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createApi } from "./api.ts";
-import { registerServiceWorker } from "./boot/register-sw.ts";
+import { createOfflineWarm } from "./boot/offline-warm.ts";
+import { setActiveWebUpdate, startSwLifecycle } from "./boot/sw-lifecycle.ts";
+import type {
+  SwLifecycleHandle,
+  WebUpdateController,
+} from "./boot/sw-lifecycle.ts";
 import { afterFirstFrame } from "./desktop/first-frame.ts";
 import type { DesktopHost } from "./desktop/host.ts";
 import { domXml } from "./import/dom-xml.ts";
@@ -20,7 +25,11 @@ import type {
   PersonServices,
   ShellState,
 } from "./services/ports.ts";
-import { tabStorage } from "./session.ts";
+import {
+  readCachedChoices,
+  tabStorage,
+  writeCachedChoices,
+} from "./session.ts";
 import { createShellDom } from "./shell/regions.tsx";
 import { bindGuard, createGuard } from "./state/guard.ts";
 import { createPersonStore } from "./state/person.store.ts";
@@ -39,10 +48,23 @@ const startedAt = markStart();
 const root = document.getElementById("root");
 if (root === null) throw new Error("the page has no #root element");
 
+// the desktop app's node writes the shell's startup values into the page it serves; the web has none, and never loads
+// what reads them. Desktop NEVER registers a web service worker.
+const desktopGlobal: unknown = Reflect.get(window, "manentDesktop");
+
+let swLifecycle: SwLifecycleHandle | null = null;
+let startWebLifecycle: (() => SwLifecycleHandle) | null = null;
+let pendingBuildId: string | null = null;
+
+function notifyServerBuildId(buildId: string): void {
+  if (desktopGlobal !== undefined) return;
+  if (swLifecycle !== null) swLifecycle.notifyBuildId(buildId);
+  else pendingBuildId = buildId;
+}
+
 function registerCurrentServiceWorker(): void {
-  registerServiceWorker({
-    container: "serviceWorker" in navigator ? navigator.serviceWorker : null,
-  });
+  if (desktopGlobal !== undefined) return;
+  startWebLifecycle?.();
 }
 
 function registerServiceWorkerWhenIdle(): void {
@@ -53,6 +75,7 @@ function registerServiceWorkerWhenIdle(): void {
 
 /** Registers the service worker once the page has finished loading and is idle, so precaching never races hydration. */
 function scheduleServiceWorker(): void {
+  if (desktopGlobal !== undefined) return;
   if (document.readyState === "complete") registerServiceWorkerWhenIdle();
   else
     window.addEventListener("load", registerServiceWorkerWhenIdle, {
@@ -66,7 +89,7 @@ const staticFrame = new MutationObserver(() => {
   if (root.querySelector(":scope > .mn-static-frame") !== null) return;
   markEnd("app.frame", startedAt);
   staticFrame.disconnect();
-  scheduleServiceWorker();
+  if (desktopGlobal === undefined) scheduleServiceWorker();
 });
 staticFrame.observe(root, { childList: true });
 
@@ -87,25 +110,72 @@ const runs: string[] = [];
 if (flavour === "test")
   Reflect.set(window, "__manent", { guard, runs, readMarks, domXml });
 
+const schedule = (fn: () => void, delayMs: number): (() => void) => {
+  const timer = setTimeout(fn, delayMs);
+  return () => clearTimeout(timer);
+};
+const frame = (fn: () => void): (() => void) => {
+  const id = requestAnimationFrame(fn);
+  return () => cancelAnimationFrame(id);
+};
+
 /** The world this tab runs in; `desktop` is the desktop app's shell and node, null on the web. */
 function createEnvironment(desktop: DesktopHost | null): Environment {
   const { where, language, userAgent } = readNavigator();
   const origin = browserStorage(window);
+  const updateState = createValue<UpdateState | null>(null);
+  const personServices = createValue<PersonServices | null>(null);
+  let webUpdate: WebUpdateController | undefined;
+  let offlineReadiness: Environment["offlineReadiness"];
+  if (desktop === null && desktopGlobal === undefined) {
+    const swContainer =
+      "serviceWorker" in navigator ? navigator.serviceWorker : null;
+    const ensureLifecycle = (): SwLifecycleHandle => {
+      if (swLifecycle !== null) return swLifecycle;
+      swLifecycle = startSwLifecycle({
+        container: swContainer,
+        updateState,
+        now,
+        schedule,
+        online: () => navigator.onLine,
+        lastKeyAt: () => lastKeyAt,
+        hasBlockingSave: () =>
+          personServices.get()?.closing.guard.failing() !== null,
+      });
+      if (pendingBuildId !== null) {
+        swLifecycle.notifyBuildId(pendingBuildId);
+        pendingBuildId = null;
+      }
+      return swLifecycle;
+    };
+    startWebLifecycle = ensureLifecycle;
+    webUpdate = {
+      check: () => ensureLifecycle().controller.check(),
+      apply: () => ensureLifecycle().controller.apply(),
+      isReady: () =>
+        updateState.get() === "ready" ||
+        (swLifecycle?.controller.isReady() ?? false),
+    };
+    setActiveWebUpdate(webUpdate);
+    offlineReadiness = createOfflineWarm({
+      container: swContainer,
+      now,
+      schedule,
+      frame,
+      lastKeyAt: () => lastKeyAt,
+    }).readiness;
+  }
   return {
     where: { ...where, shell: desktop === null ? "web" : "desktop" },
     desktop,
-    updateState: createValue<UpdateState | null>(null),
+    updateState,
+    ...(webUpdate === undefined ? {} : { webUpdate }),
+    ...(offlineReadiness === undefined ? {} : { offlineReadiness }),
     language,
     userAgent,
     now,
-    schedule(fn, delayMs) {
-      const timer = setTimeout(fn, delayMs);
-      return () => clearTimeout(timer);
-    },
-    frame(fn) {
-      const id = requestAnimationFrame(fn);
-      return () => cancelAnimationFrame(id);
-    },
+    schedule,
+    frame,
     storage: origin.storage,
     storageEvents: origin.events,
     tabStorage: tabStorage(),
@@ -130,8 +200,9 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
         person,
         deviceId,
         now,
+        onBuildId: desktop === null ? notifyServerBuildId : undefined,
       }),
-    personServices: createValue<PersonServices | null>(null),
+    personServices,
   };
 }
 
@@ -139,6 +210,11 @@ const usePerson = createPersonStore(tabStorage());
 const api = createApi({
   fetch,
   getToken: () => usePerson.getState().person?.token ?? null,
+  onBuildId: desktopGlobal === undefined ? notifyServerBuildId : undefined,
+  cachedChoices: {
+    read: () => readCachedChoices(),
+    write: (choices) => writeCachedChoices(choices),
+  },
 });
 const router = createAppRouter({ api, fetch, usePerson });
 const queryClient = new QueryClient({
@@ -168,9 +244,6 @@ function start(
   return environment;
 }
 
-// the desktop app's node writes the shell's startup values into the page it serves; the web has none, and never loads
-// what reads them
-const desktopGlobal: unknown = Reflect.get(window, "manentDesktop");
 if (desktopGlobal === undefined) start(root, null);
 else
   void Promise.all([

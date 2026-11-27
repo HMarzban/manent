@@ -5,6 +5,93 @@ import type { DocMeta, StoredEntry } from "@manent/sync-client";
 /** The IndexedDB database version. A later one adds stores or indexes by `oldVersion`, and never deletes or rekeys one of these. */
 export const LOCAL_STORE_VERSION = 2;
 
+/** BroadcastChannel name used to ask peer tabs to close open IndexedDB handles before an upgrade or delete. */
+export const IDB_RELEASE_CHANNEL = "manent:idb-release";
+
+export interface IdbBroadcastChannelLike {
+  postMessage(message: unknown): void;
+  addEventListener(
+    type: "message",
+    listener: (event: MessageEvent<unknown>) => void,
+  ): void;
+  removeEventListener(
+    type: "message",
+    listener: (event: MessageEvent<unknown>) => void,
+  ): void;
+  close(): void;
+}
+
+export interface IdbLifecycleOptions {
+  readonly onVersionChange?: (event: IDBVersionChangeEvent) => void;
+  readonly onBlocked?: (event: IDBVersionChangeEvent) => void;
+  readonly createChannel?: (name: string) => IdbBroadcastChannelLike | null;
+}
+
+function defaultIdbChannel(
+  indexedDb: IDBFactory,
+  createChannel?: (name: string) => IdbBroadcastChannelLike | null,
+): IdbBroadcastChannelLike | null {
+  if (createChannel !== undefined) return createChannel(IDB_RELEASE_CHANNEL);
+  // Only use the global BroadcastChannel when backed by the browser's real IndexedDB so isolated test factories never cross-talk.
+  if (
+    typeof globalThis.indexedDB === "undefined" ||
+    indexedDb !== globalThis.indexedDB ||
+    typeof BroadcastChannel !== "function"
+  )
+    return null;
+  try {
+    return new BroadcastChannel(IDB_RELEASE_CHANNEL);
+  } catch {
+    return null;
+  }
+}
+
+/** Asks any peer tab holding `dbName` open to close its connection so an upgrade or delete unblocks. */
+export function nudgeIdbRelease(
+  indexedDb: IDBFactory,
+  dbName: string,
+  createChannel?: (name: string) => IdbBroadcastChannelLike | null,
+): void {
+  const channel = defaultIdbChannel(indexedDb, createChannel);
+  if (channel === null) return;
+  try {
+    // BroadcastChannel.postMessage takes only a single payload argument
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin
+    channel.postMessage({ type: "RELEASE_IDB", name: dbName });
+  } catch {
+    // channel blocked or closed
+  } finally {
+    channel.close();
+  }
+}
+
+/** Subscribes to peer release nudges for `dbName`; returns a cleanup function that closes the channel. */
+export function listenIdbRelease(
+  indexedDb: IDBFactory,
+  dbName: string,
+  onRelease: () => void,
+  createChannel?: (name: string) => IdbBroadcastChannelLike | null,
+): () => void {
+  const channel = defaultIdbChannel(indexedDb, createChannel);
+  if (channel === null) return () => {};
+  const onMessage = (event: MessageEvent<unknown>): void => {
+    const data = event.data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      Reflect.get(data, "type") === "RELEASE_IDB" &&
+      Reflect.get(data, "name") === dbName
+    ) {
+      onRelease();
+    }
+  };
+  channel.addEventListener("message", onMessage);
+  return () => {
+    channel.removeEventListener("message", onMessage);
+    channel.close();
+  };
+}
+
 /** Keyed by user as well as by origin, so that two people on one origin never share a database. */
 export function localDatabaseName(userId: string): string {
   return `manent:${userId}`;
@@ -60,22 +147,47 @@ function createAssetsStore(db: IDBDatabase): void {
 export function openLocalDatabase(
   indexedDb: IDBFactory,
   userId: string,
+  lifecycle?: IdbLifecycleOptions,
 ): Promise<IDBDatabase> {
+  const dbName = localDatabaseName(userId);
   return new Promise((resolve, reject) => {
     let request: IDBOpenDBRequest;
     try {
-      request = indexedDb.open(localDatabaseName(userId), LOCAL_STORE_VERSION);
+      request = indexedDb.open(dbName, LOCAL_STORE_VERSION);
     } catch (cause) {
       reject(new StoreError("unavailable", { cause }));
       return;
     }
+    request.addEventListener("blocked", (event) => {
+      nudgeIdbRelease(indexedDb, dbName, lifecycle?.createChannel);
+      lifecycle?.onBlocked?.(event);
+    });
     request.addEventListener("upgradeneeded", (event) => {
       if (event.oldVersion < 1) createLayout(request.result);
       if (event.oldVersion < 2) createAssetsStore(request.result);
     });
     request.addEventListener("success", () => {
       const db = request.result;
-      db.addEventListener("versionchange", () => db.close());
+      let stopRelease: (() => void) | null = null;
+      const cleanup = (): void => {
+        stopRelease?.();
+        stopRelease = null;
+      };
+      stopRelease = listenIdbRelease(
+        indexedDb,
+        dbName,
+        () => {
+          cleanup();
+          db.close();
+        },
+        lifecycle?.createChannel,
+      );
+      db.addEventListener("versionchange", (event) => {
+        cleanup();
+        db.close();
+        lifecycle?.onVersionChange?.(event);
+      });
+      db.addEventListener("close", cleanup);
       resolve(db);
     });
     request.addEventListener("error", () =>

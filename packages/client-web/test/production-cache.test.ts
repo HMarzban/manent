@@ -124,3 +124,82 @@ test("an entry whose baseline does not read is read as nothing", async () => {
   }
   expect(read).toEqual([LOCKED, null, null, null, null, null]);
 });
+
+test("production cache writes with relaxed durability and maps QuotaExceededError to StoreError('quota')", async () => {
+  const durabilities: (IDBTransactionDurability | undefined)[] = [];
+  const baseDb = new IDBFactory();
+  const wrappedFactory = {
+    open(name: string, version?: number) {
+      const req = baseDb.open(name, version);
+      const origAdd = req.addEventListener.bind(req);
+      req.addEventListener = ((
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        opts?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "success") {
+          origAdd("success", (event) => {
+            const db = req.result;
+            const origTx = db.transaction.bind(db);
+            db.transaction = ((
+              storeNames: string | Iterable<string>,
+              mode?: IDBTransactionMode,
+              txOpts?: IDBTransactionOptions,
+            ) => {
+              if (mode === "readwrite") durabilities.push(txOpts?.durability);
+              return origTx(storeNames, mode, txOpts);
+            }) as typeof db.transaction;
+            if (typeof listener === "function") listener(event);
+            else listener.handleEvent(event);
+          });
+          return;
+        }
+        origAdd(type, listener, opts);
+      }) as typeof req.addEventListener;
+      return req;
+    },
+  } as unknown as IDBFactory;
+
+  const cache = createIdbProductionCache({
+    userId: "sam",
+    indexedDb: wrappedFactory,
+  });
+  await cache.write(DOC, LOCKED);
+  expect(durabilities).toEqual(["relaxed"]);
+
+  // QuotaExceededError on transaction abort maps to StoreError("quota").
+  const quotaFactory = {
+    open() {
+      const req = new EventTarget() as unknown as IDBOpenDBRequest;
+      queueMicrotask(() => {
+        const fakeTx = new EventTarget() as unknown as IDBTransaction;
+        Object.defineProperty(fakeTx, "error", {
+          value: new DOMException("quota exceeded", "QuotaExceededError"),
+        });
+        Object.defineProperty(fakeTx, "objectStore", {
+          value: () => ({
+            put: () => {
+              queueMicrotask(() => fakeTx.dispatchEvent(new Event("abort")));
+              return {} as IDBRequest;
+            },
+          }),
+        });
+        const fakeDb = Object.assign(new EventTarget(), {
+          transaction: () => fakeTx,
+          close: () => {},
+        });
+        Object.defineProperty(req, "result", { value: fakeDb });
+        req.dispatchEvent(new Event("success"));
+      });
+      return req;
+    },
+  } as unknown as IDBFactory;
+
+  const quotaCache = createIdbProductionCache({
+    userId: "sam",
+    indexedDb: quotaFactory,
+  });
+  await expect(quotaCache.write(DOC, LOCKED)).rejects.toMatchObject({
+    code: "quota",
+  });
+});

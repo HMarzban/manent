@@ -1,11 +1,15 @@
-// Per-(userId, projectId) AssetUploader pool with tab-session Bearer auth and explicit disposal.
-import { createAssetUploader, openIdbAssetStore } from "@manent/client-web";
+// Per-(userId, projectId) AssetUploader pool with tab-session Bearer auth, startup/reconnect pending drain, and explicit disposal.
+import {
+  createAssetUploader,
+  hasLocalDatabase,
+  openIdbAssetStore,
+} from "@manent/client-web";
 import type {
   AssetFetch,
   AssetUploader,
   IdbAssetStore,
 } from "@manent/client-web";
-import type { MessageQueue } from "@manent/ui";
+import type { MessageQueue, Subscribable } from "@manent/ui";
 import { browserStores } from "../services/sync/device-memory.ts";
 import { readPerson, tabStorage } from "../session.ts";
 import { pushGraphicRefusal } from "./graphic-refusal.ts";
@@ -94,6 +98,109 @@ export function getProjectAssetUploader(
   });
   uploaderPool.set(key, created);
   return created;
+}
+
+export interface VisibilityEventTarget {
+  readonly visibilityState: string;
+  addEventListener(type: "visibilitychange", listener: () => void): void;
+  removeEventListener(type: "visibilitychange", listener: () => void): void;
+}
+
+/**
+ * Inspects `userId`'s IndexedDB asset store for pending uploads across all projects and drains each project's
+ * uploader when online. Avoids creating an IDB database when none exists yet for `userId`.
+ */
+export async function drainPendingAssetsForUser(
+  services: { readonly userId: string; readonly messages?: MessageQueue },
+  overrides?: AssetPoolOverrides,
+): Promise<readonly string[]> {
+  const isOnline =
+    overrides?.isOnline ??
+    (() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  if (!isOnline()) return [];
+  const indexedDb =
+    overrides?.indexedDb !== undefined
+      ? overrides.indexedDb
+      : browserStores().indexedDb;
+  if (indexedDb === null) return [];
+  const exists = await hasLocalDatabase(indexedDb, services.userId);
+  if (exists === false) return [];
+  let projectIds: string[] = [];
+  try {
+    const store = await openIdbAssetStore({
+      userId: services.userId,
+      indexedDb,
+    });
+    try {
+      const pending = await store.listPendingAssets();
+      projectIds = [...new Set(pending.map((row) => row.projectId))];
+    } finally {
+      await store.close();
+    }
+  } catch {
+    return [];
+  }
+  const uploaded: string[] = [];
+  for (const projectId of projectIds) {
+    const pooled = await getProjectAssetUploader(
+      services,
+      projectId,
+      overrides,
+    );
+    if (pooled === null) continue;
+    const result = await pooled.uploader.notifyOnline();
+    uploaded.push(...result.uploaded);
+  }
+  return uploaded;
+}
+
+/**
+ * Starts a lightweight startup and reconnect pending-asset drain for `userId` on `network`, `online`, and
+ * `visibilitychange` so offline-added inline graphics upload even when the user stays on Library.
+ */
+export function startPendingAssetDrain(options: {
+  readonly userId: string;
+  readonly messages?: MessageQueue;
+  readonly network?: Subscribable<boolean>;
+  readonly onlineTarget?: OnlineEventTarget | null;
+  readonly visibilityTarget?: VisibilityEventTarget | null;
+  readonly overrides?: AssetPoolOverrides;
+}): () => void {
+  let stopped = false;
+  const trigger = (): void => {
+    if (stopped) return;
+    void drainPendingAssetsForUser(
+      { userId: options.userId, messages: options.messages },
+      options.overrides,
+    );
+  };
+  const stopNetwork = options.network?.subscribe((online) => {
+    if (online) trigger();
+  });
+  const onlineTarget =
+    options.onlineTarget !== undefined
+      ? options.onlineTarget
+      : typeof window !== "undefined"
+        ? window
+        : null;
+  const visibilityTarget =
+    options.visibilityTarget !== undefined
+      ? options.visibilityTarget
+      : typeof document !== "undefined"
+        ? document
+        : null;
+  const onVisible = (): void => {
+    if (visibilityTarget?.visibilityState === "visible") trigger();
+  };
+  onlineTarget?.addEventListener("online", trigger);
+  visibilityTarget?.addEventListener("visibilitychange", onVisible);
+  if (options.network === undefined || options.network.get()) trigger();
+  return () => {
+    stopped = true;
+    stopNetwork?.();
+    onlineTarget?.removeEventListener("online", trigger);
+    visibilityTarget?.removeEventListener("visibilitychange", onVisible);
+  };
 }
 
 /** Destroys all pooled uploaders, closes IDB connections, and removes `online` listeners for `userId`. */
