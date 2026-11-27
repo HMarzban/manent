@@ -318,13 +318,13 @@ test("SortableLists exposes label and move handle, and SortableArea keeps Escape
     el.getAttribute("aria-label"),
     lists,
     moves,
-    el.querySelector('[role="status"]')?.textContent ?? "",
+    el.parentElement?.querySelector('[role="status"]')?.textContent ?? "",
     escaped,
   ]).toEqual([
     "Beat columns",
     ["Act I", "Act II"],
     [["c1", "act-2", 0]],
-    "Moved Card 1 to position 1 of 1.",
+    "Moved Card 1 to position 1 of 1 in Act II.",
     1,
   ]);
 });

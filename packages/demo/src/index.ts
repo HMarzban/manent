@@ -81,10 +81,13 @@ export {
   TOUR,
   TOUR_FEATURES,
   TOUR_GROUPS,
+  TOUR_HIGHLIGHTS,
   TOUR_ISSUE_CODES,
   TOUR_PREPARATIONS,
   TOUR_RELEASED,
   TOUR_TARGETS,
+  TOUR_TRACKS,
+  findTourTrack,
   isShown,
   validateTour,
 } from "./tour/index.ts";
@@ -97,6 +100,8 @@ export type {
   TourPreparation,
   TourScenario,
   TourTarget,
+  TourTrack,
+  TourTrackId,
   TourWindow,
 } from "./tour/index.ts";
 export * from "./writers/index.ts";

@@ -1,253 +1,392 @@
-// The demo bar's controls, start to end: the person, the Connection, Add writers, the server, Timings, Reorganise,
-// Reset, and at the far end the Tour.
-import {
-  Avatar,
-  Button,
-  CommandButton,
-  DEMO_WORDS,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  useCommandState,
-  useSubscribable,
-} from "@manent/ui";
+// Concept A Smart Director's Rail: Desk, screen-aware Mission Pill, contextual 1-click actions, Live Instrument,
+// Unified 432 px Stage Sheet (Controls + Tour Story Tracks), Tour ring and top-centre collapse.
+import { DEMO_WORDS, useCommandState, useSubscribable } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PanelRightIcon, PowerIcon, SlidersHorizontalIcon } from "lucide-react";
-import { useContext, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { initialsOf } from "../initials.ts";
-import { useAnnouncer } from "../shell/announcer-region.tsx";
-import { useNarrowDemoBar } from "../shell/narrow-window.ts";
-import type { TabPerson } from "../session.ts";
-import { useEnvironment } from "../services/context.tsx";
+import { useCallback, useContext, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { ConnectionMode } from "../services/sync/device-memory.ts";
 import { asUiSubscribable } from "../services/sync/subscribable.ts";
-import { usePanel } from "../state/panels.store.ts";
-import { useTourActive } from "../state/tour.store.ts";
+import type { TabPerson } from "../session.ts";
+import { routeHasTourPanel } from "../shell/shell-screens.ts";
+import { TitleBarDivider } from "../shell/title-bar-pieces.tsx";
 import { FactsContext } from "../state/bridge-contexts.ts";
-import { TEXT, serverStatusText } from "../text.ts";
-import { BarButton } from "./bar-button.tsx";
-import { ConnectionChoice, useConnectionControl } from "./connection.tsx";
-import { BarLabelled } from "./demo-bar-control.tsx";
-import { ReorganiseControl } from "./reorganise-control.tsx";
-import { ResetControl } from "./reset-control.tsx";
-import { Timings } from "./timings.tsx";
-import { SERVER_STATUS_QUERY, useServerState } from "./use-demo.ts";
+import { panelsActions } from "../state/panels.store.ts";
+import {
+  tourActions,
+  useTourActive,
+  useTourBlockedUrl,
+  useTourTrack,
+  useTourVerified,
+} from "../state/tour.store.ts";
+import { serverStatusText } from "../text.ts";
+import { useConnectionControl } from "./connection.tsx";
+import { useDemoWindowActions, useLaunchTourById } from "./demo-actions.ts";
+import { useDemoContext } from "./demo-context.ts";
+import { DeskControl } from "./demo-desk-control.tsx";
+import { StageSheet } from "./demo-lab.tsx";
+import type { StageSheetTab } from "./demo-lab.tsx";
+import {
+  ContextualQuickActions,
+  DemoMissionPill,
+} from "./demo-mission-pill.tsx";
+import {
+  useActiveDemoTourTarget,
+  useBarSurfaceSync,
+  useTourPopoverSync,
+  useWritingFocusAttr,
+} from "./demo-stage-hooks.ts";
+import { TourButton } from "./demo-tour-button.tsx";
+import {
+  ActiveWritersPill,
+  CollapsedDemoTab,
+  HideDemoBarButton,
+  PreShellControls,
+  ServerStatusControl,
+  useCollapsedDemoBar,
+} from "./server-status-control.tsx";
+import { LiveInstrument, useLiveKeystrokeP50 } from "./timings.tsx";
+import { useServerState } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
-import { WritersControl } from "./writers-control.tsx";
+import { useDemoMissionWatcher } from "./use-demo-watcher.ts";
+import { LISTED_TOUR_SCENARIOS, useTourProgress } from "./use-tour-progress.ts";
+import { useScriptWriters } from "./writers-control.tsx";
 
-/**
- * Before a person is chosen the bar holds only the server: every other control acts on the person's sync, or needs the
- * shell, which exists once the tab has a person.
- */
-export function DemoBarControls(props: {
-  person: TabPerson | null;
-  onPersonClick: () => void;
-  control: DemoControl | null;
-  resetting: boolean;
-}): ReactNode {
-  // the shell provides the services and the commands together with the bridge's contexts
-  const inShell = useContext(FactsContext) !== null;
-  const { control } = props;
-  // always one row: short of room labels drop, then secondary controls fold into DemoToolsPopover below sm
-  return (
-    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-2 sm:gap-x-3">
-      <Person person={props.person} onClick={props.onPersonClick} />
-      {inShell ? (
-        <ShellControls control={control} />
-      ) : (
-        control && <ServerControl {...control} resetting={props.resetting} />
-      )}
-    </div>
-  );
-}
-
-/** Before the Connection is known the tab is online, as its sync starts. */
 const ONLINE: Subscribable<ConnectionMode> = Object.freeze({
   get: () => "online",
   subscribe: () => () => {},
 });
 
-/** Compact menu holding secondary demo controls on viewports below `sm` so the bar stays one 32 px row. */
-function DemoToolsPopover(props: { children: ReactNode }): ReactNode {
-  const [open, setOpen] = useState(false);
+type DemoPopover = "desk" | "live" | "lab" | null;
+
+export function DemoBarControls(props: {
+  person: TabPerson | null;
+  onPersonClick: () => void;
+  control: DemoControl | null;
+  resetting: boolean;
+  barRef?: RefObject<HTMLElement | null>;
+}): ReactNode {
+  const inShell = useContext(FactsContext) !== null;
+  const { control, person, onPersonClick, resetting, barRef } = props;
+  if (inShell && person !== null) {
+    return (
+      <ShellControls
+        person={person}
+        onPersonClick={onPersonClick}
+        control={control}
+        barRef={barRef}
+      />
+    );
+  }
   return (
-    <div className="flex shrink-0">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label={TEXT.demoTools}
-              title={TEXT.demoTools}
-            />
-          }
-        >
-          <SlidersHorizontalIcon aria-hidden="true" className="size-icon" />
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          data-surface="demo"
-          className="flex w-auto flex-col gap-2 p-3"
-        >
-          {props.children}
-        </PopoverContent>
-      </Popover>
-    </div>
+    <PreShellControls
+      person={person}
+      onPersonClick={onPersonClick}
+      control={control}
+      resetting={resetting}
+      barRef={barRef}
+    />
   );
 }
 
-function ShellControls(props: { control: DemoControl | null }): ReactNode {
-  const { control } = props;
-  const narrow = useNarrowDemoBar();
+function ShellControls(props: {
+  person: TabPerson;
+  onPersonClick: () => void;
+  control: DemoControl | null;
+  barRef?: RefObject<HTMLElement | null>;
+}): ReactNode {
+  const { person, onPersonClick, control, barRef } = props;
   const connection = useConnectionControl();
   const mode = useSubscribable(
     connection === null ? ONLINE : asUiSubscribable(connection.mode),
   );
   const offline = mode === "offline";
-  // before its first answer, and without a control, the server is taken to be running
+  const slow = mode === "slow";
   const server = useServerState(control);
+  const serverStopped = server === "stopped" || server === "failed";
   const unreachable = offline
     ? DEMO_WORDS.needsConnection
     : server === null || server === "running"
       ? null
       : DEMO_WORDS.needsServer;
-  const { docId } = useSubscribable(useEnvironment().shellState);
-  // Sign in to sync is offered until the person is signed in
+
+  const progress = useTourProgress();
+  const active = useTourActive();
+  const activeTrackId = useTourTrack();
+  const verifiedNotice = useTourVerified();
+  const blockedWindowUrl = useTourBlockedUrl();
+  const ctx = useDemoContext({
+    userId: person.userId,
+    activeTrackId,
+    doneSet: progress.doneSet,
+  });
+  const { docId } = ctx;
   const signedIn = !useCommandState("app.signInToSync").visible;
-  const secondary = (
-    <>
-      <WritersControl
-        docId={docId}
-        signedIn={signedIn}
-        unreachable={unreachable}
-      />
-      {/* the shell is not drawn while the demo resets */}
-      {control && <ServerControl {...control} resetting={false} />}
-      <Timings docId={docId} offline={offline} />
-      <ReorganiseControl
-        docId={docId}
-        signedIn={signedIn}
-        unreachable={unreachable}
-      />
-      {control && <ResetControl {...control} />}
-    </>
-  );
-  return (
-    <>
-      {connection && <ConnectionChoice control={connection} />}
-      {narrow ? <DemoToolsPopover>{secondary}</DemoToolsPopover> : secondary}
-      <Tour />
-    </>
-  );
-}
+  const keystrokeP50 = useLiveKeystrokeP50();
+  const activeDemoTarget = useActiveDemoTourTarget();
+  const writers = useScriptWriters({ docId, signedIn, unreachable });
+  const writersCount = writers.running?.count ?? 0;
 
-/**
- * Opens Choose who you are; its name is the label and the person together ("Person: Dana Reyes"). Not drawn before a
- * person is chosen, when the tab is on that screen and has no person to show.
- */
-function Person(props: {
-  person: TabPerson | null;
-  onClick: () => void;
-}): ReactNode {
-  const { person, onClick } = props;
-  if (person === null) return null;
-  return (
-    <BarLabelled label={TEXT.person} tour="demo:person">
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label={DEMO_WORDS.person(person.name)}
-        onClick={onClick}
-        className="px-1 sm:px-2"
-      >
-        <Avatar
-          name={person.name}
-          initials={initialsOf(person.name)}
-          colour={null}
-          size="sm"
-          decorative
-        />
-        <span className="hidden sm:inline">{person.name}</span>
-      </Button>
-    </BarLabelled>
-  );
-}
-
-function ServerControl(props: DemoControl & { resetting: boolean }): ReactNode {
-  const { client } = props;
-  const queryClient = useQueryClient();
-  const queryKey = [SERVER_STATUS_QUERY, props.id];
-  const answered = useServerState(props);
-  // an answer to a question asked before the reset began says it is still running
-  const state = props.resetting ? "resetting" : answered;
-  const action = useMutation({
-    mutationFn: (kind: "stop" | "start") =>
-      kind === "stop" ? client.stop() : client.start(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  const { launchScenario, startTrack } = useLaunchTourById({
+    openSidePanel: true,
+    connection,
+    control,
+    autoRecover: true,
   });
 
-  const announcer = useAnnouncer();
-  // the bar shows the first answer; only a change is said, so a page that opens does not say the server is running
-  const known = useRef(state);
-  useEffect(() => {
-    const before = known.current;
-    known.current = state;
-    if (before !== null && state !== null && state !== before)
-      announcer.announce(serverStatusText(state));
-  }, [announcer, state]);
-  const kind =
-    state === "running"
-      ? "stop"
-      : state === "stopped" || state === "failed"
-        ? "start"
-        : null;
+  useDemoMissionWatcher({
+    mode,
+    serverStopped,
+    writersCount,
+    keystrokeP50,
+    activeScenarioId: active?.scenarioId ?? null,
+    activeTrackId,
+    doneSet: progress.doneSet,
+    mark: progress.mark,
+    nextAfter: progress.nextAfter,
+  });
+
+  const [openPopover, setOpenPopover] = useState<DemoPopover>(null);
+  const [stageTab, setStageTab] = useState<StageSheetTab>("controls");
+  const [collapsed, persistCollapsed] = useCollapsedDemoBar();
+
+  const closePopover = useCallback(() => setOpenPopover(null), []);
+  const clearBlocked = useCallback(
+    () => tourActions.setBlockedWindow(null),
+    [],
+  );
+
+  useTourPopoverSync({
+    activeDemoTarget,
+    collapsed,
+    serverStopped,
+    onExpand: useCallback(() => persistCollapsed(false), [persistCollapsed]),
+    onOpenLive: useCallback(() => setOpenPopover("live"), []),
+    onOpenLabControls: useCallback(() => {
+      setStageTab("controls");
+      setOpenPopover("lab");
+    }, []),
+    onClose: closePopover,
+  });
+
+  const degraded = offline || slow || serverStopped;
+  const isCollapsed = collapsed && !degraded;
+  const edge = serverStopped ? "danger" : offline || slow ? "attention" : null;
+
+  useBarSurfaceSync(barRef, edge, isCollapsed);
+  useWritingFocusAttr(barRef, degraded || openPopover !== null || isCollapsed);
+
+  const { openSecondWindow, switchInPlace, openPath } = useDemoWindowActions({
+    currentUserId: person.userId,
+    companion: ctx.companion,
+    companionTargetPath: ctx.companionTargetPath,
+    companionNeedsSharedScript: ctx.companionNeedsSharedScript,
+  });
+
+  const handleToggleWriters = useCallback(() => {
+    if (docId !== null && signedIn && writers.canEdit && unreachable === null) {
+      writers.ask(writersCount > 0 ? 0 : 5, "own_scenes");
+    } else {
+      void launchScenario("together-add-writers", activeTrackId);
+    }
+  }, [
+    docId,
+    signedIn,
+    writers,
+    writersCount,
+    unreachable,
+    launchScenario,
+    activeTrackId,
+  ]);
+
+  const activeScenario =
+    active === null
+      ? null
+      : (LISTED_TOUR_SCENARIOS.find((s) => s.id === active.scenarioId) ?? null);
+
+  const serverReadout =
+    control !== null && (!serverStopped || isCollapsed) ? (
+      <span data-slot="bar-status" className="sr-only">
+        {server && serverStatusText(server)}
+      </span>
+    ) : null;
+
+  if (isCollapsed) {
+    return (
+      <>
+        {serverReadout}
+        <CollapsedDemoTab
+          keystrokeP50={keystrokeP50}
+          onExpand={() => persistCollapsed(false)}
+        />
+      </>
+    );
+  }
 
   return (
-    <div data-tour="demo:server" className="flex min-w-0 items-center gap-2">
-      {kind && (
-        <BarButton
-          label={kind === "stop" ? TEXT.stopServer : TEXT.startServer}
-          icon={PowerIcon}
-          drops="later"
-          hint={kind === "stop" ? DEMO_WORDS.stopServerHint : undefined}
-          disabled={action.isPending}
-          onClick={() => action.mutate(kind)}
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 sm:gap-2">
+      {serverReadout}
+
+      <DeskControl
+        person={person}
+        companion={ctx.companion}
+        serverStopped={serverStopped}
+        blockedWindowUrl={blockedWindowUrl}
+        open={openPopover === "desk"}
+        onOpenChange={(next) => setOpenPopover(next ? "desk" : null)}
+        onSwitchInPlace={(userId) => {
+          closePopover();
+          switchInPlace(userId);
+        }}
+        onOpenSecondWindow={() => {
+          closePopover();
+          openSecondWindow();
+        }}
+        onDismissBlocked={clearBlocked}
+        onAllPeople={() => {
+          closePopover();
+          onPersonClick();
+        }}
+      />
+
+      <TitleBarDivider className="hidden sm:block" />
+
+      <DemoMissionPill
+        blockedWindowUrl={blockedWindowUrl}
+        verifiedNotice={verifiedNotice}
+        offline={offline}
+        active={active}
+        activeScenario={activeScenario}
+        suggestedScenario={ctx.suggestedScenario}
+        isLibrary={ctx.screenMode === "library"}
+        onDismissBlocked={clearBlocked}
+        onReconnect={() => connection?.set("online")}
+        onOpenToursTab={() => {
+          setStageTab("tours");
+          setOpenPopover("lab");
+        }}
+        onStartSuggested={() => {
+          closePopover();
+          void launchScenario(ctx.suggestedScenario.id, activeTrackId);
+        }}
+        onNextVerified={(scenarioId) => {
+          tourActions.setVerified(null);
+          void launchScenario(scenarioId, activeTrackId);
+        }}
+        onOpenActiveTour={() => {
+          if (activeScenario !== null) tourActions.select(activeScenario.id);
+          if (routeHasTourPanel(ctx.routeId))
+            panelsActions.open("side", "tour");
+          else {
+            setStageTab("tours");
+            setOpenPopover("lab");
+          }
+        }}
+        onAdvanceActiveStep={() => {
+          if (activeScenario === null || active === null) return;
+          tourActions.open(
+            activeScenario.id,
+            Math.min(activeScenario.steps.length - 1, active.step + 1),
+          );
+        }}
+      />
+
+      <ContextualQuickActions
+        screenMode={ctx.screenMode}
+        offline={offline}
+        writersCount={writersCount}
+        hasConnection={connection !== null}
+        onToggleOffline={() => connection?.set(offline ? "online" : "offline")}
+        onToggleWriters={handleToggleWriters}
+        onOpenSecondWindow={openSecondWindow}
+        onLaunch={(id) => void launchScenario(id, activeTrackId)}
+      />
+
+      {serverStopped && control !== null ? (
+        <ServerStatusControl {...control} resetting={false} inline />
+      ) : (
+        <LiveInstrument
+          docId={docId}
+          connection={connection}
+          mode={mode}
+          serverStopped={serverStopped}
+          keystrokeP50={keystrokeP50}
+          missionShowsReconnect={
+            offline && blockedWindowUrl === null && verifiedNotice === null
+          }
+          open={openPopover === "live"}
+          onOpenChange={(next) => setOpenPopover(next ? "live" : null)}
         />
       )}
-      {/* the first words to go where the bar runs out of room; the shell's announcer says the whole sentence */}
-      <p data-slot="bar-status" className="min-w-0 truncate text-fg-muted">
-        {state && serverStatusText(state)}
-      </p>
-    </div>
-  );
-}
 
-/** Pressed while the side panel shows the Tour; carries a quiet dot while a scenario is in progress. */
-function Tour(): ReactNode {
-  const showing = usePanel("side").tab === "tour";
-  const active = useTourActive() !== null;
-  return (
-    <div className="ms-auto flex shrink-0">
-      <CommandButton
-        id="demo.tour"
-        variant="outline"
-        size="sm"
-        icon={
-          <span className="relative inline-flex items-center">
-            <PanelRightIcon aria-hidden="true" className="size-icon" />
-            {active && !showing ? (
-              <span
-                aria-hidden="true"
-                className="absolute -end-0.5 -top-0.5 size-1.5 rounded-full bg-primary"
-              />
-            ) : null}
-          </span>
-        }
-        pressed={showing}
-      />
+      {writersCount > 0 ? (
+        <ActiveWritersPill
+          count={writersCount}
+          pending={writers.pending}
+          onStop={() => writers.ask(0, "own_scenes")}
+        />
+      ) : null}
+
+      <div className="ms-auto flex shrink-0 items-center gap-1">
+        <StageSheet
+          docId={docId}
+          signedIn={signedIn}
+          unreachable={unreachable}
+          connection={connection}
+          control={control}
+          keystrokeP50={keystrokeP50}
+          serverStopped={serverStopped}
+          companionName={ctx.companion.name}
+          blockedWindowUrl={blockedWindowUrl}
+          progress={progress}
+          activeTrackId={activeTrackId}
+          open={openPopover === "lab"}
+          tab={stageTab}
+          sidePanelOpen={ctx.sideTab !== null}
+          onOpenChange={(next) => {
+            if (next && openPopover !== "lab") setStageTab("controls");
+            setOpenPopover(next ? "lab" : null);
+          }}
+          onTabChange={setStageTab}
+          onOpenSecondWindow={() => {
+            closePopover();
+            openSecondWindow();
+          }}
+          onDismissBlocked={clearBlocked}
+          onOpenScript={() => {
+            closePopover();
+            void launchScenario("offline-write", activeTrackId);
+          }}
+          onStartTrack={(trackId) => {
+            closePopover();
+            void startTrack(trackId, progress.doneSet);
+          }}
+          onOpenPath={(href) => {
+            closePopover();
+            openPath(href);
+          }}
+          onOpenTour={() => {
+            closePopover();
+            if (routeHasTourPanel(ctx.routeId))
+              panelsActions.open("side", "tour");
+            else void launchScenario(ctx.suggestedScenario.id, activeTrackId);
+          }}
+          onHideDemoBar={() => {
+            closePopover();
+            persistCollapsed(true);
+          }}
+        />
+
+        <TitleBarDivider />
+
+        <TourButton progress={progress} />
+
+        <HideDemoBarButton
+          onHide={() => {
+            closePopover();
+            persistCollapsed(true);
+          }}
+        />
+      </div>
     </div>
   );
 }

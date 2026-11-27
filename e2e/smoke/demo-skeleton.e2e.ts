@@ -122,6 +122,7 @@ test("the heading is focused on a first load of each screen", async ({
   await page.reload();
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
   await page.getByRole("button", { name: "Person: Leo Marsh" }).click();
+  await page.getByRole("button", { name: "All demo people…" }).click();
   await expect(
     page.getByRole("heading", { name: "Choose who you are" }),
   ).toBeFocused();
@@ -161,6 +162,7 @@ test("switching person marks the chosen one and comes back to the same place", a
 }) => {
   await signedInAs(page, "leo");
   await page.getByRole("button", { name: "Person: Leo Marsh" }).click();
+  await page.getByRole("button", { name: "All demo people…" }).click();
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
   await expect(
     page.getByRole("button", {
@@ -176,6 +178,7 @@ test("switching person marks the chosen one and comes back to the same place", a
     page.getByRole("button", { name: "Person: Leo Marsh" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Person: Leo Marsh" }).click();
+  await page.getByRole("button", { name: "All demo people…" }).click();
   await page.getByRole("button", { name: /^Ana Costa/ }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
   await expect(
@@ -321,6 +324,10 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
   // the other tab learns of the server's control from the server: it must have it before the server stops
   await expect(serverLine(other)).toHaveText("Server running");
   // a request from the demo's port to its control port: it passes CORS or this line cannot work
+  await page
+    .getByRole("region", { name: "Demo" })
+    .getByRole("button", { name: "Demo controls" })
+    .click();
   await page.getByRole("button", { name: "Stop the server" }).click();
   try {
     await expect(serverLine(page)).toHaveText(
@@ -348,6 +355,10 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
       ).toBeVisible();
     await page.getByRole("button", { name: "Start the server" }).click();
     await expect(serverLine(page)).toHaveText("Server running");
+    await other
+      .getByRole("region", { name: "Demo" })
+      .getByRole("button", { name: "Demo controls" })
+      .click();
     await expect(
       other.getByRole("button", { name: "Stop the server" }),
     ).toBeVisible();

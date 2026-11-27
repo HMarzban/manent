@@ -111,11 +111,18 @@ tourScenario("write-inline-graphics", async ({ page, scenario, step }) => {
     await expect(reloadedGraphic.locator("img").first()).toBeVisible();
   } finally {
     if (wentOffline) {
-      const onlineBtn = page
-        .locator("[data-tour='demo:connection']")
-        .getByRole("button", { name: "Online" });
-      if (await onlineBtn.isVisible().catch(() => false))
-        await onlineBtn.click();
+      const reconnectBtn = page
+        .getByRole("region", { name: DEMO_WORDS.demo })
+        .getByRole("button", { name: DEMO_WORDS.reconnect });
+      if (await reconnectBtn.isVisible().catch(() => false)) {
+        await reconnectBtn.click();
+      } else {
+        const onlineBtn = page
+          .locator("[data-tour='demo:connection']")
+          .getByRole("button", { name: "Online" });
+        if (await onlineBtn.isVisible().catch(() => false))
+          await onlineBtn.click();
+      }
     }
   }
 });

@@ -1,5 +1,6 @@
-// The Tour scenario open in this tab, its active step, and transient set-up refusal; persisted per tab across reloads.
+// The Tour scenario open in this tab, its active step, story track, live verification notice and set-up refusal.
 
+import type { TourTrackId } from "@manent/demo";
 import { useSyncExternalStore } from "react";
 import { createStore } from "zustand";
 import { TOUR_ACTIVE_KEY } from "../demo/tour-progress.ts";
@@ -13,11 +14,21 @@ export interface TourActive {
   readonly step: number;
 }
 
+/** Calm live confirmation shown in the Demo Bar Mission Pill after a proof is verified. */
+export interface TourVerifiedNotice {
+  readonly scenarioId: string;
+  readonly text: string;
+  readonly nextScenarioId: string | null;
+}
+
 export type TourRefusal = Extract<SetupOutcome, { ok: false }>["reason"];
 
 interface TourAt {
   active: TourActive | null;
   selectedId: string | null;
+  activeTrackId: TourTrackId | null;
+  verifiedNotice: TourVerifiedNotice | null;
+  blockedWindowUrl: string | null;
   refusals: Readonly<Record<string, TourRefusal>>;
   locateNonce: number;
 }
@@ -25,6 +36,9 @@ interface TourAt {
 const INITIAL: TourAt = Object.freeze({
   active: null,
   selectedId: null,
+  activeTrackId: null,
+  verifiedNotice: null,
+  blockedWindowUrl: null,
   refusals: Object.freeze({}),
   locateNonce: 0,
 });
@@ -113,9 +127,30 @@ export function useTourLocateNonce(): number {
   return useSyncExternalStore(store.subscribe, read, read);
 }
 
+/** The active guided Tour story track, or null when browsing freely. */
+export function useTourTrack(): TourTrackId | null {
+  const read = (): TourTrackId | null => store.getState().activeTrackId;
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
+/** Latest live verification confirmation for the Demo Bar Mission Pill; null when none. */
+export function useTourVerified(): TourVerifiedNotice | null {
+  const read = (): TourVerifiedNotice | null => store.getState().verifiedNotice;
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
+/** Companion window URL blocked by the browser pop-up blocker, so a clickable link can recover it. */
+export function useTourBlockedUrl(): string | null {
+  const read = (): string | null => store.getState().blockedWindowUrl;
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
 export const tourActions: {
   open(scenarioId: string, step: number): void;
   select(scenarioId: string | null): void;
+  setTrack(trackId: TourTrackId | null): void;
+  setVerified(notice: TourVerifiedNotice | null): void;
+  setBlockedWindow(url: string | null): void;
   setRefusal(scenarioId: string, refusal: TourRefusal | null): void;
   close(): void;
   suppress(): void;
@@ -132,6 +167,7 @@ export const tourActions: {
       ...prev,
       active: next,
       selectedId: scenarioId,
+      verifiedNotice: null,
       locateNonce:
         prev.active?.scenarioId === scenarioId && prev.active.step === step
           ? prev.locateNonce + 1
@@ -142,6 +178,18 @@ export const tourActions: {
   select(scenarioId: string | null) {
     guardWrite("tour");
     store.setState((prev) => ({ ...prev, selectedId: scenarioId }));
+  },
+  setTrack(trackId: TourTrackId | null) {
+    guardWrite("tour");
+    store.setState((prev) => ({ ...prev, activeTrackId: trackId }));
+  },
+  setVerified(notice: TourVerifiedNotice | null) {
+    guardWrite("tour");
+    store.setState((prev) => ({ ...prev, verifiedNotice: notice }));
+  },
+  setBlockedWindow(url: string | null) {
+    guardWrite("tour");
+    store.setState((prev) => ({ ...prev, blockedWindowUrl: url }));
   },
   setRefusal(scenarioId: string, refusal: TourRefusal | null) {
     guardWrite("tour");

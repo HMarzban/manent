@@ -14,6 +14,7 @@ import type { Subscribable } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { isValidActiveTourStep } from "../demo/tour-highlights.ts";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { useFileDrop } from "../import/file-drop.ts";
@@ -203,7 +204,7 @@ function TourFloatingHost(props: { readonly routeId: string }): ReactNode {
   const active = useTourActive();
   const side = usePanel("side").tab;
   useEffect(() => {
-    tourActions.hydrate(tabStorage);
+    tourActions.hydrate(tabStorage, isValidActiveTourStep);
   }, [tabStorage]);
   if (active === null || (routeHasTourPanel(props.routeId) && side === "tour"))
     return null;

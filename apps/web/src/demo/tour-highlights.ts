@@ -1,16 +1,20 @@
-// Curated Tour highlights and multi-window step helpers over the live Tour manifest.
+// Curated Tour highlights, step validation and multi-window step helpers over the live Tour manifest.
+import { TOUR, TOUR_HIGHLIGHTS, isShown } from "@manent/demo";
 import type { TourScenario } from "@manent/demo";
 import { nameOf } from "../services/sync/index-entries.ts";
 
-/** Six flagship scenarios spanning writing, live collaboration, offline survival, production locking and broadcast rundowns. */
-export const TOUR_HIGHLIGHTS: readonly string[] = Object.freeze([
-  "write-true-pages",
-  "together-add-writers",
-  "together-present",
-  "offline-write",
-  "production-locked-page",
-  "rundown-time",
-]);
+export { TOUR_HIGHLIGHTS };
+
+const SHOWN_SCENARIOS = Object.freeze(TOUR.scenarios.filter(isShown));
+
+/** Whether `scenarioId` and zero-based `step` refer to a currently shown Tour step. */
+export function isValidActiveTourStep(
+  scenarioId: string,
+  step: number,
+): boolean {
+  const scenario = SHOWN_SCENARIOS.find((s) => s.id === scenarioId);
+  return scenario !== undefined && step >= 0 && step < scenario.steps.length;
+}
 
 const STEP_WINDOW = new RegExp("^In (\\p{Lu}\\p{Ll}*)'s window", "u");
 

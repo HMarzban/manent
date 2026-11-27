@@ -2997,6 +2997,7 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   border-color: var(--fg-attention);
 }
 .mn-demo-mission-pill[data-verified="true"] {
+  max-width: min(28rem, 48cqi);
   background-color: var(--demo-ok-soft);
   border-color: var(--fg-ok);
 }

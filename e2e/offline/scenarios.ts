@@ -75,10 +75,14 @@ export async function yourNewScript(browser: Browser): Promise<Page> {
 /** Stops the server from the demo bar, as a person does, and starts it again when the test ends. */
 export async function stopFromBar(page: Page): Promise<void> {
   await demoControl(page.request);
-  await page
-    .getByRole("region", { name: "Demo" })
-    .getByRole("button", { name: "Stop the server" })
-    .click();
+  const stopBtn = page.getByRole("button", { name: "Stop the server" });
+  if (!(await stopBtn.isVisible().catch(() => false))) {
+    await page
+      .getByRole("region", { name: "Demo" })
+      .getByRole("button", { name: "Demo controls" })
+      .click();
+  }
+  await stopBtn.click();
   whenDone(() => serverTo(page.request, "running"));
   await expect.poll(() => readStatus(page)).toBe("Saved · Can't reach Manent");
 }
@@ -222,9 +226,13 @@ export async function reorganise(page: Page): Promise<void> {
     .filter({ hasText: /changes? synced/ });
   if (await receipt.isVisible())
     await receipt.getByRole("button", { name: "Dismiss" }).click();
-  const button = page
-    .getByRole("region", { name: "Demo" })
-    .getByRole("button", { name: "Reorganise" });
+  const button = page.getByRole("button", { name: "Reorganise" });
+  if (!(await button.isVisible().catch(() => false))) {
+    await page
+      .getByRole("region", { name: "Demo" })
+      .getByRole("button", { name: "Demo controls" })
+      .click();
+  }
   await expect(button).toBeEnabled();
   const requested = page.waitForResponse(
     (response) => response.url().includes("/api/demo/rebuild") && response.ok(),

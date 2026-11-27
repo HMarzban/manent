@@ -67,17 +67,19 @@ async function mountInRouter(
     root!.render(
       <EnvironmentProvider environment={environment}>
         <ServicesProvider services={services}>
-          <CommandsProvider
-            service={services.commands}
-            resolved={services.resolved}
-            platform="mac"
-          >
-            <TimingProvider timing={timing}>
-              <QueryClientProvider client={queries}>
-                <RouterProvider router={router} />
-              </QueryClientProvider>
-            </TimingProvider>
-          </CommandsProvider>
+          <SettingsProvider store={services.settings}>
+            <CommandsProvider
+              service={services.commands}
+              resolved={services.resolved}
+              platform="mac"
+            >
+              <TimingProvider timing={timing}>
+                <QueryClientProvider client={queries}>
+                  <RouterProvider router={router} />
+                </QueryClientProvider>
+              </TimingProvider>
+            </CommandsProvider>
+          </SettingsProvider>
         </ServicesProvider>
       </EnvironmentProvider>,
     );

@@ -1,34 +1,31 @@
-// Add writers: people the demo's server simulates, typing in the open script, each in a scene of its own or all in
-// the caret's scene.
-import {
-  Button,
-  DEMO_WORDS,
-  Popover,
-  PopoverContent,
-  Segmented,
-  joinNames,
-} from "@manent/ui";
+// Add writers: inline 3-step writer slider (1, 5, 20) and scene placement switch inside Demo controls.
+import { Button, DEMO_WORDS, Segmented, joinNames } from "@manent/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { WRITER_PLACEMENTS } from "@manent/sync-protocol";
 import type {
   WriterPlacement,
   WritersRequest,
   WritersResponse,
 } from "@manent/sync-protocol";
 import { UsersIcon } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
 import { useServices } from "../services/context.tsx";
-import { useEditorFact } from "../state/facts.store.ts";
+import { useAnnouncer } from "../shell/announcer-region.tsx";
+import { FactsContext } from "../state/bridge-contexts.ts";
 import { BarButton } from "./bar-button.tsx";
 import { POLL_MS } from "./use-demo.ts";
 
 const TOUR = "demo:writers";
-const CHOICES = [1, 5, 20].map((n) => ({ value: String(n), label: String(n) }));
+const WRITER_STEPS = [1, 5, 20] as const;
+const PLACEMENT_OPTIONS: readonly { value: WriterPlacement; label: string }[] =
+  Object.freeze([
+    { value: "own_scenes", label: DEMO_WORDS.writersOtherScenes },
+    { value: "caret_scene", label: DEMO_WORDS.writersThisScene },
+  ]);
 /** The first element of the running writers query's key. */
-const WRITERS_QUERY = "demo-writers";
-/** The line over each placement's choice of how many. */
+export const WRITERS_QUERY = "demo-writers";
+/** The accessible label for the active placement's count buttons. */
 const PLACEMENT_LINES: Readonly<Record<WriterPlacement, string>> =
   Object.freeze({
     own_scenes: DEMO_WORDS.writersChoice,
@@ -36,9 +33,9 @@ const PLACEMENT_LINES: Readonly<Record<WriterPlacement, string>> =
   });
 
 /** The writers typing in the script, as the server last told; null when none is. */
-type Running = WritersResponse | null;
+export type RunningWriters = WritersResponse | null;
 
-function labelOf(running: Running): string {
+function labelOf(running: RunningWriters): string {
   if (running === null) return DEMO_WORDS.addWriters;
   const { count, asked } = running;
   return count < asked
@@ -46,8 +43,86 @@ function labelOf(running: Running): string {
     : DEMO_WORDS.writersTyping(count);
 }
 
-const isCount = (value: number): value is WritersRequest["count"] =>
-  value === 0 || value === 1 || value === 5 || value === 20;
+const isPlacement = (value: string): value is WriterPlacement =>
+  value === "own_scenes" || value === "caret_scene";
+
+function stepIndexOf(count: number | undefined): number {
+  const index = WRITER_STEPS.indexOf(count as (typeof WRITER_STEPS)[number]);
+  return index === -1 ? 1 : index;
+}
+
+/** Shared live query + mutation hook for simulated writers on `docId`. */
+export function useScriptWriters(props: {
+  docId: string | null;
+  signedIn: boolean;
+  unreachable: string | null;
+}): {
+  canEdit: boolean;
+  running: RunningWriters;
+  pending: boolean;
+  ask: (count: WritersRequest["count"], placement: WriterPlacement) => void;
+} {
+  const { docId, signedIn, unreachable } = props;
+  const { api } = useServices();
+  const announcer = useAnnouncer();
+  const queryClient = useQueryClient();
+  const facts = useContext(FactsContext);
+  const canEdit = useCanEdit(docId ?? "");
+  const enabled = docId !== null && signedIn && canEdit && unreachable === null;
+  const queryKey = [WRITERS_QUERY, docId];
+  const answer = useQuery({
+    queryKey,
+    queryFn: () => api.runningWriters(docId!),
+    enabled,
+    refetchInterval: POLL_MS,
+  }).data;
+
+  const [pending, setPending] = useState(false);
+  const requestSeq = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    setPending(false);
+    requestSeq.current += 1;
+    return () => {
+      mounted.current = false;
+    };
+  }, [docId]);
+
+  const running: RunningWriters =
+    !enabled || answer === undefined || answer.asked === 0 ? null : answer;
+
+  const ask = (
+    count: WritersRequest["count"],
+    placement: WriterPlacement,
+  ): void => {
+    if (docId === null || !enabled) return;
+    if (
+      count > 0 &&
+      running?.placement === placement &&
+      running.asked === count
+    )
+      return;
+    const seq = ++requestSeq.current;
+    setPending(true);
+    const afterBlockId = count === 0 ? null : (facts?.get("blockId") ?? null);
+    api.writers({ docId, count, afterBlockId, placement }).then(
+      async (next) => {
+        if (!mounted.current || seq !== requestSeq.current) return;
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData(queryKey, next);
+        if (mounted.current && seq === requestSeq.current) setPending(false);
+      },
+      () => {
+        if (!mounted.current || seq !== requestSeq.current) return;
+        setPending(false);
+        announcer.announce(DEMO_WORDS.writersRefused);
+      },
+    );
+  };
+
+  return { canEdit, running, pending, ask };
+}
 
 /**
  * Unavailable without a script, for a person who has not signed in (the server holds none of their scripts), for a
@@ -61,7 +136,7 @@ export function WritersControl(props: {
   const { docId, signedIn, unreachable } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
   if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
-  return <ScriptWriters docId={docId} unreachable={unreachable} />;
+  return <ScriptWriters key={docId} docId={docId} unreachable={unreachable} />;
 }
 
 function Unavailable(props: { reason: string }): ReactNode {
@@ -69,126 +144,153 @@ function Unavailable(props: { reason: string }): ReactNode {
     <BarButton
       label={DEMO_WORDS.addWriters}
       icon={UsersIcon}
-      drops="later"
       tour={TOUR}
       unavailable={props.reason}
     />
   );
 }
 
-/** The writers are asked of the server again every POLL_MS, so that every tab shows them, whichever started them. */
+/** Keyed by `docId` so slider and pending state never leak across script switches. */
 function ScriptWriters(props: {
   docId: string;
   unreachable: string | null;
 }): ReactNode {
   const { docId, unreachable } = props;
-  const { api } = useServices();
-  const queryClient = useQueryClient();
-  const caret = useEditorFact("blockId");
-  const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
-  const requestSeq = useRef(0);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  const canEdit = useCanEdit(docId);
-  const queryKey = [WRITERS_QUERY, docId];
-  const answer = useQuery({
-    queryKey,
-    queryFn: () => api.runningWriters(docId),
-    enabled: canEdit && unreachable === null,
-    refetchInterval: POLL_MS,
-  }).data;
-  // checked before the server, so that the reason does not change when the connection or the server does
+  const [previewStep, setPreviewStep] = useState(1);
+  const [preferredPlacement, setPreferredPlacement] =
+    useState<WriterPlacement>("own_scenes");
+  const { canEdit, running, pending, ask } = useScriptWriters({
+    docId,
+    signedIn: true,
+    unreachable,
+  });
+
   if (!canEdit) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
   if (unreachable !== null) return <Unavailable reason={unreachable} />;
-  const running: Running =
-    answer === undefined || answer.asked === 0 ? null : answer;
-  const ask = (
-    count: WritersRequest["count"],
-    placement: WriterPlacement,
-  ): void => {
-    setOpen(false);
-    if (
-      count > 0 &&
-      running?.placement === placement &&
-      running.asked === count
-    )
-      return;
-    const seq = ++requestSeq.current;
-    setPending(true);
-    const afterBlockId = count === 0 ? null : caret;
-    api.writers({ docId, count, afterBlockId, placement }).then(
-      // an answer to a question asked before this change would undo it on the bar
-      async (next) => {
-        if (!mounted.current || seq !== requestSeq.current) return;
-        await queryClient.cancelQueries({ queryKey });
-        queryClient.setQueryData(queryKey, next);
-        if (mounted.current && seq === requestSeq.current) setPending(false);
-      },
-      () => {
-        // a request the server refused or never heard leaves the writers as they were
-        if (mounted.current && seq === requestSeq.current) setPending(false);
-      },
-    );
+
+  const active = running !== null;
+  const stepIndex = active ? stepIndexOf(running.asked) : previewStep;
+  const placement: WriterPlacement =
+    active && running.placement !== null
+      ? running.placement
+      : preferredPlacement;
+  const stepCount = WRITER_STEPS[stepIndex] ?? 5;
+  const fillRatio = !active
+    ? 0
+    : stepIndex === 0
+      ? 0.06
+      : stepIndex / (WRITER_STEPS.length - 1);
+
+  const chooseStep = (index: number): void => {
+    const clamped = Math.max(0, Math.min(WRITER_STEPS.length - 1, index));
+    const count = WRITER_STEPS[clamped]!;
+    setPreviewStep(clamped);
+    ask(count, placement);
   };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <BarButton
-        label={labelOf(running)}
-        icon={UsersIcon}
-        // while writers run its words say how many, so it keeps them
-        drops={running === null ? "later" : undefined}
-        tour={TOUR}
-        hint={DEMO_WORDS.addWritersHint}
-        disabled={pending}
-        opens
-      />
-      <PopoverContent
-        data-surface="demo"
-        align="start"
-        className="w-auto max-w-xs gap-2"
-      >
-        {WRITER_PLACEMENTS.map((placement) => (
-          <Fragment key={placement}>
-            <p aria-hidden="true" className="text-ui text-fg-muted">
-              {PLACEMENT_LINES[placement]}
-            </p>
-            <Segmented
-              label={PLACEMENT_LINES[placement]}
-              size="sm"
-              value={
-                running?.placement === placement ? String(running.asked) : ""
-              }
-              options={CHOICES}
-              onChange={(value) => {
-                const count = Number(value);
-                if (isCount(count)) ask(count, placement);
-              }}
+    <div
+      data-tour={TOUR}
+      data-active={active ? "true" : undefined}
+      className="mn-demo-writers-box"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-meta font-medium text-fg">
+          {active ? (
+            <span aria-hidden="true" className="mn-demo-dot" data-tone="ok" />
+          ) : (
+            <UsersIcon
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-fg-muted"
             />
-          </Fragment>
-        ))}
-        {running === null || running.names.length === 0 ? null : (
-          <p className="line-clamp-2 text-meta text-fg-muted">
-            {joinNames(running.names)}
-          </p>
-        )}
-        {running === null || running.count === 0 ? null : (
+          )}
+          <span className="truncate">{labelOf(running)}</span>
+        </span>
+        {active ? (
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            // stopping seats no one, whatever the placement
+            className="h-6 shrink-0 px-2 text-micro"
             onClick={() => ask(0, "own_scenes")}
           >
             {DEMO_WORDS.stopWriters}
           </Button>
-        )}
-      </PopoverContent>
-    </Popover>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="mn-demo-slider-wrap">
+          <div aria-hidden="true" className="mn-demo-slider-track">
+            <div
+              className="mn-demo-slider-fill"
+              style={{ transform: `scaleX(${fillRatio})` }}
+            />
+          </div>
+          <div aria-hidden="true" className="mn-demo-slider-ticks">
+            {WRITER_STEPS.map((count, i) => (
+              <span
+                key={count}
+                className="mn-demo-slider-tick"
+                data-filled={active && i <= stepIndex ? "true" : undefined}
+              />
+            ))}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={WRITER_STEPS.length - 1}
+            step={1}
+            value={stepIndex}
+            disabled={pending}
+            data-active={active ? "true" : "false"}
+            aria-label={DEMO_WORDS.addWriters}
+            aria-valuetext={DEMO_WORDS.writersTyping(stepCount)}
+            className="mn-demo-slider"
+            onChange={(event) => chooseStep(Number(event.currentTarget.value))}
+            onClick={() => {
+              if (!active && !pending) chooseStep(stepIndex);
+            }}
+          />
+        </div>
+
+        <div
+          role="group"
+          aria-label={PLACEMENT_LINES[placement]}
+          className="flex items-center justify-between"
+        >
+          {WRITER_STEPS.map((count, i) => (
+            <button
+              key={count}
+              type="button"
+              disabled={pending}
+              aria-pressed={active && running.asked === count}
+              className="mn-demo-step-btn focus-visible:outline-2 focus-visible:outline-focus"
+              onClick={() => chooseStep(i)}
+            >
+              {count}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Segmented
+        label={DEMO_WORDS.writersWhereLabel}
+        size="sm"
+        value={placement}
+        options={PLACEMENT_OPTIONS}
+        onChange={(value) => {
+          if (!isPlacement(value)) return;
+          setPreferredPlacement(value);
+          if (active) ask(stepCount, value);
+        }}
+      />
+
+      {running !== null && running.names.length > 0 ? (
+        <p className="line-clamp-2 text-micro text-fg-muted">
+          {joinNames(running.names)}
+        </p>
+      ) : null}
+    </div>
   );
 }

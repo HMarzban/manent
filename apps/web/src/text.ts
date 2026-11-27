@@ -25,7 +25,6 @@ export const TEXT = {
   notFoundTitle: "This page isn't here",
   notFoundBody: "Check the address, or go back to the Library.",
   backToLibrary: "Back to Library",
-  demoTools: "More",
 } as const satisfies Readonly<Record<string, string>>;
 
 const STATUS_TEXT: Record<ControlState, string> = {

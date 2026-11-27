@@ -13,46 +13,63 @@ import { SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 
 /**
- * While the supervisor stops the server, seeds again and starts it, the server reads resetting, in this tab from the
- * press on, and the page reloads once the new seed is served (useResetting). A seed that fails leaves it failed.
+ * Keeps the consequence dialog open with a busy label while the supervisor accepts the reset, clears Tour storage
+ * only once accepted, and surfaces supervisor refusal cleanly instead of discarding state prematurely.
  */
 export function ResetControl(props: DemoControl): ReactNode {
   const { client } = props;
   const { storage, tabStorage } = useEnvironment();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
   const reset = async (): Promise<void> => {
-    setOpen(false);
-    tourActions.close();
-    tourActions.select(null);
-    clearDemoTourStorage(storage, tabStorage);
+    setBusy(true);
+    setRefusal(null);
     const queryKey = [SERVER_STATUS_QUERY, props.id];
-    const answered = client.reset();
-    // an answer to a question asked before the press would say it is still running
-    await queryClient.cancelQueries({ queryKey });
-    queryClient.setQueryData<ControlState>(queryKey, "resetting");
-    queryClient.setQueryData<ControlState>(queryKey, await answered);
+    try {
+      const answered = await client.reset();
+      await queryClient.cancelQueries({ queryKey });
+      tourActions.close();
+      tourActions.select(null);
+      clearDemoTourStorage(storage, tabStorage);
+      queryClient.setQueryData<ControlState>(queryKey, answered);
+      setBusy(false);
+      setOpen(false);
+    } catch {
+      setBusy(false);
+      setRefusal(DEMO_WORDS.resetRefused);
+    }
   };
+
   return (
     <>
       <BarButton
         label={DEMO_WORDS.reset}
         icon={RotateCcwIcon}
-        drops="first"
         tour="demo:reset"
         hint={DEMO_WORDS.resetHint}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setRefusal(null);
+          setOpen(true);
+        }}
       />
       <ConsequenceDialog
         open={open}
         title={DEMO_WORDS.resetTitle}
         body={DEMO_WORDS.resetBody}
         action={DEMO_WORDS.resetAction}
-        busyLabel={null}
-        refusal={null}
+        busyLabel={busy ? DEMO_WORDS.resettingAction : null}
+        refusal={refusal}
         destructive
         onAction={() => void reset()}
-        onCancel={() => setOpen(false)}
+        onCancel={() => {
+          if (!busy) {
+            setRefusal(null);
+            setOpen(false);
+          }
+        }}
       />
     </>
   );

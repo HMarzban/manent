@@ -1,6 +1,6 @@
-// The demo bar: a colour scope of its own above everything, with the controls that prove the product's claims.
+// The demo stage: an Archival Stone & Studio Ochre proof margin above the shipping app.
 import { DEMO_WORDS, Skeleton, SurfaceBoundary } from "@manent/ui";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import type { ReactNode } from "react";
 import { loadApart } from "../load-apart.ts";
 import type { TabPerson } from "../session.ts";
@@ -20,8 +20,8 @@ export function preloadDemoBarControls(): void {
 }
 
 /**
- * Never takes focus; F6 reaches it. Always one row: short of room the labels before its controls and the server's
- * words go, then some buttons keep only their icons, and on narrow screens secondary tools fold into a compact menu.
+ * Never takes focus; F6 reaches it. Polarity-matched Archival Stone & Studio Ochre rail with a 2 px top proof edge
+ * that adapts across Light, Dark and all 24 studio themes.
  */
 export function DemoBar(props: {
   person: TabPerson | null;
@@ -30,13 +30,16 @@ export function DemoBar(props: {
   /** The server line reads resetting whatever the server last answered. */
   resetting: boolean;
 }): ReactNode {
+  const sectionRef = useRef<HTMLElement>(null);
   return (
     <section
+      ref={sectionRef}
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="mn-bar relative flex h-demobar min-h-demobar min-w-0 max-w-full shrink-0 items-center gap-2 overflow-x-clip border-b border-line-strong bg-chrome px-2 text-meta text-fg sm:gap-3 sm:px-3"
+      className="mn-bar relative flex h-demobar min-h-demobar min-w-0 max-w-full shrink-0 items-center gap-2 overflow-x-clip border-b border-line bg-chrome px-2.5 text-meta text-fg sm:gap-2.5 sm:px-3.5"
     >
-      <span className="mn-tag shrink-0" data-fill>
+      <span className="mn-tag mn-demo-tag shrink-0" data-fill>
+        <span aria-hidden="true" className="mn-demo-dot" data-tone="accent" />
         {DEMO_WORDS.demo}
       </span>
       {/* controls whose code cannot load leave the bar, and the tab, as they are */}
@@ -45,11 +48,11 @@ export function DemoBar(props: {
           fallback={
             <div aria-busy="true" className="flex flex-1 items-center gap-2">
               <Skeleton aria-hidden="true" className="h-control-sm w-28" />
-              <Skeleton aria-hidden="true" className="h-control-sm w-20" />
+              <Skeleton aria-hidden="true" className="h-control-sm w-24" />
             </div>
           }
         >
-          <DemoBarControls {...props} />
+          <DemoBarControls {...props} barRef={sectionRef} />
         </Suspense>
       </SurfaceBoundary>
     </section>

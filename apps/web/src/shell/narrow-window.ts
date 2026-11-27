@@ -4,9 +4,6 @@ import { useSyncExternalStore } from "react";
 /** Below this viewport width, a docked side panel would crush the main column and must overlay instead. */
 export const NARROW_PANEL_OVERLAY_PX = 768;
 
-/** Below this viewport width (`sm`), secondary demo bar tools fold into a compact popover so the bar stays one row. */
-export const NARROW_DEMO_BAR_PX = 640;
-
 const BASE_ROOT_FONT_PX = 16;
 
 export function isNarrowPanelViewport(widthPx: number): boolean {
@@ -42,12 +39,6 @@ function readNarrowViewport(): boolean {
   );
 }
 
-function readNarrowDemoBar(): boolean {
-  return (
-    typeof window !== "undefined" && window.innerWidth < NARROW_DEMO_BAR_PX
-  );
-}
-
 const serverNotNarrow = (): boolean => false;
 
 /** True while the viewport is narrower than `NARROW_PANEL_OVERLAY_PX`. SSR-safe. */
@@ -55,15 +46,6 @@ export function useNarrowPanelOverlay(): boolean {
   return useSyncExternalStore(
     subscribeToResize,
     readNarrowViewport,
-    serverNotNarrow,
-  );
-}
-
-/** True while the viewport is narrower than `NARROW_DEMO_BAR_PX` (`sm`). SSR-safe. */
-export function useNarrowDemoBar(): boolean {
-  return useSyncExternalStore(
-    subscribeToResize,
-    readNarrowDemoBar,
     serverNotNarrow,
   );
 }

@@ -198,12 +198,19 @@ export async function setConnection(
   page: Page,
   mode: "online" | "offline" | "slow",
 ): Promise<void> {
-  const option = page
-    .getByRole("region", { name: "Demo" })
-    .getByRole("group", { name: DEMO_WORDS.connection })
-    .getByRole("button", { name: DEMO_WORDS[mode] });
+  const group = page.getByRole("group", { name: DEMO_WORDS.connection });
+  if (!(await group.isVisible().catch(() => false))) {
+    await page
+      .getByRole("region", { name: DEMO_WORDS.demo })
+      .getByRole("button", { name: DEMO_WORDS.timings })
+      .click();
+    await expect(group).toBeVisible();
+  }
+  const option = group.getByRole("button", { name: DEMO_WORDS[mode] });
   await option.click();
   await expect(option).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(group).toBeHidden();
 }
 
 /** The first speech of the shared script, which both people change in the overlap. */

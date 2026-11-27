@@ -123,14 +123,26 @@ async function tab(session: MemoryStorage): Promise<HTMLElement> {
     );
   });
   await act(() =>
-    until(() => container.querySelector("[role='group']") !== null),
+    until(
+      () => container.querySelector("button[aria-label='Timings']") !== null,
+    ),
+  );
+  const timings = container.querySelector<HTMLButtonElement>(
+    "button[aria-label='Timings']",
+  );
+  if (timings === null) throw new RangeError("no Timings trigger");
+  await act(async () => timings.click());
+  await act(() =>
+    until(() => document.querySelector("[role='group']") !== null),
   );
   return container;
 }
 
 /** The Connection's name, and each of its choices with whether it is the one pressed. */
-function connectionOf(container: ParentNode) {
-  const group = container.querySelector("[role='group']");
+function connectionOf(_container: ParentNode) {
+  const group = document.querySelector(
+    "[role='group'][aria-label='Connection']",
+  );
   return {
     name: group?.getAttribute("aria-label") ?? null,
     choices: [...(group?.querySelectorAll("button") ?? [])].map((choice) => [
@@ -140,10 +152,12 @@ function connectionOf(container: ParentNode) {
   };
 }
 
-async function choose(container: ParentNode, name: string): Promise<void> {
-  const choice = [...container.querySelectorAll("[role='group'] button")].find(
-    (b) => b.textContent === name,
-  );
+async function choose(_container: ParentNode, name: string): Promise<void> {
+  const choice = [
+    ...document.querySelectorAll(
+      "[role='group'][aria-label='Connection'] button",
+    ),
+  ].find((b) => b.textContent === name);
   if (!(choice instanceof HTMLElement)) throw new RangeError(`no ${name}`);
   await act(async () => choice.click());
 }

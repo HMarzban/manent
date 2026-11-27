@@ -412,13 +412,12 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
   );
   expect(buttons(bar() ?? container).map(nameOf)).toEqual([
     "Person: Dana Reyes",
-    "Online",
-    "Offline",
-    "Slow",
-    "Add writers",
+    "Try it live",
+    "Start",
     "Timings",
-    "Reorganise",
+    "Demo controls",
     "Tour",
+    "Hide demo bar",
   ]);
 });
 

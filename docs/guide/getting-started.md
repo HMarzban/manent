@@ -54,11 +54,13 @@ Online, each browser tab is its own person, so two tabs can be two people: a new
 
 ## The demo bar
 
-A purple bar labelled **Demo** sits at the top of every screen. It shows who you are (click to switch) and whether the server is running, and has these controls:
+An archival stone bar labelled **Demo** with a brass top proof edge sits at the top of every screen, adapting automatically across Light, Dark and all 24 studio themes. Its controls are organised by what they affect:
 
-- **Connection: Online, Offline, Slow.** Cuts this tab's connection, or slows it, so you can see Manent work without one. See [Saving and syncing](saving-and-syncing.md#working-without-a-connection).
-- **Stop the server** and **Start the server**, for every tab at once.
-- **Tour**, once you have chosen a person, opens the Tour panel.
+- **Person switcher (`Person: …`).** Switches who this tab is in place, or opens a second companion window as another writer in one click so you can see live cursors and changes merge side by side.
+- **Mission pill and quick actions.** Suggests a context-aware tour step for the screen you are on, surfaces one-click contextual actions (such as **Second window**, **5 writers**, **Offline**, **Prompter**, **Play Ink** or **Issue pages**), and confirms completed offline, server-stop and live-writer checks automatically.
+- **Live / Timings (`Connection` and `Live timings`).** Shows live keystroke latency on the bar and opens this window's **Online / Offline / Slow** switch alongside live keystroke, pagination, sync and script-size measurements (which stay active offline). Going offline or slow surfaces a one-click **Go online** / **Normal** pill on the bar. See [Saving and syncing](saving-and-syncing.md#working-without-a-connection).
+- **Demo controls and Tour sheet.** One unified two-tab sheet holding **Demo controls** grouped into three full-width scopes — **01 · This window** (connection, companion window and live frame-limit speed), **02 · This script** (inline 3-step `1 · 5 · 20` **Add writers** slider, **Reorganise**, plus a one-click **Open a script** shortcut on Library) and **03 · Every window** (**Stop the server** and **Reset**, clearly marked as affecting every open tab and desktop window) — alongside **Tour** story tracks (**Highlights**, **Writing and export**, **Showrunner and room**, **Production and locks**, **Broadcast and news**, **Game and Ink**, and **Offline and long scripts**) with live verification counts and a link to all Tour parts. Whenever the server is stopped, a one-click **Start the server** recovery pill stays pinned directly on the bar.
+- **Tour** and **Hide demo bar.** **Tour** shows a circular progress ring and opens the Tour panel; **Hide demo bar** collapses the bar into a quiet top-centre restore tab until you expand it (expanding automatically for `F6`, Tour highlights or offline/stopped states).
 
 ## The Library
 
@@ -71,7 +73,7 @@ The Library lists the projects of one workspace. Choose the workspace from the m
 
 The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. While you are online, the Library fetches each script that is not on this device yet, and the row opens on a click. Offline, such a row says "Not on this device" and does not open until the connection is back.
 
-Every workspace but Your desk starts with seeded projects, nested folders (`Scripted` and `Broadcast` in Writers' room, plus studio subfolders in Lanternfield Studios), role-specific **Favourites** and personal **Private** drafts across all five registered people. Lanternfield Studios holds forty projects, written after the demo opens; until they are all there, the workspace menu says how many are ready.
+Every workspace but Your desk starts with seeded projects, nested folders (`Scripted` › `Features`, `Series`, `Books & Stage` and `Broadcast` › `Daily & Live`, `Audio` in Writers' room, plus studio subfolders in Lanternfield Studios), role-specific **Favourites**, personal **Private** drafts across all five registered people and recoverable **Trash**. Writers' room showcases all eight project kinds and all eight formats on first load — including _The Salt Almanac_ (Book with an inline plate), _Pier Four at Low Water_ (Stage play), _Platform Two_ (Multi-camera series with Board and Trash), _Tin Boat_ (Animation with a `Record draft` ready for Pickup lines CSV and an inline storyboard frame), _The Harbour Tape_ (Podcast timing), live broadcast chyrons and reusable Show and News templates. Lanternfield Studios holds forty-one projects across all eight kinds, written after the demo opens; until they are all there, the workspace menu says how many are ready.
 
 ## The Tour
 
@@ -82,8 +84,8 @@ Every workspace but Your desk starts with seeded projects, nested folders (`Scri
 1. Choose any person except **You** and click **New script**.
 2. Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter. Type a line of action, press Tab, type a name, press Enter and type what they say. See [Writing a script](writing.md).
 3. Watch the status beside the title: **Saved** as you type, then **Synced**.
-4. Click **Stop the server** in the demo bar and keep typing. The status says "Can't reach Manent, 1 waiting". Click **Start the server**; after a few seconds it says **Synced** again.
-5. Copy the script's id: the part of the address after `/s/`. In a new tab, open `http://localhost:4747/choose?next=/s/<id>` with that id in place of `<id>`, and choose the same person. The script opens there too, with the other tab's cursor drawn by name, and a change in either tab appears in both. See [Working together](working-together.md).
+4. Open **Demo controls** in the demo bar, click **Stop the server** and keep typing. The status says "Can't reach Manent, 1 waiting". Click the pinned **Start the server** button on the bar; after a few seconds it says **Synced** again.
+5. Open your person menu at the left of the demo bar and click **Open a second window as …** (or click **Second window** on the bar). The same script opens in a companion window as another writer with live cursors drawn by name, and changes in either window merge immediately. See [Working together](working-together.md).
 6. Open the command palette with Ctrl+K (⌘K on a Mac), type "Export" and press Enter. The Export screen opens; click **Export 1 file** to save the script as a PDF. See [Export and print](export-and-print.md).
 
 ## Let a second machine join

@@ -21,3 +21,5 @@ export { TOUR } from "./content.ts";
 export { TOUR_PREPARATIONS } from "./prepare/index.ts";
 export type { TourPreparation } from "./prepare/index.ts";
 export { TOUR_RELEASED } from "./released.ts";
+export { TOUR_HIGHLIGHTS, TOUR_TRACKS, findTourTrack } from "./tracks.ts";
+export type { TourTrack, TourTrackId } from "./tracks.ts";

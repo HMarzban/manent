@@ -11,6 +11,10 @@ export function useOpenDocument(docId: string): DocumentServices | null {
     doc: DocumentServices;
   } | null>(null);
   useLayoutEffect(() => {
+    if (docId === "") {
+      setOpened(null);
+      return undefined;
+    }
     setOpened({ docId, doc: documents.open(docId) });
     return () => documents.close(docId);
   }, [documents, docId]);

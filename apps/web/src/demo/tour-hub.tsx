@@ -1,7 +1,7 @@
 // Tour Journey Hub: pinned progress header, filter strip, conditional resume strip and collapsible scenario groups.
-import type { TourGroup, TourScenario } from "@manent/demo";
-import { Button, TOUR_WORDS } from "@manent/ui";
-import { CheckCircle2Icon, ChevronRightIcon } from "lucide-react";
+import type { TourGroup, TourScenario, TourTrackId } from "@manent/demo";
+import { Button, DEMO_WORDS, TOUR_WORDS } from "@manent/ui";
+import { CheckCircle2Icon, ChevronRightIcon, XIcon } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
@@ -161,6 +161,14 @@ function TourGroupSection(props: {
   );
 }
 
+export interface ActiveTrackBanner {
+  readonly id: TourTrackId;
+  readonly title: string;
+  readonly done: number;
+  readonly total: number;
+  readonly nextScenarioId: string | null;
+}
+
 export function TourHub(props: {
   groups: readonly TourGroup[];
   listed: readonly TourScenario[];
@@ -170,10 +178,13 @@ export function TourHub(props: {
   openGroups: ReadonlySet<TourGroup>;
   active: TourActive | null;
   activeScenario: TourScenario | null;
+  activeTrack?: ActiveTrackBanner | null;
   shell: Where["shell"];
   onFilter: (filter: TourFilter) => void;
   onToggleGroup: (group: TourGroup) => void;
   onSelect: (scenarioId: string) => void;
+  onStartNextInTrack?: (scenarioId: string) => void;
+  onClearTrack?: () => void;
   onMark: (scenarioId: string, done: boolean) => void;
 }): ReactNode {
   const {
@@ -185,10 +196,13 @@ export function TourHub(props: {
     openGroups,
     active,
     activeScenario,
+    activeTrack = null,
     shell,
     onFilter,
     onToggleGroup,
     onSelect,
+    onStartNextInTrack,
+    onClearTrack,
     onMark,
   } = props;
 
@@ -223,6 +237,44 @@ export function TourHub(props: {
           ))}
         </div>
       </div>
+
+      {activeTrack !== null ? (
+        <div
+          data-surface="demo"
+          className="flex items-center justify-between gap-2 rounded-surface border border-line bg-raised px-2.5 py-2"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-meta font-semibold text-fg">
+              {activeTrack.title}
+            </p>
+            <p className="text-micro tabular-nums text-fg-muted">
+              {DEMO_WORDS.trackProgress(activeTrack.done, activeTrack.total)}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {activeTrack.nextScenarioId !== null &&
+            onStartNextInTrack !== undefined ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onStartNextInTrack(activeTrack.nextScenarioId!)}
+              >
+                {DEMO_WORDS.continueTrack(activeTrack.title)}
+              </Button>
+            ) : null}
+            {onClearTrack !== undefined ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={TOUR_WORDS.closeFloating}
+                onClick={onClearTrack}
+              >
+                <XIcon aria-hidden="true" className="size-icon" />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {activeScenario !== null && active !== null ? (
         <div className="flex items-center justify-between gap-2 rounded-surface border border-line bg-raised px-2.5 py-2">

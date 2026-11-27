@@ -8,7 +8,7 @@ import {
 } from "../support/tour.ts";
 
 tourScenario("offline-write", async ({ page, scenario, step }) => {
-  const [offline, ...online] = scenario.evidence;
+  const [offline, synced, beforeReconnect] = scenario.evidence;
   await (await step(0)).getByRole("button", { name: "Offline" }).click();
   const action = (await step(1)).locator("[data-type='action']").first();
   await action.scrollIntoViewIfNeeded();
@@ -28,6 +28,7 @@ tourScenario("offline-write", async ({ page, scenario, step }) => {
   await page.reload();
   await expect(page.getByText("Wind against the glass.")).toBeVisible();
   await (await step(2)).getByRole("button", { name: "Online" }).click();
+  await expectEvidence([page], { ...scenario, evidence: [synced!] });
   await (await step(3)).click();
-  await expectEvidence([page], { ...scenario, evidence: online });
+  await expectEvidence([page], { ...scenario, evidence: [beforeReconnect!] });
 });

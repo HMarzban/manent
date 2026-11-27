@@ -25,7 +25,6 @@ test("the fixed sentences", () => {
     notFoundTitle: "This page isn't here",
     notFoundBody: "Check the address, or go back to the Library.",
     backToLibrary: "Back to Library",
-    demoTools: "More",
   });
 });
 

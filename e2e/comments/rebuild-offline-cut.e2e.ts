@@ -65,11 +65,16 @@ test("an offline cut survives Reorganise with no Recovered text", async ({
 
   // Dana triggers a server Reorganise while Sam is still offline
   await expect.poll(() => readStatus(dana)).toBe("Saved · Synced");
-  const reorganiseButton = dana
-    .getByRole("region", { name: "Demo" })
-    .getByRole("button", { name: "Reorganise" });
+  const reorganiseButton = dana.getByRole("button", { name: "Reorganise" });
+  if (!(await reorganiseButton.isVisible().catch(() => false))) {
+    await dana
+      .getByRole("region", { name: "Demo" })
+      .getByRole("button", { name: "Demo controls" })
+      .click();
+  }
   await expect(reorganiseButton).not.toHaveAttribute("aria-disabled", "true");
   await reorganiseButton.click();
+  await dana.keyboard.press("Escape");
   await expect(
     message(dana, "Manent reorganised how this script is stored."),
   ).toBeVisible({ timeout: 40_000 });

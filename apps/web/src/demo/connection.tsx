@@ -10,7 +10,6 @@ import {
   isConnectionMode,
 } from "../services/sync/device-memory.ts";
 import type { ConnectionControl } from "./connection-transport.ts";
-import { BarLabelled } from "./demo-bar-control.tsx";
 
 const OPTIONS = CONNECTION_MODES.map((mode) => ({
   value: mode,
@@ -45,11 +44,17 @@ export function useConnectionControl(): ConnectionControl | null {
 
 export function ConnectionChoice(props: {
   control: ConnectionControl;
+  /** Only the primary Connection control carries `data-tour="demo:connection"`. */
+  tour?: boolean;
+  fullWidth?: boolean;
 }): ReactNode {
-  const { control } = props;
+  const { control, tour = true, fullWidth = false } = props;
   const mode = useSubscribable(asUiSubscribable(control.mode));
   return (
-    <BarLabelled label={DEMO_WORDS.connection} tour="demo:connection">
+    <div
+      data-tour={tour ? "demo:connection" : undefined}
+      className={fullWidth ? "flex w-full" : "flex shrink-0 items-center"}
+    >
       <Segmented
         label={DEMO_WORDS.connection}
         size="sm"
@@ -59,6 +64,6 @@ export function ConnectionChoice(props: {
           if (isConnectionMode(chosen)) control.set(chosen);
         }}
       />
-    </BarLabelled>
+    </div>
   );
 }

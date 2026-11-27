@@ -32,8 +32,12 @@ test("theme.css defines demo neutral avatar tokens, calm active toggle fill, and
   ).text();
   const demoPattern = new RegExp('\\[data-surface="demo"\\]\\s*\\{[^}]*\\}');
   const demoBlock = css.match(demoPattern)?.[0] ?? "";
-  expect(demoBlock).toContain("--avatar-neutral-bg: var(--p-demo-800);");
-  expect(demoBlock).toContain("--avatar-neutral-edge: var(--p-demo-600);");
+  expect(demoBlock).toContain(
+    "--avatar-neutral-bg: light-dark(\n    var(--p-demo-light-raised),\n    var(--p-demo-dark-raised)\n  );",
+  );
+  expect(demoBlock).toContain(
+    "--avatar-neutral-edge: light-dark(\n    var(--p-demo-light-line-strong),\n    var(--p-demo-dark-line-strong)\n  );",
+  );
   expect(css).toContain("background-color: var(--bg-selected);");
   expect(css).toContain("@media (width < 40rem)");
   expect(css).toContain("padding-inline-start: clamp(");

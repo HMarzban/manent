@@ -17,15 +17,17 @@ import {
   tourActions,
   useTourActive,
   useTourLocateNonce,
+  useTourTrack,
 } from "../state/tour.store.ts";
 import { otherWindowNameOfStep } from "./tour-highlights.ts";
 import { useTourRing } from "./tour-ring.ts";
+import { tourTrackCopy } from "./use-tour-progress.ts";
 
 const EMPTY_STEPS: TourScenario["steps"] = Object.freeze([]);
 const FLOAT_GAP_PX = 16;
 
 /**
- * Renders a compact, non-blocking floating step bar in the demo violet scope while a scenario is running and the
+ * Renders a compact, non-blocking floating step bar in the Archival Stone & Ochre demo scope while a scenario is running and the
  * Tour side panel is not showing, offsetting cleanly beside any other open side panel (Comments, History, Details).
  */
 export function TourFloatingBar(props: {
@@ -34,6 +36,7 @@ export function TourFloatingBar(props: {
   const routeId = props.routeId;
   const hasTourPanel = routeId === undefined || routeHasTourPanel(routeId);
   const active = useTourActive();
+  const activeTrackId = useTourTrack();
   const { tab: sideTab, widthPx } = usePanel("side");
   const railWidthPx =
     routeId === "/s/$docId/history" ? Math.max(300, widthPx) : null;
@@ -69,6 +72,8 @@ export function TourFloatingBar(props: {
     return null;
 
   const total = scenario.steps.length;
+  const trackLabel =
+    activeTrackId === null ? null : tourTrackCopy(activeTrackId).title;
   const offsetWidth =
     railWidthPx !== null
       ? railWidthPx
@@ -89,16 +94,21 @@ export function TourFloatingBar(props: {
       className="mn-tour-float fixed end-4 bottom-10 z-30 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-surface border border-line-strong bg-chrome p-3 text-ui text-fg"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-micro font-semibold tracking-wide text-fg-muted uppercase tabular-nums">
-          <span>{TOUR_WORDS.ofSteps(active.step + 1, total)}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-micro font-semibold tracking-wide text-fg-muted uppercase tabular-nums">
+          <span className="shrink-0">
+            {TOUR_WORDS.ofSteps(active.step + 1, total)}
+          </span>
+          {trackLabel !== null ? (
+            <span className="mn-tag truncate normal-case">{trackLabel}</span>
+          ) : null}
           {companion !== null ? (
-            <span className="mn-tag gap-1 normal-case">
+            <span className="mn-tag shrink-0 gap-1 normal-case">
               <ExternalLinkIcon aria-hidden="true" className="size-3" />
               {TOUR_WORDS.inWindow(companion)}
             </span>
           ) : null}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {hasTourPanel ? (
             <Button
               variant="ghost"

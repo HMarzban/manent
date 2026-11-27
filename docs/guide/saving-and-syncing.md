@@ -50,9 +50,9 @@ Click the status to open the **Sync centre**. It says what is waiting, scene by 
 
 Keep writing. Each change is stored on your device as you type, and the status counts how many changes wait. When the server answers again, Manent sends them in order and the status returns to **Synced**.
 
-In the demo, the demo bar's **Connection** is the quickest way to try this. **Offline** cuts this tab's connection, and the status says "Offline, 1 waiting" as you type; **Slow** holds back everything the tab sends and receives by a second and a half; **Online** connects again, and a short message says what was synced ("1 change synced").
+In the demo, open the **Live / Timings** pill in the demo bar (or click the contextual **Offline** quick action while a script is open) to switch this tab's **Connection**. **Offline** cuts this tab's connection and surfaces a one-click **Go online** pill while the status says "Offline, 1 waiting" as you type; **Slow** holds back everything the tab sends and receives by a second and a half; **Online** connects again, a short message says what was synced ("1 change synced"), and the demo bar automatically confirms the offline Tour check. Local typing and pagination timings stay live throughout.
 
-**Stop the server** in the demo bar stops it for every tab; [What to try](getting-started.md#what-to-try) walks through it. While the server is stopped the bar says "Server stopped. Start it before reloading this tab.", so start it again before you reload.
+Open **Demo controls → 03 · Every window** and choose **Stop the server** to stop the server for every tab at once; [What to try](getting-started.md#what-to-try) walks through it. While the server is stopped, a one-click **Start the server** pill stays pinned directly on the bar, so start it again before you reload.
 
 ## When two copies changed
 
