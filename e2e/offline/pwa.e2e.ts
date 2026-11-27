@@ -77,6 +77,18 @@ test("manifest, icons, 404 asset guard, and zero CSP violations hold on live loa
   expect(missingChunk.status()).toBe(404);
   expect(missingChunk.headers()["cache-control"]).toContain("no-store");
 
+  // First visit surfaces calm Ready offline confirmation once SW + warm pass finish; reload stays silent.
+  const offlineNotice = page.locator('aside[aria-label="Offline status"]');
+  await expect(
+    page.locator('aside[aria-label="Offline status"][data-state="ready"]'),
+  ).toBeVisible({ timeout: 25_000 });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Choose who you are" }),
+  ).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await expect(offlineNotice).toHaveCount(0);
+
   const recorded = await page.evaluate(
     () => Reflect.get(window, "__cspViolations") as string[],
   );

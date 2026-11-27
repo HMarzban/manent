@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Separate one-shot completion latches from sticky session flags on transient offline notices
+
+- Date: 2026-11-27
+
+### What happened
+
+`OfflineReadinessNotice` gated its `"Ready offline"` state on `wasActiveInSession()`, which stays `true` for the whole tab after first-visit service-worker installation or Tier-2 warming. When the `5 s` auto-dismiss timer faded the notice out and returned `phase` to `"hidden"` while `offlineReadiness` still held `status: "ready"`, the next render re-read `wasActiveInSession() === true` and immediately reopened the notice in an infinite loop. Separately, `createOfflineWarm` defaulted `container === null` (non-secure HTTP origins) to `shell_only` instead of `online_only`, making static offline badges read `"Preparing…"` where service workers cannot run.
+
+### How it was caught
+
+The auto-dismiss re-open loop was caught immediately by the fake-clock lifecycle test in `apps/web/test/offline-readiness-notice.dom.test.tsx`; the `online_only` gap was caught during the PWA telemetry and `StudioFooter` audit.
+
+### Rule
+
+Keep a dedicated per-cycle completion latch (`completedReadyRef`) on transient completion notices — set it when exiting `"ready"` and clear it only when a new active `"installing"` / `"warming"` pass starts — rather than resetting or re-reading a sticky session-wide activity flag alone. In `apps/web/src/boot/offline-warm.ts`, report `status: "online_only"` whenever `container === null` or service-worker registration is unavailable so Preferences and `StudioFooter` state honestly when offline caching cannot run.
+
+### Enforced by
+
+`apps/web/test/offline-readiness-notice.dom.test.tsx`, `apps/web/test/sw-lifecycle.test.ts` and `e2e/offline/pwa.e2e.ts`.
+
 ## Never fall back missing static assets to index.html, and flip hadController once the first service worker claims
 
 - Date: 2026-11-27

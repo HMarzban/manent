@@ -403,3 +403,112 @@ test("createOfflineWarm waits for idle + visible, pauses on saveData/2g, and war
   ]);
   paused.dispose();
 });
+
+test("offlineWarm tracks install phases, stays quiet on returning ready visits, reports online_only without SW, and resumes on online", async () => {
+  const clock = createClock(50_000);
+  const noSw = createOfflineWarm({
+    container: null,
+    now: clock.now,
+    schedule: clock.schedule,
+    frame: (fn) => {
+      fn();
+      return () => {};
+    },
+    lastKeyAt: () => null,
+  });
+  expect(noSw.readiness.get()).toEqual({
+    status: "online_only",
+    cached: 0,
+    total: 0,
+  });
+  expect(noSw.readiness.wasActiveInSession?.()).toBe(false);
+  noSw.dispose();
+
+  // Returning visit: controller already active and SW replies ready directly -> wasActiveInSession stays false
+  const returningContainer = new FakeContainer(new FakeWorker("activated"));
+  const returningWarm = createOfflineWarm({
+    container: returningContainer as unknown as ServiceWorkerContainer,
+    now: clock.now,
+    schedule: clock.schedule,
+    frame: () => () => {},
+    lastKeyAt: () => null,
+    win: new FakeTarget() as unknown as Window,
+    doc: Object.assign(new FakeTarget(), {
+      readyState: "complete" as DocumentReadyState,
+      visibilityState: "visible" as DocumentVisibilityState,
+    }) as unknown as Document,
+  });
+  returningContainer.dispatch("message", {
+    data: {
+      type: "OFFLINE_READINESS_STATE",
+      status: "ready",
+      cached: 5,
+      total: 5,
+    },
+  });
+  expect(returningWarm.readiness.get().status).toBe("ready");
+  expect(returningWarm.readiness.wasActiveInSession?.()).toBe(false);
+  returningWarm.dispose();
+
+  // First install + mid-warm drop + online resume
+  const firstContainer = new FakeContainer(null);
+  const activeWorker = new FakeWorker("activated");
+  firstContainer.registration.active = activeWorker;
+  const win = new FakeTarget();
+  const doc = Object.assign(new FakeTarget(), {
+    readyState: "complete" as DocumentReadyState,
+    visibilityState: "visible" as DocumentVisibilityState,
+  });
+  const firstWarm = createOfflineWarm({
+    container: firstContainer as unknown as ServiceWorkerContainer,
+    now: clock.now,
+    schedule: clock.schedule,
+    frame: () => () => {},
+    lastKeyAt: () => null,
+    win: win as unknown as Window,
+    doc: doc as unknown as Document,
+  });
+  const updateState = createValue<UpdateState | null>(null);
+  const installingWorker = new FakeWorker("installing");
+  firstContainer.registration.installing = installingWorker;
+  const lifecycle = startSwLifecycle({
+    container: firstContainer as unknown as ServiceWorkerContainer,
+    updateState,
+    now: clock.now,
+    schedule: clock.schedule,
+    online: () => true,
+    lastKeyAt: () => null,
+    onInstallPhase: firstWarm.notifyInstallPhase,
+    win: win as unknown as Window,
+    doc: doc as unknown as Document,
+    createChannel: createChannelBus(),
+  });
+  await lifecycle.ready;
+  expect(firstWarm.readiness.get().status).toBe("installing");
+  expect(firstWarm.readiness.wasActiveInSession?.()).toBe(true);
+
+  // Mid-warm drop to shell_only resumes when browser fires online
+  firstContainer.dispatch("message", {
+    data: {
+      type: "OFFLINE_READINESS_STATE",
+      status: "warming",
+      cached: 2,
+      total: 5,
+    },
+  });
+  firstContainer.dispatch("message", {
+    data: {
+      type: "OFFLINE_READINESS_STATE",
+      status: "shell_only",
+      cached: 2,
+      total: 5,
+    },
+  });
+  activeWorker.posted.length = 0;
+  win.dispatch("online");
+  await Promise.resolve();
+  expect(activeWorker.posted).toEqual([{ type: "WARM_OFFLINE_TOOLS" }]);
+
+  lifecycle.dispose();
+  firstWarm.dispose();
+});

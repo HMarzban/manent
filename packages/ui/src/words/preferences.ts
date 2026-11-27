@@ -75,6 +75,19 @@ export const PREFERENCES_WORDS = {
   offlinePreparing: "Preparing…",
   offlineDataSaver: "Paused on Data Saver",
   offlineOnlineOnly: "Online only in this browser",
+  offlineNoticeLabel: "Offline status",
+  offlineNoticePreparing: "Preparing for offline use…",
+  offlineNoticeInstallingBody: "Getting Manent ready in this browser.",
+  offlineNoticeWarmingBody: "Saving for offline use in this browser.",
+  offlineNoticeProgress: (cached: number, total: number): string =>
+    `${cached} of ${total} ready`,
+  offlineNoticeReadyTitle: "Ready offline",
+  offlineNoticeReadyBody: "Manent now works without a connection.",
+  offlineNoticeDismiss: "Dismiss offline status",
+  offlineAnnouncePreparing:
+    "Preparing Manent for offline use. You can keep working.",
+  offlineAnnounceReady:
+    "Ready offline — Manent now works without a connection.",
   spaceUsedRow: "Space used",
   spaceUsedValue: (bytes: number): string => {
     if (bytes < 1_000_000) {

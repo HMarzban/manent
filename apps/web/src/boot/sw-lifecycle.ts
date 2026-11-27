@@ -26,6 +26,9 @@ export interface BroadcastChannelLike {
   close(): void;
 }
 
+export type SwInstallPhase =
+  "installing" | "activated" | "redundant" | "unavailable";
+
 export interface SwLifecycleOptions {
   readonly container: ServiceWorkerContainer | null;
   readonly updateState: Subscribable<UpdateState | null> & {
@@ -38,6 +41,7 @@ export interface SwLifecycleOptions {
   readonly hasBlockingSave?: () => boolean;
   readonly currentBuildId?: string | null;
   readonly reload?: () => void;
+  readonly onInstallPhase?: (phase: SwInstallPhase) => void;
   readonly win?: Pick<
     Window,
     "addEventListener" | "removeEventListener"
@@ -129,6 +133,7 @@ export function startSwLifecycle(
         : null;
 
   if (container === null) {
+    options.onInstallPhase?.("unavailable");
     const noop: WebUpdateController = {
       check: async () => {},
       apply: async () => {},
@@ -163,10 +168,16 @@ export function startSwLifecycle(
 
   const watchInstalling = (worker: ServiceWorker | null): void => {
     if (worker === null) return;
+    const isInitialInstall = !hadController;
+    if (isInitialInstall) options.onInstallPhase?.("installing");
     const onStateChange = (): void => {
       if (disposed) return;
       if (worker.state === "installed" && container.controller !== null) {
         updateState.set("ready");
+      } else if (isInitialInstall && worker.state === "activated") {
+        options.onInstallPhase?.("activated");
+      } else if (isInitialInstall && worker.state === "redundant") {
+        options.onInstallPhase?.("redundant");
       }
     };
     worker.addEventListener("statechange", onStateChange);
@@ -191,6 +202,7 @@ export function startSwLifecycle(
     if (disposed || reloading) return;
     if (!hadController) {
       hadController = true;
+      options.onInstallPhase?.("activated");
       return;
     }
     if (!updateRequested) return;
@@ -221,7 +233,10 @@ export function startSwLifecycle(
       watchRegistration(reg);
       return reg;
     })
-    .catch(() => null);
+    .catch(() => {
+      if (!disposed) options.onInstallPhase?.("unavailable");
+      return null;
+    });
 
   const runCheck = async (manual: boolean): Promise<void> => {
     if (disposed) return;

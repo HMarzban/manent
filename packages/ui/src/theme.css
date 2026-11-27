@@ -3382,10 +3382,48 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 .mn-tour-float {
   box-shadow: var(--elev-overlay);
 }
+.mn-offline-prompt {
+  box-shadow: var(--elev-overlay);
+  transition:
+    opacity var(--dur-base) var(--curve-exit),
+    transform var(--dur-base) var(--curve-exit),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+.mn-offline-prompt:is(:hover, :focus-within) {
+  border-color: var(--line-strong);
+}
+.mn-offline-prompt[data-leaving="true"] {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+.mn-offline-prompt-icon {
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
+}
+.mn-offline-prompt .mn-progress-fill {
+  transition:
+    transform var(--dur-base) var(--curve-enter),
+    background-color var(--dur-base) var(--curve-enter);
+}
+.mn-offline-prompt[data-state="ready"] .mn-progress-fill {
+  background-color: var(--fg-ok);
+}
+@media (max-width: 480px) {
+  .mn-offline-prompt {
+    inset-inline: 1rem;
+    width: auto;
+  }
+}
 @media (prefers-contrast: more) {
   .mn-progress-track,
   .mn-tour-progress-track {
     border: 1px solid var(--line-strong);
+  }
+  .mn-offline-prompt {
+    border-color: var(--line-strong);
   }
 }
 
@@ -3438,8 +3476,16 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   .mn-annotation-pill,
   .mn-swatch,
   .mn-progress-fill,
-  .mn-tour-progress-fill {
+  .mn-tour-progress-fill,
+  .mn-offline-prompt-icon,
+  .mn-offline-prompt .mn-progress-fill {
     transition: none;
+  }
+  .mn-offline-prompt {
+    transition: opacity var(--dur-base) var(--curve-exit);
+  }
+  .mn-offline-prompt[data-leaving="true"] {
+    transform: none;
   }
   .mn-swatch-item:hover .mn-swatch {
     transform: none;
@@ -3804,6 +3850,23 @@ html[data-gems="off"] .mn-gem-only {
   .mn-palette-card[aria-checked="true"] {
     border-color: Highlight;
     outline: 2px solid Highlight;
+  }
+  .mn-offline-prompt {
+    background-color: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+  .mn-offline-prompt[data-state="ready"] .mn-progress-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .mn-offline-prompt-icon {
+    border-color: CanvasText;
+  }
+  .mn-offline-prompt[data-state="ready"] .mn-offline-prompt-icon {
+    border-color: Highlight;
+    color: Highlight;
   }
 }
 

@@ -1,9 +1,16 @@
-// Idle offline tool warming: warms heavy on-demand chunks via the service worker once the page is idle and visible.
+// Idle offline tool warming: coordinates Tier-1 install observation and Tier-2 background warming via the service worker.
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
+import type { SwInstallPhase } from "./sw-lifecycle.ts";
 
 export type OfflineReadinessStatus =
-  "shell_only" | "warming" | "ready" | "paused_save_data";
+  | "idle"
+  | "installing"
+  | "shell_only"
+  | "warming"
+  | "ready"
+  | "paused_save_data"
+  | "online_only";
 
 export interface OfflineReadinessState {
   readonly status: OfflineReadinessStatus;
@@ -13,6 +20,8 @@ export interface OfflineReadinessState {
 
 export type OfflineReadinessPort = Subscribable<OfflineReadinessState> & {
   warmNow(): void;
+  /** True only when this tab observed real installing or warming work during this session. */
+  wasActiveInSession?: () => boolean;
 };
 
 export interface NetworkConnectionLike {
@@ -41,8 +50,13 @@ export interface OfflineWarmOptions {
 }
 
 const TYPING_IDLE_MS = 2_000;
-const INITIAL_STATE: OfflineReadinessState = Object.freeze({
-  status: "shell_only",
+const IDLE_STATE: OfflineReadinessState = Object.freeze({
+  status: "idle",
+  cached: 0,
+  total: 0,
+});
+const ONLINE_ONLY_STATE: OfflineReadinessState = Object.freeze({
+  status: "online_only",
   cached: 0,
   total: 0,
 });
@@ -79,15 +93,19 @@ function parseReadinessMessage(data: unknown): OfflineReadinessState | null {
 }
 
 /**
- * Coordinates background offline tool warming after first frame, window load, SW readiness, page visibility,
- * and typing idle (> 2s). Pauses automatically on saveData / 2g links unless `warmNow()` is called explicitly.
+ * Coordinates Tier-1 install phases and Tier-2 background offline tool warming after first frame, window load,
+ * SW readiness, page visibility, and typing idle (> 2s). Pauses automatically on saveData / 2g links unless
+ * `warmNow()` is called explicitly, and resumes interrupted warming automatically once connectivity returns.
  */
 export function createOfflineWarm(options: OfflineWarmOptions): {
   readonly readiness: OfflineReadinessPort;
+  notifyInstallPhase(phase: SwInstallPhase): void;
   dispose(): void;
 } {
-  const state = createValue<OfflineReadinessState>(INITIAL_STATE);
   const { container, now, schedule, frame, lastKeyAt } = options;
+  const state = createValue<OfflineReadinessState>(
+    container === null ? ONLINE_ONLY_STATE : IDLE_STATE,
+  );
   const readConnection = options.connection ?? readNavigatorConnection;
   const win =
     options.win !== undefined
@@ -108,13 +126,16 @@ export function createOfflineWarm(options: OfflineWarmOptions): {
         get: state.get,
         subscribe: state.subscribe,
         warmNow: () => {},
+        wasActiveInSession: () => false,
       },
+      notifyInstallPhase: () => {},
       dispose: () => {},
     };
   }
 
   let disposed = false;
   let manualRequested = false;
+  let activeInSession = false;
   let cancelFrame: (() => void) | null = null;
   let cancelTimer: (() => void) | null = null;
   const cleanups: (() => void)[] = [];
@@ -123,6 +144,7 @@ export function createOfflineWarm(options: OfflineWarmOptions): {
     if (disposed) return;
     const parsed = parseReadinessMessage(event.data);
     if (parsed === null) return;
+    if (parsed.status === "warming") activeInSession = true;
     if (
       !manualRequested &&
       parsed.status === "shell_only" &&
@@ -191,6 +213,21 @@ export function createOfflineWarm(options: OfflineWarmOptions): {
     postToWorker("WARM_OFFLINE_TOOLS");
   };
 
+  if (win !== null) {
+    const onOnline = (): void => {
+      if (disposed) return;
+      const current = state.get();
+      if (
+        current.status === "shell_only" &&
+        (activeInSession || current.cached < current.total)
+      ) {
+        triggerWhenIdle();
+      }
+    };
+    win.addEventListener("online", onOnline);
+    cleanups.push(() => win.removeEventListener("online", onOnline));
+  }
+
   const afterLoadAndReady = (): void => {
     void container.ready.then(() => {
       if (!disposed) triggerWhenIdle();
@@ -212,6 +249,35 @@ export function createOfflineWarm(options: OfflineWarmOptions): {
     cleanups.push(() => win.removeEventListener("load", onLoad));
   });
 
+  const notifyInstallPhase = (phase: SwInstallPhase): void => {
+    if (disposed) return;
+    if (phase === "installing") {
+      activeInSession = true;
+      const current = state.get();
+      if (current.status === "idle" || current.status === "shell_only") {
+        state.set({ status: "installing", cached: 0, total: 0 });
+      }
+      return;
+    }
+    if (phase === "unavailable") {
+      if (!activeInSession && state.get().status !== "ready") {
+        state.set(ONLINE_ONLY_STATE);
+      }
+      return;
+    }
+    if (phase === "redundant") {
+      if (state.get().status === "installing") {
+        activeInSession = false;
+        state.set(IDLE_STATE);
+      }
+      return;
+    }
+    // phase === "activated": ensure Tier-2 warming checks/warms once idle
+    if (activeInSession && state.get().status === "installing") {
+      triggerWhenIdle();
+    }
+  };
+
   return {
     readiness: {
       get: state.get,
@@ -219,9 +285,12 @@ export function createOfflineWarm(options: OfflineWarmOptions): {
       warmNow() {
         if (disposed) return;
         manualRequested = true;
+        activeInSession = true;
         postToWorker("WARM_OFFLINE_TOOLS");
       },
+      wasActiveInSession: () => activeInSession,
     },
+    notifyInstallPhase,
     dispose() {
       disposed = true;
       cancelFrame?.();

@@ -55,7 +55,7 @@ function normaliseOfflineStatus(raw: unknown): OfflineStatus | null {
       : typeof raw === "object" && raw !== null && "status" in raw
         ? Reflect.get(raw, "status")
         : null;
-  if (typeof status !== "string") return null;
+  if (typeof status !== "string" || status === "idle") return null;
   if (status === "ready") return "ready";
   if (
     status === "preparing" ||

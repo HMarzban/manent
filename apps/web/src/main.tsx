@@ -130,6 +130,14 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
   if (desktop === null && desktopGlobal === undefined) {
     const swContainer =
       "serviceWorker" in navigator ? navigator.serviceWorker : null;
+    const offlineWarm = createOfflineWarm({
+      container: swContainer,
+      now,
+      schedule,
+      frame,
+      lastKeyAt: () => lastKeyAt,
+    });
+    offlineReadiness = offlineWarm.readiness;
     const ensureLifecycle = (): SwLifecycleHandle => {
       if (swLifecycle !== null) return swLifecycle;
       swLifecycle = startSwLifecycle({
@@ -139,6 +147,7 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
         schedule,
         online: () => navigator.onLine,
         lastKeyAt: () => lastKeyAt,
+        onInstallPhase: offlineWarm.notifyInstallPhase,
         hasBlockingSave: () =>
           personServices.get()?.closing.guard.failing() !== null,
       });
@@ -157,13 +166,6 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
         (swLifecycle?.controller.isReady() ?? false),
     };
     setActiveWebUpdate(webUpdate);
-    offlineReadiness = createOfflineWarm({
-      container: swContainer,
-      now,
-      schedule,
-      frame,
-      lastKeyAt: () => lastKeyAt,
-    }).readiness;
   }
   return {
     where: { ...where, shell: desktop === null ? "web" : "desktop" },

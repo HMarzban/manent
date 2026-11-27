@@ -68,7 +68,9 @@ apps/
 │   ├── build.ts         builds into apps/web/dist (not tracked); MANENT_FLAVOUR=test builds the test flavour
 │   └── src/
 │       ├── main.tsx, router.tsx    entry and routes: /choose, /, /s/<id>, /s/<id>/history, /s/<id>/send/<form>, /preferences/<pane>
-│       ├── screens/                the chooser, the Library, the script, dedicated read-only History, Send, Preferences
+│       ├── boot/                   service-worker lifecycle, update checks and background offline-tool warming
+│       ├── pwa/                    install prompt store and persistent first-visit offline-readiness notice
+│       ├── screens/                the Studio Desk chooser (choose/), the Library, the script, dedicated read-only History, Send, Preferences
 │       ├── editor-host/            where the editor and the CRDT binding are mounted
 │       ├── handlers/               what each command does
 │       ├── services/               per-person services: sync, the Library list, preferences
@@ -98,8 +100,8 @@ bench/
 
 e2e/
 ├── playwright.config.ts    three engines, against one demo on ports of its own
-├── smoke/ editor/ interface/ sync/ typesetting/   the suites
-├── tour/                   one test per Tour scenario: none yet
+├── smoke/ editor/ interface/ sync/ offline/ typesetting/   the suites
+├── tour/                   one test per Tour scenario (92 scenarios across web and desktop)
 ├── clone/                  clones the repository and starts the demo from the clone
 └── support/                shared helpers
 

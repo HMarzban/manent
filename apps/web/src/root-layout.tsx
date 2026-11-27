@@ -9,6 +9,7 @@ import { DemoBar } from "./demo/demo-bar.tsx";
 import { ResettingScreen, useResetting } from "./demo/resetting-screen.tsx";
 import { useDemo, useServerState } from "./demo/use-demo.ts";
 import type { Navigation } from "./handlers/index.ts";
+import { OfflineReadinessNotice } from "./pwa/offline-readiness-notice.tsx";
 import { ServicesProvider, usePersonServices } from "./services/context.tsx";
 import { chooseUrl } from "./session.ts";
 import { AppShell, ScreenArea, useShellScreen } from "./shell/app-shell.tsx";
@@ -82,27 +83,45 @@ export function RootLayout(props: {
     />
   );
 
+  const suppressOfflineNotice =
+    bare ||
+    resetting ||
+    location.pathname === "/__states" ||
+    location.pathname.startsWith("/r/");
+  const notice = (
+    <OfflineReadinessNotice
+      inShell={services !== null && !resetting}
+      suppressed={suppressOfflineNotice}
+    />
+  );
+
   if (services === null || resetting)
     return (
-      <div className="flex min-h-screen flex-col bg-chrome text-fg">
-        {demoBar}
-        <main className="flex flex-1 flex-col">
-          {resetting ? <ResettingScreen reseeded={reseeded} /> : <Outlet />}
-        </main>
-      </div>
+      <>
+        <div className="flex min-h-screen flex-col bg-chrome text-fg">
+          {demoBar}
+          <main className="flex flex-1 flex-col">
+            {resetting ? <ResettingScreen reseeded={reseeded} /> : <Outlet />}
+          </main>
+        </div>
+        {notice}
+      </>
     );
   return (
-    <ServicesProvider services={services}>
-      <AppShell>
-        {demoBar && (
-          <ShellRegion region="demo_bar" className="min-w-0">
-            {demoBar}
-          </ShellRegion>
-        )}
-        <ScreenArea>
-          <Outlet />
-        </ScreenArea>
-      </AppShell>
-    </ServicesProvider>
+    <>
+      <ServicesProvider services={services}>
+        <AppShell>
+          {demoBar && (
+            <ShellRegion region="demo_bar" className="min-w-0">
+              {demoBar}
+            </ShellRegion>
+          )}
+          <ScreenArea>
+            <Outlet />
+          </ScreenArea>
+        </AppShell>
+      </ServicesProvider>
+      {notice}
+    </>
   );
 }
