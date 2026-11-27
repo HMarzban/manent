@@ -1,11 +1,17 @@
 // The room window: the document's page held read-only, following the driver's caret with no selections or marks.
 import { DEMO_PEOPLE } from "@manent/demo";
 import type { Identity } from "@manent/sync-protocol";
-import { Avatar, Button, DOCUMENT_WORDS, PRESENT_WORDS } from "@manent/ui";
+import {
+  Avatar,
+  Button,
+  DOCUMENT_WORDS,
+  PRESENT_WORDS,
+  ROOM_WORDS,
+} from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, LockIcon } from "lucide-react";
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import {
   liveEditor,
@@ -86,7 +92,7 @@ function useWindowTitle(title: string): void {
   }, [userId, title]);
 }
 
-/** True once the document's server status reports that access was removed. */
+/** True once the document's server status reports that access was removed or the document was deleted. */
 function useNoAccess(status: Subscribable<StatusFacts> | null): boolean {
   return useSyncExternalStore(
     useCallback(
@@ -94,7 +100,10 @@ function useNoAccess(status: Subscribable<StatusFacts> | null): boolean {
         status === null ? noop : status.subscribe(notify),
       [status],
     ),
-    () => status?.get().server === "access_removed",
+    () => {
+      const server = status?.get().server;
+      return server === "access_removed" || server === "deleted";
+    },
     () => false,
   );
 }
@@ -194,10 +203,22 @@ function usePresentPeople(
 /** A document the person cannot open says so in the page's place, with a return to the Library. */
 function NoAccess(props: { title: string }): ReactNode {
   const navigate = useNavigate();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const target = rootRef.current?.querySelector<HTMLElement>(
+      "[tabindex='-1'], button",
+    );
+    target?.focus({ preventScroll: true });
+  }, []);
   return (
-    <div className="pointer-events-auto h-full overflow-y-auto bg-desk">
+    <div
+      ref={rootRef}
+      className="pointer-events-auto h-full overflow-y-auto bg-desk"
+    >
       <div className="flex min-h-full flex-col items-center justify-center p-6">
         <EmptyHeroCard
+          headingAs="h2"
+          headingTabIndex={-1}
           icon={<LockIcon aria-hidden="true" className="size-5" />}
           title={PRESENT_WORDS.roomWindowTitle(props.title)}
           description={DOCUMENT_WORDS.noAccess}
@@ -228,7 +249,10 @@ function PresentHud(props: {
     props;
   const navigate = useNavigate();
   return (
-    <div className="mn-present-hud pointer-events-auto fixed left-1/2 top-3 z-20 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-surface px-2 py-1 text-ui opacity-85 hover:opacity-100 focus-within:opacity-100">
+    <header
+      aria-label={PRESENT_WORDS.roomWindowTitle(title)}
+      className="mn-present-hud pointer-events-auto fixed left-1/2 top-3 z-20 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-surface px-2 py-1 text-ui opacity-85 hover:opacity-100 focus-within:opacity-100"
+    >
       <Button
         variant="ghost"
         size="icon-sm"
@@ -246,35 +270,43 @@ function PresentHud(props: {
       <span aria-hidden="true" className="shrink-0 text-meta text-fg-muted">
         ·
       </span>
-      {driver === null ? (
-        <span className="whitespace-nowrap text-meta text-fg-muted">
-          {PRESENT_WORDS.roomView}
-        </span>
-      ) : (
-        <span className="flex min-w-0 items-center gap-2">
-          <Avatar
-            name={driver.name}
-            initials={initialsOf(driver.name)}
-            colour={driverColour}
-            size="sm"
-            decorative
-          />
-          <span className="truncate text-meta text-fg-muted">
-            {PRESENT_WORDS.following(firstNameOf(driver.name))}
+      <span aria-live="polite" className="flex min-w-0 items-center gap-2">
+        {driver === null ? (
+          <span
+            title={ROOM_WORDS.noDriverHint}
+            className="whitespace-nowrap text-meta text-fg-muted"
+          >
+            {PRESENT_WORDS.roomView}
           </span>
-        </span>
-      )}
+        ) : (
+          <>
+            <Avatar
+              name={driver.name}
+              initials={initialsOf(driver.name)}
+              colour={driverColour}
+              size="sm"
+              decorative
+            />
+            <span className="truncate text-meta text-fg-muted">
+              {PRESENT_WORDS.following(firstNameOf(driver.name))}
+            </span>
+          </>
+        )}
+      </span>
       {totalScenes > 0 ? (
         <>
           <span aria-hidden="true" className="shrink-0 text-meta text-fg-muted">
             ·
           </span>
-          <span className="shrink-0 text-meta tabular-nums text-fg-muted">
+          <span
+            aria-live="polite"
+            className="shrink-0 text-meta tabular-nums text-fg-muted"
+          >
             {PRESENT_WORDS.sceneProgress(currentScene, totalScenes)}
           </span>
         </>
       ) : null}
-    </div>
+    </header>
   );
 }
 

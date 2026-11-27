@@ -157,6 +157,141 @@ test("refusing a prompter feed deletes cached text from storage and never re-per
   baseServices.dispose();
 });
 
+test("retries opening the prompter feed when connectivity returns without duplicating or leaking on unmount", async () => {
+  const storage = new MemoryStorage();
+  writeCachedFeed(storage, RUNDOWN_ID, {
+    v: 1,
+    runOrder: SAMPLE_ROWS,
+    stories: [{ storyId: STORY_ID, blocks: [...SAMPLE_BLOCKS] }],
+    lastReceivedAt: 1_700_000_000_000,
+  });
+
+  let isOnline = false;
+  let openCalls = 0;
+  let closeCalls = 0;
+  let resolveRetry: ((h: PrompterHandle) => void) | null = null;
+
+  const liveFake = createFakePrompterHandle({
+    feed: "live",
+    lastReceivedAt: 1_700_000_005_000,
+  });
+  liveFake.runOrder.set(SAMPLE_ROWS);
+  liveFake.stories.set(new Map([[STORY_ID, SAMPLE_BLOCKS]]));
+  liveFake.handle.close = () => {
+    closeCalls += 1;
+  };
+
+  const environment = testEnvironment({ storage, online: () => isOnline });
+  const baseServices = testServices({ userId: "ana", environment });
+  const services = {
+    ...baseServices,
+    prompter: async () => {
+      openCalls += 1;
+      if (openCalls === 1) throw new Error("offline");
+      return new Promise<PrompterHandle>((resolve) => {
+        resolveRetry = resolve;
+      });
+    },
+  };
+
+  const latest: { current: PrompterFeedView | null } = { current: null };
+  function Probe() {
+    latest.current = usePrompterFeed(RUNDOWN_ID);
+    return null;
+  }
+
+  const container = document.createElement("div");
+  document.body.replaceChildren(container);
+  mounted = createRoot(container);
+
+  await act(async () => {
+    mounted?.render(
+      <EnvironmentProvider environment={environment}>
+        <ServicesProvider services={services}>
+          <Probe />
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    );
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+  });
+
+  expect({
+    openCalls,
+    feed: latest.current?.feed,
+    hasFeed: latest.current?.hasFeed,
+    storiesCount: latest.current?.stories.length,
+  }).toEqual({
+    openCalls: 1,
+    feed: "lost",
+    hasFeed: true,
+    storiesCount: 1,
+  });
+
+  // Coming online retries once; duplicate online events while in flight do not open twice
+  isOnline = true;
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+    window.dispatchEvent(new Event("online"));
+    await Promise.resolve();
+  });
+  expect(openCalls).toBe(2);
+  expect(latest.current?.feed).toBe("waiting");
+
+  await act(async () => {
+    resolveRetry?.(liveFake.handle);
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+  });
+  expect(latest.current?.feed).toBe("live");
+  expect(latest.current?.lastReceivedAt).toBe(1_700_000_005_000);
+
+  // Unmounting while a second mount's retry is in flight closes the stale handle immediately
+  act(() => {
+    mounted?.unmount();
+    mounted = null;
+  });
+  expect(closeCalls).toBe(1);
+
+  let staleClosed = false;
+  let resolveStale: ((h: PrompterHandle) => void) | null = null;
+  const staleServices = {
+    ...baseServices,
+    prompter: async () =>
+      new Promise<PrompterHandle>((resolve) => {
+        resolveStale = resolve;
+      }),
+  };
+  const container2 = document.createElement("div");
+  document.body.replaceChildren(container2);
+  mounted = createRoot(container2);
+  await act(async () => {
+    mounted?.render(
+      <EnvironmentProvider environment={environment}>
+        <ServicesProvider services={staleServices}>
+          <Probe />
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    );
+  });
+  act(() => {
+    mounted?.unmount();
+    mounted = null;
+  });
+  const staleFake = createFakePrompterHandle({
+    feed: "live",
+    lastReceivedAt: 1_700_000_009_000,
+  });
+  staleFake.handle.close = () => {
+    staleClosed = true;
+  };
+  await act(async () => {
+    resolveStale?.(staleFake.handle);
+    await Promise.resolve();
+  });
+  expect(staleClosed).toBe(true);
+
+  baseServices.dispose();
+});
+
 test("opening a present window reports whether the browser allowed the pop-up", () => {
   const originalOpen = window.open;
   let focusCalls = 0;

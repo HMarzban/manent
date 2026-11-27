@@ -183,7 +183,7 @@ test("Favourites and Private empty states render centred EmptyHeroCard with sing
   const buttons = [...host!.querySelectorAll("button")].map(
     (b) => b.textContent,
   );
-  expect(buttons).toEqual(["New script"]);
+  expect(buttons).toEqual(["New script", "New project"]);
 });
 
 test("LibraryStatusBar shows project count summary when all projects are on this device", async () => {

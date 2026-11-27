@@ -38,7 +38,10 @@ export const MATERIAL_COMMANDS = defineCommands([
       windows: ["Mod+Shift+A"],
       linux: ["Mod+Shift+A"],
     },
-    menus: [{ menu: "script", group: "material", order: 10, submenu: null }],
+    menus: [
+      { menu: "script", group: "material", order: 10, submenu: null },
+      { menu: "title", group: "tools", order: 40, submenu: "Tools" },
+    ],
     opens: { surface: "alternates_popover", focus: "first" },
   }),
   // the selection toolbar's item in a speech: the popover opens with its field focused

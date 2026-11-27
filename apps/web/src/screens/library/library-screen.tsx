@@ -4,6 +4,7 @@ import { TOUR, isShown } from "@manent/demo";
 import { indexDocId } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
+  Button,
   CommandButton,
   DEMO_WORDS,
   LIBRARY_WORDS,
@@ -15,7 +16,8 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { MenuIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { focusHeading } from "../../focus.ts";
@@ -27,6 +29,7 @@ import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
+import { TitleBarDivider } from "../../shell/title-bar-pieces.tsx";
 import { panelsActions } from "../../state/panels.store.ts";
 import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
@@ -237,6 +240,13 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
     workspaceId !== null && (person.token === null || workspaces !== null);
+  const [navOpen, setNavOpen] = useState(false);
+  const navDrawerId = useId();
+  const navButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeNav = (): void => {
+    setNavOpen(false);
+    navButtonRef.current?.focus({ preventScroll: true });
+  };
   useTourOnFirstVisit();
   useEffect(() => {
     focusHeading(document);
@@ -246,14 +256,28 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
   }, [person.name]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="@container flex min-h-0 flex-1 flex-col">
       <h1 tabIndex={-1} className="sr-only">
         {LIBRARY_WORDS.title}
       </h1>
       <ShellRegion
         region="title_bar"
-        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-2 py-1 sm:gap-2"
+        className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-chrome px-2.5 py-1 sm:gap-2"
       >
+        <Button
+          ref={navButtonRef}
+          type="button"
+          variant="ghost"
+          size="icon"
+          data-tour="library:nav-toggle"
+          aria-label={LIBRARY_WORDS.navigation}
+          aria-expanded={navOpen}
+          aria-controls={navDrawerId}
+          className="shrink-0 cursor-pointer text-fg-muted hover:text-fg @3xl:hidden"
+          onClick={() => setNavOpen((open) => !open)}
+        >
+          <MenuIcon aria-hidden="true" className="size-icon-lg" />
+        </Button>
         <ManentMark className="size-icon-lg shrink-0 text-fg" decorative />
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
@@ -264,12 +288,26 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         )}
         <SearchField />
         <span className="hidden sm:block sm:flex-1" />
-        <div className="order-3 flex basis-full items-center gap-1.5 sm:order-none sm:contents">
-          <CommandButton id="file.import" variant="outline" />
-          <CommandButton id="library.newScript" variant="outline" />
+        <div className="order-3 flex basis-full items-center justify-end gap-1.5 sm:order-none sm:contents">
+          <CommandButton
+            id="file.import"
+            variant="ghost"
+            icon={<UploadIcon aria-hidden="true" className="size-icon" />}
+            className="cursor-pointer gap-1.5 text-fg-muted hover:text-fg"
+          />
+          <CommandButton
+            id="library.newScript"
+            variant="default"
+            icon={<PlusIcon aria-hidden="true" className="size-icon" />}
+            className="cursor-pointer gap-1.5"
+          />
           <NewProjectPopover workspaceId={workspaceId} />
         </div>
-        <div className="order-2 flex shrink-0 sm:order-none">
+        <div
+          data-tour="title:account"
+          className="order-2 flex shrink-0 items-center gap-1.5 sm:order-none"
+        >
+          <TitleBarDivider className="hidden sm:block" />
           <PersonMenu name={person.name} />
         </div>
       </ShellRegion>
@@ -278,6 +316,9 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
           workspaceId={workspaceId}
           current={viewId}
           projects={projects}
+          mobileOpen={navOpen}
+          onCloseMobile={closeNav}
+          drawerId={navDrawerId}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-4 pt-4 pb-8 sm:px-6 sm:pt-6 *:mx-auto *:w-full *:max-w-content-wide">
           {shown?.seeding == null ? (

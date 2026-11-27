@@ -275,24 +275,21 @@ function NoAccess(props: {
       style={PAGE_AREA}
     >
       <div className="flex min-h-full w-full flex-col items-center justify-center">
-        <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-surface border border-line bg-raised p-6 text-center">
-          <span
-            aria-hidden="true"
-            className="flex size-12 shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
-          >
-            <LockIcon className="size-5" />
-          </span>
-          <p className="text-section font-medium text-fg">
-            {DOCUMENT_WORDS.noAccess}
-          </p>
-          {actions.map((action) => (
-            <CommandAction
-              key={action.commandId}
-              commandId={action.commandId}
-              label={action.label}
-            />
-          ))}
-        </div>
+        <EmptyHeroCard
+          icon={<LockIcon aria-hidden="true" className="size-5" />}
+          title={DOCUMENT_WORDS.noAccess}
+          actions={
+            actions.length === 0
+              ? null
+              : actions.map((action) => (
+                  <CommandAction
+                    key={action.commandId}
+                    commandId={action.commandId}
+                    label={action.label}
+                  />
+                ))
+          }
+        />
       </div>
     </div>
   );

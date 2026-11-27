@@ -10,17 +10,32 @@ export interface PitchPopoverProps {
 }
 
 const EDGE_PX = 8;
+const FOCUSABLE =
+  "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
 export function PitchPopover(props: PitchPopoverProps): ReactNode {
   const { place, onSubmit, onClose } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLInputElement>(null);
+  const openerRef = useRef<Element | null>(null);
   const finishedRef = useRef(false);
+
+  const restoreOpener = (): void => {
+    const opener = openerRef.current;
+    if (
+      opener instanceof HTMLElement &&
+      opener.isConnected &&
+      opener.closest("[inert]") === null
+    ) {
+      opener.focus({ preventScroll: true });
+    }
+  };
 
   const finish = (action: () => void): void => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     action();
+    restoreOpener();
   };
 
   useLayoutEffect(() => {
@@ -38,6 +53,10 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
   });
 
   useEffect(() => {
+    const active = document.activeElement;
+    if (active !== null && !rootRef.current?.contains(active)) {
+      openerRef.current = active;
+    }
     fieldRef.current?.focus();
   }, []);
 
@@ -54,6 +73,25 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
   }, [onClose]);
 
   const onDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "Tab") {
+      const root = rootRef.current;
+      if (root === null) return;
+      const focusables = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables.at(-1)!;
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !root.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
     if (event.key !== "Escape") return;
     event.preventDefault();
     event.stopPropagation();

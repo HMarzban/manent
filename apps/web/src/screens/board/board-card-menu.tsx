@@ -8,6 +8,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   PLACE_WORDS,
+  PRODUCTION_OUTPUTS_WORDS,
   READOUT_WORDS,
   SERIES_WORDS,
 } from "@manent/ui";
@@ -71,19 +72,25 @@ export function CardMenuItems(props: {
             {BOARD_WORDS.linkToScene}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            {scenes.map((scene) => (
-              <DropdownMenuItem
-                key={scene.blockId}
-                onClick={() => onLinkScene(scene.blockId)}
-              >
-                <span className="flex-1 truncate">
-                  {PLACE_WORDS.scene(scene.number, scene.heading)}
-                </span>
-                {card.link?.blockId === scene.blockId ? (
-                  <CheckIcon aria-hidden="true" className="text-fg-accent" />
-                ) : null}
+            {scenes.length === 0 ? (
+              <DropdownMenuItem disabled>
+                {PRODUCTION_OUTPUTS_WORDS.noScenesForSides}
               </DropdownMenuItem>
-            ))}
+            ) : (
+              scenes.map((scene) => (
+                <DropdownMenuItem
+                  key={scene.blockId}
+                  onClick={() => onLinkScene(scene.blockId)}
+                >
+                  <span className="flex-1 truncate">
+                    {PLACE_WORDS.scene(scene.number, scene.heading)}
+                  </span>
+                  {card.link?.blockId === scene.blockId ? (
+                    <CheckIcon aria-hidden="true" className="text-fg-accent" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))
+            )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       ) : (

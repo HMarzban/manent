@@ -92,7 +92,7 @@ export function ResettingScreen(props: { reseeded?: boolean }): ReactNode {
           <div className="flex flex-col items-center gap-1.5">
             <h1
               tabIndex={-1}
-              className="text-section font-medium text-fg outline-none"
+              className="text-title font-medium text-fg outline-none"
             >
               {DEMO_WORDS.resetting}
             </h1>

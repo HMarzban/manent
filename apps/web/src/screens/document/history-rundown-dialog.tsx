@@ -245,17 +245,46 @@ export function RundownRestoreDialog(props: {
 }): ReactNode {
   const target = useSubscribable(restoreTarget);
   const { history, messages } = useServices();
-  const { now } = useEnvironment();
+  const { dom, now } = useEnvironment();
   const view = useRundownView(props.docId);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const isOpen = target !== null && target.docId === props.docId;
+  const wasOpen = useRef(false);
+  const opener = useRef<HTMLElement | null>(null);
+
+  if (isOpen && !wasOpen.current && typeof document !== "undefined") {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      active.closest("[role='dialog'], [role='alertdialog']") === null
+    )
+      opener.current = active;
+  }
 
   useEffect(() => {
     setRefusal(null);
     setBusy(false);
   }, [target]);
 
-  if (target === null || target.docId !== props.docId) return null;
+  useEffect(() => {
+    if (isOpen) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const prev = opener.current;
+    opener.current = null;
+    if (prev?.isConnected && prev.closest("[inert]") === null) {
+      prev.focus({ preventScroll: true });
+      if (document.activeElement === prev) return;
+    }
+    dom.restoreFocus();
+  }, [isOpen, dom]);
+
+  if (!isOpen) return null;
   const copy = dialogCopyOf(target);
   const airWindow = view?.clock?.airWindow ?? null;
   const currentMs = now();
@@ -328,6 +357,7 @@ export function HistoryChangeStepper(props: { count: number }): ReactNode {
               type="button"
               variant="ghost"
               size="icon-sm"
+              data-tour="history.previousChange"
               className="size-5 cursor-pointer text-fg-muted hover:text-fg"
               onClick={() => commands.run("history.previousChange", "control")}
             />
@@ -351,6 +381,7 @@ export function HistoryChangeStepper(props: { count: number }): ReactNode {
               type="button"
               variant="ghost"
               size="icon-sm"
+              data-tour="history.nextChange"
               className="size-5 cursor-pointer text-fg-muted hover:text-fg"
               onClick={() => commands.run("history.nextChange", "control")}
             />

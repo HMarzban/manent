@@ -47,7 +47,11 @@ function Group(props: { services: ProductionServices }): ReactNode {
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-meta font-semibold">{WORDS.groupTitle}</h3>
-      {state !== null && state.locked ? <Revisions state={state} /> : null}
+      {state !== null && state.locked ? (
+        <Revisions state={state} />
+      ) : (
+        <p className="text-meta text-fg-muted">{WORDS.unlockedHint}</p>
+      )}
       <div className="flex flex-wrap gap-2">
         <CommandButton id="production.lock" variant="outline" size="sm" />
         <CommandButton id="production.unlock" variant="outline" size="sm" />

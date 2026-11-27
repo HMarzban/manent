@@ -17,6 +17,11 @@ import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../../shell/title-bar-pieces.tsx";
 import { useCommandActions } from "../document/status-bar.tsx";
 
 const VIEW_ONLY =
@@ -28,6 +33,7 @@ export interface BoardTitleBarProps {
   readonly activeSeason: SeasonEntry | null;
   readonly canEdit: boolean;
   readonly showViewOnly: boolean;
+  readonly empty?: boolean;
   onBack(): void;
   onSeasonChange(seasonId: string): void;
   onAddStoryline(): void;
@@ -40,6 +46,7 @@ export function BoardTitleBar(props: BoardTitleBarProps): ReactNode {
     activeSeason,
     canEdit,
     showViewOnly,
+    empty = false,
     onBack,
     onSeasonChange,
     onAddStoryline,
@@ -47,15 +54,10 @@ export function BoardTitleBar(props: BoardTitleBarProps): ReactNode {
   return (
     <ShellRegion
       region="title_bar"
-      className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2 text-ui"
+      className="@container flex min-h-titlebar shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-chrome px-2.5 py-1 text-ui"
     >
-      <Button
-        variant="ghost"
-        className="text-fg-muted hover:text-fg"
-        onClick={onBack}
-      >
-        {DOCUMENT_WORDS.back}
-      </Button>
+      <BackButton label={DOCUMENT_WORDS.back} onClick={onBack} />
+      <TitleBarDivider />
       <h1
         tabIndex={-1}
         className="min-w-0 flex-1 truncate text-title font-semibold outline-none"
@@ -90,24 +92,25 @@ export function BoardTitleBar(props: BoardTitleBarProps): ReactNode {
         </div>
       ) : null}
       {showViewOnly ? (
-        <span className="flex shrink-0 items-center gap-1 ps-2 text-ui text-fg-muted">
-          <EyeIcon aria-hidden="true" className="size-icon-lg" />
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-raised px-2 py-0.5 text-meta text-fg-muted">
+          <EyeIcon aria-hidden="true" className="size-icon" />
           {VIEW_ONLY}
         </span>
       ) : null}
-      {canEdit ? (
+      {canEdit && !empty ? (
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            variant="outline"
+            variant="default"
             aria-label={BOARD_WORDS.addStoryline}
             onClick={onAddStoryline}
-            className="px-2 sm:px-3"
+            className="cursor-pointer gap-1.5 px-2 sm:px-3"
           >
             <PlusIcon aria-hidden="true" className="size-icon" />
             <span className="hidden sm:inline">{BOARD_WORDS.addStoryline}</span>
           </Button>
         </div>
       ) : null}
+      <TitleBarAccount />
     </ShellRegion>
   );
 }

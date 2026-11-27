@@ -2,7 +2,7 @@
 import { indexDocId } from "@manent/sync-protocol";
 import { BROADCAST_MOS_WORDS, Label, Switch } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { PersonServices } from "../services/ports.ts";
@@ -130,11 +130,32 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
   const [state, setState] = useState<RundownBroadcastState | null>(null);
   const [saving, setSaving] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [online, setOnline] = useState<boolean>(() => environment.online());
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setOnline(environment.online());
+    const onOnline = (): void => setOnline(environment.online());
+    const onOffline = (): void => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [environment]);
 
   useEffect(() => {
     let live = true;
     const load = async (): Promise<void> => {
-      if (!environment.online()) return;
+      if (!online || !environment.online()) return;
       const person = readPerson(environment.tabStorage);
       const token = person?.userId === services.userId ? person.token : null;
       const [rdRes, descRes] = await Promise.all([
@@ -204,7 +225,7 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
     return () => {
       live = false;
     };
-  }, [docId, environment, services]);
+  }, [docId, environment, services, online]);
 
   if (state === null) return null;
 
@@ -227,8 +248,6 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
     );
   }
 
-  const online = environment.online();
-
   const handleToggle = async (nextEnabled: boolean): Promise<void> => {
     if (!state.canToggle || !online || saving) return;
     setSaving(true);
@@ -246,6 +265,7 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
         }),
       },
     );
+    if (!mountedRef.current) return;
     setSaving(false);
     if (!res.ok || !isRecord(res.body)) {
       setRefusal(BROADCAST_MOS_WORDS.unreachable);
@@ -264,7 +284,11 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
         <span className="text-ui font-medium text-fg">
           {BROADCAST_MOS_WORDS.rundownHeading}
         </span>
-        <span className={statusTone(state.status)}>
+        <span
+          role="status"
+          aria-live="polite"
+          className={statusTone(state.status)}
+        >
           {statusWord(state.status)}
         </span>
       </div>

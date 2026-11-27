@@ -267,11 +267,17 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
         >
           <FeedStatus status={status} remotePausedOnLoss={remotePausedOnLoss} />
         </div>
-        {operator !== null ? (
-          <span className="truncate text-meta text-fg-muted">
-            {PROMPTER_CONTROL_WORDS.controlsPrompter(operator.name)}
-          </span>
-        ) : null}
+        <span
+          role="status"
+          aria-live="polite"
+          className={
+            operator !== null ? "truncate text-meta text-fg-muted" : "sr-only"
+          }
+        >
+          {operator !== null
+            ? PROMPTER_CONTROL_WORDS.controlsPrompter(operator.name)
+            : null}
+        </span>
         {onFollowModeChange !== undefined ? (
           <div data-tour="prompter:follow_switch">
             <Segmented
@@ -347,7 +353,12 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
                 icon={<MinusIcon aria-hidden="true" className="size-icon" />}
                 onClick={stepSmaller}
               />
-              <span className="min-w-10 text-center text-ui font-medium text-fg tabular-nums sm:min-w-12">
+              <span
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="min-w-10 text-center text-ui font-medium text-fg tabular-nums sm:min-w-12"
+              >
                 {PROMPTER_WINDOW_WORDS.textSizeValue(view.textSize)}
               </span>
               <StepButton

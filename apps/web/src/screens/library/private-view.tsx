@@ -20,6 +20,7 @@ import {
   privateProjectPicker,
   watchPrivateFolder,
 } from "../../services/sync/private-folder.ts";
+import { LibraryViewHeader } from "./library-view-header.tsx";
 import { KindIcon } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
 import type { LibraryViewProps } from "./views.ts";
@@ -121,12 +122,30 @@ export function PrivateView(_props: LibraryViewProps): ReactNode {
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
       {empty && !pickerOpen ? null : (
-        <div className="flex flex-col gap-1">
-          <h2 className="text-heading">{LIBRARY_FILES_WORDS.privateHeading}</h2>
-          <p className="text-ui text-fg-muted">
-            {LIBRARY_FILES_WORDS.privateNote}
-          </p>
-        </div>
+        <LibraryViewHeader
+          icon={<LockIcon aria-hidden="true" className="size-icon" />}
+          title={LIBRARY_FILES_WORDS.privateHeading}
+          subtitle={LIBRARY_FILES_WORDS.privateNote}
+          actions={
+            empty ? undefined : (
+              <>
+                <CommandButton
+                  id="library.newScript"
+                  variant="outline"
+                  size="sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => privateProjectPicker.open()}
+                >
+                  {LIBRARY_WORDS.newProject}
+                </Button>
+              </>
+            )
+          }
+        />
       )}
       {pickerOpen ? <PrivateKindPicker open={open} /> : null}
       {empty ? (
@@ -139,7 +158,15 @@ export function PrivateView(_props: LibraryViewProps): ReactNode {
                 title={LIBRARY_FILES_WORDS.privateHeading}
                 description={LIBRARY_FILES_WORDS.privateEmpty}
                 actions={
-                  <CommandButton id="library.newScript" variant="outline" />
+                  <>
+                    <CommandButton id="library.newScript" variant="outline" />
+                    <Button
+                      variant="outline"
+                      onClick={() => privateProjectPicker.open()}
+                    >
+                      {LIBRARY_WORDS.newProject}
+                    </Button>
+                  </>
                 }
               />
             </div>

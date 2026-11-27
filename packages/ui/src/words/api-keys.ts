@@ -32,4 +32,7 @@ export const API_KEYS_WORDS = Object.freeze({
   couldNotCreate: "Couldn't create the key. Try again.",
   couldNotRevoke: (name: string): string =>
     `Couldn't revoke '${name}'. Try again.`,
+  emptyOwner:
+    "No keys yet. Name a key and choose Create key so a program can read this workspace.",
+  emptyMember: "Workspace owners can create API keys here.",
 });

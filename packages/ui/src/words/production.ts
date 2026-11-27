@@ -13,6 +13,7 @@ export const PRODUCTION_WORDS = {
   /** The Lock dialog is titled by its command. */
   lockTitle: "Lock for production",
   lockButton: "Lock for production",
+  unlockedHint: "Lock page numbers to start revisions and issue changed pages.",
   lockBody: (script: string, next: string): string =>
     `Page numbers and scene numbers stop moving for everyone on ${script}. The text stays editable, and changes from now on are marked as revisions, starting with ${next}.`,
   /** "Scene numbers 12A · White → Blue → Pink …" */

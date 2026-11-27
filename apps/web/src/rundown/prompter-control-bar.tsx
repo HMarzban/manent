@@ -15,9 +15,10 @@ import {
   PlusIcon,
   TriangleExclamationPointIcon,
 } from "lucide-react";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { usePrompterRuntime } from "../prompter/prompter-session.ts";
+import { useEnvironment } from "../services/context.tsx";
 import { prompterActions } from "../state/prompter.store.ts";
 
 const SPEED_STEP = 0.5;
@@ -48,13 +49,27 @@ export function PrompterControlBar(props: {
   readonly docId: string;
 }): ReactNode {
   const { docId } = props;
+  const { dom } = useEnvironment();
   const snapshot = usePrompterRuntime(docId);
   const jumpReasonId = useId();
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const hadFocusRef = useRef(false);
   const active = snapshot.isOperator;
   const online = snapshot.online;
   const playing = snapshot.scroll?.playing === true;
   const speed = snapshot.scroll?.linesPerSecond ?? PROMPTER_DEFAULT_SPEED_LPS;
   const canJump = online && snapshot.activeRowSent;
+
+  useLayoutEffect(() => {
+    if (!active) return undefined;
+    return () => {
+      const focusedInside =
+        hadFocusRef.current ||
+        (barRef.current?.contains(document.activeElement) ?? false);
+      hadFocusRef.current = false;
+      if (focusedInside) dom.restoreFocus();
+    };
+  }, [active, dom]);
 
   const togglePlay = (): void => {
     if (!online) return;
@@ -119,9 +134,17 @@ export function PrompterControlBar(props: {
 
   return (
     <div
+      ref={barRef}
       role="toolbar"
       aria-label={PROMPTER_CONTROL_WORDS.controlPrompter}
       className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line bg-chrome px-3 py-1 text-ui"
+      onFocusCapture={() => {
+        hadFocusRef.current = true;
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          hadFocusRef.current = false;
+      }}
     >
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -129,6 +152,7 @@ export function PrompterControlBar(props: {
           variant="outline"
           size="sm"
           disabled={!online}
+          aria-pressed={playing}
           data-tour="prompter:play"
           className="cursor-pointer gap-1.5"
           onClick={togglePlay}
@@ -146,6 +170,7 @@ export function PrompterControlBar(props: {
         </Button>
 
         <div
+          role="group"
           aria-label={PROMPTER_CONTROL_WORDS.scrollRate}
           className="flex items-center gap-1"
         >
@@ -160,7 +185,12 @@ export function PrompterControlBar(props: {
           >
             <MinusIcon aria-hidden="true" className="size-icon" />
           </Button>
-          <span className="min-w-12 text-center text-meta font-medium text-fg tabular-nums">
+          <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="min-w-12 text-center text-meta font-medium text-fg tabular-nums"
+          >
             {PROMPTER_CONTROL_WORDS.linesPerSecond(speed)}
           </span>
           <Button
@@ -184,6 +214,7 @@ export function PrompterControlBar(props: {
               variant={speed === preset.lps ? "outline" : "ghost"}
               size="sm"
               disabled={!online}
+              aria-pressed={speed === preset.lps}
               className="cursor-pointer"
               onClick={() => setSpeed(preset.lps)}
             >
@@ -253,7 +284,11 @@ export function PrompterControlBar(props: {
         ) : null}
 
         {!online ? (
-          <span className="flex items-center gap-1 text-meta font-medium text-attention">
+          <span
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-1 text-meta font-medium text-attention"
+          >
             <TriangleExclamationPointIcon
               aria-hidden="true"
               className="size-icon shrink-0"

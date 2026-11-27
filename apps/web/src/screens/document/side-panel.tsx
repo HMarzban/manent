@@ -19,8 +19,8 @@ export function SidePanel(props: {
   useEffect(() => {
     if (open && sideTab !== "tour") closeBeside();
   }, [open, sideTab]);
-  // leaving the document closes what is beside it
-  useEffect(() => closeBeside, []);
+  // leaving or switching the document closes what is beside it
+  useEffect(() => closeBeside, [props.docId]);
   return (
     <>
       <PanelPlace over={props.overlay && open ? "end" : null}>

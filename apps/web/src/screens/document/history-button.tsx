@@ -59,7 +59,7 @@ export function HistoryButton(props: { readonly docId: string }): ReactNode {
         {attention ? (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-1 end-1 size-1.5 rounded-full bg-attention"
+            className="mn-status-dot pointer-events-none absolute top-1 end-1 size-1.5 rounded-full bg-attention"
           />
         ) : null}
       </TooltipTrigger>

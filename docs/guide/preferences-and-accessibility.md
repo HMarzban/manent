@@ -46,7 +46,7 @@ Who you are in the demo, and **Switch person**.
 
 What is built in:
 
-- **Keyboard first.** Every command is in the palette and can have a key. F6 and Shift+F6 move between the regions of the window (the demo bar, the title bar, the page, the panels, the status bar). Escape closes the palette or a menu and returns to the page.
+- **Keyboard first.** Every command is in the palette and can have a key. F6 and Shift+F6 move between the regions of the window (the demo bar, the title bar, the page, the panels, the status bar). In Library Search, ArrowDown and ArrowUp move straight through results; Beside splitters resize with the arrow keys (`Home`/`End` to bounds); on narrow screens (`< 768 px`), the Library navigation rail opens as a slide-in drawer that closes with Escape and returns focus to its toggle button. Escape closes the palette, a menu or an overlay panel and returns focus to the page or trigger.
 - **Focus.** Each screen has one heading, which takes focus when the screen opens. Focus returns where it was when a menu or a dialog closes.
 - **Screen readers.** The status of a script, messages and alerts are announced through live regions. Element changes, page starts and people arriving or leaving can be announced as you write (Preferences → Writing → Announce while writing), and **Where am I?** in the command palette reads the whole place on request: the element, the speaker, the scene, the page and the status.
 - **Words, not colour alone.** Every state is also said in words.

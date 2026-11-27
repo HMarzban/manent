@@ -303,10 +303,10 @@ const openMenu = async (trigger: HTMLElement): Promise<HTMLElement[]> => {
   return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
 };
 
-/** The first control of the header row. */
+/** The workspace switcher control in the header row. */
 const switcherButton = (): HTMLElement => {
   const found = document.querySelector<HTMLElement>(
-    '[data-region="title_bar"] button',
+    '[data-region="title_bar"] button[aria-haspopup="menu"]',
   );
   if (found === null) throw new Error("no header button");
   return found;

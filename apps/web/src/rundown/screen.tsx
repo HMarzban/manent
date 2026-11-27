@@ -53,6 +53,7 @@ import {
 import { PrompterControlBar } from "./prompter-control-bar.tsx";
 import { useRundownRows } from "./rows.tsx";
 import { buildGridColumns, buildGridRows } from "./rundown-cells.tsx";
+import { RundownFooterBar } from "./rundown-footer-bar.tsx";
 import { useRundownSession } from "./rundown-session.ts";
 import {
   RundownEmpty,
@@ -331,6 +332,10 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
             }}
           />
         </div>
+        <RundownFooterBar
+          readOnly={readOnly}
+          hasRows={view.rundown !== null && view.rundown.rows.length > 0}
+        />
       </div>
       <SidePanel docId={docId} overlay={sideOverPage} />
       <StatusBar

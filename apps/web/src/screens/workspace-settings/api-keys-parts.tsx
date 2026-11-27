@@ -19,7 +19,7 @@ import {
   TriangleExclamationPointIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 export interface ShownOnceKey {
   readonly id: string;
@@ -74,10 +74,12 @@ export function GuardedButton(props: {
   size?: "default" | "sm";
   disabled: boolean;
   reason?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
   onClick?: () => void;
 }): ReactNode {
   const button = (
     <Button
+      ref={props.buttonRef}
       type={props.type}
       variant={props.variant}
       size={props.size}
@@ -199,10 +201,22 @@ export function ApiKeyRow(props: {
   const { entry, now, canChange, online, confirming, revoking, busy, refusal } =
     props;
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const revokeRef = useRef<HTMLButtonElement | null>(null);
+  const restoreRevokeRef = useRef(false);
 
   useEffect(() => {
-    if (confirming) cancelRef.current?.focus();
+    if (confirming) {
+      cancelRef.current?.focus();
+    } else if (restoreRevokeRef.current) {
+      restoreRevokeRef.current = false;
+      revokeRef.current?.focus();
+    }
   }, [confirming]);
+
+  const handleCancel = (): void => {
+    restoreRevokeRef.current = true;
+    props.onCancelRevoke();
+  };
 
   const revoked = entry.revokedAt !== null;
   const lastUsedText =
@@ -231,9 +245,10 @@ export function ApiKeyRow(props: {
           {lastUsedText}
         </td>
         {canChange ? (
-          <td className="whitespace-nowrap px-4 py-3 text-right">
+          <td className="whitespace-nowrap px-4 py-3 text-end">
             {revoked || confirming ? null : (
               <GuardedButton
+                buttonRef={revokeRef}
                 label={API_KEYS_WORDS.revoke}
                 type="button"
                 variant="outline"
@@ -252,7 +267,7 @@ export function ApiKeyRow(props: {
           onKeyDown={(event) => {
             if (event.key === "Escape" && !revoking) {
               event.preventDefault();
-              props.onCancelRevoke();
+              handleCancel();
             }
           }}
         >
@@ -269,7 +284,7 @@ export function ApiKeyRow(props: {
                   size="sm"
                   disabled={revoking}
                   className={revoking ? "cursor-not-allowed" : "cursor-pointer"}
-                  onClick={props.onCancelRevoke}
+                  onClick={handleCancel}
                 >
                   {API_KEYS_WORDS.cancel}
                 </Button>

@@ -16,6 +16,7 @@ import {
 import { BookmarkPlusIcon, HistoryIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import { useOptionalEnvironment } from "../services/context.tsx";
 import { panelsActions, usePanel } from "../state/panels.store.ts";
 import {
   panelWidthCss,
@@ -178,7 +179,13 @@ export function SidePosition(props: {
   overlayManaged?: boolean;
 }): ReactNode {
   const { docId, tabs, overlayManaged = false } = props;
+  const environment = useOptionalEnvironment();
   const { tab, widthPx } = usePanel("side");
+  const closeSide = (): void => {
+    panelsActions.close("side");
+    if (environment !== null && !environment.dom.focusPage())
+      environment.dom.restoreFocus();
+  };
   const narrowViewport = useNarrowPanelOverlay();
   const rootRef = useRef<HTMLDivElement>(null);
   const [outerOverlay, setOuterOverlay] = useState(false);
@@ -218,7 +225,7 @@ export function SidePosition(props: {
             <StandaloneHeader
               id={current.entry.id}
               label={current.label}
-              onClose={() => panelsActions.close("side")}
+              onClose={closeSide}
             />
             <div
               data-panel-body=""
@@ -233,7 +240,7 @@ export function SidePosition(props: {
             tabs={stripTabs.map((t) => ({ id: t.entry.id, label: t.label }))}
             current={current.entry.id}
             onChange={(id) => panelsActions.open("side", id)}
-            onClose={() => panelsActions.close("side")}
+            onClose={closeSide}
             closeLabel={DOCUMENT_WORDS.closeSidePanel}
           >
             <Tab docId={docId} />
@@ -253,7 +260,7 @@ export function SidePosition(props: {
       <div
         aria-hidden="true"
         className="fixed inset-0 z-20 bg-scrim animate-in fade-in-0 duration-(--dur-fast) ease-out"
-        onClick={() => panelsActions.close("side")}
+        onClick={closeSide}
       />
       {panel}
     </div>

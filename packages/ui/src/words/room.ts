@@ -16,4 +16,5 @@ export const ROOM_WORDS = Object.freeze({
   pitchFieldPlaceholder: "Type another way to say this line. Enter pitches it.",
   pitchNeedsSpeech: (name: string): string =>
     `needs ${name}'s caret in a speech`,
+  noDriverHint: "Choose Take keys in the script so this window follows you.",
 });

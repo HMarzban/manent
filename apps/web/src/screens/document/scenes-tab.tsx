@@ -12,6 +12,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { NEW_PROJECT_CARDS } from "@manent/ui";
+import { ListTreeIcon } from "lucide-react";
 import {
   useCallback,
   useContext,
@@ -21,6 +22,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import {
   BlankCard,
   SceneCards,
@@ -334,13 +336,21 @@ function ScenesList(props: { docId: string }): ReactNode {
                 <BlankCard docId={docId} />
               </div>
             ) : (
-              <p className="p-4 text-ui text-fg-muted">
-                {DOCUMENT_WORDS.scenesEmpty(
-                  format,
-                  kind,
-                  keyLabel(PICKER_CHORD, platform),
-                )}
-              </p>
+              <div className="flex min-h-0 flex-1 overflow-y-auto p-3">
+                <div className="flex min-h-full w-full flex-col items-center justify-center">
+                  <EmptyHeroCard
+                    compact
+                    icon={
+                      <ListTreeIcon aria-hidden="true" className="size-4" />
+                    }
+                    description={DOCUMENT_WORDS.scenesEmpty(
+                      format,
+                      kind,
+                      keyLabel(PICKER_CHORD, platform),
+                    )}
+                  />
+                </div>
+              </div>
             )}
           </div>
         ),

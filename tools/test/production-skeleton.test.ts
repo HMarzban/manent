@@ -171,6 +171,7 @@ const SAID: Readonly<Record<keyof typeof PRODUCTION_WORDS, readonly string[]>> =
   {
     lockTitle: [W.lockTitle],
     lockButton: [W.lockButton],
+    unlockedHint: [W.unlockedHint],
     lockBody: [W.lockBody("The Long Night", "Blue")],
     lockDefaults: [W.lockDefaults("12A", "White → Blue → Pink …")],
     locked: [W.locked("Blue")],

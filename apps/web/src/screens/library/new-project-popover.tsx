@@ -17,6 +17,7 @@ import {
   useSetting,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronDownIcon, FolderPlusIcon } from "lucide-react";
 import { useId, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { localIsoDate } from "../../rundown/create-rundown.ts";
@@ -140,14 +141,28 @@ export function NewProjectPopover(props: {
   };
 
   if (unavailable)
-    return <CommandButton id="library.newProject" variant="outline" />;
+    return (
+      <CommandButton
+        id="library.newProject"
+        variant="outline"
+        icon={<FolderPlusIcon aria-hidden="true" className="size-icon" />}
+      />
+    );
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         data-tour="library.newProject"
-        render={<Button variant="outline" />}
+        render={<Button variant="outline" className="cursor-pointer gap-1.5" />}
       >
-        {LIBRARY_WORDS.newProject}
+        <FolderPlusIcon
+          aria-hidden="true"
+          className="size-icon text-fg-muted"
+        />
+        <span>{LIBRARY_WORDS.newProject}</span>
+        <ChevronDownIcon
+          aria-hidden="true"
+          className="size-3.5 text-fg-muted"
+        />
       </PopoverTrigger>
       {/* focus goes back to whatever opened it, which may be the empty list's button */}
       <PopoverContent

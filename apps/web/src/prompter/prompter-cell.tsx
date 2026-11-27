@@ -11,6 +11,7 @@ import {
   CloudOffIcon,
   TriangleExclamationPointIcon,
 } from "lucide-react";
+import { useId } from "react";
 import type { ReactNode } from "react";
 import { useRundownView } from "../rundown/rundown-view-store.ts";
 import { prompterActions } from "../state/prompter.store.ts";
@@ -24,29 +25,39 @@ function SendRowButton(props: {
   onSend(): void;
 }): ReactNode {
   const { title, waiting, sending, onSend } = props;
+  const reasonId = useId();
   const label = PROMPTER_WORDS.sendRowLabel(title);
   if (waiting > 0) {
+    const waitingText = PROMPTER_WORDS.waitingChanges(waiting);
     return (
-      <Tooltip>
-        <TooltipTrigger
-          render={<span className="inline-flex shrink-0 cursor-not-allowed" />}
-        >
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-tour="prompter.send"
-            disabled
-            aria-label={label}
-            className="pointer-events-none shrink-0"
+      <>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-tour="prompter.send"
+                aria-disabled="true"
+                aria-describedby={reasonId}
+                aria-label={label}
+                className="shrink-0 cursor-not-allowed opacity-50"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              />
+            }
           >
             {PROMPTER_WORDS.send}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {PROMPTER_WORDS.waitingChanges(waiting)}
-        </TooltipContent>
-      </Tooltip>
+          </TooltipTrigger>
+          <TooltipContent>{waitingText}</TooltipContent>
+        </Tooltip>
+        <span id={reasonId} className="sr-only">
+          {waitingText}
+        </span>
+      </>
     );
   }
   return (

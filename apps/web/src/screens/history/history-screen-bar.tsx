@@ -13,10 +13,20 @@ import {
   useCommands,
   versionRef,
 } from "@manent/ui";
-import { BookmarkPlusIcon, LockIcon, RotateCcwIcon } from "lucide-react";
+import {
+  BookmarkPlusIcon,
+  Link2Icon,
+  LockIcon,
+  RotateCcwIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { nameOf } from "../../services/sync/index-entries.ts";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../../shell/title-bar-pieces.tsx";
 import { useHistory } from "../../state/history.store.ts";
 import { openRundownRestore } from "../document/history-rundown-dialog.tsx";
 
@@ -58,18 +68,16 @@ export function HistoryScreenBar(props: {
   };
 
   return (
-    <header className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-chrome px-3 py-1.5 text-ui">
+    <header className="flex min-h-titlebar shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-chrome px-2.5 py-1 text-ui">
       <div className="flex min-w-0 items-center gap-2">
-        <Button
-          type="button"
-          variant="ghost"
+        <BackButton
           size="sm"
-          className="shrink-0 cursor-pointer text-fg-muted hover:text-fg"
+          label={
+            isRundown ? HISTORY_WORDS.backToRundown : HISTORY_WORDS.backToScript
+          }
           onClick={onBack}
-        >
-          {isRundown ? HISTORY_WORDS.backToRundown : HISTORY_WORDS.backToScript}
-        </Button>
-        <span aria-hidden="true" className="h-4 w-px shrink-0 bg-line" />
+        />
+        <TitleBarDivider />
         <h1
           tabIndex={-1}
           className="truncate text-title font-semibold text-fg outline-none"
@@ -83,7 +91,16 @@ export function HistoryScreenBar(props: {
         </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
+        {offeredVersionId !== null ? (
+          <CommandButton
+            id="history.copyLink"
+            variant="ghost"
+            size="sm"
+            icon={<Link2Icon aria-hidden="true" className="size-icon" />}
+            className="cursor-pointer gap-1.5 text-fg-muted hover:text-fg"
+          />
+        ) : null}
         {canEdit && nameDraft.visible ? (
           <Tooltip>
             <TooltipTrigger
@@ -108,9 +125,6 @@ export function HistoryScreenBar(props: {
             </TooltipContent>
           </Tooltip>
         ) : null}
-        {offeredVersionId !== null ? (
-          <CommandButton id="history.copyLink" variant="outline" size="sm" />
-        ) : null}
         {canEdit && selectedRow !== null ? (
           <Button
             type="button"
@@ -129,6 +143,7 @@ export function HistoryScreenBar(props: {
             </span>
           </Button>
         ) : null}
+        <TitleBarAccount />
       </div>
     </header>
   );

@@ -6,10 +6,12 @@ import type {
 } from "@manent/sync-protocol";
 import {
   NOTIFICATIONS_WORDS,
+  Skeleton,
   TooltipProvider,
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
+import { BellOffIcon, CloudOffIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -19,6 +21,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import {
   createNotificationsApi,
   validateAddressInput,
@@ -249,9 +252,11 @@ export function NotificationsGroup(
         <h2 id={headingId} className="text-title">
           {WORKSPACE_WORDS.groups.notifications}
         </h2>
-        <p className="text-ui text-fg-muted">
-          {WORKSPACE_WORDS.needsConnection}
-        </p>
+        <EmptyHeroCard
+          compact
+          icon={<CloudOffIcon aria-hidden="true" className="size-5" />}
+          description={WORKSPACE_WORDS.needsConnection}
+        />
       </section>
     );
   }
@@ -289,11 +294,27 @@ export function NotificationsGroup(
             onRetry={online ? () => void reload() : undefined}
           />
         ) : null}
-        {ordered === null ? null : !canChange ? (
+        {ordered === null ? (
+          online && !loadError ? (
+            <div aria-busy="true" className="flex flex-col gap-3">
+              <Skeleton
+                aria-hidden="true"
+                className="h-20 w-full rounded-surface"
+              />
+              <Skeleton
+                aria-hidden="true"
+                className="h-20 w-full rounded-surface"
+              />
+            </div>
+          ) : null
+        ) : !canChange ? (
           allOff ? (
-            <p className="rounded-surface border border-line bg-raised p-4 text-ui text-fg-muted">
-              {WORKSPACE_WORDS.nothingSetUp}
-            </p>
+            <EmptyHeroCard
+              compact
+              icon={<BellOffIcon aria-hidden="true" className="size-5" />}
+              title={WORKSPACE_WORDS.nothingSetUp}
+              description={NOTIFICATIONS_WORDS.memberEmpty}
+            />
           ) : (
             <div className="divide-y divide-line rounded-surface border border-line bg-raised">
               {ordered.map((status) => (

@@ -22,6 +22,14 @@ export const INK_WORDS = Object.freeze({
   restartUnavailable: "Nothing to restart yet.",
   variablesToggle: (n: number): string => `Variables (${formatCount(n)})`,
   play: "Play",
+  closePlayer: "Close player",
+  playerReadyTitle: "Ready to play",
+  playWithProblems: (n: number): string =>
+    `Play · ${n === 1 ? "1 problem" : `${formatCount(n)} problems`}`,
+  playerStoppedTitle: "The story player stopped",
+  playerStoppedDetail:
+    "Restart the player to try again. Your script was not changed.",
+  restartPlayer: "Restart player",
   playFromHere: "Play from here",
   place: (knot: string, stitch: string | null): string =>
     stitch === null ? knot : `${knot} · ${stitch}`,

@@ -40,6 +40,11 @@ export function useEnvironment(): Environment {
   return environment;
 }
 
+/** Reads the environment when inside an EnvironmentProvider, or null in standalone harnesses. */
+export function useOptionalEnvironment(): Environment | null {
+  return useContext(EnvironmentContext);
+}
+
 export function ServicesProvider(props: {
   services: PersonServices;
   children: ReactNode;
@@ -57,6 +62,11 @@ export function useServices(): PersonServices {
   if (services === null)
     throw new TypeError("the services were read outside their provider");
   return services;
+}
+
+/** Reads the active person's services when inside a ServicesProvider, or null in standalone harnesses. */
+export function useOptionalServices(): PersonServices | null {
+  return useContext(ServicesContext);
 }
 
 /**

@@ -23,6 +23,11 @@ import {
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../../shell/title-bar-pieces.tsx";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
 export const SEND_ROW_IDS = [
@@ -97,10 +102,13 @@ export function SendLayout(props: {
   );
   return (
     <>
-      <header
-        ref={setTitleBar}
-        className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2"
-      />
+      <header className="flex min-h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2.5 py-1">
+        <div
+          ref={setTitleBar}
+          className="flex min-w-0 flex-1 items-center gap-2"
+        />
+        <TitleBarAccount />
+      </header>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           {host === null ? null : (
@@ -113,7 +121,6 @@ export function SendLayout(props: {
   );
 }
 
-// each one shows once the work has been busy for that long: the progress, Still working…, then Cancel
 const BUSY_STEPS = [
   PROGRESS_AFTER_MS,
   STILL_WORKING_MS,
@@ -130,9 +137,7 @@ function useBusyStep(busy: boolean): number {
     const cancels = BUSY_STEPS.map((afterMs, index) =>
       schedule(() => setStep(index + 1), afterMs),
     );
-    return () => {
-      for (const cancel of cancels) cancel();
-    };
+    return () => cancels.forEach((cancel) => cancel());
   }, [busy, schedule]);
   return step;
 }
@@ -325,17 +330,15 @@ export function SendFrame(props: {
     <>
       {createPortal(
         <>
-          <Button
-            variant="ghost"
-            className="text-fg-muted"
+          <BackButton
+            label={SEND_WORDS.back(place.name)}
             onClick={place.back}
-          >
-            {SEND_WORDS.back(place.name)}
-          </Button>
+          />
+          <TitleBarDivider />
           <h1
             ref={headingRef}
             tabIndex={-1}
-            className="truncate text-heading outline-none"
+            className="truncate text-title font-semibold text-fg outline-none"
           >
             {title}
           </h1>

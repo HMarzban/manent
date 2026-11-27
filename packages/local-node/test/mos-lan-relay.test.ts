@@ -317,3 +317,126 @@ test("localRoutes /api/local/mos checks handshake, streams PrompterHandle, enfor
   );
   expect(handleClosed).toBe(true);
 });
+
+test("createMosLanRelay preserves atomicity on TCP failure, resyncs on reconnect, and syncs story reorders via MOVE", async () => {
+  // Start with a closed ephemeral port so initial TCP send fails
+  const probe = await createMockMosPrompter();
+  const port = probe.port;
+  await probe.close();
+
+  const row1: PrompterRow = {
+    rowId: "r-1",
+    kind: "story",
+    number: 1,
+    title: "Lead",
+    storyId: "s-1",
+    durationMs: 20_000,
+  };
+  const row2: PrompterRow = {
+    rowId: "r-2",
+    kind: "story",
+    number: 2,
+    title: "Second",
+    storyId: "s-2",
+    durationMs: 20_000,
+  };
+  const row3: PrompterRow = {
+    rowId: "r-3",
+    kind: "story",
+    number: 3,
+    title: "Third",
+    storyId: "s-3",
+    durationMs: 20_000,
+  };
+
+  let snapshot: PrompterFeedSnapshot = {
+    runOrder: [row1, row2, row3],
+    stories: new Map([
+      ["s-1", [block("b1", "dialogue", "First line.")]],
+      ["s-2", [block("b2", "dialogue", "Second line.")]],
+      ["s-3", [block("b3", "dialogue", "Third line.")]],
+    ]),
+  };
+  const listeners = new Set<() => void>();
+  const statuses: string[] = [];
+  const feed = {
+    current: () => snapshot,
+    subscribe(fn: () => void) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  };
+
+  const relay = await createMosLanRelay({
+    config: {
+      rundownId: RUNDOWN_A,
+      roSlug: "Resilience Show",
+      host: "127.0.0.1",
+      upperPort: port,
+      mosId: "autoscript.studio",
+      ncsId: "manent.ncs",
+      dialect: "mos_2_8_5",
+      allowedCidrs: [],
+    },
+    feed,
+    onStatus: (s) => statuses.push(s),
+  });
+  expect(relay.ok).toBe(true);
+  if (!relay.ok) return;
+
+  // Wait for initial TCP failure to mark status "lost" (created must stay false!)
+  const deadline = Date.now() + 2_000;
+  while (relay.status() !== "lost" && Date.now() < deadline)
+    await new Promise((r) => setTimeout(r, 10));
+  expect(relay.status()).toBe("lost");
+
+  // Bring mock MOS prompter up on the same port and trigger feed sync -> full roCreate + all stories arrive
+  mockPrompter = await createMockMosPrompter({ host: "127.0.0.1", port });
+  for (const fn of listeners) fn();
+
+  await mockPrompter.waitFor((msgs) =>
+    msgs.some((m) => m.kind === "roStorySend" && m.storyId === "r-3"),
+  );
+  expect(
+    mockPrompter.runningOrders.get(RUNDOWN_A)?.stories.map((s) => s.storyId),
+  ).toEqual(["r-1", "r-2", "r-3"]);
+  expect(relay.status()).toBe("live");
+
+  // Reorder stories with identical IDs and content/hashes: [r-1, r-2, r-3] -> [r-3, r-1, r-2]
+  snapshot = {
+    ...snapshot,
+    runOrder: [row3, row1, row2],
+  };
+  for (const fn of listeners) fn();
+
+  await mockPrompter.waitFor((msgs) =>
+    msgs.some((m) => m.kind === "roElementAction" && m.operation === "MOVE"),
+  );
+  expect(
+    mockPrompter.runningOrders.get(RUNDOWN_A)?.stories.map((s) => s.storyId),
+  ).toEqual(["r-3", "r-1", "r-2"]);
+
+  // Drop TCP connection to simulate transient loss, then recover -> full roCreate resync
+  const createsBefore = mockPrompter.received.filter(
+    (m) => m.kind === "roCreate",
+  ).length;
+  mockPrompter.disconnectAll();
+  const lossDeadline = Date.now() + 2_000;
+  while (relay.status() !== "lost" && Date.now() < lossDeadline)
+    await new Promise((r) => setTimeout(r, 10));
+  expect(relay.status()).toBe("lost");
+
+  // Trigger sync after disconnect -> full roCreate resync restores exact reordered stories
+  for (const fn of listeners) fn();
+  await mockPrompter.waitFor(
+    (msgs) =>
+      msgs.filter((m) => m.kind === "roCreate").length > createsBefore &&
+      msgs.filter((m) => m.kind === "roStorySend").length >= 6,
+  );
+  expect(relay.status()).toBe("live");
+  expect(
+    mockPrompter.runningOrders.get(RUNDOWN_A)?.stories.map((s) => s.storyId),
+  ).toEqual(["r-3", "r-1", "r-2"]);
+
+  await relay.stop();
+});

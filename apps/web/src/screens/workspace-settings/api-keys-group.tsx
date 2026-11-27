@@ -3,10 +3,12 @@ import type { ApiKeyView } from "@manent/sync-protocol";
 import {
   API_KEYS_WORDS,
   Input,
+  Skeleton,
   TooltipProvider,
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
+import { CloudOffIcon, KeyRoundIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -16,6 +18,7 @@ import {
   useState,
 } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import {
   createApiKeysApi,
   workspaceApiKeysHolder,
@@ -202,9 +205,11 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
         <h2 id={headingId} className="text-title">
           {WORKSPACE_WORDS.groups.api_keys}
         </h2>
-        <p className="text-ui text-fg-muted">
-          {WORKSPACE_WORDS.needsConnection}
-        </p>
+        <EmptyHeroCard
+          compact
+          icon={<CloudOffIcon aria-hidden="true" className="size-5" />}
+          description={WORKSPACE_WORDS.needsConnection}
+        />
       </section>
     );
   }
@@ -281,13 +286,28 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
             schedule={environment.schedule}
           />
         ) : null}
-        {keys === null ? null : keys.length === 0 ? (
-          <p className="rounded-surface border border-line bg-raised p-4 text-ui text-fg-muted">
-            {WORKSPACE_WORDS.nothingSetUp}
-          </p>
+        {keys === null ? (
+          online && !loadError ? (
+            <div aria-busy="true" className="flex flex-col gap-3">
+              <Skeleton aria-hidden="true" className="h-control w-48" />
+              <Skeleton
+                aria-hidden="true"
+                className="h-16 w-full rounded-surface"
+              />
+            </div>
+          ) : null
+        ) : keys.length === 0 ? (
+          <EmptyHeroCard
+            compact
+            icon={<KeyRoundIcon aria-hidden="true" className="size-5" />}
+            title={WORKSPACE_WORDS.nothingSetUp}
+            description={
+              canChange ? API_KEYS_WORDS.emptyOwner : API_KEYS_WORDS.emptyMember
+            }
+          />
         ) : (
           <div className="overflow-x-auto rounded-surface border border-line bg-raised">
-            <table className="w-full border-collapse text-left">
+            <table className="w-full border-collapse text-start">
               <thead>
                 <tr className="border-b border-line">
                   <th

@@ -101,4 +101,7 @@ export const LIBRARY_WORDS = {
     desktop ? "On this device only" : "Only in this browser",
   /** The workspace switcher's last row for a person with no session. */
   signIn: "Sign in to sync",
+  /** Accessible name of the narrow-viewport Library navigation drawer and its toggle button. */
+  navigation: "Library menu",
+  closeNavigation: "Close library menu",
 } as const;

@@ -178,7 +178,12 @@ function SidesRangeControls(props: SendWhatControlsProps): ReactNode {
       })),
     [pickable],
   );
-  if (choice === null) return null;
+  if (choice === null)
+    return (
+      <p className="rounded-control border border-line bg-subtle px-3 py-2 text-ui text-fg-muted">
+        {PRODUCTION_OUTPUTS_WORDS.noScenesForSides}
+      </p>
+    );
   const indexOf = (id: string): number =>
     allScenes.findIndex((scene) => scene.blockId === id);
   const handleFirst = (value: string | null): void => {

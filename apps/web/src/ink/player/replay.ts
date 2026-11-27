@@ -135,7 +135,11 @@ export async function replayStory(
 
   for (let i = 0; i < choices.length; i++) {
     const rec = choices[i]!;
-    const match = currentChoices.find((choice) => choice.text === rec.text);
+    const byIndex = currentChoices[rec.index];
+    const match =
+      byIndex !== undefined && byIndex.text === rec.text
+        ? byIndex
+        : currentChoices.find((choice) => choice.text === rec.text);
     if (match === undefined) {
       diverged = true;
       keptChoices = choices.slice(0, i);

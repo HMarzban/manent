@@ -14,6 +14,7 @@ export const SEARCH_WORDS = Object.freeze({
     `Nothing in ${workspace} matches "${query}".`,
   emptyFiltered: (workspace: string, query: string): string =>
     `Nothing in ${workspace} matches "${query}". Remove a filter to find more.`,
+  noMatchesTitle: "No matches",
   requestRefused:
     "Couldn't search inside the scripts. Showing the titles on this device that match.",
   offlineNotice:

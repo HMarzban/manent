@@ -6,10 +6,21 @@ const countWord = (n: number, one: string, many: string): string =>
 
 export const LIBRARY_FILES_WORDS = Object.freeze({
   continueHeading: "Continue",
+  continueHint: "Scripts you opened last",
+  continueNote: "Opened last",
   favouritesHeading: "Favourites",
+  favouritesHint:
+    "Projects and scripts you mark as favourites — only you see them",
+  favouritesNote:
+    "Projects and scripts you mark as favourites — only you see them.",
   privateHeading: "Private",
+  privateHint:
+    "Private scripts and projects — only you see them until you share them",
   projectsHeading: "Projects",
   trashHeading: "Trash",
+  trashHint: "Scripts moved to Trash — kept for 30 days",
+  trashNote:
+    "Scripts moved to Trash stay for 30 days and can be restored until then.",
   /** Folder row second line: subfolders and projects counts, or "Empty". */
   folderSummary: (folders: number, projects: number): string => {
     if (folders === 0 && projects === 0) return "Empty";
@@ -36,13 +47,16 @@ export const LIBRARY_FILES_WORDS = Object.freeze({
   makeFolderRefused: "Couldn't make the folder. Try again.",
   moveRefused: (title: string): string =>
     `Couldn't move '${title}'. Try again.`,
-  folderEmpty: "Move a project here with Move to folder, in its row menu.",
+  folderEmptyTitle: "This folder is empty",
+  folderEmpty: "Drag a project here, or choose Move to folder in its row menu.",
+  dropToRemoveFromFolder: "Drop here to move out of folder",
+  moveOutOfFolderLabel: "Projects",
   favourite: "Favourite",
   removeFromFavourites: "Remove from Favourites",
   favouritesProjects: "Projects",
   favouritesScripts: "Scripts",
   favouritesEmpty:
-    "Choose Favourite in a project's or a script's row menu to keep it here.",
+    "Open a project's or script's row menu and choose Favourite to keep it here.",
   privateNote: "Only you can see what you start here, until you share it.",
   privateEmpty:
     "Nothing here yet. Choose New script or New project to start something only you can see.",

@@ -205,6 +205,10 @@ export interface FixedKey {
 
 export interface PersonServices {
   userId: string;
+  /** The active person's display name for shared title-bar account menus. */
+  readonly personName?: string;
+  /** Whether the active person holds a server session token. */
+  readonly personSignedIn?: boolean;
   /** The person's preferences, without a script. */
   settings: SettingsStore;
   commands: CommandService;

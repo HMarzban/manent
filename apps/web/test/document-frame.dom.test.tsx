@@ -37,7 +37,7 @@ function syncCentreParts(): string[] {
 const menuItems = (): string[] =>
   [...document.querySelectorAll("[role='menuitem']")].map(nameOf);
 
-test("a new script as You shows nine controls and no state bar", async () => {
+test("a new script as You shows ten controls (including account avatar) and no state bar", async () => {
   const { container } = await renderFrame();
   const controls = ["title_bar", "status_bar"].flatMap((name) =>
     [...region(container, name).querySelectorAll("button")].map(nameOf),
@@ -48,6 +48,7 @@ test("a new script as You shows nine controls and no state bar", async () => {
     "Saved · Only in this browser — not backed up",
     "History",
     "Share",
+    "Y",
     "Element: scene_heading",
     "Page 1 of 1",
     "View",

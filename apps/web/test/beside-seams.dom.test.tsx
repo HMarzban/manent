@@ -1,6 +1,7 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, mock, test } from "bun:test";
-import { createValue } from "@manent/ui";
+import { BESIDE_WORDS, createValue } from "@manent/ui";
+import type { StatusFacts } from "@manent/ui";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
@@ -8,6 +9,7 @@ import {
   registerBesideFacts,
   useBesideFact,
 } from "../src/beside/beside-facts.ts";
+import { BesideFrame } from "../src/beside/beside-frame.tsx";
 import { BesidePanel } from "../src/beside/beside-panel.tsx";
 import {
   createBesideSource,
@@ -19,6 +21,7 @@ import {
   openBeside,
   useBeside,
 } from "../src/beside/open-beside.ts";
+import { ScriptBeside } from "../src/beside/script-beside.tsx";
 import { mountBesideEditor } from "../src/editor-host/beside-editor.ts";
 import { createEditorControl } from "../src/editor-host/control.ts";
 import {
@@ -191,20 +194,22 @@ test("useBesideFact reads custom string keys and BesidePanel omits main-doc stat
   });
   const seenCustom = customValue;
   act(() => unregister());
-  const statusRegion = grid.querySelector(
-    '[data-beside="script"] [role="status"]',
+  const statusRegions = [
+    ...grid.querySelectorAll('[data-beside="script"] [role="status"]'),
+  ];
+  const stateBarRegion = statusRegions.find((node) =>
+    node.textContent?.includes("1 change by Sam since you last opened"),
   );
-  const statusButtons = statusRegion?.querySelectorAll("button").length ?? -1;
+  const statusButtons = stateBarRegion?.querySelectorAll("button").length ?? -1;
   act(() => mounted?.unmount());
   mounted = null;
   expect([
     seenCustom,
     ranMainCommand,
-    statusRegion?.textContent?.includes(
-      "1 change by Sam since you last opened",
-    ) ?? false,
+    statusRegions.length >= 2,
+    stateBarRegion !== undefined,
     statusButtons,
-  ]).toEqual(["beat-3", 0, true, 0]);
+  ]).toEqual(["beat-3", 0, true, true, 0]);
 });
 
 test("mountBesideEditor skips restorePlace when at is set and re-attaches on focusin after main rebuild", () => {
@@ -294,4 +299,235 @@ test("mountBesideEditor skips restorePlace when at is set and re-attaches on foc
     [],
     expect.any(Function),
   ]);
+});
+
+test("BesideFrame exposes region landmark, logical paddingInlineEnd, and keyboard-resizable separator", () => {
+  const grid = document.createElement("div");
+  const pageRegion = document.createElement("div");
+  pageRegion.dataset["region"] = "page";
+  grid.append(pageRegion);
+  const host = document.createElement("div");
+  document.body.append(grid, host);
+  mounted = createRoot(host);
+
+  act(() => {
+    mounted!.render(
+      <BesideFrame
+        kind="script"
+        title="Harbour Lights"
+        status={null}
+        onClose={() => {}}
+        lines={null}
+      >
+        <div>Body</div>
+      </BesideFrame>,
+    );
+  });
+
+  const pane = grid.querySelector<HTMLElement>('[data-beside="script"]')!;
+  const sep = pane.querySelector<HTMLElement>('[role="separator"]')!;
+  expect([
+    pane.getAttribute("role"),
+    pane.getAttribute("aria-label"),
+    pane.className.includes("border-s"),
+    pageRegion.style.paddingInlineEnd,
+    sep.getAttribute("aria-label"),
+    sep.getAttribute("aria-valuenow"),
+    sep.getAttribute("aria-valuemin"),
+    sep.getAttribute("aria-valuemax"),
+  ]).toEqual([
+    "region",
+    BESIDE_WORDS.regionLabel("Harbour Lights"),
+    true,
+    "50%",
+    BESIDE_WORDS.resizeLabel,
+    "50",
+    "30",
+    "70",
+  ]);
+
+  act(() => {
+    sep.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
+  });
+  expect([
+    sep.getAttribute("aria-valuenow"),
+    pageRegion.style.paddingInlineEnd,
+  ]).toEqual(["55", "55%"]);
+
+  act(() => {
+    sep.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
+    );
+  });
+  expect([
+    sep.getAttribute("aria-valuenow"),
+    pageRegion.style.paddingInlineEnd,
+  ]).toEqual(["30", "30%"]);
+
+  act(() => {
+    sep.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true }),
+    );
+  });
+  expect([
+    sep.getAttribute("aria-valuenow"),
+    pageRegion.style.paddingInlineEnd,
+  ]).toEqual(["70", "70%"]);
+});
+
+test("BesidePanel shows compact EmptyHeroCard for deleted, access_removed, and offline-uncached, and restores opener focus on close", async () => {
+  const clock = createClock(1_000);
+  const env = testEnvironment({
+    dom: createShellDom(document),
+    now: clock.now,
+    schedule: clock.schedule,
+    storage: new MemoryStorage(),
+  });
+  bindGuard(env.guard);
+  const base = createPersonServices({
+    ...env,
+    person: { token: null, userId: "you", name: "You" },
+    demo: createValue(false),
+    api: fakeApi(),
+    usePerson: createPersonStore(null),
+    router: {
+      navigate() {},
+      here: () => ({ routeId: null, href: "/", search: {} }),
+    },
+  });
+  const baseStatus: StatusFacts = {
+    access: "edit",
+    device: "ok",
+    network: "online",
+    server: "deleted",
+    waiting: 0,
+    notSent: 0,
+    offlineSinceAt: null,
+    neverSynced: false,
+    shell: "web",
+    toReview: 0,
+    now: 1_000,
+  };
+  const statusVal = createValue<StatusFacts>(baseStatus);
+  const services = {
+    ...base,
+    ready: Promise.resolve(),
+    onDevice: async () => new Set<string>(),
+    besideMount: () => ({ mount: () => () => {} }),
+    documents: {
+      ...base.documents,
+      open: (docId: string) => ({
+        ...base.documents.open(docId),
+        status: statusVal,
+      }),
+    },
+  };
+
+  const grid = document.createElement("div");
+  const pageRegion = document.createElement("div");
+  pageRegion.dataset["region"] = "page";
+  const openerBtn = document.createElement("button");
+  openerBtn.textContent = "Open beside trigger";
+  pageRegion.append(openerBtn);
+  grid.append(pageRegion);
+  const host = document.createElement("div");
+  document.body.append(grid, host);
+  mounted = createRoot(host);
+
+  act(() => {
+    openerBtn.focus();
+    openBeside("b-del", "script", null);
+  });
+  act(() => {
+    mounted!.render(
+      <EnvironmentProvider environment={env}>
+        <ServicesProvider services={services}>
+          <BesidePanel open={{ docId: "b-del", kind: "script", at: null }} />
+        </ServicesProvider>
+      </EnvironmentProvider>,
+    );
+  });
+  expect(grid.textContent).toContain(BESIDE_WORDS.deleted);
+
+  act(() => {
+    statusVal.set({ ...baseStatus, server: "access_removed" });
+  });
+  expect(grid.textContent).toContain(BESIDE_WORDS.noAccess);
+
+  await act(async () => {
+    statusVal.set({ ...baseStatus, server: "synced", network: "offline" });
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect(grid.textContent).toContain(BESIDE_WORDS.needsConnection);
+
+  const closeBtn = [...grid.querySelectorAll("button")].find(
+    (btn) => btn.textContent === BESIDE_WORDS.close,
+  )!;
+  act(() => {
+    closeBtn.focus();
+    closeBtn.click();
+  });
+  expect(document.activeElement).toBe(openerBtn);
+});
+
+test("ScriptBeside jumps caret in place when only at changes for the same docId without remounting", () => {
+  const clock = createClock(1_000);
+  const env = testEnvironment({
+    dom: createShellDom(document),
+    now: clock.now,
+    schedule: clock.schedule,
+    storage: new MemoryStorage(),
+  });
+  bindGuard(env.guard);
+  const base = createPersonServices({
+    ...env,
+    person: { token: null, userId: "you", name: "You" },
+    demo: createValue(false),
+    api: fakeApi(),
+    usePerson: createPersonStore(null),
+    router: {
+      navigate() {},
+      here: () => ({ routeId: null, href: "/", search: {} }),
+    },
+  });
+  let mounts = 0;
+  const jumps: string[] = [];
+  const services = {
+    ...base,
+    besideMount: (control: Parameters<typeof base.besideMount>[0]) => ({
+      mount: () => {
+        mounts++;
+        return control.attach({
+          run: (req) => {
+            if (typeof req === "object" && req.kind === "go_to")
+              jumps.push(req.blockId);
+            return { ok: true };
+          },
+          zoomPercent: () => 100,
+          showTitlePage: () => {},
+        });
+      },
+    }),
+  };
+
+  const host = document.createElement("div");
+  document.body.append(host);
+  mounted = createRoot(host);
+  const draw = (at: { blockId: string } | null) =>
+    act(() => {
+      mounted!.render(
+        <EnvironmentProvider environment={env}>
+          <ServicesProvider services={services}>
+            <ScriptBeside docId="doc-same" at={at} />
+          </ServicesProvider>
+        </EnvironmentProvider>,
+      );
+    });
+
+  draw({ blockId: "blk-1" });
+  draw({ blockId: "blk-2" });
+  expect([mounts, jumps]).toEqual([1, ["blk-1", "blk-2"]]);
 });

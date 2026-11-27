@@ -1,7 +1,9 @@
 // Where a panel is drawn, beside the page or over it, and what a panel's list draws in each state.
 import { Button, DOCUMENT_WORDS, Skeleton } from "@manent/ui";
 import type { SurfaceRenderers } from "@manent/ui";
+import { CircleAlertIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 
 // over the page, against its own edge of it; the page stays mounted under it
 const OVER_PAGE: Readonly<Record<"start" | "end", CSSProperties>> =
@@ -82,11 +84,19 @@ export function panelRenderers(content: {
     empty: content.empty,
     loading: () => <PanelListSkeleton />,
     problem: (_state, reload) => (
-      <div className="flex flex-col items-start gap-2 p-4 text-ui">
-        <p>{DOCUMENT_WORDS.panelProblem}</p>
-        <Button variant="outline" size="sm" onClick={reload}>
-          {DOCUMENT_WORDS.reloadPanel}
-        </Button>
+      <div className="flex min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="flex min-h-full w-full flex-col items-center justify-center">
+          <EmptyHeroCard
+            compact
+            icon={<CircleAlertIcon aria-hidden="true" className="size-4" />}
+            description={DOCUMENT_WORDS.panelProblem}
+            actions={
+              <Button variant="outline" size="sm" onClick={reload}>
+                {DOCUMENT_WORDS.reloadPanel}
+              </Button>
+            }
+          />
+        </div>
       </div>
     ),
     offline: content.ready,

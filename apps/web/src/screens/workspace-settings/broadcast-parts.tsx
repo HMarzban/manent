@@ -171,6 +171,7 @@ export function BroadcastField(props: {
   span?: boolean;
   onChange(value: string): void;
 }): ReactNode {
+  const hintId = props.hint === undefined ? undefined : `${props.id}-hint`;
   return (
     <div
       className={
@@ -182,6 +183,7 @@ export function BroadcastField(props: {
       </Label>
       <Input
         id={props.id}
+        aria-describedby={hintId}
         inputMode={props.numeric ? "numeric" : undefined}
         value={props.value}
         disabled={props.disabled}
@@ -195,7 +197,9 @@ export function BroadcastField(props: {
         }
       />
       {props.hint === undefined ? null : (
-        <p className="text-meta text-fg-muted">{props.hint}</p>
+        <p id={hintId} className="text-meta text-fg-muted">
+          {props.hint}
+        </p>
       )}
     </div>
   );
@@ -288,7 +292,7 @@ export function MemberBroadcastReadout(props: {
       <span className="text-ui font-medium text-fg">{W.title}</span>
       <div className="flex items-center gap-3">
         <span className="text-meta font-medium text-ok">{W.statusOn}</span>
-        <span className={statusTone(props.payload.status)}>
+        <span role="status" className={statusTone(props.payload.status)}>
           {STATUS_WORD[props.payload.status]}
         </span>
       </div>

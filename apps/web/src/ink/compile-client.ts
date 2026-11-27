@@ -1,4 +1,4 @@
-// Per-document Ink compile and live-story client (150 ms debounce, single queued follow-up, Web Worker host).
+// Per-document Ink compile and live-story client (150 ms debounce, single queued follow-up, crash/timeout recovery).
 import type {
   InkActionResult,
   InkChoice,
@@ -10,26 +10,29 @@ import type {
   InkVariableValue,
 } from "@manent/formats";
 import type { InkWorkerRequest, InkWorkerResponse } from "./compile.worker.ts";
+import {
+  INK_RPC_TIMEOUT_MS,
+  INK_WORKER_URL,
+  createFallbackTransport,
+  createWorkerTransport,
+  notifyMapSet,
+  subscribeMapSet,
+} from "./compile-transport.ts";
+import type { InkRpcTransport } from "./compile-transport.ts";
 
-declare const MANENT_INK_WORKER_URL: string | undefined;
-/** Settled compile host (classic Web Worker) and runtime (live Story alongside Compiler). */
+export { INK_RPC_TIMEOUT_MS, INK_WORKER_URL, createWorkerTransport };
+export type { InkRpcTransport };
+
 export const INK_COMPILE = "worker" as const;
 export const INK_RUNTIME = "with-compiler" as const;
 export const INK_COMPILE_DEBOUNCE_MS = 150;
-export const INK_WORKER_URL =
-  typeof MANENT_INK_WORKER_URL === "undefined"
-    ? "/ink-compile.worker.js"
-    : MANENT_INK_WORKER_URL;
 
 export interface InkCompileSnapshot {
-  readonly state: "up_to_date" | "compiling";
+  readonly state: "up_to_date" | "compiling" | "stopped";
   readonly problems: readonly InkProblem[];
-  /** Compiled JSON of the last successful compile, or null if never compiled. */
   readonly lastGood: string | null;
-  /** Increments on each successful compile so the player knows when to replay. */
   readonly version: number;
 }
-
 export interface InkStepSnapshot {
   readonly result: InkStepResult;
   readonly choices: readonly InkChoice[];
@@ -37,20 +40,23 @@ export interface InkStepSnapshot {
   readonly ended: boolean;
   readonly fault: InkFault | null;
 }
-
 export interface InkChoicesSnapshot {
   readonly choices: readonly InkChoice[];
   readonly ended: boolean;
   readonly fault: InkFault | null;
 }
-
+export interface InkCompileClientOptions {
+  readonly docId?: string;
+  readonly createTransport?: () => InkRpcTransport;
+  readonly timeoutMs?: number;
+  readonly debounceMs?: number;
+}
 export interface InkCompileClient {
   snapshot(): InkCompileSnapshot;
   subscribe(listener: () => void): () => void;
-  /** Debounces compilation by 150 ms; at most one follow-up compile queues while a compile is in flight. */
   scheduleCompile(readSource: () => string): void;
-  /** Compiles `source` immediately (or queues as the single follow-up if one is already running). */
   compileNow(source: string): Promise<InkCompiled>;
+  restartWorker(source?: string): Promise<InkCompiled | null>;
   restart(): Promise<InkActionResult>;
   proceed(): Promise<InkStepSnapshot>;
   choices(): Promise<InkChoicesSnapshot>;
@@ -87,113 +93,115 @@ const INITIAL_SNAPSHOT: InkCompileSnapshot = Object.freeze({
   version: 0,
 });
 
-interface RpcTransport {
-  send(request: InkWorkerRequest): Promise<InkWorkerResponse>;
-  close(): void;
-}
-
-function createWorkerTransport(): RpcTransport {
-  const worker = new Worker(INK_WORKER_URL);
-  const pending = new Map<
-    number,
-    {
-      resolve: (res: InkWorkerResponse) => void;
-      reject: (err: unknown) => void;
-    }
-  >();
-  worker.addEventListener(
-    "message",
-    (event: MessageEvent<InkWorkerResponse>) => {
-      const entry = pending.get(event.data.id);
-      if (entry === undefined) return;
-      pending.delete(event.data.id);
-      entry.resolve(event.data);
-    },
-  );
-  worker.addEventListener("error", (event) => {
-    const cause = new Error(event.message || "Ink worker stopped");
-    for (const entry of pending.values()) entry.reject(cause);
-    pending.clear();
-  });
+const faultStep = (message: string): InkStepSnapshot => {
+  const fault: InkFault = { line: null, message };
   return {
-    send(request) {
-      return new Promise((resolve, reject) => {
-        pending.set(request.id, { resolve, reject });
-        worker.postMessage(request, []);
-      });
-    },
-    close() {
-      for (const entry of pending.values())
-        entry.reject(new Error("Ink compile client closed"));
-      pending.clear();
-      worker.terminate();
-    },
+    result: { ok: false, ...fault },
+    choices: [],
+    variables: [],
+    ended: true,
+    fault,
   };
-}
+};
 
-/** In-process fallback for non-browser unit tests where global `Worker` is absent. */
-function createFallbackTransport(): RpcTransport {
-  let handler: ((req: InkWorkerRequest) => InkWorkerResponse) | null = null;
-  return {
-    async send(req) {
-      if (handler === null) {
-        const mod = await import("./compile.worker.ts");
-        handler = mod.createInkWorkerHandler();
-      }
-      return handler(req);
-    },
-    close() {
-      handler = null;
-    },
-  };
-}
+const flushWaiters = (
+  waiters: ((result: InkCompiled) => void)[],
+  result: InkCompiled,
+): void => {
+  for (const resolve of waiters) resolve(result);
+};
 
-function createCompileClient(docId: string): InkCompileClient {
-  const transport: RpcTransport =
-    typeof Worker === "function"
-      ? createWorkerTransport()
-      : createFallbackTransport();
+/** Creates an Ink compile + story RPC client with an optional injectable transport factory. */
+export function createInkCompileClient(
+  options?: InkCompileClientOptions,
+): InkCompileClient {
+  const docId = options?.docId ?? null;
+  const timeoutMs = options?.timeoutMs ?? INK_RPC_TIMEOUT_MS;
+  const debounceMs = options?.debounceMs ?? INK_COMPILE_DEBOUNCE_MS;
+  const browserWorker = typeof Worker === "function" && !("Bun" in globalThis);
+  const makeTransport =
+    options?.createTransport ??
+    (() =>
+      browserWorker
+        ? createWorkerTransport({ timeoutMs })
+        : createFallbackTransport());
+
+  let transport: InkRpcTransport | null = makeTransport();
   const listeners = new Set<() => void>();
   let snap: InkCompileSnapshot = INITIAL_SNAPSHOT;
   let nextId = 0;
   let disposed = false;
+  let workerStopped = false;
   let inFlight = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingRead: (() => string) | null = null;
+  let lastSource: string | null = null;
+  let lastReadSource: (() => string) | null = null;
+  const queuedWaiters: ((result: InkCompiled) => void)[] = [];
 
   const setSnap = (next: InkCompileSnapshot): void => {
     snap = next;
     for (const listener of listeners) listener();
-    notifyCompileSubscribers(docId);
+    if (docId !== null) notifyMapSet(docCompileListeners, docId);
+  };
+  const clearDebounce = (): void => {
+    if (debounceTimer === null) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  };
+  const markStopped = (failed: InkRpcTransport | null): void => {
+    if (disposed || transport !== failed) return;
+    workerStopped = true;
+    inFlight = false;
+    clearDebounce();
+    pendingRead = null;
+    const stale = queuedWaiters.splice(0);
+    transport?.close();
+    transport = null;
+    setSnap({ ...snap, state: "stopped" });
+    flushWaiters(stale, { ok: false, problems: snap.problems });
   };
 
-  const runCompile = async (source: string): Promise<InkCompiled> => {
+  const runCompile = async (
+    source: string,
+    waiters: ((result: InkCompiled) => void)[] = [],
+  ): Promise<InkCompiled> => {
+    lastSource = source;
     inFlight = true;
+    const active = transport ?? (transport = makeTransport());
     setSnap({ ...snap, state: "compiling" });
     let compiled: InkCompiled;
     try {
-      const res = await transport.send({
-        id: ++nextId,
-        kind: "compile",
-        source,
-      });
+      const res = await active.send({ id: ++nextId, kind: "compile", source });
+      if (disposed || transport !== active) {
+        const stale: InkCompiled = { ok: false, problems: snap.problems };
+        flushWaiters(waiters, stale);
+        return stale;
+      }
       compiled =
         res.kind === "compiled" ? res.compiled : { ok: false, problems: [] };
     } catch {
-      compiled = { ok: false, problems: snap.problems };
+      markStopped(active);
+      const stopped: InkCompiled = { ok: false, problems: snap.problems };
+      flushWaiters(waiters, stopped);
+      return stopped;
     }
     inFlight = false;
-    if (disposed) return compiled;
+    if (disposed) {
+      flushWaiters(waiters, compiled);
+      return compiled;
+    }
     setSnap({
       state: pendingRead !== null ? "compiling" : "up_to_date",
       problems: compiled.problems,
       lastGood: compiled.ok ? compiled.json : snap.lastGood,
       version: compiled.ok ? snap.version + 1 : snap.version,
     });
-    if (pendingRead !== null) {
+    flushWaiters(waiters, compiled);
+    if (pendingRead !== null && !workerStopped) {
       const nextRead = pendingRead;
       pendingRead = null;
-      void runCompile(nextRead());
+      void runCompile(nextRead(), queuedWaiters.splice(0));
     }
     return compiled;
   };
@@ -204,14 +212,18 @@ function createCompileClient(docId: string): InkCompileClient {
     pick: (res: InkWorkerResponse) => T | undefined,
   ): Promise<T> => {
     if (disposed) return fallback;
+    if (workerStopped || transport === null)
+      throw new Error("Ink worker stopped");
+    const active = transport;
     try {
-      const res = await transport.send({
-        ...request,
-        id: ++nextId,
-      } as InkWorkerRequest);
-      return pick(res) ?? fallback;
-    } catch {
-      return fallback;
+      return (
+        pick(
+          await active.send({ ...request, id: ++nextId } as InkWorkerRequest),
+        ) ?? fallback
+      );
+    } catch (cause) {
+      markStopped(active);
+      throw cause;
     }
   };
 
@@ -228,41 +240,62 @@ function createCompileClient(docId: string): InkCompileClient {
       | { readonly kind: "restore"; readonly saved: string },
   ): Promise<InkActionResult> =>
     sendRpc(request, NO_STORY_ACTION, (res) =>
-      res.kind === "action" ? res.result : undefined,
+      res.kind === "action"
+        ? res.result
+        : res.kind === "fault"
+          ? { ok: false, line: null, message: res.message }
+          : undefined,
     );
 
   return {
     snapshot: () => snap,
     subscribe(listener) {
       listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
+      return () => listeners.delete(listener);
     },
     scheduleCompile(readSource) {
       if (disposed) return;
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      lastReadSource = readSource;
+      if (workerStopped) return;
+      clearDebounce();
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        if (disposed) return;
-        if (inFlight) {
-          pendingRead = readSource;
-          return;
-        }
-        void runCompile(readSource());
-      }, INK_COMPILE_DEBOUNCE_MS);
+        if (disposed || workerStopped) return;
+        if (inFlight) pendingRead = readSource;
+        else void runCompile(readSource());
+      }, debounceMs);
     },
     compileNow(source) {
       if (disposed) return Promise.resolve({ ok: false, problems: [] });
-      if (debounceTimer !== null) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
+      lastSource = source;
+      clearDebounce();
+      if (workerStopped) {
+        workerStopped = false;
+        transport?.close();
+        transport = makeTransport();
       }
       if (inFlight) {
         pendingRead = () => source;
-        return Promise.resolve({ ok: false, problems: snap.problems });
+        return new Promise<InkCompiled>((resolve) =>
+          queuedWaiters.push(resolve),
+        );
       }
       return runCompile(source);
+    },
+    restartWorker(source) {
+      if (disposed) return Promise.resolve(null);
+      clearDebounce();
+      pendingRead = null;
+      inFlight = false;
+      workerStopped = false;
+      const stale = queuedWaiters.splice(0);
+      transport?.close();
+      transport = makeTransport();
+      flushWaiters(stale, { ok: false, problems: snap.problems });
+      const nextSource = source ?? lastReadSource?.() ?? lastSource;
+      if (nextSource !== null) return runCompile(nextSource);
+      setSnap({ ...snap, state: "up_to_date" });
+      return Promise.resolve(null);
     },
     restart: () => sendAction({ kind: "restart" }),
     proceed: () =>
@@ -275,7 +308,9 @@ function createCompileClient(docId: string): InkCompileClient {
               ended: res.ended,
               fault: res.fault,
             }
-          : undefined,
+          : res.kind === "fault"
+            ? faultStep(res.message)
+            : undefined,
       ),
     choices: () =>
       sendRpc(
@@ -284,7 +319,13 @@ function createCompileClient(docId: string): InkCompileClient {
         (res) =>
           res.kind === "choices"
             ? { choices: res.choices, ended: res.ended, fault: res.fault }
-            : undefined,
+            : res.kind === "fault"
+              ? {
+                  choices: [],
+                  ended: true,
+                  fault: { line: null, message: res.message },
+                }
+              : undefined,
       ),
     choose: (index) => sendAction({ kind: "choose", index }),
     goTo: (knot) => sendAction({ kind: "goTo", knot }),
@@ -301,13 +342,12 @@ function createCompileClient(docId: string): InkCompileClient {
     restore: (saved) => sendAction({ kind: "restore", saved }),
     dispose() {
       disposed = true;
-      if (debounceTimer !== null) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
+      clearDebounce();
       pendingRead = null;
+      flushWaiters(queuedWaiters.splice(0), { ok: false, problems: [] });
       listeners.clear();
-      transport.close();
+      transport?.close();
+      transport = null;
     },
   };
 }
@@ -317,84 +357,42 @@ const docCompileListeners = new Map<string, Set<() => void>>();
 const visitedByDoc = new Map<string, ReadonlySet<number>>();
 const visitedListeners = new Map<string, Set<() => void>>();
 
-function notifyCompileSubscribers(docId: string): void {
-  const set = docCompileListeners.get(docId);
-  if (set === undefined) return;
-  for (const listener of set) listener();
-}
-
-/** Opens (or returns the existing) compile client for `docId`. */
-export function openInkCompileClient(docId: string): InkCompileClient {
+export function openInkCompileClient(
+  docId: string,
+  options?: Omit<InkCompileClientOptions, "docId">,
+): InkCompileClient {
   let client = clients.get(docId);
   if (client === undefined) {
-    client = createCompileClient(docId);
+    client = createInkCompileClient({ ...options, docId });
     clients.set(docId, client);
-    notifyCompileSubscribers(docId);
+    notifyMapSet(docCompileListeners, docId);
   }
   return client;
 }
-
-/** Disposes and removes the compile client for `docId`. */
 export function closeInkCompileClient(docId: string): void {
   const client = clients.get(docId);
   if (client === undefined) return;
   clients.delete(docId);
   client.dispose();
   visitedByDoc.delete(docId);
-  notifyCompileSubscribers(docId);
+  notifyMapSet(docCompileListeners, docId);
 }
-
-/** Active compile client for `docId`, or null when closed or non-Ink. */
-export function inkCompileClient(docId: string): InkCompileClient | null {
-  return clients.get(docId) ?? null;
-}
-
-/** Subscribes to compile snapshot changes for `docId` (even before the client opens). */
-export function subscribeInkCompile(
+export const inkCompileClient = (docId: string): InkCompileClient | null =>
+  clients.get(docId) ?? null;
+export const subscribeInkCompile = (
   docId: string,
   listener: () => void,
-): () => void {
-  let set = docCompileListeners.get(docId);
-  if (set === undefined) {
-    set = new Set();
-    docCompileListeners.set(docId, set);
-  }
-  set.add(listener);
-  return () => {
-    set.delete(listener);
-    if (set.size === 0) docCompileListeners.delete(docId);
-  };
-}
-
-/** Publishes 1-based visited source lines from the Ink player so the editor draws gutter dots. */
-export function setInkVisitedLines(
+): (() => void) => subscribeMapSet(docCompileListeners, docId, listener);
+export const setInkVisitedLines = (
   docId: string,
   lines: ReadonlySet<number>,
-): void {
+): void => {
   visitedByDoc.set(docId, lines);
-  const set = visitedListeners.get(docId);
-  if (set === undefined) return;
-  for (const listener of set) listener();
-}
-
-/** Current 1-based visited source lines for `docId`. */
-export function inkVisitedLines(docId: string): ReadonlySet<number> {
-  return visitedByDoc.get(docId) ?? EMPTY_VISITED;
-}
-
-/** Subscribes to visited-line updates for `docId`. */
-export function subscribeInkVisited(
+  notifyMapSet(visitedListeners, docId);
+};
+export const inkVisitedLines = (docId: string): ReadonlySet<number> =>
+  visitedByDoc.get(docId) ?? EMPTY_VISITED;
+export const subscribeInkVisited = (
   docId: string,
   listener: () => void,
-): () => void {
-  let set = visitedListeners.get(docId);
-  if (set === undefined) {
-    set = new Set();
-    visitedListeners.set(docId, set);
-  }
-  set.add(listener);
-  return () => {
-    set.delete(listener);
-    if (set.size === 0) visitedListeners.delete(docId);
-  };
-}
+): (() => void) => subscribeMapSet(visitedListeners, docId, listener);

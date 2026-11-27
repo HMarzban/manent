@@ -2309,6 +2309,96 @@ a[aria-current="page"] > .mn-row [data-leading] {
   padding: 1rem 0.75rem 0.25rem;
 }
 
+/* Library sidebar tree disclosure, drag-to-folder feedback and unified title-bar micro-interactions. */
+.mn-tree-chevron {
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+.mn-tree-chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+[dir="rtl"] .mn-tree-chevron {
+  transform: rotate(180deg);
+}
+[dir="rtl"] .mn-tree-chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+.mn-drag-row {
+  transition: opacity var(--dur-fast) var(--curve-enter);
+}
+.mn-drag-row[data-drag-source="true"] {
+  opacity: 0.45;
+}
+[data-drop-target="active"] > .mn-row,
+[data-drop-target="active"] > [data-row-menu] > .mn-row,
+.mn-drop-zone[data-drop-target="active"] {
+  background-color: var(--bg-selected);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+[data-drop-target="active"] > .mn-row [data-leading],
+[data-drop-target="active"] > [data-row-menu] > .mn-row [data-leading] {
+  color: var(--fg-accent);
+}
+.mn-drop-root {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--shape-control);
+  background-color: var(--bg-subtle);
+  color: var(--fg-muted);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+.mn-drop-root[data-drop-target="active"] {
+  border-style: solid;
+  border-color: var(--focus);
+  background-color: var(--bg-selected);
+  color: var(--fg);
+}
+.mn-back-icon {
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
+  transform: translateX(-2px);
+}
+[dir="rtl"] .mn-back-icon {
+  transform: rotate(180deg);
+}
+[dir="rtl"]
+  button:not(:disabled, [aria-disabled="true"]):hover
+  > .mn-back-icon {
+  transform: rotate(180deg) translateX(-2px);
+}
+.mn-person-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--curve-enter);
+}
+.mn-person-trigger:hover {
+  background-color: var(--bg-subtle);
+}
+.mn-person-trigger:is([aria-expanded="true"], [data-popup-open]) {
+  background-color: var(--bg-control);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-tree-chevron,
+  .mn-back-icon {
+    transition: none;
+  }
+  button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
+    transform: none;
+  }
+  [dir="rtl"]
+    button:not(:disabled, [aria-disabled="true"]):hover
+    > .mn-back-icon {
+    transform: rotate(180deg);
+  }
+}
+
 /* Dedicated Version history editorial timeline dots & mode controls. */
 .mn-history-dot-live {
   width: 0.5rem;
@@ -3686,6 +3776,7 @@ html[data-gems="off"] .mn-gem-only {
   opacity: 0.86;
   transform: scale(1.06);
 }
+
 /* --------------------------------------------------------------------------
    CHOOSE WHO YOU ARE — STUDIO DESK STAGE, PERSON CARDS & LIVE FOLIO.
    Motion transitions use only opacity, transform and colours with --dur-* tokens.
@@ -4309,6 +4400,22 @@ html[data-gems="off"] .mn-gem-only {
   .mn-drop-indicator {
     border-color: Highlight;
   }
+  [data-drop-target="active"] > .mn-row,
+  [data-drop-target="active"] > [data-row-menu] > .mn-row,
+  .mn-drop-zone[data-drop-target="active"],
+  .mn-drop-root[data-drop-target="active"] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .mn-drop-root {
+    border-color: CanvasText;
+    background-color: Canvas;
+    color: CanvasText;
+  }
   .mn-drop-indicator::before {
     forced-color-adjust: none;
     background-color: Highlight;
@@ -4396,6 +4503,10 @@ html[data-gems="off"] .mn-gem-only {
   .mn-palette-card[aria-checked="true"] {
     border-color: Highlight;
     outline: 2px solid Highlight;
+  }
+  .mn-status-dot {
+    forced-color-adjust: none;
+    background-color: Highlight;
   }
   .mn-choose-sheet-back-1,
   .mn-choose-sheet-back-2 {

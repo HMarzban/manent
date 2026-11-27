@@ -5,7 +5,7 @@ import type { AnchorResolution } from "@manent/revisions";
 import type { DocHandle } from "@manent/sync-client";
 import { DropdownMenuItem, FACTS_WORDS, Row, Skeleton } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { Trash2Icon } from "lucide-react";
+import { PinIcon, Trash2Icon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -14,6 +14,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { RowMenu } from "../screens/library/row-place.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { SettingsCard } from "../settings-shell/settings-card.tsx";
@@ -241,7 +242,11 @@ function OpenFactsList(props: {
       title={FACTS_WORDS.heading}
     >
       {facts.length === 0 ? (
-        <p className="text-ui text-fg-muted">{FACTS_WORDS.empty}</p>
+        <EmptyHeroCard
+          compact
+          icon={<PinIcon aria-hidden="true" className="size-4" />}
+          description={FACTS_WORDS.empty}
+        />
       ) : (
         <div role="list" className="-mx-3 divide-y divide-line">
           {facts.map((fact) => (

@@ -104,6 +104,7 @@ export function MiniMapToc(props: {
   const asideRef = useRef<HTMLElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const focusOnOpenRef = useRef(false);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const expanded = mode !== "closed";
   const pinned = mode === "pinned";
@@ -116,10 +117,25 @@ export function MiniMapToc(props: {
   );
   useEffect(() => setFilter(""), [docId]);
   useEffect(() => {
-    if (expanded)
-      cardRef.current
-        ?.querySelector("[aria-current='location']")
-        ?.scrollIntoView?.({ block: "nearest" });
+    if (!expanded) {
+      focusOnOpenRef.current = false;
+      return;
+    }
+    const card = cardRef.current;
+    card
+      ?.querySelector("[aria-current='location']")
+      ?.scrollIntoView?.({ block: "nearest" });
+    if (focusOnOpenRef.current && card !== null) {
+      focusOnOpenRef.current = false;
+      const target =
+        card.querySelector<HTMLElement>("input") ??
+        card.querySelector<HTMLElement>(
+          "[data-outline-item][aria-current='location']",
+        ) ??
+        card.querySelector<HTMLElement>("[data-outline-item]") ??
+        card.querySelector<HTMLElement>("button");
+      target?.focus({ preventScroll: true });
+    }
   }, [expanded]);
 
   if (rows.length === 0) return null;
@@ -243,7 +259,14 @@ export function MiniMapToc(props: {
           aria-label={PRESENT_WORDS.toggleOutline}
           aria-expanded={expanded}
           aria-controls={expanded ? cardId : undefined}
-          onClick={() => setCardMode(expanded ? "closed" : "open")}
+          onClick={() => {
+            if (expanded) {
+              setCardMode("closed");
+            } else {
+              focusOnOpenRef.current = true;
+              setCardMode("open");
+            }
+          }}
           className="rounded-control border border-line bg-raised text-fg-muted hover:text-fg md:border-transparent"
         >
           <ListTreeIcon aria-hidden="true" className="size-3.5" />
@@ -253,7 +276,10 @@ export function MiniMapToc(props: {
         <>
           <div
             aria-hidden="true"
-            onClick={() => setCardMode("closed")}
+            onClick={() => {
+              setCardMode("closed");
+              toggleRef.current?.focus();
+            }}
             className="fixed inset-0 -z-10 bg-scrim md:hidden"
           />
           <div
@@ -330,7 +356,10 @@ export function MiniMapToc(props: {
               className="max-h-[58vh] overflow-y-auto pt-1"
             >
               {filteredRows.length === 0 ? (
-                <p className="px-2 py-3 text-center text-meta text-fg-muted">
+                <p
+                  role="status"
+                  className="px-2 py-3 text-center text-meta text-fg-muted"
+                >
                   {PRESENT_WORDS.noMatchingScenes}
                 </p>
               ) : (

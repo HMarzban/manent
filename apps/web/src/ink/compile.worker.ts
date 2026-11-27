@@ -33,6 +33,7 @@ export type InkWorkerResponse =
       readonly id: number;
       readonly kind: "compiled";
       readonly compiled: InkCompiled;
+      readonly version?: number;
     }
   | {
       readonly id: number;
@@ -64,6 +65,11 @@ export type InkWorkerResponse =
       readonly id: number;
       readonly kind: "saved";
       readonly saved: string | null;
+    }
+  | {
+      readonly id: number;
+      readonly kind: "fault";
+      readonly message: string;
     };
 
 const NO_STORY_FAULT: InkFault = Object.freeze({
@@ -71,117 +77,135 @@ const NO_STORY_FAULT: InkFault = Object.freeze({
   message: "Story has not compiled yet.",
 });
 
+function toFaultMessage(thrown: unknown): string {
+  return thrown instanceof Error ? thrown.message : String(thrown);
+}
+
 /** Creates an isolated Ink compile + live-story request handler (one per worker or fallback client). */
 export function createInkWorkerHandler(): (
   req: InkWorkerRequest,
 ) => InkWorkerResponse {
-  let activeSource: string | null = null;
+  let compiledSource: string | null = null;
+  let compiledVersion = 0;
   let activeStory: InkStory | null = null;
 
   return function handleRequest(req: InkWorkerRequest): InkWorkerResponse {
-    switch (req.kind) {
-      case "compile": {
-        const compiled = compileInk(req.source);
-        if (compiled.ok) {
-          activeSource = req.source;
-          activeStory = createInkStory({ source: req.source });
-        }
-        return { id: req.id, kind: "compiled", compiled };
-      }
-      case "restart": {
-        if (activeSource === null) {
+    try {
+      switch (req.kind) {
+        case "compile": {
+          const compiled = compileInk(req.source);
+          if (compiled.ok) {
+            compiledSource = req.source;
+            compiledVersion += 1;
+          }
           return {
             id: req.id,
-            kind: "action",
-            result: { ok: false, ...NO_STORY_FAULT },
+            kind: "compiled",
+            compiled,
+            version: compiledVersion,
           };
         }
-        activeStory = createInkStory({ source: activeSource });
-        const result: InkActionResult =
-          activeStory.fault === null
-            ? { ok: true }
-            : { ok: false, ...activeStory.fault };
-        return { id: req.id, kind: "action", result };
-      }
-      case "proceed": {
-        if (activeStory === null) {
+        case "restart": {
+          if (compiledSource === null) {
+            return {
+              id: req.id,
+              kind: "action",
+              result: { ok: false, ...NO_STORY_FAULT },
+            };
+          }
+          activeStory = createInkStory({ source: compiledSource });
+          const result: InkActionResult =
+            activeStory.fault === null
+              ? { ok: true }
+              : { ok: false, ...activeStory.fault };
+          return { id: req.id, kind: "action", result };
+        }
+        case "proceed": {
+          if (activeStory === null) {
+            return {
+              id: req.id,
+              kind: "step",
+              result: { ok: false, ...NO_STORY_FAULT },
+              choices: [],
+              variables: [],
+              ended: true,
+              fault: NO_STORY_FAULT,
+            };
+          }
+          const result = activeStory.proceed();
           return {
             id: req.id,
             kind: "step",
-            result: { ok: false, ...NO_STORY_FAULT },
-            choices: [],
-            variables: [],
-            ended: true,
-            fault: NO_STORY_FAULT,
+            result,
+            choices: activeStory.choices(),
+            variables: activeStory.variables(),
+            ended: activeStory.ended,
+            fault: activeStory.fault,
           };
         }
-        const result = activeStory.proceed();
-        return {
-          id: req.id,
-          kind: "step",
-          result,
-          choices: activeStory.choices(),
-          variables: activeStory.variables(),
-          ended: activeStory.ended,
-          fault: activeStory.fault,
-        };
+        case "choices":
+          return {
+            id: req.id,
+            kind: "choices",
+            choices: activeStory?.choices() ?? [],
+            ended: activeStory?.ended ?? true,
+            fault: activeStory?.fault ?? null,
+          };
+        case "choose":
+          return {
+            id: req.id,
+            kind: "action",
+            result:
+              activeStory === null
+                ? { ok: false, ...NO_STORY_FAULT }
+                : activeStory.choose(req.index),
+          };
+        case "goTo":
+          return {
+            id: req.id,
+            kind: "action",
+            result:
+              activeStory === null
+                ? { ok: false, ...NO_STORY_FAULT }
+                : activeStory.goTo(req.knot),
+          };
+        case "variables":
+          return {
+            id: req.id,
+            kind: "variables",
+            variables: activeStory?.variables() ?? [],
+          };
+        case "setVariable":
+          return {
+            id: req.id,
+            kind: "action",
+            result:
+              activeStory === null
+                ? { ok: false, ...NO_STORY_FAULT }
+                : activeStory.setVariable(req.name, req.value),
+          };
+        case "save":
+          return {
+            id: req.id,
+            kind: "saved",
+            saved: activeStory === null ? null : activeStory.save(),
+          };
+        case "restore":
+          return {
+            id: req.id,
+            kind: "action",
+            result:
+              activeStory === null
+                ? { ok: false, ...NO_STORY_FAULT }
+                : activeStory.restore(req.saved),
+          };
       }
-      case "choices":
-        return {
-          id: req.id,
-          kind: "choices",
-          choices: activeStory?.choices() ?? [],
-          ended: activeStory?.ended ?? true,
-          fault: activeStory?.fault ?? null,
-        };
-      case "choose":
-        return {
-          id: req.id,
-          kind: "action",
-          result:
-            activeStory === null
-              ? { ok: false, ...NO_STORY_FAULT }
-              : activeStory.choose(req.index),
-        };
-      case "goTo":
-        return {
-          id: req.id,
-          kind: "action",
-          result:
-            activeStory === null
-              ? { ok: false, ...NO_STORY_FAULT }
-              : activeStory.goTo(req.knot),
-        };
-      case "variables":
-        return {
-          id: req.id,
-          kind: "variables",
-          variables: activeStory?.variables() ?? [],
-        };
-      case "setVariable":
-        return {
-          id: req.id,
-          kind: "action",
-          result:
-            activeStory === null
-              ? { ok: false, ...NO_STORY_FAULT }
-              : activeStory.setVariable(req.name, req.value),
-        };
-      case "save":
-        return {
-          id: req.id,
-          kind: "saved",
-          saved: activeStory === null ? null : activeStory.save(),
-        };
-      case "restore":
-        return {
-          id: req.id,
-          kind: "action",
-          result:
-            activeStory === null
-              ? { ok: false, ...NO_STORY_FAULT }
-              : activeStory.restore(req.saved),
-        };
+    } catch (thrown) {
+      return {
+        id: req.id,
+        kind: "fault",
+        message: toFaultMessage(thrown),
+      };
     }
   };
 }
@@ -204,6 +228,15 @@ if (isDedicatedWorker) {
   const workerScope = globalThis as unknown as WorkerScope;
   const handleRequest = createInkWorkerHandler();
   workerScope.addEventListener("message", (event) => {
-    workerScope.postMessage(handleRequest(event.data), []);
+    try {
+      workerScope.postMessage(handleRequest(event.data), []);
+    } catch (thrown) {
+      const raw = event.data as { id?: unknown } | null | undefined;
+      const id = typeof raw?.id === "number" ? raw.id : -1;
+      workerScope.postMessage(
+        { id, kind: "fault", message: toFaultMessage(thrown) },
+        [],
+      );
+    }
   });
 }

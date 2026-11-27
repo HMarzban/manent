@@ -326,6 +326,8 @@ export function createPersonServices(options: Options): PersonServices {
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: scoped.person.userId,
+    personName: scoped.person.name,
+    personSignedIn: scoped.person.token !== null,
     settings: wired.settings,
     commands,
     resolved,

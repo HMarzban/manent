@@ -35,11 +35,12 @@ function isFocusIntoPopup(event: Event): boolean {
  */
 export function CommandButton(props: {
   id: CommandId;
-  variant?: "ghost" | "outline";
+  variant?: "default" | "ghost" | "outline";
   size?: "sm" | "default";
   icon?: ReactNode;
   iconOnly?: boolean;
   pressed?: boolean;
+  className?: string;
   children?: never;
 }): ReactNode {
   const {
@@ -49,6 +50,7 @@ export function CommandButton(props: {
     icon,
     iconOnly = false,
     pressed,
+    className,
   } = props;
   const { service, platform } = useCommands();
   const state = useCommandState(id);
@@ -84,6 +86,7 @@ export function CommandButton(props: {
               aria-pressed={pressed}
               aria-disabled={reason === null ? undefined : true}
               aria-describedby={reason === null ? undefined : reasonId}
+              className={className}
               onClick={() => service.run(id, "control")}
             />
           }

@@ -3,6 +3,8 @@ import { formatCount, joinNames } from "./format.ts";
 
 export const ACCOUNT_WORDS = Object.freeze({
   signOut: "Sign out",
+  signedIn: "Signed in",
+  personMenuHint: (name: string): string => `${name} — Account and preferences`,
   signOutWaitingTitle: (n: number): string =>
     n === 1
       ? "Sign out with 1 change waiting?"

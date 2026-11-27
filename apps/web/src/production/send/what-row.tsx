@@ -1,11 +1,21 @@
 // The What row of Issue and Recall: the changed pages or the full draft, the pages a correction replaces, and the
 // one sentence both say when nothing has changed.
 import { PRODUCTION_WORDS, SEND_WORDS, Switch } from "@manent/ui";
+import { CheckIcon } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { Choices } from "../choices.tsx";
 
 const WORDS = PRODUCTION_WORDS;
+
+function NothingSinceCallout(props: { readonly name: string }): ReactNode {
+  return (
+    <div className="flex items-center gap-2 rounded-control border border-line bg-subtle px-3 py-2 text-ui text-fg-muted">
+      <CheckIcon aria-hidden="true" className="size-icon shrink-0 text-ok" />
+      <span>{WORDS.nothingSince(props.name)}</span>
+    </div>
+  );
+}
 
 export type IssueWhat = "changed" | "full";
 
@@ -19,7 +29,7 @@ export function IssueWhatRow(props: {
   scenes: number;
   added: readonly string[];
 }): ReactNode {
-  if (props.since !== null) return <p>{WORDS.nothingSince(props.since)}</p>;
+  if (props.since !== null) return <NothingSinceCallout name={props.since} />;
   return (
     <Choices
       label={SEND_WORDS.what}
@@ -66,7 +76,8 @@ export function RecallWhatRow(props: {
   ticked: ReadonlySet<string>;
   onTick(label: string, on: boolean): void;
 }): ReactNode {
-  if (props.pages.length === 0) return <p>{WORDS.nothingSince(props.name)}</p>;
+  if (props.pages.length === 0)
+    return <NothingSinceCallout name={props.name} />;
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-2">
       {props.pages.map((label) => (

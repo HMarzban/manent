@@ -2,8 +2,9 @@
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
 import { Button, SERIES_WORDS, VirtualRows, cn } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { FilmIcon, PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../../empty-hero-card.tsx";
 import type { RowPlace } from "../../../services/ports.ts";
 import { DOCUMENT_ROW_LINES } from "../document-row-lines.ts";
 import {
@@ -109,15 +110,17 @@ export function SeasonSection(props: {
         >
           {SERIES_WORDS.stages.board}
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!canEdit || creating}
-          onClick={() => onNewEpisode(season)}
-        >
-          <PlusIcon aria-hidden="true" data-icon="inline-start" />
-          {SERIES_WORDS.newEpisode}
-        </Button>
+        {episodes.length > 0 ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canEdit || creating}
+            onClick={() => onNewEpisode(season)}
+          >
+            <PlusIcon aria-hidden="true" data-icon="inline-start" />
+            {SERIES_WORDS.newEpisode}
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
@@ -129,18 +132,22 @@ export function SeasonSection(props: {
         </Button>
       </div>
       {episodes.length === 0 ? (
-        <div className="flex flex-col items-start gap-2 py-3">
-          <p className="text-ui text-fg-muted">{SERIES_WORDS.empty}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canEdit || creating}
-            onClick={() => onNewEpisode(season)}
-          >
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            {SERIES_WORDS.newEpisode}
-          </Button>
-        </div>
+        <EmptyHeroCard
+          compact
+          icon={<FilmIcon aria-hidden="true" className="size-5" />}
+          title={SERIES_WORDS.empty}
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canEdit || creating}
+              onClick={() => onNewEpisode(season)}
+            >
+              <PlusIcon aria-hidden="true" data-icon="inline-start" />
+              {SERIES_WORDS.newEpisode}
+            </Button>
+          }
+        />
       ) : (
         <div
           data-tour="episode_table"

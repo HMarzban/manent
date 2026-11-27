@@ -6,10 +6,11 @@ import {
   SurfaceBoundary,
   useSubscribable,
 } from "@manent/ui";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { loadApart } from "../load-apart.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
+import { useEnvironment } from "../services/context.tsx";
 import { useProductionContext } from "../state/production-context.store.ts";
 import {
   DialogServices,
@@ -84,8 +85,48 @@ function EndingDialog(props: {
 
 function Dialogs(props: { services: ProductionServices }): ReactNode {
   const { services } = props;
+  const { dom } = useEnvironment();
   const open = useSubscribable(services.open);
   const close = (): void => services.open.set(NOTHING_OPEN);
+  const isDialogOpen =
+    open.kind === "lock" ||
+    open.kind === "change_layout" ||
+    open.kind === "unlock" ||
+    open.kind === "end";
+  const wasOpen = useRef(false);
+  const opener = useRef<Element | null>(null);
+
+  if (isDialogOpen && !wasOpen.current && typeof document !== "undefined") {
+    const active = document.activeElement;
+    if (
+      active !== null &&
+      active !== document.body &&
+      active.closest("[role='dialog'], [role='alertdialog']") === null
+    ) {
+      opener.current = active;
+    }
+  }
+
+  useEffect(() => {
+    if (isDialogOpen) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const prev = opener.current;
+    opener.current = null;
+    if (
+      prev instanceof HTMLElement &&
+      prev.isConnected &&
+      prev.closest("[inert]") === null
+    ) {
+      prev.focus({ preventScroll: true });
+      if (document.activeElement === prev) return;
+    }
+    dom.restoreFocus();
+  }, [isDialogOpen, dom]);
+
   useEffect(changeLayout.preload, []);
   return (
     <DialogServices.Provider value={services}>

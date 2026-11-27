@@ -103,7 +103,12 @@ function LiveChecksList(props: {
     [docId, initial, contextVersion],
   );
   if (checks.length === 0)
-    return <p className="text-ui text-fg-muted">{CHECKS_WORDS.nothing}</p>;
+    return (
+      <p className="flex items-center gap-2 text-ui text-fg-muted">
+        <CheckMark ok={true} />
+        <span>{CHECKS_WORDS.nothing}</span>
+      </p>
+    );
   const canFlag =
     commentsState.canEdit &&
     commentsState.access === "edit" &&
@@ -159,7 +164,12 @@ export function ChecksList(props: {
       />
     );
   if (checks.length === 0)
-    return <p className="text-ui text-fg-muted">{CHECKS_WORDS.nothing}</p>;
+    return (
+      <p className="flex items-center gap-2 text-ui text-fg-muted">
+        <CheckMark ok={true} />
+        <span>{CHECKS_WORDS.nothing}</span>
+      </p>
+    );
   return (
     <CollapsibleChecks count={checks.length} collapsible={collapsible}>
       <ul className="flex flex-col gap-2">

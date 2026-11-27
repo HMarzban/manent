@@ -22,11 +22,10 @@ import { sourcePlugin } from "../source/source-plugin.ts";
 import type { ScriptEditorOptions } from "./create.ts";
 
 const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
-  tabindex: "0",
   "aria-readonly": "true",
 });
 
-/** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
+/** The page is one multiline textbox named by the script's title; always explicitly tabbable for keyboard scroll access. */
 function pageAttributes(
   options: ScriptEditorOptions,
   isEditable: () => boolean,
@@ -35,6 +34,7 @@ function pageAttributes(
     role: "textbox",
     "aria-multiline": "true",
     "aria-label": options.title.get(),
+    tabindex: "0",
     ...(isEditable() ? {} : READ_ONLY_ATTRIBUTES),
   };
 }

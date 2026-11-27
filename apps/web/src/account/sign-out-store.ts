@@ -1,4 +1,4 @@
-// State of the sign-out guard dialog, shared across the Library, Account pane, and palette fallback host.
+// State of the sign-out guard dialog, shared across universal PersonMenu hosts, AccountPane, and the palette fallback host.
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
@@ -14,19 +14,24 @@ export interface SignOutPrompt {
 }
 
 const prompt = createValue<SignOutPrompt | null>(null);
-let mountedHosts = 0;
+const primaryHost = createValue<symbol | null>(null);
+const mountedHostTokens: symbol[] = [];
 
 export const signOutPrompt: Subscribable<SignOutPrompt | null> = prompt;
+export const primarySignOutHost: Subscribable<symbol | null> = primaryHost;
 
-export function registerSignOutHost(): () => void {
-  mountedHosts++;
+export function registerSignOutHost(token: symbol = Symbol()): () => void {
+  mountedHostTokens.push(token);
+  primaryHost.set(mountedHostTokens[0] ?? null);
   return () => {
-    mountedHosts = Math.max(0, mountedHosts - 1);
+    const index = mountedHostTokens.indexOf(token);
+    if (index !== -1) mountedHostTokens.splice(index, 1);
+    primaryHost.set(mountedHostTokens[0] ?? null);
   };
 }
 
 export function hasMountedSignOutHost(): boolean {
-  return mountedHosts > 0;
+  return mountedHostTokens.length > 0;
 }
 
 export function openSignOutPrompt(next: SignOutPrompt): void {

@@ -11,4 +11,5 @@ export const PRODUCTION_OUTPUTS_WORDS = Object.freeze({
       ? `${title} — Sides ${first}`
       : `${title} — Sides ${first}–${last}`,
   includeInSides: "Include in sides…",
+  noScenesForSides: "No scenes to pick from yet.",
 } as const);

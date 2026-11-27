@@ -1,5 +1,5 @@
 // What is open beside the page, and opening and closing it; written only by interface events.
-import { createValue, useSubscribable } from "@manent/ui";
+import { createFocusOrigin, createValue, useSubscribable } from "@manent/ui";
 import { guardWrite } from "../state/guard.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import type { BesideKindId } from "./kinds.ts";
@@ -15,6 +15,8 @@ export interface BesideOpen {
 }
 
 const shown = createValue<BesideOpen | null>(null);
+const opener = createFocusOrigin();
+let hasOpener = false;
 
 /** What is open beside the page; null while nothing is. */
 export function useBeside(): BesideOpen | null {
@@ -31,13 +33,40 @@ export function openBeside(
   at: { blockId: string } | null,
 ): void {
   guardWrite("beside");
+  if (shown.get() === null && typeof document !== "undefined") {
+    const active = document.activeElement;
+    if (
+      active !== null &&
+      active !== document.body &&
+      active.closest("[data-beside]") === null
+    ) {
+      opener.push(active);
+      hasOpener = true;
+    }
+  }
   shown.set({ docId, kind, at });
   if (panelsActions.get().side.tab !== "tour") panelsActions.close("side");
 }
 
-/** Nothing is beside the page any more. */
-export function closeBeside(): void {
+/** Nothing is beside the page any more; restores focus to the opener when focus was inside beside or lost to the body. */
+export function closeBeside(fallback?: () => void): void {
   if (shown.get() === null) return;
   guardWrite("beside");
+  const shouldRestore =
+    typeof document !== "undefined" &&
+    (document.activeElement === null ||
+      document.activeElement === document.body ||
+      document.activeElement.closest("[data-beside]") !== null);
   shown.set(null);
+  if (shouldRestore) {
+    if (hasOpener) {
+      hasOpener = false;
+      opener.restore(() => fallback?.());
+    } else {
+      fallback?.();
+    }
+  } else if (hasOpener) {
+    hasOpener = false;
+    opener.pop();
+  }
 }

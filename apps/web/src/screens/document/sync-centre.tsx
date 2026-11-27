@@ -71,7 +71,7 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
       </Part>
       {words.tone === "alert" ? (
         <Part>
-          <p className="font-medium text-danger">
+          <p role="alert" className="font-medium text-danger">
             {words.device ?? words.server}
           </p>
           <CommandAction

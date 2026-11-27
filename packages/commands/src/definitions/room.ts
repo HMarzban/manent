@@ -4,8 +4,10 @@ import { defineCommands } from "../define.ts";
 import type { CommandDefinition } from "../define.ts";
 
 const onDocument = (ctx: CommandContext): boolean => ctx.docOpen;
-const canEditDocument = (ctx: CommandContext): boolean =>
-  ctx.docOpen && (ctx.role === "owner" || ctx.role === "editor");
+const canEditScript = (ctx: CommandContext): boolean =>
+  ctx.docOpen &&
+  ctx.docKind === "script" &&
+  (ctx.role === "owner" || ctx.role === "editor");
 
 /** A command of an open document with no key, menu or palette entry: it is offered where its object is. */
 function roomCommand<const Id extends string>(
@@ -47,11 +49,11 @@ export const ROOM_COMMANDS = defineCommands([
     keysFixed: false,
     when: (ctx) => ctx.online,
     whyNot: () => "needs a connection",
-    visible: canEditDocument,
+    visible: canEditScript,
     checked: null,
     passThrough: null,
-    menus: [],
-    palette: { keywords: [] },
+    menus: [{ menu: "view", group: "people", order: 22, submenu: null }],
+    palette: { keywords: ["room", "drive", "present"] },
     opens: null,
     reach: "self",
     setting: null,
@@ -66,11 +68,11 @@ export const ROOM_COMMANDS = defineCommands([
     keysFixed: false,
     when: (ctx) => ctx.online,
     whyNot: () => "needs a connection",
-    visible: canEditDocument,
+    visible: canEditScript,
     checked: null,
     passThrough: null,
-    menus: [],
-    palette: { keywords: [] },
+    menus: [{ menu: "view", group: "people", order: 24, submenu: null }],
+    palette: { keywords: ["room", "suggest", "line"] },
     opens: { surface: "pitch_field", focus: "first" },
     reach: "self",
     setting: null,
@@ -85,7 +87,7 @@ export const ROOM_COMMANDS = defineCommands([
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: onDocument,
+    visible: (ctx) => ctx.docOpen && ctx.docKind === "script",
     checked: null,
     passThrough: null,
     menus: [{ menu: "view", group: "people", order: 20, submenu: null }],

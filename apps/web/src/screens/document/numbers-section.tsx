@@ -1,10 +1,12 @@
 // Details → Script → Numbers: pages, scenes, estimated runtime, eighths while locked, and dialogue by character.
 import { numbersOf } from "@manent/revisions";
 import {
+  CommandButton,
   SCENES_WORDS,
   WRITING_TOOLS_WORDS,
   formatCount,
   formatDuration,
+  useCommandState,
   useSubscribable,
 } from "@manent/ui";
 import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
@@ -83,6 +85,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
   const factPageCount = useOptionalPageCount();
   const outlineRows = useOptionalOutlineRows();
   const locked = useProductionContext(docId)?.locked === true;
+  const reportsState = useCommandState("script.reports");
 
   const currentPagination = useMemo(
     () => livePagination(docId) ?? pagination,
@@ -191,6 +194,12 @@ export function NumbersSection(props: { docId: string }): ReactNode {
           </dl>
         )}
       </div>
+
+      {reportsState.visible ? (
+        <div className="pt-1">
+          <CommandButton id="script.reports" variant="outline" size="sm" />
+        </div>
+      ) : null}
     </div>
   );
 }

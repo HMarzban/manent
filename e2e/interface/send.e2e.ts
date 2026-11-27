@@ -129,8 +129,14 @@ test("the Send screen passes the accessibility rules and works by keys alone", a
     browserName === "webkit" && process.platform === "darwin"
       ? "Alt+Tab"
       : "Tab";
+  // Tab from the focused heading visits the universal account avatar in the header, then the Send draft action
+  await page.keyboard.press(tab);
+  await expect(
+    page.locator('[data-tour="title:account"] button'),
+  ).toBeFocused();
   await page.keyboard.press(tab);
   await expect(page.getByRole("button", { name: "Send draft" })).toBeFocused();
+  await page.keyboard.press(`Shift+${tab}`);
   await page.keyboard.press(`Shift+${tab}`);
   await expect(page.getByRole("button", { name: /^‹ / })).toBeFocused();
   await page.keyboard.press("Enter");

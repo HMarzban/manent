@@ -125,7 +125,7 @@ export function GoalSection(props: { docId: string }): ReactNode {
           onChange={onInputChange}
           onKeyDown={onInputKeyDown}
           onBlur={() => commitNumber(draftText, draftUnit)}
-          className="h-control-sm w-16 rounded-control border border-line bg-surface px-2 text-ui text-fg tabular-nums outline-none focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+          className="h-control-sm w-16 rounded-control border border-line bg-well px-2 text-ui text-fg tabular-nums outline-none focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
         />
         <Segmented
           label={WRITING_TOOLS_WORDS.goal}

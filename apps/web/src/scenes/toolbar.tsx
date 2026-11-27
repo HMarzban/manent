@@ -3,6 +3,7 @@ import { Button, HISTORY_WORDS, Input, SCENE_MOVE_WORDS } from "@manent/ui";
 import type { NEW_PROJECT_CARDS } from "@manent/ui";
 import { SearchIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 
 type Kind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
 
@@ -83,19 +84,19 @@ export function ScenesFilterEmpty(props: {
 }): ReactNode {
   const { format, kind, onClear } = props;
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 p-6 text-center">
-      <span
-        aria-hidden="true"
-        className="flex size-10 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
-      >
-        <SearchIcon className="size-4" />
-      </span>
-      <p className="text-ui text-fg-muted">
-        {SCENE_MOVE_WORDS.noMatches(format, kind)}
-      </p>
-      <Button type="button" variant="outline" size="sm" onClick={onClear}>
-        {SCENE_MOVE_WORDS.clearFilter}
-      </Button>
+    <div className="flex min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="flex min-h-full w-full flex-col items-center justify-center">
+        <EmptyHeroCard
+          compact
+          icon={<SearchIcon aria-hidden="true" className="size-4" />}
+          description={SCENE_MOVE_WORDS.noMatches(format, kind)}
+          actions={
+            <Button type="button" variant="outline" size="sm" onClick={onClear}>
+              {SCENE_MOVE_WORDS.clearFilter}
+            </Button>
+          }
+        />
+      </div>
     </div>
   );
 }

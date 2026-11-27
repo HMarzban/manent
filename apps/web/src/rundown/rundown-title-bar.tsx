@@ -22,8 +22,10 @@ import {
   keyLabel,
   useCommandState,
   useCommands,
+  useSubscribable,
 } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
+import { Share2Icon } from "lucide-react";
 import { Fragment, useEffect, useId, useReducer } from "react";
 import type { ReactNode } from "react";
 import { HistoryButton } from "../screens/document/history-button.tsx";
@@ -32,6 +34,12 @@ import { People } from "../screens/document/people.tsx";
 import { StatusButton } from "../screens/document/status-button.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { ShellRegion } from "../shell/regions.tsx";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../shell/title-bar-pieces.tsx";
+import { PrompterTitleButton } from "./prompter-title-button.tsx";
 
 function TitleMenuEntry(props: { readonly item: MenuItemModel }): ReactNode {
   const { item } = props;
@@ -115,7 +123,7 @@ function RundownTitleMenu(props: { readonly title: string }): ReactNode {
   );
 }
 
-function RundownShareButton(): ReactNode {
+function RundownShareButton(props: { readonly canEdit: boolean }): ReactNode {
   const { service } = useCommands();
   const state = useCommandState("share.open");
   const reasonId = useId();
@@ -130,12 +138,14 @@ function RundownShareButton(): ReactNode {
         <TooltipTrigger
           render={
             <Button
-              variant="outline"
+              variant={props.canEdit ? "outline" : "ghost"}
               data-tour="share"
               className={
                 reason === null
-                  ? "cursor-pointer"
-                  : "cursor-not-allowed opacity-50"
+                  ? props.canEdit
+                    ? "cursor-pointer gap-1.5"
+                    : "cursor-pointer gap-1.5 text-fg-muted hover:text-fg"
+                  : "cursor-not-allowed gap-1.5 opacity-50"
               }
               aria-disabled={reason === null ? undefined : true}
               aria-describedby={reason === null ? undefined : reasonId}
@@ -143,7 +153,8 @@ function RundownShareButton(): ReactNode {
             />
           }
         >
-          {SELECTION_WORDS.share}
+          <Share2Icon aria-hidden="true" className="size-icon" />
+          <span>{SELECTION_WORDS.share}</span>
         </TooltipTrigger>
         <TooltipContent>{reason ?? SELECTION_WORDS.share}</TooltipContent>
       </Tooltip>
@@ -163,18 +174,17 @@ export function RundownTitleBar(props: {
 }): ReactNode {
   const { docId, doc, title } = props;
   const router = useRouter();
+  const canEdit = useSubscribable(doc.status).access === "edit";
   return (
     <ShellRegion
       region="title_bar"
-      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 py-1 text-ui"
+      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2.5 py-1 text-ui"
     >
-      <Button
-        variant="ghost"
-        className="cursor-pointer text-fg-muted hover:text-fg"
+      <BackButton
+        label={DOCUMENT_WORDS.back}
         onClick={() => void router.navigate({ href: "/" })}
-      >
-        {DOCUMENT_WORDS.back}
-      </Button>
+      />
+      <TitleBarDivider />
       <h1
         tabIndex={-1}
         className="grid max-w-max min-w-24 grow basis-24 grid-cols-[fit-content(40cqi)] text-title font-semibold *:min-w-0"
@@ -182,11 +192,13 @@ export function RundownTitleBar(props: {
         <RundownTitleMenu title={title} />
       </h1>
       <StatusButton doc={doc} />
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ms-auto flex shrink-0 items-center gap-2">
         <People docId={docId} people={doc.people} viewers={doc.viewers} />
         <div className="flex items-center gap-1.5">
+          <PrompterTitleButton docId={docId} />
           <HistoryButton docId={docId} />
-          <RundownShareButton />
+          <RundownShareButton canEdit={canEdit} />
+          <TitleBarAccount />
         </div>
       </div>
     </ShellRegion>

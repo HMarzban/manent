@@ -2,6 +2,7 @@
 import { DOCUMENT_WORDS, PanelTabs } from "@manent/ui";
 import { useRef } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import { useEnvironment } from "../../services/context.tsx";
 import { panelWidthCss, rootFontScalePx } from "../../shell/narrow-window.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
@@ -81,7 +82,12 @@ export function LeftPanel(props: {
   overlay: boolean;
 }): ReactNode {
   const { docId, overlay } = props;
+  const { dom } = useEnvironment();
   const { tab, widthPx } = usePanel("left");
+  const closeLeft = (): void => {
+    panelsActions.close("left");
+    if (!dom.focusPage()) dom.restoreFocus();
+  };
   // the list is fixed when it loads, so each tab's hook runs in the same order every render
   const present = LEFT_PANEL_TABS.map((entry) => ({
     entry,
@@ -107,13 +113,13 @@ export function LeftPanel(props: {
             tabs={present.map((t) => ({ id: t.entry.id, label: t.label }))}
             current={current.entry.id}
             onChange={(id) => panelsActions.open("left", id)}
-            onClose={() => panelsActions.close("left")}
+            onClose={closeLeft}
             closeLabel={DOCUMENT_WORDS.closeLeftPanel}
           >
             <Tab docId={docId} />
           </PanelTabs>
         </div>
-        <ResizeEdge widthPx={widthPx} />
+        {overlay ? null : <ResizeEdge widthPx={widthPx} />}
       </ShellRegion>
     </PanelPlace>
   );

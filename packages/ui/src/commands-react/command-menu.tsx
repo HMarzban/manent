@@ -104,8 +104,22 @@ export function CommandMenu(props: {
   menu: MenuId;
   trigger: ReactNode;
   label: string;
+  header?: ReactNode;
+  align?: "start" | "center" | "end";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  triggerClassName?: string;
 }): ReactNode {
-  const { menu, trigger, label } = props;
+  const {
+    menu,
+    trigger,
+    label,
+    header,
+    align,
+    open,
+    onOpenChange,
+    triggerClassName,
+  } = props;
   const { service, platform } = useCommands();
   const [, changed] = useReducer((n: number) => n + 1, 0);
   useEffect(() => service.subscribe(changed), [service]);
@@ -114,9 +128,17 @@ export function CommandMenu(props: {
     <MenuItem key={item.id} item={item} service={service} platform={platform} />
   );
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent aria-label={label}>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger className={triggerClassName}>
+        {trigger}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent aria-label={label} align={align}>
+        {header === undefined ? null : (
+          <>
+            {header}
+            <DropdownMenuSeparator />
+          </>
+        )}
         {model.groups.map((group, index) => (
           <Fragment key={group[0]?.id ?? index}>
             {index === 0 ? null : <DropdownMenuSeparator />}

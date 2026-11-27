@@ -106,6 +106,8 @@ export function usePrompterFeed(rundownId: string): PrompterFeedView {
     let savedRunOrder: readonly PrompterRow[] | null = null;
     let savedStories: ReadonlyMap<string, readonly BlockJSON[]> | null = null;
     let receivedLive = false;
+    let opening = false;
+    let openSeq = 0;
 
     const flushCache = (): void => {
       if (!receivedLive) return;
@@ -189,59 +191,81 @@ export function usePrompterFeed(rundownId: string): PrompterFeedView {
       }));
     };
 
+    const openFeed = (): void => {
+      if (closed || handle !== null || opening) return;
+      opening = true;
+      const seq = ++openSeq;
+      void services.prompter(rundownId).then(
+        (opened) => {
+          if (seq === openSeq) opening = false;
+          if (closed || seq !== openSeq || handle !== null) {
+            opened.close();
+            return;
+          }
+          handle = opened;
+          const syncControl = (): void => {
+            if (closed) return;
+            const operator = opened.operator?.get() ?? null;
+            const remoteScroll = opened.scroll?.get() ?? EMPTY_SCROLL;
+            setSnapshot((prev) =>
+              prev.operator === operator && prev.remoteScroll === remoteScroll
+                ? prev
+                : { ...prev, operator, remoteScroll },
+            );
+          };
+          unsubscribes = [
+            opened.runOrder.subscribe(() => syncFromHandle(opened)),
+            opened.stories.subscribe(() => syncFromHandle(opened)),
+            opened.status.subscribe(() => syncFromHandle(opened)),
+            ...(opened.operator !== undefined
+              ? [opened.operator.subscribe(syncControl)]
+              : []),
+            ...(opened.scroll !== undefined
+              ? [opened.scroll.subscribe(syncControl)]
+              : []),
+          ];
+          syncFromHandle(opened);
+          syncControl();
+        },
+        () => {
+          if (seq === openSeq) opening = false;
+          // sync could not start (e.g. offline): keep showing any cached feed under Feed lost
+          if (closed || seq !== openSeq) return;
+          setSnapshot((prev) =>
+            prev.feed === "refused" ? prev : { ...prev, feed: "lost" },
+          );
+        },
+      );
+    };
+
     const onOffline = (): void => {
       if (closed) return;
       setSnapshot((prev) =>
         prev.feed === "refused" ? prev : { ...prev, feed: "lost" },
       );
     };
+    const onOnline = (): void => {
+      if (closed) return;
+      if (handle !== null) {
+        syncFromHandle(handle);
+        return;
+      }
+      setSnapshot((prev) =>
+        prev.feed === "refused" ? prev : { ...prev, feed: "waiting" },
+      );
+      openFeed();
+    };
     window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
     window.addEventListener("beforeunload", flushCache);
 
-    void services.prompter(rundownId).then(
-      (opened) => {
-        if (closed) {
-          opened.close();
-          return;
-        }
-        handle = opened;
-        const syncControl = (): void => {
-          if (closed) return;
-          const operator = opened.operator?.get() ?? null;
-          const remoteScroll = opened.scroll?.get() ?? EMPTY_SCROLL;
-          setSnapshot((prev) =>
-            prev.operator === operator && prev.remoteScroll === remoteScroll
-              ? prev
-              : { ...prev, operator, remoteScroll },
-          );
-        };
-        unsubscribes = [
-          opened.runOrder.subscribe(() => syncFromHandle(opened)),
-          opened.stories.subscribe(() => syncFromHandle(opened)),
-          opened.status.subscribe(() => syncFromHandle(opened)),
-          ...(opened.operator !== undefined
-            ? [opened.operator.subscribe(syncControl)]
-            : []),
-          ...(opened.scroll !== undefined
-            ? [opened.scroll.subscribe(syncControl)]
-            : []),
-        ];
-        syncFromHandle(opened);
-        syncControl();
-      },
-      () => {
-        // sync could not start (e.g. offline): keep showing any cached feed under Feed lost
-        if (closed) return;
-        setSnapshot((prev) =>
-          prev.feed === "refused" ? prev : { ...prev, feed: "lost" },
-        );
-      },
-    );
+    openFeed();
 
     return () => {
       closed = true;
       flushCache();
       window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("beforeunload", flushCache);
       for (const stop of unsubscribes) stop();
       handle?.close();

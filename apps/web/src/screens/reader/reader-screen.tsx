@@ -29,7 +29,10 @@ import { browserPagePorts } from "../../editor-host/page-ports.ts";
 import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
-import { stopReadAloud } from "../../read-aloud/runner.ts";
+import {
+  startReaderReadAloud,
+  stopReadAloud,
+} from "../../read-aloud/runner.ts";
 import { useReadAloudFacts } from "../../read-aloud/state-facts.ts";
 import { createReaderCommentsSession } from "../../reader/reader-comments.ts";
 import type { ReaderCommentsSession } from "../../reader/reader-comments.ts";
@@ -185,19 +188,17 @@ export function ReaderScreen(props: {
         if (services !== null)
           services.commands.run("history.sinceLastRead", "control");
         else runSinceLastRead();
-        return;
-      }
-      if (commandId === "history.hideChanges") {
+      } else if (commandId === "history.hideChanges") {
         hideComparison();
-        return;
-      }
-      if (commandId === "readAloud.stop" && services === null) {
+      } else if (commandId === "readAloud.start" && services === null) {
+        startReaderReadAloud(messageQueue);
+      } else if (commandId === "readAloud.stop" && services === null) {
         stopReadAloud();
-        return;
+      } else {
+        services?.commands.run(commandId, "control");
       }
-      services?.commands.run(commandId, "control");
     },
-    [services, runSinceLastRead, hideComparison],
+    [services, runSinceLastRead, hideComparison, messageQueue],
   );
 
   const handleTapLine = useCallback(

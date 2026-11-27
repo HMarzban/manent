@@ -104,21 +104,21 @@ export function SearchField(): ReactNode {
         }}
         className={cn(
           "h-control w-full min-w-0 ps-8 text-ui [&::-webkit-search-cancel-button]:hidden",
-          value === "" ? undefined : "pe-7",
+          value === "" ? undefined : "pe-8",
         )}
       />
       {value === "" ? null : (
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           aria-label={SEARCH_WORDS.clearSearch}
           onClick={() => {
             setValue("");
             commitQuery("");
             inputRef.current?.focus();
           }}
-          className="absolute end-1 cursor-pointer"
+          className="absolute end-0.5 cursor-pointer"
         >
           <XIcon
             aria-hidden="true"

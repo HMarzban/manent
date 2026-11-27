@@ -25,6 +25,7 @@ import {
   EyeIcon,
   FileCode2Icon,
   FileDiffIcon,
+  FileDownIcon,
   FileLock2Icon,
   FilePlus2Icon,
   FileSpreadsheetIcon,
@@ -39,6 +40,7 @@ import {
   HistoryIcon,
   ImageIcon,
   ItalicIcon,
+  KeyRoundIcon,
   KeyboardIcon,
   LayoutTemplateIcon,
   Link2Icon,
@@ -49,6 +51,8 @@ import {
   LogOutIcon,
   Maximize2Icon,
   MessageSquareDiffIcon,
+  MessageSquarePlusIcon,
+  MinusIcon,
   MonitorIcon,
   MoonIcon,
   MousePointer2Icon,
@@ -60,6 +64,7 @@ import {
   PencilIcon,
   PictureInPicture2Icon,
   PlayIcon,
+  PlusIcon,
   PresentationIcon,
   PrinterIcon,
   Redo2Icon,
@@ -96,6 +101,7 @@ import {
   UsersIcon,
   Volume2Icon,
   WrapTextIcon,
+  WrenchIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from "lucide-react";
@@ -243,7 +249,11 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
 
   // Rundown & prompter
   "rundown.columns": Columns3Icon,
+  "rundown.addRow": PlusIcon,
+  "rundown.addHeaderRow": MinusIcon,
+  "rundown.importRows": FileDownIcon,
   "prompter.send": TvIcon,
+  "prompter.takeControl": SlidersHorizontalIcon,
   "prompter.jumpHere": CrosshairIcon,
   "rundown.openBeside": Columns2Icon,
   "rundown.moveUp": ArrowUpIcon,
@@ -255,6 +265,8 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   "rundown.leaveUnnumbered": CircleOffIcon,
   "rundown.numberRow": HashIcon,
   "room.follow": EyeIcon,
+  "room.takeKeys": KeyRoundIcon,
+  "room.pitch": MessageSquarePlusIcon,
 });
 
 const SUBMENU_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
@@ -263,6 +275,7 @@ const SUBMENU_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   "Interface size": TypeIcon,
   "Revision marks": FileDiffIcon,
   Writing: PenLineIcon,
+  Tools: WrenchIcon,
   "Start a … from this…": CopyPlusIcon,
   Outline: ListTreeIcon,
 });

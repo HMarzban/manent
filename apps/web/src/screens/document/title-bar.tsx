@@ -14,13 +14,21 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
+import { Share2Icon } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../../shell/title-bar-pieces.tsx";
 import { useRenaming } from "../../state/rename.store.ts";
+import { BoardTitleButton } from "./board-title-button.tsx";
 import { HistoryButton } from "./history-button.tsx";
+import { InkPlayButton } from "./ink-play-button.tsx";
 import { InlineRename } from "./inline-rename.tsx";
 import { MenuFace } from "./menu-face.tsx";
 import { People } from "./people.tsx";
@@ -68,7 +76,9 @@ function ShareButton(props: { canEdit: boolean }): ReactNode {
             <Button
               variant={props.canEdit ? "outline" : "ghost"}
               className={
-                props.canEdit ? undefined : "text-fg-muted hover:text-fg"
+                props.canEdit
+                  ? "cursor-pointer gap-1.5"
+                  : "cursor-pointer gap-1.5 text-fg-muted hover:text-fg"
               }
               data-tour="share"
               aria-disabled={reason === null ? undefined : true}
@@ -77,7 +87,8 @@ function ShareButton(props: { canEdit: boolean }): ReactNode {
             />
           }
         >
-          {SELECTION_WORDS.share}
+          <Share2Icon aria-hidden="true" className="size-icon" />
+          <span>{SELECTION_WORDS.share}</span>
         </TooltipTrigger>
         <TooltipContent>{reason ?? SELECTION_WORDS.share}</TooltipContent>
       </Tooltip>
@@ -107,15 +118,13 @@ export function TitleBar(props: {
   return (
     <ShellRegion
       region="title_bar"
-      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 py-1 text-ui"
+      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2.5 py-1 text-ui"
     >
-      <Button
-        variant="ghost"
-        className="text-fg-muted hover:text-fg"
+      <BackButton
+        label={DOCUMENT_WORDS.back}
         onClick={() => void router.navigate({ href: "/" })}
-      >
-        {DOCUMENT_WORDS.back}
-      </Button>
+      />
+      <TitleBarDivider />
       {/* the title's band hugs it, up to two fifths of the bar, and gives way to the status on a narrow bar */}
       <h1
         tabIndex={-1}
@@ -136,11 +145,14 @@ export function TitleBar(props: {
         )}
       </h1>
       <StatusButton doc={doc} />
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ms-auto flex shrink-0 items-center gap-2">
         <People docId={docId} people={doc.people} viewers={doc.viewers} />
         <div className="flex items-center gap-1.5">
+          <BoardTitleButton docId={docId} />
+          <InkPlayButton docId={docId} />
           <HistoryButton docId={docId} />
           <ShareButton canEdit={canEdit} />
+          <TitleBarAccount />
         </div>
       </div>
     </ShellRegion>

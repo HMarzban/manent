@@ -404,3 +404,25 @@ test("hydrates status, notifies replaced counts as they rise, handles unwritable
   await flush();
   expect(services.messages.current()).toBeNull();
 });
+
+test("PrompterFilesHost restores focus to the opener button when closed", async () => {
+  const trigger = document.createElement("button");
+  trigger.textContent = "Open prompter files";
+  document.body.append(trigger);
+
+  mountHost({
+    fetchImpl: async () => Response.json(null),
+  });
+  await flush();
+
+  act(() => {
+    trigger.focus();
+    prompterFilesStore.open(RUNDOWN_ID);
+  });
+  await nextFrame();
+  expect(document.activeElement?.textContent).toBe("Cancel");
+
+  act(() => prompterFilesStore.close());
+  await flush();
+  expect(document.activeElement).toBe(trigger);
+});

@@ -492,3 +492,13 @@ test("in a narrow window one panel closes the other, and a panel over the page c
     narrower.container.querySelector("[data-region='side_panel']") !== null,
   ]).toEqual([[false, true], true, false]);
 });
+
+test("narrow overlay LeftPanel hides its resize separator", async () => {
+  const frame = await renderFrame({ viewportWidthPx: 1000 });
+  await run(frame, "view.leftPanel");
+  const panel = leftPanel(frame);
+  expect([
+    panel.closest("[data-overlay]") !== null,
+    panel.querySelector("[role='separator']") === null,
+  ]).toEqual([true, true]);
+});

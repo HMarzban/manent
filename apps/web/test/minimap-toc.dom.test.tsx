@@ -898,3 +898,36 @@ test("a whitespace-only filter keeps acts and sections visible", () => {
   expect(items[0]?.textContent).toBe("ACT I");
   expect(items[5]?.textContent).toBe("ACT II");
 });
+
+test("opening via toggle moves focus into the card, scrim click restores focus to toggle, and empty filter announces status", () => {
+  const container = mount(
+    <MiniMapToc
+      docId={DOC_ID}
+      rows={LONG_OUTLINE}
+      activeBlockId="sc-1"
+      progress={20}
+      onJump={() => {}}
+    />,
+  );
+  const toggle = container.querySelector<HTMLButtonElement>(
+    'button[aria-label="Show script outline"]',
+  )!;
+  act(() => toggle.focus());
+  click(toggle);
+
+  const input = container.querySelector<HTMLInputElement>(
+    'input[aria-label="Filter scenes"]',
+  )!;
+  expect(document.activeElement).toBe(input);
+
+  typeInto(input, "nothing-matches-here");
+  const statusEl = container.querySelector(
+    'nav[aria-label="Outline"] [role="status"]',
+  );
+  expect(statusEl?.textContent).toContain("No scenes match");
+
+  const scrim = container.querySelector<HTMLElement>(".bg-scrim")!;
+  click(scrim);
+  expect(container.querySelector(".mn-minimap-card")).toBeNull();
+  expect(document.activeElement).toBe(toggle);
+});

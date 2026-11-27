@@ -12,9 +12,15 @@ import {
   useCommandState,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { TriangleAlertIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  CircleAlertIcon,
+  CloudOffIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import {
   executeMoveToTrash,
   restoreTrashedDocument,
@@ -25,6 +31,7 @@ import {
   useTrashConfirm,
   useTrashRevision,
 } from "../../state/trash.store.ts";
+import { LibraryViewHeader } from "./library-view-header.tsx";
 import { LibraryViewSection } from "./view-section.tsx";
 import type { LibraryViewProps } from "./views.ts";
 
@@ -203,10 +210,21 @@ export function TrashView(props: LibraryViewProps): ReactNode {
 
   if (!cloudAvailable) {
     return (
-      <LibraryViewSection
-        heading={LIBRARY_FILES_WORDS.trashHeading}
-        sentence={LIBRARY_FILES_WORDS.trashOffline}
-      />
+      <section
+        aria-label={LIBRARY_FILES_WORDS.trashHeading}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col items-center justify-center p-6">
+            <EmptyHeroCard
+              headingAs="h2"
+              icon={<CloudOffIcon aria-hidden="true" className="size-5" />}
+              title={LIBRARY_FILES_WORDS.trashHeading}
+              description={LIBRARY_FILES_WORDS.trashOffline}
+            />
+          </div>
+        </div>
+      </section>
     );
   }
 
@@ -223,22 +241,32 @@ export function TrashView(props: LibraryViewProps): ReactNode {
 
   if (state.kind === "problem") {
     return (
-      <LibraryViewSection
-        heading={LIBRARY_FILES_WORDS.trashHeading}
-        sentence={null}
+      <section
+        aria-label={LIBRARY_FILES_WORDS.trashHeading}
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <div role="alert" className="flex flex-col items-start gap-3 px-3">
-          <p className="text-ui text-fg">{LIBRARY_FILES_WORDS.trashProblem}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={() => setAttempt((count) => count + 1)}
-          >
-            {LIBRARY_FILES_WORDS.tryAgain}
-          </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col items-center justify-center p-6">
+            <EmptyHeroCard
+              headingAs="h2"
+              icon={<CircleAlertIcon aria-hidden="true" className="size-5" />}
+              title={LIBRARY_FILES_WORDS.trashHeading}
+              description={LIBRARY_FILES_WORDS.trashProblem}
+              descriptionRole="alert"
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => setAttempt((count) => count + 1)}
+                >
+                  {LIBRARY_FILES_WORDS.tryAgain}
+                </Button>
+              }
+            />
+          </div>
         </div>
-      </LibraryViewSection>
+      </section>
     );
   }
 
@@ -253,10 +281,15 @@ export function TrashView(props: LibraryViewProps): ReactNode {
 
   const instant = now();
   return (
-    <LibraryViewSection
-      heading={LIBRARY_FILES_WORDS.trashHeading}
-      sentence={null}
+    <section
+      aria-label={LIBRARY_FILES_WORDS.trashHeading}
+      className="flex min-h-0 flex-1 flex-col gap-6"
     >
+      <LibraryViewHeader
+        icon={<Trash2Icon aria-hidden="true" className="size-icon" />}
+        title={LIBRARY_FILES_WORDS.trashHeading}
+        subtitle={LIBRARY_FILES_WORDS.trashNote}
+      />
       <ul className="mn-table flex flex-col">
         {state.items.map((item) => (
           <TrashRow
@@ -269,7 +302,7 @@ export function TrashView(props: LibraryViewProps): ReactNode {
           />
         ))}
       </ul>
-    </LibraryViewSection>
+    </section>
   );
 }
 
@@ -277,7 +310,43 @@ export function TrashView(props: LibraryViewProps): ReactNode {
 export function TrashConfirmDialog(): ReactNode {
   const confirm = useTrashConfirm();
   const services = useServices();
+  const { dom } = useEnvironment();
   const navigate = useNavigate();
+  const isOpen = confirm !== null;
+  const wasOpen = useRef(false);
+  const opener = useRef<Element | null>(null);
+
+  if (isOpen && !wasOpen.current && typeof document !== "undefined") {
+    const active = document.activeElement;
+    if (
+      active !== null &&
+      active !== document.body &&
+      active.closest("[role='dialog'], [role='alertdialog']") === null
+    ) {
+      opener.current = active;
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const prev = opener.current;
+    opener.current = null;
+    if (
+      prev instanceof HTMLElement &&
+      prev.isConnected &&
+      prev.closest("[inert]") === null
+    ) {
+      prev.focus({ preventScroll: true });
+      if (document.activeElement === prev) return;
+    }
+    dom.restoreFocus();
+  }, [isOpen, dom]);
+
   if (confirm === null) return null;
   return (
     <ConsequenceDialog

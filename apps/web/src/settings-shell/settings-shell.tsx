@@ -1,6 +1,5 @@
 // Shared full-page Settings shell: unified header, responsive left rail / mobile select, scrollable main and status bar.
 import {
-  Button,
   Row,
   Select,
   SelectContent,
@@ -15,6 +14,11 @@ import {
 } from "@manent/ui";
 import { Fragment, useEffect, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
+import {
+  BackButton,
+  TitleBarAccount,
+  TitleBarDivider,
+} from "../shell/title-bar-pieces.tsx";
 import { SettingsStatusBar } from "./settings-status-bar.tsx";
 
 export interface SettingsNavItem<Id extends string = string> {
@@ -86,21 +90,21 @@ export function SettingsShell<Id extends string>(
 
   return (
     <div className="@container flex min-h-0 flex-1 flex-col bg-chrome">
-      <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
-        <Button
-          variant="ghost"
+      <header className="flex min-h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2.5 py-1">
+        <BackButton
+          label={backLabel}
           title={backTitle}
-          className="max-w-[45%] shrink-0 cursor-pointer truncate text-fg-muted"
+          className="max-w-[45%]"
           onClick={onBack}
-        >
-          {backLabel}
-        </Button>
+        />
+        <TitleBarDivider />
         <h1
           tabIndex={-1}
-          className="min-w-0 flex-1 truncate text-heading outline-none"
+          className="min-w-0 flex-1 truncate text-title font-semibold text-fg outline-none"
         >
           {title}
         </h1>
+        <TitleBarAccount />
       </header>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto @[42rem]:flex-row @[42rem]:overflow-hidden">
         <div className="flex shrink-0 flex-col gap-2 border-b border-line p-4 @[42rem]:w-[min(var(--panel-left-w),17rem)] @[42rem]:border-e @[42rem]:border-b-0 @[42rem]:px-2.5">

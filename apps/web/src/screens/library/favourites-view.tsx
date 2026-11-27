@@ -16,6 +16,7 @@ import type { ProjectKind } from "../../services/ports.ts";
 import type { FavouriteEntry } from "../../services/sync/favourites.ts";
 import type { DocumentEntry } from "../../services/sync/index-entries.ts";
 import { DOCUMENT_ROW_ITEMS } from "./document-row-items.ts";
+import { LibraryViewHeader } from "./library-view-header.tsx";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
 import { RowContextMenu, RowMenu } from "./row-place.tsx";
@@ -122,9 +123,11 @@ export function FavouritesView(props: LibraryViewProps): ReactNode {
           </div>
         </div>
       ) : (
-        <h2 className="text-heading">
-          {LIBRARY_FILES_WORDS.favouritesHeading}
-        </h2>
+        <LibraryViewHeader
+          icon={<StarIcon aria-hidden="true" className="size-icon" />}
+          title={LIBRARY_FILES_WORDS.favouritesHeading}
+          subtitle={LIBRARY_FILES_WORDS.favouritesNote}
+        />
       )}
       {favProjects.length > 0 ? (
         <div className="flex min-h-0 flex-col gap-2">

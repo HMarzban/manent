@@ -1,21 +1,24 @@
 // Continue: the documents this person last worked on, across every project, each saying where it is; and the
 // Library's Continue view, which draws it over the projects.
 import {
+  LIBRARY_FILES_WORDS,
   LIBRARY_WORDS,
   Row,
   Skeleton,
   SurfaceState,
   VirtualRows,
   cn,
+  useSubscribable,
 } from "@manent/ui";
 import type { SurfaceRenderers, SurfaceStateValue } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useEnvironment } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
 import { DOCUMENT_ROW_ITEMS } from "./document-row-items.ts";
 import { DOCUMENT_ROW_LINES } from "./document-row-lines.ts";
+import { useActiveDragWorkspace, useProjectDrag } from "./folder-dnd.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { NoProjects, ProjectList } from "./project-list.tsx";
 import {
@@ -75,8 +78,21 @@ function ContinueRow(props: {
   open(docId: string): void;
 }): ReactNode {
   const { item, shell, open } = props;
+  const { library } = useServices();
   const meta = useSecondLine(item);
   const { trailing, ...place } = placeProps(item.place, shell);
+  const workspaceId = useActiveDragWorkspace();
+  const projectIdSource = useMemo(
+    () => library.documentProject(item.docId),
+    [library, item.docId],
+  );
+  const projectId = useSubscribable(projectIdSource);
+  const { draggable, isDragging, dragHandlers } = useProjectDrag({
+    workspaceId,
+    projectId,
+    projectTitle: item.projectTitle,
+    disabled: place.unavailable !== undefined,
+  });
   const hasMenu =
     DOCUMENT_ROW_ITEMS.length > 0 && place.unavailable === undefined;
   const entries = hasMenu
@@ -85,17 +101,27 @@ function ContinueRow(props: {
       ))
     : null;
   // a row that cannot be opened has no menu
-  const menu = hasMenu ? [<RowMenu title={item.title}>{entries}</RowMenu>] : [];
+  const menu = hasMenu ? (
+    <RowMenu title={item.title}>{entries}</RowMenu>
+  ) : undefined;
   const row = (
-    <Row
-      leading={<KindIcon kind={item.kind} />}
-      meta={meta}
-      onActivate={() => open(item.docId)}
-      trailing={[...menu, ...trailing]}
-      {...place}
+    <div
+      draggable={draggable}
+      data-drag-source={isDragging ? "true" : undefined}
+      className="mn-drag-row"
+      {...dragHandlers}
     >
-      <span className="font-semibold">{item.title}</span>
-    </Row>
+      <Row
+        leading={<KindIcon kind={item.kind} />}
+        meta={meta}
+        onActivate={() => open(item.docId)}
+        trailing={trailing}
+        menu={menu}
+        {...place}
+      >
+        <span className="font-semibold">{item.title}</span>
+      </Row>
+    </div>
   );
   return hasMenu ? (
     <RowContextMenu entries={entries}>{row}</RowContextMenu>
@@ -122,7 +148,12 @@ export function ContinueList(props: {
       aria-label={LIBRARY_WORDS.continueHeading}
       className="@container flex max-h-1/3 shrink-0 flex-col"
     >
-      <h2 className="mn-group-label">{LIBRARY_WORDS.continueHeading}</h2>
+      <div className="flex items-baseline justify-between gap-2 px-3 pt-4 pb-1">
+        <h2 className="mn-group-label p-0!">{LIBRARY_WORDS.continueHeading}</h2>
+        <span className="text-meta text-fg-muted">
+          {LIBRARY_FILES_WORDS.continueNote}
+        </span>
+      </div>
       <div className={cn("mn-table min-h-0 flex-1", PLACE_COLUMN)}>
         <VirtualRows
           count={items.length}

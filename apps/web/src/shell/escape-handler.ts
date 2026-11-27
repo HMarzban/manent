@@ -6,6 +6,7 @@ import { useServices } from "../services/context.tsx";
 import { useOpenDialog } from "../state/dialog.store.ts";
 import { findActions, useFindBar } from "../state/find.store.ts";
 import { useHistory } from "../state/history.store.ts";
+import { panelsActions } from "../state/panels.store.ts";
 import { renameActions, useRenaming } from "../state/rename.store.ts";
 import type { ShellDom } from "./regions.tsx";
 
@@ -13,6 +14,7 @@ import type { ShellDom } from "./regions.tsx";
 const OPEN_POPUP = "[data-popup-open]";
 const OPEN_DIALOG =
   "[role='dialog'][data-open], [role='alertdialog'][data-open]";
+const OVERLAY_PANEL = "[data-overlay]";
 
 /** The kind of the surface the dialog store holds open: it holds the Sync centre and New project popovers too. */
 const kindOf = (id: string | null): string | null =>
@@ -60,6 +62,7 @@ export function useEscapeHandler(options: {
         viewingVersion,
       } = latest.current;
       const held = kindOf(dialogId);
+      const overlayPanelOpen = document.querySelector(OVERLAY_PANEL) !== null;
       const snapshot: EscapeSnapshot = {
         composing: event.isComposing,
         popoverOpen:
@@ -71,8 +74,7 @@ export function useEscapeHandler(options: {
         fieldOpen: renaming !== null || finding,
         filterWithText: isFilterWithText(document.activeElement),
         focus: dom.pageFocused() ? "page" : "frame",
-        // no panel overlays the page yet
-        overlayPanelOpen: false,
+        overlayPanelOpen,
         viewingVersion,
       };
       const action = escapeAction(snapshot);
@@ -89,16 +91,30 @@ export function useEscapeHandler(options: {
           }
           break;
         case "focus_page":
-          // false while a screen covers the page: Escape never leaves a screen
-          dom.focusPage();
+          if (overlayPanelOpen) {
+            event.preventDefault();
+            panelsActions.close("left");
+            panelsActions.close("side");
+            if (!dom.focusPage()) dom.restoreFocus();
+          } else {
+            // false while a screen covers the page: Escape never leaves a screen
+            dom.focusPage();
+          }
           break;
         case "back_to_working":
           commands.run("history.backToWorking", "key");
           break;
+        case "none":
+          if (overlayPanelOpen) {
+            event.preventDefault();
+            panelsActions.close("left");
+            panelsActions.close("side");
+            if (!dom.focusPage()) dom.restoreFocus();
+          }
+          break;
         case "ignore":
         case "cancel_dialog":
         case "clear_filter":
-        case "none":
           break;
         default:
           action satisfies never;

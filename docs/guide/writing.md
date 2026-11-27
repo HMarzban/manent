@@ -126,6 +126,7 @@ Show and News projects support reusable templates for recurring rundowns and scr
 
 ## Tools while writing
 
-- **Alternate lines and Cuts.** Keep alternate readings on a speech behind a `1/n` marker (swap in one undo step), or move trimmed passages to **Cuts** and restore them later.
-- **Writing tools.** Open the command palette for **Rename character** (one undo across cues, dialogue and action), **Focus mode**, **Read aloud**, daily writing goals and timed sprints, or check **Details → Numbers** for scene counts, runtime and dialogue totals.
+- **Alternate lines and Cuts.** Keep alternate readings on a speech behind a `1/n` marker (swap in one undo step, or open **Alternates** under **Title ▾ → Tools**), or move trimmed passages to **Cuts** and restore them later.
+- **Writing tools and reports.** Open **Title ▾ → Tools** (or the command palette) for **Rename character…** (one undo across cues, dialogue and action), **Read aloud**, **Reports…** and **Alternates**; use the command palette for **Focus mode**, daily writing goals and timed sprints, or check **Details → Numbers** for scene counts, runtime, dialogue totals and a direct **Reports…** button.
+- **Contextual mode controls.** Standard screenplays keep a quiet title bar and status bar. Specialised modes surface one contextual trigger where you need it: Ink scripts add a **Play** button in the title bar beside **History** (opening the live Ink player Beside, with compile-problem counts in the status bar), series episodes add a **Board** button to jump to the season board, and non-screenplay formats show a quiet format cue in the status bar that opens **Details → Script**.
 - **Comments and notes.** Add private writers-only notes with `[[`, or share Comments and review rounds in the side panel; see [Working together](working-together.md).

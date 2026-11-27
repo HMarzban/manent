@@ -236,12 +236,21 @@ test("BroadcastGroup saves, checks, reports SSRF host_not_allowed, and confirms 
     checkBtn.click();
     await Promise.resolve();
   });
-  await until(
-    () =>
-      container.querySelector('[role="status"]')?.textContent ===
-      BROADCAST_MOS_WORDS.statusLive,
+  await until(() =>
+    Array.from(container.querySelectorAll('[role="status"]')).some(
+      (el) => el.textContent === BROADCAST_MOS_WORDS.statusLive,
+    ),
   );
   expect(checkCount).toBe(2);
+  // Header status badge itself has role="status" and host input links to its hint via aria-describedby.
+  expect(container.querySelector('h2 + [role="status"]')?.textContent).toBe(
+    BROADCAST_MOS_WORDS.statusOff,
+  );
+  const hintId = hostInput.getAttribute("aria-describedby");
+  expect(hintId).not.toBeNull();
+  expect(document.getElementById(hintId!)?.textContent).toBe(
+    BROADCAST_MOS_WORDS.addressHint,
+  );
 
   const saveBtn = container.querySelector<HTMLButtonElement>(
     '[data-tour="mos:save"]',
@@ -272,6 +281,22 @@ test("BroadcastGroup saves, checks, reports SSRF host_not_allowed, and confirms 
   expect(container.textContent).toContain(
     BROADCAST_MOS_WORDS.removeConfirmTitle,
   );
+
+  // Cancelling inline Remove confirmation restores focus to the Remove trigger button.
+  const cancelRemoveBtn = Array.from(container.querySelectorAll("button")).find(
+    (btn) => btn.textContent === BROADCAST_MOS_WORDS.cancel,
+  )!;
+  act(() => {
+    cancelRemoveBtn.click();
+  });
+  expect(document.activeElement?.textContent).toBe(BROADCAST_MOS_WORDS.remove);
+
+  const removeBtnAgain = Array.from(container.querySelectorAll("button")).find(
+    (btn) => btn.textContent === BROADCAST_MOS_WORDS.remove,
+  )!;
+  act(() => {
+    removeBtnAgain.click();
+  });
 
   const confirmRemoveBtn = Array.from(
     container.querySelectorAll("button"),

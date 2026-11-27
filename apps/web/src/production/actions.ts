@@ -67,8 +67,10 @@ const onScene =
     if (ran) run.deps.services.messages.push(said(scene));
   };
 
-const opening = (kind: "lock" | "unlock" | "end") => (run: Run) =>
+const opening = (kind: "lock" | "unlock" | "end") => (run: Run) => {
+  run.deps.dom.rememberFocus();
   run.services.open.set({ kind });
+};
 
 const toSend = (form: "issue" | "recall") => (run: Run) =>
   run.deps.router.navigate(sendPath(run.docId, form));
@@ -88,6 +90,7 @@ function changeLayout(run: Run): void {
   if (def.type.choices !== null) return;
   const value =
     run.deps.services.openScriptStore(run.docId).get(open.key) !== true;
+  run.deps.dom.rememberFocus();
   run.services.open.set({
     kind: "change_layout",
     change: {

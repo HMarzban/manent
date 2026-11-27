@@ -41,4 +41,5 @@ export const NOTIFICATIONS_WORDS = Object.freeze({
   notEmailAddress: (raw: string): string =>
     `Couldn't save the address: "${raw}" isn't an email address.`,
   couldNotSave: "Couldn't save the address. Try again.",
+  memberEmpty: "Workspace owners can turn on Webhook, Slack or Email here.",
 });

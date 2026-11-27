@@ -1,18 +1,28 @@
 // Ink player Beside: header bar, collapsible Variables drawer, passage transcript, choices, and keyboard controls.
 import { Button, INK_WORDS } from "@manent/ui";
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { BesideKind } from "../../beside/kinds.ts";
 import { useDocumentTitle } from "../../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { createInkPlayerController } from "./controller.ts";
 import type { InkPlayerController } from "./controller.ts";
-import { ChoicesList, CompileBadge, TranscriptEntry } from "./player-parts.tsx";
+import {
+  ChoicesList,
+  CompileBadge,
+  NothingCompiledCard,
+  PlayerReadyCard,
+  StoryFaultAlert,
+  TranscriptEntry,
+  WorkerStoppedCard,
+} from "./player-parts.tsx";
 import { jumpToInkLine } from "./source-nav.ts";
 import { createInkPlaythroughStore } from "./storage.ts";
 import type { InkPlaythroughStore } from "./storage.ts";
@@ -30,12 +40,17 @@ interface PlayerRuntime {
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
-  return (
+  if (
     tag === "INPUT" ||
     tag === "TEXTAREA" ||
     tag === "SELECT" ||
     target.isContentEditable
-  );
+  )
+    return true;
+  if (target.closest('[role="switch"], [role="checkbox"]') !== null)
+    return true;
+  if (target.closest('[data-ink-variables="true"]') !== null) return true;
+  return false;
 }
 
 /** Beside body for an Ink script: interactive playthrough with replay, variables, and source links. */
@@ -47,10 +62,13 @@ export function InkPlayerBeside(props: {
   const { userId, editor } = useServices();
   const { storage, storageEvents, now } = useEnvironment();
   const [varsOpen, setVarsOpen] = useState(false);
+  const varsDrawerId = useId();
+  const choicesContainerRef = useRef<HTMLDivElement | null>(null);
+  const transcriptRegionRef = useRef<HTMLDivElement | null>(null);
   const choiceRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const faultRef = useRef<HTMLDivElement | null>(null);
   const restartEndRef = useRef<HTMLButtonElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-
   const [controller, setController] = useState<PlayerRuntime | null>(null);
 
   useEffect(() => {
@@ -76,29 +94,45 @@ export function InkPlayerBeside(props: {
   );
 
   useEffect(() => {
-    if (snap === null || snap.focusNonce === 0) return;
-    transcriptEndRef.current?.scrollIntoView({ block: "nearest" });
+    if (snap === null || snap.workerStopped) return;
+    if (snap.fault !== null && snap.choices.length === 0) {
+      transcriptEndRef.current?.scrollIntoView?.({ block: "nearest" });
+      faultRef.current?.focus();
+      return;
+    }
+    if (snap.focusNonce === 0) return;
+    transcriptEndRef.current?.scrollIntoView?.({ block: "nearest" });
     if (snap.choices.length > 0) {
       choiceRefs.current[0]?.focus();
-    } else if (snap.ended && snap.fault === null) {
+    } else if (snap.ended) {
       restartEndRef.current?.focus();
     }
-  }, [snap?.focusNonce, snap?.choices.length, snap?.ended, snap?.fault]);
+  }, [
+    snap?.focusNonce,
+    snap?.choices.length,
+    snap?.ended,
+    snap?.fault,
+    snap?.workerStopped,
+  ]);
 
   if (controller === null || snap === null) return null;
 
   const jumpLine = (line: number): void => {
     void jumpToInkLine(docId, line, editor);
   };
-
   const firstProblemLine = snap.compile.problems[0]?.line ?? null;
   const openFirstProblem = (): void => {
     if (firstProblemLine !== null) jumpLine(firstProblemLine);
   };
 
-  const canBack = snap.started && snap.recordedChoices.length > 0 && !snap.busy;
+  const canBack =
+    snap.started &&
+    !snap.workerStopped &&
+    snap.recordedChoices.length > 0 &&
+    !snap.busy;
   const canRestart =
     snap.started &&
+    !snap.workerStopped &&
     !snap.busy &&
     (snap.recordedChoices.length > 0 ||
       snap.editedVariables.length > 0 ||
@@ -109,7 +143,7 @@ export function InkPlayerBeside(props: {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (isTypingTarget(event.target)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (snap.choices.length === 0 || snap.busy) return;
+    if (snap.workerStopped || snap.choices.length === 0 || snap.busy) return;
     const digitIndex = DIGIT_KEYS.indexOf(
       event.key as (typeof DIGIT_KEYS)[number],
     );
@@ -122,11 +156,29 @@ export function InkPlayerBeside(props: {
       return;
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const active = document.activeElement;
+      const inChoices =
+        choicesContainerRef.current !== null &&
+        active instanceof Node &&
+        choicesContainerRef.current.contains(active);
+      const inTranscript =
+        transcriptRegionRef.current !== null &&
+        active instanceof Node &&
+        transcriptRegionRef.current.contains(active);
+      const inVariables =
+        active instanceof HTMLElement &&
+        active.closest('[data-ink-variables="true"]') !== null;
+      if (!inChoices && (inTranscript || inVariables)) return;
+      const onOtherControl =
+        !inChoices &&
+        active instanceof HTMLElement &&
+        active !== event.currentTarget &&
+        active !== document.body &&
+        active.matches("button, a, input, select, textarea, [tabindex]");
+      if (onOtherControl) return;
       event.preventDefault();
       const buttons = choiceRefs.current.slice(0, snap.choices.length);
-      const current = buttons.findIndex(
-        (btn) => btn === document.activeElement,
-      );
+      const current = buttons.findIndex((btn) => btn === active);
       const delta = event.key === "ArrowDown" ? 1 : -1;
       const next =
         current < 0
@@ -141,7 +193,9 @@ export function InkPlayerBeside(props: {
   const nothingCompiled =
     snap.compile.lastGood === null && snap.compile.problems.length > 0;
   const playingLastGood =
-    snap.compile.lastGood !== null && snap.compile.problems.length > 0;
+    !snap.workerStopped &&
+    snap.compile.lastGood !== null &&
+    snap.compile.problems.length > 0;
 
   return (
     <div
@@ -169,6 +223,7 @@ export function InkPlayerBeside(props: {
               variant="ghost"
               size="sm"
               aria-expanded={varsOpen}
+              aria-controls={varsDrawerId}
               className="cursor-pointer gap-1 text-meta text-fg-muted hover:text-fg"
               onClick={() => setVarsOpen((open) => !open)}
             >
@@ -214,96 +269,84 @@ export function InkPlayerBeside(props: {
       </div>
 
       {playingLastGood ? (
-        <div className="border-b border-line bg-subtle px-3 py-1.5 text-meta text-fg-muted">
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-b border-line bg-subtle px-3 py-1.5 text-meta text-fg-muted"
+        >
           {INK_WORDS.playingLastGood}
         </div>
       ) : null}
 
       {varsOpen ? (
         <VariablesDrawer
+          id={varsDrawerId}
           variables={snap.variables}
           onChange={(name, value) => controller.ctrl.editVariable(name, value)}
         />
       ) : null}
 
-      <div
-        role="region"
-        aria-label={INK_WORDS.transcriptLabel}
-        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 py-4"
-      >
-        {nothingCompiled ? (
-          <div className="flex flex-col items-start gap-2 pt-2">
-            <p className="text-ui text-fg">{INK_WORDS.nothingCompiled}</p>
-            <CompileBadge
-              state="up_to_date"
-              problemCount={snap.compile.problems.length}
-              onOpenProblem={openFirstProblem}
-            />
-          </div>
-        ) : !snap.started ? (
-          <div className="flex flex-col items-start gap-3 pt-2">
-            <p className="text-ui text-fg-muted">{INK_WORDS.pressPlay}</p>
-            <Button
-              variant="default"
-              size="sm"
-              data-tour="ink:play"
-              className="cursor-pointer"
-              onClick={() => controller.ctrl.play()}
+      {snap.workerStopped ? (
+        <WorkerStoppedCard
+          busy={snap.busy}
+          onRestartWorker={() => controller.ctrl.restartWorker()}
+        />
+      ) : nothingCompiled ? (
+        <NothingCompiledCard
+          problemCount={snap.compile.problems.length}
+          onOpenProblem={openFirstProblem}
+        />
+      ) : !snap.started ? (
+        <PlayerReadyCard onPlay={() => controller.ctrl.play()} />
+      ) : (
+        <>
+          <div
+            ref={transcriptRegionRef}
+            role="region"
+            aria-label={INK_WORDS.transcriptLabel}
+            className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 py-4"
+          >
+            <div
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+              aria-atomic="false"
+              className="flex flex-col gap-1"
             >
-              {INK_WORDS.play}
-            </Button>
-          </div>
-        ) : (
-          <>
-            {snap.transcript.map((item, index) => (
-              <TranscriptEntry
-                key={`${item.kind}:${index}`}
-                item={item}
-                onJumpLine={jumpLine}
-              />
-            ))}
+              {snap.transcript.map((item, index) => (
+                <TranscriptEntry
+                  key={`${item.kind}:${index}`}
+                  item={item}
+                  onJumpLine={jumpLine}
+                />
+              ))}
+            </div>
 
             {snap.diverged ? (
-              <p className="mt-2 rounded-control border border-line bg-subtle px-3 py-2 text-meta text-fg-muted">
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-2 rounded-control border border-line bg-subtle px-3 py-2 text-meta text-fg-muted"
+              >
                 {INK_WORDS.storyChanged}
               </p>
             ) : null}
 
             {snap.fault !== null ? (
-              <div
-                role="alert"
-                className="mt-2 flex flex-col gap-1 rounded-control border border-line bg-subtle px-3 py-2 text-ui text-fg"
-              >
-                <p className="flex items-center gap-1.5 font-medium">
-                  <TriangleAlertIcon
-                    aria-hidden="true"
-                    className="size-icon shrink-0 text-attention"
-                  />
-                  {snap.fault.line === null ? (
-                    <span>{INK_WORDS.stoppedWithoutLine}</span>
-                  ) : (
-                    <span>
-                      {INK_WORDS.stoppedAtPrefix}{" "}
-                      <button
-                        type="button"
-                        onClick={() => jumpLine(snap.fault!.line!)}
-                        className="cursor-pointer underline hover:text-fg-accent"
-                      >
-                        {INK_WORDS.lineLink(snap.fault.line)}
-                      </button>
-                      {"."}
-                    </span>
-                  )}
-                </p>
-                <p className="font-mono text-meta text-fg-muted">
-                  {snap.fault.message}
-                </p>
-              </div>
+              <StoryFaultAlert
+                fault={snap.fault}
+                alertRef={faultRef}
+                onJumpLine={jumpLine}
+              />
             ) : null}
 
             {snap.ended && snap.fault === null ? (
               <div className="mt-3 flex items-center gap-3 border-t border-line pt-3">
-                <span className="text-ui font-medium text-fg-muted">
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className="text-ui font-medium text-fg-muted"
+                >
                   {INK_WORDS.theEnd}
                 </span>
                 <Button
@@ -318,16 +361,17 @@ export function InkPlayerBeside(props: {
               </div>
             ) : null}
             <div ref={transcriptEndRef} />
-          </>
-        )}
-      </div>
+          </div>
 
-      <ChoicesList
-        choices={snap.choices}
-        busy={snap.busy}
-        buttonRefs={choiceRefs}
-        onChoose={(choice) => controller.ctrl.choose(choice)}
-      />
+          <ChoicesList
+            choices={snap.choices}
+            busy={snap.busy}
+            containerRef={choicesContainerRef}
+            buttonRefs={choiceRefs}
+            onChoose={(choice) => controller.ctrl.choose(choice)}
+          />
+        </>
+      )}
     </div>
   );
 }

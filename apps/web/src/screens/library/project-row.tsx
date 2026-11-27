@@ -5,6 +5,7 @@ import type { ProjectItem } from "../../services/ports.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
 import { RowContextMenu, RowMenu, placeProps } from "./row-place.tsx";
+import { useActiveDragWorkspace, useProjectDrag } from "./folder-dnd.ts";
 
 export const KIND_COLUMN = "hidden w-col-kind shrink-0 truncate @lg:block";
 export const EDITED_COLUMN = "hidden w-col-edited shrink-0 truncate @lg:block";
@@ -31,6 +32,13 @@ export function ProjectRow(props: {
   const { project, shell, now, open } = props;
   const { firstDocId } = project;
   const { trailing, ...place } = placeProps(project.place, shell);
+  const workspaceId = useActiveDragWorkspace();
+  const { draggable, isDragging, dragHandlers } = useProjectDrag({
+    workspaceId,
+    projectId: project.projectId,
+    projectTitle: project.title,
+    disabled: place.unavailable !== undefined,
+  });
   const hasMenu = ROW_ITEMS.length > 0 && place.unavailable === undefined;
   const entries = hasMenu
     ? ROW_ITEMS.map(({ id, Item }) => (
@@ -43,26 +51,34 @@ export function ProjectRow(props: {
       ))
     : null;
   // a row that cannot be opened has no menu
-  const menu = hasMenu
-    ? [<RowMenu title={project.title}>{entries}</RowMenu>]
-    : [];
+  const menu = hasMenu ? (
+    <RowMenu title={project.title}>{entries}</RowMenu>
+  ) : undefined;
   const row = (
-    <Row
-      leading={<KindIcon kind={project.kind} />}
-      onActivate={firstDocId === null ? undefined : () => open(firstDocId)}
-      trailing={[...menu, ...trailing]}
-      {...place}
+    <div
+      draggable={draggable}
+      data-drag-source={isDragging ? "true" : undefined}
+      className="mn-drag-row"
+      {...dragHandlers}
     >
-      <span className={ROW_CELLS}>
-        <span className="truncate font-semibold">{project.title}</span>
-        <span className={cn(KIND_COLUMN, "text-fg-muted")}>
-          {kindLabel(project.kind)}
+      <Row
+        leading={<KindIcon kind={project.kind} />}
+        onActivate={firstDocId === null ? undefined : () => open(firstDocId)}
+        trailing={trailing}
+        menu={menu}
+        {...place}
+      >
+        <span className={ROW_CELLS}>
+          <span className="truncate font-semibold">{project.title}</span>
+          <span className={cn(KIND_COLUMN, "text-fg-muted")}>
+            {kindLabel(project.kind)}
+          </span>
+          <span className={EDITED_CELL}>
+            {lastEdited(project.lastEdited, now)}
+          </span>
         </span>
-        <span className={EDITED_CELL}>
-          {lastEdited(project.lastEdited, now)}
-        </span>
-      </span>
-    </Row>
+      </Row>
+    </div>
   );
   return hasMenu ? (
     <RowContextMenu entries={entries}>{row}</RowContextMenu>

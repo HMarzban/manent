@@ -62,6 +62,17 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   const cacheKey = `${services.userId}:${workspaceId}`;
   const baseUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/mos`;
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const removeRef = useRef<HTMLButtonElement | null>(null);
+  const restoreRemoveRef = useRef(false);
+  const activeWorkspaceRef = useRef<string | null>(workspaceId);
+  const requestSeqRef = useRef(0);
+
+  useEffect(() => {
+    activeWorkspaceRef.current = workspaceId;
+    return () => {
+      activeWorkspaceRef.current = null;
+    };
+  }, [workspaceId]);
 
   const tokenOf = useCallback((): string | null => {
     const person = readPerson(environment.tabStorage);
@@ -90,6 +101,8 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   );
 
   const reload = useCallback(async (): Promise<void> => {
+    const seq = ++requestSeqRef.current;
+    const targetWorkspaceId = workspaceId;
     const cached = sessionCache.get(cacheKey) ?? null;
     if (!online) {
       setSurface(
@@ -101,18 +114,29 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
     }
     if (cached === null) setSurface({ kind: "loading" });
     const res = await requestMosJson(baseUrl, "GET", tokenOf());
+    if (
+      activeWorkspaceRef.current !== targetWorkspaceId ||
+      requestSeqRef.current !== seq
+    )
+      return;
     const parsed = res.ok ? parseWorkspacePayload(res.body) : null;
     if (parsed === null) setSurface({ kind: "unavailable", cached });
     else applyPayload(parsed);
-  }, [applyPayload, baseUrl, cacheKey, online, tokenOf]);
+  }, [applyPayload, baseUrl, cacheKey, online, tokenOf, workspaceId]);
 
   useEffect(() => {
+    restoreRemoveRef.current = false;
     setUi(INITIAL_UI);
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (ui.confirmRemove) cancelRef.current?.focus();
+    if (ui.confirmRemove) {
+      cancelRef.current?.focus();
+    } else if (restoreRemoveRef.current) {
+      restoreRemoveRef.current = false;
+      removeRef.current?.focus();
+    }
   }, [ui.confirmRemove]);
 
   const busy = ui.busy !== "idle";
@@ -130,22 +154,31 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
       patchUi({ checkLive: false, refusal: null });
   };
 
-  const runAction = (mode: BusyMode, work: () => Promise<void>): void => {
+  const runAction = (
+    mode: BusyMode,
+    work: (targetWorkspaceId: string) => Promise<void>,
+  ): void => {
     if (!canChange || !online || busy) return;
+    const targetWorkspaceId = workspaceId;
     patchUi({ busy: mode, checkLive: false, refusal: null });
-    void work().finally(() => patchUi({ busy: "idle" }));
+    void work(targetWorkspaceId).finally(() => {
+      if (activeWorkspaceRef.current === targetWorkspaceId) {
+        patchUi({ busy: "idle" });
+      }
+    });
   };
 
   const handleSave = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (host.length === 0) return;
-    runAction("save", async () => {
+    runAction("save", async (targetWorkspaceId) => {
       const res = await requestMosJson(
         baseUrl,
         "PUT",
         tokenOf(),
         bodyFromDraft(draft),
       );
+      if (activeWorkspaceRef.current !== targetWorkspaceId) return;
       const parsed = res.ok ? parseWorkspacePayload(res.body) : null;
       if (parsed === null)
         return patchUi({ refusal: refusalFor(res.body, "error", host) });
@@ -156,13 +189,14 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
 
   const handleCheck = (): void => {
     if (host.length === 0) return;
-    runAction("check", async () => {
+    runAction("check", async (targetWorkspaceId) => {
       const res = await requestMosJson(
         `${baseUrl}/check`,
         "POST",
         tokenOf(),
         bodyFromDraft(draft),
       );
+      if (activeWorkspaceRef.current !== targetWorkspaceId) return;
       if (res.ok && isRecord(res.body) && res.body.ok === true)
         return patchUi({ checkLive: true });
       patchUi({ refusal: refusalFor(res.body, "reason", host) });
@@ -170,8 +204,9 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   };
 
   const handleRemove = (): void =>
-    runAction("remove", async () => {
+    runAction("remove", async (targetWorkspaceId) => {
       const res = await requestMosJson(baseUrl, "DELETE", tokenOf());
+      if (activeWorkspaceRef.current !== targetWorkspaceId) return;
       if (!res.ok) return patchUi({ refusal: W.unreachable });
       applyPayload({ config: null, status: "off" });
       patchUi({ confirmRemove: false });
@@ -189,7 +224,7 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
             {W.title}
           </h2>
           {payload === null ? null : (
-            <span className={statusTone(payload.status)}>
+            <span role="status" className={statusTone(payload.status)}>
               {STATUS_WORD[payload.status]}
             </span>
           )}
@@ -268,6 +303,7 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
             </Button>
             {payload.config !== null && !ui.confirmRemove ? (
               <Button
+                ref={removeRef}
                 type="button"
                 variant="outline"
                 size="sm"
@@ -285,7 +321,10 @@ export function BroadcastGroup(props: WorkspaceSettingsGroupProps): ReactNode {
               cancelRef={cancelRef}
               online={online}
               removing={ui.busy === "remove"}
-              onCancel={() => patchUi({ confirmRemove: false })}
+              onCancel={() => {
+                restoreRemoveRef.current = true;
+                patchUi({ confirmRemove: false });
+              }}
               onConfirm={handleRemove}
             />
           ) : null}

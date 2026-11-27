@@ -6,6 +6,7 @@ import {
   Button,
   DOCUMENT_WORDS,
   Skeleton,
+  WRITING_WORDS,
   messageFor,
 } from "@manent/ui";
 import type { SortableListsHandle } from "@manent/ui";
@@ -200,7 +201,7 @@ export function BoardScreen(): ReactNode {
       <div className="flex min-h-0 flex-1 flex-col bg-chrome text-fg">
         <div
           aria-hidden="true"
-          className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2"
+          className="@container flex min-h-titlebar shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-chrome px-2 py-1 text-ui"
         >
           <Skeleton className="h-control-sm w-16" />
           <Skeleton className="h-4 w-44" />
@@ -226,6 +227,7 @@ export function BoardScreen(): ReactNode {
         activeSeason={data.activeSeason}
         canEdit={data.canEdit}
         showViewOnly={data.accessReady && !data.canEdit && !data.accessRemoved}
+        empty={empty}
         onBack={() => void navigate({ href: "/" })}
         onSeasonChange={(nextSeasonId) =>
           void navigate({
@@ -242,6 +244,14 @@ export function BoardScreen(): ReactNode {
             <EmptyHeroCard
               icon={<LockIcon aria-hidden="true" className="size-5" />}
               description={DOCUMENT_WORDS.noAccess}
+              actions={
+                <Button
+                  variant="outline"
+                  onClick={() => void navigate({ href: "/" })}
+                >
+                  {WRITING_WORDS.backToLibrary}
+                </Button>
+              }
             />
           </div>
         ) : !data.boardLoaded && !addingStoryline ? (

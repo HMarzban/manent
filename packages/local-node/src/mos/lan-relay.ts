@@ -94,6 +94,47 @@ function projectSnapshot(snapshot: PrompterFeedSnapshot): ProjectedStory[] {
   return out;
 }
 
+/** Longest increasing subsequence of target ranks, returning the kept rank set. */
+function lisRanks(sequence: readonly number[]): Set<number> {
+  const n = sequence.length;
+  if (n === 0) return new Set();
+  const tails: number[] = [];
+  const tailIndices: number[] = [];
+  const prev = Array.from({ length: n }, () => -1);
+  for (let i = 0; i < n; i += 1) {
+    const val = sequence[i]!;
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (tails[mid]! < val) lo = mid + 1;
+      else hi = mid;
+    }
+    tails[lo] = val;
+    tailIndices[lo] = i;
+    if (lo > 0) prev[i] = tailIndices[lo - 1]!;
+  }
+  const kept = new Set<number>();
+  let cursor = tailIndices.at(-1) ?? -1;
+  while (cursor !== -1) {
+    kept.add(sequence[cursor]!);
+    cursor = prev[cursor]!;
+  }
+  return kept;
+}
+
+function storyHeader(story: ProjectedStory): {
+  readonly storyId: string;
+  readonly storySlug: string;
+  readonly storyNum?: string;
+} {
+  return {
+    storyId: story.storyId,
+    storySlug: story.storySlug,
+    ...(story.storyNum !== null ? { storyNum: story.storyNum } : {}),
+  };
+}
+
 /** Streams one rundown's `PrompterFeed` to a DNS-pinned LAN MOS prompter over TCP. */
 export async function createMosLanRelay(options: {
   readonly config: MosLanRelayConfig;
@@ -119,7 +160,9 @@ export async function createMosLanRelay(options: {
   let stopped = false;
   let seq = 0;
   let created = false;
-  let prevStories: ProjectedStory[] = [];
+  let needsResync = false;
+  let resyncing = false;
+  let lastSyncedStories: ProjectedStory[] = [];
   let chain: Promise<void> = Promise.resolve();
 
   const setStatus = (next: MosLinkStatus): void => {
@@ -128,33 +171,9 @@ export async function createMosLanRelay(options: {
     onStatus?.(next);
   };
 
-  const client = createMosTcpClient({
-    target: pinned,
-    onStatus(connected) {
-      if (!stopped) setStatus(connected ? "live" : "lost");
-    },
-  });
-
   const env = () => {
     seq += 1;
     return { mosId: config.mosId, ncsId: config.ncsId, messageId: seq };
-  };
-
-  const enqueue = (messages: readonly MosOutMessage[]): Promise<void> => {
-    const run = async (): Promise<void> => {
-      for (const msg of messages) {
-        if (stopped && msg.kind !== "roDelete") return;
-        try {
-          await client.send(msg);
-          if (!stopped) setStatus("live");
-        } catch {
-          if (!stopped) setStatus("lost");
-          return;
-        }
-      }
-    };
-    chain = chain.then(run, run);
-    return chain;
   };
 
   const storySendMsg = (story: ProjectedStory): MosOutMessage => ({
@@ -170,68 +189,172 @@ export async function createMosLanRelay(options: {
     dialect: config.dialect,
   });
 
-  const sync = (): void => {
+  const buildFullResync = (
+    next: readonly ProjectedStory[],
+  ): MosOutMessage[] => [
+    {
+      ...env(),
+      kind: "roCreate",
+      roId: config.rundownId,
+      roSlug: config.roSlug,
+      dialect: config.dialect,
+      stories: next.map(storyHeader),
+    },
+    ...next.map(storySendMsg),
+  ];
+
+  const buildDiffMessages = (
+    prev: readonly ProjectedStory[],
+    next: readonly ProjectedStory[],
+  ): MosOutMessage[] => {
+    const messages: MosOutMessage[] = [];
+    const prevById = new Map(prev.map((s) => [s.storyId, s]));
+    const nextIds = new Set(next.map((s) => s.storyId));
+
+    const removed: string[] = [];
+    const surviving: ProjectedStory[] = [];
+    for (const s of prev) {
+      if (nextIds.has(s.storyId)) surviving.push(s);
+      else removed.push(s.storyId);
+    }
+    if (removed.length > 0) {
+      messages.push({
+        ...env(),
+        kind: "roElementAction",
+        roId: config.rundownId,
+        operation: "DELETE",
+        sourceStoryIds: removed,
+      });
+    }
+
+    const nextSurviving = next.filter((s) => prevById.has(s.storyId));
+    const targetRank = new Map<string, number>();
+    for (const [rank, s] of nextSurviving.entries())
+      targetRank.set(s.storyId, rank);
+    const keptRanks = lisRanks(
+      surviving.map((s) => targetRank.get(s.storyId)!),
+    );
+    for (let rank = nextSurviving.length - 1; rank >= 0; rank -= 1) {
+      if (keptRanks.has(rank)) continue;
+      const story = nextSurviving[rank]!;
+      const after = nextSurviving[rank + 1];
+      messages.push({
+        ...env(),
+        kind: "roElementAction",
+        roId: config.rundownId,
+        operation: "MOVE",
+        ...(after !== undefined ? { targetStoryId: after.storyId } : {}),
+        sourceStoryIds: [story.storyId],
+      });
+    }
+
+    const insertedIds = new Set<string>();
+    let idx = next.length - 1;
+    while (idx >= 0) {
+      if (prevById.has(next[idx]!.storyId)) {
+        idx -= 1;
+        continue;
+      }
+      const end = idx;
+      while (idx >= 0 && !prevById.has(next[idx]!.storyId)) {
+        insertedIds.add(next[idx]!.storyId);
+        idx -= 1;
+      }
+      const run = next.slice(idx + 1, end + 1);
+      const after = next[end + 1];
+      messages.push({
+        ...env(),
+        kind: "roElementAction",
+        roId: config.rundownId,
+        operation: "INSERT",
+        ...(after !== undefined ? { targetStoryId: after.storyId } : {}),
+        stories: run.map(storyHeader),
+      });
+    }
+
+    for (const story of next) {
+      if (insertedIds.has(story.storyId)) {
+        messages.push(storySendMsg(story));
+        continue;
+      }
+      const prior = prevById.get(story.storyId)!;
+      const headerChanged =
+        prior.storySlug !== story.storySlug ||
+        prior.storyNum !== story.storyNum;
+      if (headerChanged) {
+        messages.push({
+          ...env(),
+          kind: "roElementAction",
+          roId: config.rundownId,
+          operation: "REPLACE",
+          targetStoryId: story.storyId,
+          stories: [storyHeader(story)],
+        });
+        messages.push(storySendMsg(story));
+      } else if (prior.hash !== story.hash) {
+        messages.push(storySendMsg(story));
+      }
+    }
+
+    return messages;
+  };
+
+  const client = createMosTcpClient({
+    target: pinned,
+    onStatus(connected) {
+      if (stopped) return;
+      if (!connected) {
+        needsResync = true;
+        setStatus("lost");
+        return;
+      }
+      const wasLost = status === "lost";
+      setStatus("live");
+      if (wasLost && !resyncing) {
+        needsResync = true;
+        scheduleSync();
+      }
+    },
+  });
+
+  const flush = async (): Promise<void> => {
     if (stopped) return;
     const snap = feed.current();
     if (snap === null) return;
     const next = projectSnapshot(snap);
-    const messages: MosOutMessage[] = [];
-    if (!created) {
-      created = true;
-      messages.push({
-        ...env(),
-        kind: "roCreate",
-        roId: config.rundownId,
-        roSlug: config.roSlug,
-        dialect: config.dialect,
-        stories: next.map((s) => ({
-          storyId: s.storyId,
-          storySlug: s.storySlug,
-          ...(s.storyNum !== null ? { storyNum: s.storyNum } : {}),
-        })),
-      });
-      for (const s of next) messages.push(storySendMsg(s));
-    } else {
-      const prevById = new Map(prevStories.map((s) => [s.storyId, s]));
-      const nextIds = new Set(next.map((s) => s.storyId));
-      const removed = prevStories
-        .filter((s) => !nextIds.has(s.storyId))
-        .map((s) => s.storyId);
-      if (removed.length > 0) {
-        messages.push({
-          ...env(),
-          kind: "roElementAction",
-          roId: config.rundownId,
-          operation: "DELETE",
-          sourceStoryIds: removed,
-        });
+    const full = !created || needsResync;
+    const messages = full
+      ? buildFullResync(next)
+      : buildDiffMessages(lastSyncedStories, next);
+    if (messages.length === 0) return;
+
+    resyncing = full;
+    try {
+      for (const msg of messages) {
+        if (stopped) return;
+        await client.send(msg);
       }
-      const added = next.filter((s) => !prevById.has(s.storyId));
-      if (added.length > 0) {
-        messages.push({
-          ...env(),
-          kind: "roElementAction",
-          roId: config.rundownId,
-          operation: "INSERT",
-          stories: added.map((s) => ({
-            storyId: s.storyId,
-            storySlug: s.storySlug,
-            ...(s.storyNum !== null ? { storyNum: s.storyNum } : {}),
-          })),
-        });
-      }
-      for (const s of next) {
-        const old = prevById.get(s.storyId);
-        if (old === undefined || old.hash !== s.hash)
-          messages.push(storySendMsg(s));
-      }
+    } catch {
+      needsResync = true;
+      if (!stopped) setStatus("lost");
+      return;
+    } finally {
+      resyncing = false;
     }
-    prevStories = next;
-    if (messages.length > 0) void enqueue(messages);
+
+    created = true;
+    needsResync = false;
+    lastSyncedStories = next;
+    if (!stopped) setStatus("live");
   };
 
-  const unsubscribe = feed.subscribe(sync);
-  sync();
+  const scheduleSync = (): void => {
+    if (stopped) return;
+    chain = chain.then(flush, flush);
+  };
+
+  const unsubscribe = feed.subscribe(scheduleSync);
+  scheduleSync();
 
   return {
     ok: true,
@@ -240,10 +363,11 @@ export async function createMosLanRelay(options: {
       if (stopped) return;
       stopped = true;
       unsubscribe();
+      await chain.catch(() => {});
       if (created) {
-        await enqueue([
-          { ...env(), kind: "roDelete", roId: config.rundownId },
-        ]).catch(() => {});
+        await client
+          .send({ ...env(), kind: "roDelete", roId: config.rundownId })
+          .catch(() => {});
       }
       client.close();
       setStatus("off");

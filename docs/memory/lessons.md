@@ -24,6 +24,26 @@ Only fall back from empty browser `sessionStorage` to `localStorage`'s `LAST_PER
 
 `apps/web/src/session.ts`, `apps/web/test/session.test.ts`, `e2e/smoke/demo-skeleton.e2e.ts`, `e2e/offline/pwa.e2e.ts`, `packages/ui/src/components/row/row.tsx`, `packages/ui/test/row.dom.test.tsx`, and `apps/web/src/screens/library/folder-tree.tsx`.
 
+## Keep row menus in Row's sibling menu slot, scope title-menu commands by document kind, and filter infinite animations in E2E settles
+
+- Date: 2026-11-27
+
+### What happened
+
+Three subtle regressions surfaced during the discoverability and cross-browser accessibility pass: (1) passing `<RowMenu>` inside `Row`'s `trailing` prop on `ProjectRow` and `ContinueList` nested a `<button>` inside `<div role="button">`, violating WCAG 4.1.2 (`nested-interactive`) once activatable rows gained explicit `role="button"`; (2) adding script commands (`Rename character`, `Read aloud`, `Reports…`) to `menu: "title"` with `visible: null` leaked a `Tools ▸` submenu onto Rundown title menus where those commands do not apply; and (3) waiting on `element.getAnimations({ subtree: true }).map((a) => a.finished)` over `body` in Playwright timed out in WebKit whenever an infinite CSS keyframe animation was active on the page.
+
+### How it was caught
+
+The `nested-interactive` violation was caught by `@axe-core/playwright` on the Library screen; the Rundown `Tools ▸` leak was caught by DOM menu-model inspection in `apps/web/test/discoverability-wave.dom.test.tsx`; and the WebKit timeout was caught by running `e2e/interface/ux-maturity.e2e.ts` against the `webkit` project.
+
+### Rule
+
+Always pass `<RowMenu>` to `Row`'s sibling `menu` prop rather than `trailing` so interactive row menus stay outside the row's `role="button"` surface. Gate any script-only command placed in `menu: "title"` or `menu: "view"` with an explicit `visible` predicate (such as `onPagedScript` or `ctx.docKind === "script"`) so rundowns and specialised modes stay uncluttered. When settling animations before axe or screenshot checks in Playwright, filter strictly to finite running animations (`animation.playState === "running" && Number.isFinite(animation.effect?.getComputedTiming().iterations)`).
+
+### Enforced by
+
+`apps/web/src/screens/library/project-row.tsx`, `apps/web/src/screens/library/continue-list.tsx`, `packages/commands/src/definitions/script.ts`, `packages/commands/src/definitions/material.ts`, `packages/commands/src/definitions/room.ts`, `apps/web/test/discoverability-wave.dom.test.tsx`, and `e2e/interface/ux-maturity.e2e.ts`.
+
 ## Separate one-shot completion latches from sticky session flags on transient offline notices
 
 - Date: 2026-11-27
@@ -143,6 +163,26 @@ Build every full-page settings screen on `apps/web/src/settings-shell/` (`Settin
 ### Enforced by
 
 `apps/web/test/settings-unify.dom.test.tsx`, `apps/web/test/ux-library-settings.dom.test.tsx`, `e2e/series/project-style.e2e.ts`, `e2e/tour/together-style.e2e.ts` and `docs/development/design-system.md`.
+
+## Explicit keyboard semantics on activatable rows, editable scroll regions and inline clear buttons
+
+- Date: 2026-11-27
+
+### What happened
+
+Three WCAG 2.2 AA keyboard and target-size regressions surfaced together during accessibility auditing: (1) `<Row onActivate={…}>` rendered a `<div tabIndex={0}>` with no `role="button"` and no `Space` handler, causing Library Search's `ArrowDown`/`ArrowUp` queries (`[role="listitem"] [role="button"]`) to return `null`; (2) editable `.ProseMirror` omitted `tabindex="0"` (setting it only when read-only), causing axe-core's `scrollable-region-focusable` check to flag `[data-region="page"]` for Safari keyboard scrolling; and (3) the Library Search inline clear button used `size="icon-xs"` (`20 px × 20 px`), falling below WCAG 2.2 AA 2.5.8's `24 px` minimum target size.
+
+### How it was caught
+
+By live Playwright `@axe-core/playwright` WCAG 2.2 AA sweeps (`e2e/interface/ux-maturity.e2e.ts`) and keyboard navigation DOM tests (`apps/web/test/library-search-keyboard.dom.test.tsx`).
+
+### Rule
+
+Give every activatable non-native row explicit `role="button"` and `Space` activation alongside `Enter`, keep `tabindex="0"` on `.ProseMirror` in both editable and read-only states so scrollable script regions always have explicit keyboard access, and size interactive inline icon buttons at least `size="icon-sm"` (`24 px × 24 px`) to meet WCAG 2.2 AA target-size requirements.
+
+### Enforced by
+
+`packages/ui/test/row.dom.test.tsx`, `apps/web/test/library-search-keyboard.dom.test.tsx`, and `e2e/interface/ux-maturity.e2e.ts`.
 
 ## Dropdown checkbox clearance specificity and toggle suffixes in menuModel
 

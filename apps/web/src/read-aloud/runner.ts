@@ -7,6 +7,7 @@ import {
 } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import { WRITING_TOOLS_WORDS, messageFor } from "@manent/ui";
+import type { MessageQueue } from "@manent/ui";
 import {
   liveEditor,
   livePagination,
@@ -91,6 +92,55 @@ export function stopReadAloud(): void {
 
 /** Starts reading the open script (from the caret's scene) or reader draft aloud. */
 export function startReadAloud(deps: HandlerDeps): void {
+  const shell = deps.shellState();
+  const docId = shell.docId;
+  const readerMode = docId === null && shell.screen === "reader";
+  const editor = docId === null ? null : liveEditor(docId);
+  runReadAloud({
+    messages: deps.services.messages,
+    docId,
+    editor,
+    readerMode,
+    stillActive: () => {
+      const nowShell = deps.shellState();
+      if (docId !== null)
+        return nowShell.docId === docId && liveEditor(docId) === editor;
+      return (
+        nowShell.screen === "reader" &&
+        (typeof document === "undefined" ||
+          document.querySelector("[data-reader-frame]") !== null)
+      );
+    },
+    goToBlock: (blockId) => {
+      deps.services.editor.run({ kind: "go_to", blockId, offset: 0 });
+    },
+  });
+}
+
+/** Starts reading the mounted `/r/$token` reader frame aloud, even when viewing anonymously (`services === null`). */
+export function startReaderReadAloud(messages: MessageQueue): void {
+  runReadAloud({
+    messages,
+    docId: null,
+    editor: null,
+    readerMode: true,
+    stillActive: () =>
+      typeof document === "undefined" ||
+      document.querySelector("[data-reader-frame]") !== null,
+    goToBlock: scrollReaderBlock,
+  });
+}
+
+function runReadAloud(options: {
+  readonly messages: MessageQueue;
+  readonly docId: string | null;
+  readonly editor: LiveEditor | null;
+  readonly readerMode: boolean;
+  readonly stillActive: () => boolean;
+  readonly goToBlock: (blockId: string) => void;
+}): void {
+  const { messages, docId, editor, readerMode, stillActive, goToBlock } =
+    options;
   stopReadAloud();
 
   const synth = globalThis.speechSynthesis;
@@ -102,7 +152,7 @@ export function startReadAloud(deps: HandlerDeps): void {
     typeof SpeechSynthesisUtterance === "undefined" ||
     voices.length === 0
   ) {
-    deps.services.messages.push(
+    messages.push(
       messageFor({
         kind: "command_unavailable",
         label: WRITING_TOOLS_WORDS.readAloud,
@@ -111,11 +161,6 @@ export function startReadAloud(deps: HandlerDeps): void {
     );
     return;
   }
-
-  const shell = deps.shellState();
-  const docId = shell.docId;
-  const readerMode = docId === null && shell.screen === "reader";
-  const editor = docId === null ? null : liveEditor(docId);
 
   let blocks: readonly SpeechBlock[];
   let caretBlockId: string | null = null;
@@ -193,17 +238,7 @@ export function startReadAloud(deps: HandlerDeps): void {
       stop(false);
       return;
     }
-    const nowShell = deps.shellState();
-    if (docId !== null) {
-      if (nowShell.docId !== docId || liveEditor(docId) !== editor) {
-        stop(true);
-        return;
-      }
-    } else if (
-      nowShell.screen !== "reader" ||
-      (typeof document !== "undefined" &&
-        document.querySelector("[data-reader-frame]") === null)
-    ) {
+    if (!stillActive()) {
       stop(true);
       return;
     }
@@ -214,15 +249,8 @@ export function startReadAloud(deps: HandlerDeps): void {
       return;
     }
     if (line.blockId !== null) {
-      if (docId !== null) {
-        deps.services.editor.run({
-          kind: "go_to",
-          blockId: line.blockId,
-          offset: 0,
-        });
-      } else {
-        scrollReaderBlock(line.blockId);
-      }
+      if (docId !== null) goToBlock(line.blockId);
+      else scrollReaderBlock(line.blockId);
     }
 
     const utterance = new SpeechSynthesisUtterance(line.text);

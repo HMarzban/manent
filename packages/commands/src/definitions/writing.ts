@@ -15,12 +15,10 @@ const onScript = (ctx: CommandContext): boolean => ctx.writing !== null;
 const isLocked = (ctx: CommandContext): boolean =>
   ctx.production?.locked === true;
 
-const inSubmenu = (order: number): MenuPlacement => ({
-  menu: "edit",
-  group: "writing",
-  order,
-  submenu: "Writing",
-});
+const inSubmenu = (order: number): readonly MenuPlacement[] => [
+  { menu: "edit", group: "writing", order, submenu: "Writing" },
+  { menu: "title", group: "writing", order, submenu: "Writing" },
+];
 
 /** A command of an open script, shown there unless `more.visible` narrows it, with no key and no menu unless given. */
 function writingCommand<const Id extends string>(
@@ -57,20 +55,20 @@ function writingCommand<const Id extends string>(
 export const WRITING_COMMANDS = defineCommands([
   writingCommand("writing.forEveryone", "Writing: For everyone", {
     checked: (ctx) => isAt(ctx, "everyone"),
-    menus: [inSubmenu(10)],
+    menus: inSubmenu(10),
   }),
   // absent once page numbers are locked: suggestions and revisions never mix
   writingCommand("writing.asSuggestions", "Writing: As suggestions", {
     visible: (ctx) => onScript(ctx) && !isLocked(ctx),
     checked: (ctx) => isAt(ctx, "suggestions"),
-    menus: [inSubmenu(20)],
+    menus: inSubmenu(20),
     palette: { keywords: ["suggest"] },
   }),
   writingCommand("writing.privately", "Writing: Privately", {
     when: (ctx) => ctx.online,
     whyNot: () => "needs a connection",
     checked: (ctx) => isAt(ctx, "private"),
-    menus: [inSubmenu(30)],
+    menus: inSubmenu(30),
     palette: { keywords: ["my draft"] },
   }),
   writingCommand("writing.stopSuggestions", "Stop", {

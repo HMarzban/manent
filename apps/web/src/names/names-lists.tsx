@@ -13,7 +13,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { BookOpenIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -23,6 +23,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { RowMenu } from "../screens/library/row-place.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { SettingsCard } from "../settings-shell/settings-card.tsx";
@@ -264,6 +265,15 @@ function OpenLists(props: { open: OpenNames }): ReactNode {
   const { map, readOnly } = props.open;
   const entries = useEntries(map);
   const editable = useSubscribable(readOnly) === null;
+  if (entries.length === 0 && !editable) {
+    return (
+      <EmptyHeroCard
+        compact
+        icon={<BookOpenIcon aria-hidden="true" className="size-4" />}
+        description={NAMES_WORDS.empty}
+      />
+    );
+  }
   return (
     <div className="flex flex-col gap-2">
       {entries.length === 0 ? (

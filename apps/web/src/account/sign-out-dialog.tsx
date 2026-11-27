@@ -7,13 +7,15 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { TriangleExclamationPointIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { useServices } from "../services/context.tsx";
+import { focusHeading } from "../focus.ts";
+import { useEnvironment, useServices } from "../services/context.tsx";
 import {
   closeSignOutPrompt,
+  primarySignOutHost,
   registerSignOutHost,
   signOutPrompt,
 } from "./sign-out-store.ts";
@@ -108,16 +110,57 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
   );
 }
 
-/** Renders the sign-out guard dialog when active for the current person; mounted inside PersonMenu and AccountPane. */
+function useRestoreDialogOpener(isOpen: boolean, fallback: () => void): void {
+  const wasOpen = useRef(false);
+  const opener = useRef<Element | null>(null);
+  if (isOpen && !wasOpen.current && typeof document !== "undefined") {
+    const active = document.activeElement;
+    if (
+      active !== null &&
+      active !== document.body &&
+      active.closest("[role='dialog'], [role='alertdialog']") === null
+    ) {
+      opener.current = active;
+    }
+  }
+  useEffect(() => {
+    if (isOpen) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const prev = opener.current;
+    opener.current = null;
+    if (
+      prev instanceof HTMLElement &&
+      prev.isConnected &&
+      prev.closest("[inert]") === null
+    ) {
+      prev.focus({ preventScroll: true });
+      if (document.activeElement === prev) return;
+    }
+    fallback();
+  }, [isOpen, fallback]);
+}
+
+/** Renders the sign-out guard dialog when active for the current person; only the first mounted host draws it. */
 export function SignOutDialogHost(): ReactNode {
   const services = useServices();
+  const { dom } = useEnvironment();
+  const hostToken = useRef<symbol | null>(null);
+  hostToken.current ??= Symbol("sign-out-host");
+  const primary = useSubscribable(primarySignOutHost);
   const active = useSubscribable(signOutPrompt);
-  useEffect(() => registerSignOutHost(), []);
+  const isPrimary = primary === hostToken.current;
+  const isOpen = isPrimary && active !== null && active.services === services;
+  useRestoreDialogOpener(isOpen, dom.restoreFocus);
+  useEffect(() => registerSignOutHost(hostToken.current!), []);
   useEffect(() => {
     const current = signOutPrompt.get();
     if (current !== null && current.services !== services) closeSignOutPrompt();
   }, [services]);
-  if (active === null || active.services !== services) return null;
+  if (!isOpen) return null;
   return <SignOutGuardDialog active={active} />;
 }
 
@@ -131,8 +174,13 @@ function unmountFallbackHost(): void {
   fallbackContainer = null;
 }
 
+const fallbackFocusHeading = (): void => {
+  focusHeading(document);
+};
+
 function FallbackHost(props: { now: () => number }): ReactNode {
   const active = useSubscribable(signOutPrompt);
+  useRestoreDialogOpener(active !== null, fallbackFocusHeading);
   const timing = useMemo(
     () => ({
       now: props.now,

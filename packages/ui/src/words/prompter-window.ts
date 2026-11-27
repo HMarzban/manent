@@ -1,4 +1,5 @@
 // The prompter window's words: feed status, controls, tooltips, loading, refusal and window title.
+import { formatCount } from "./format.ts";
 
 export const PROMPTER_WINDOW_WORDS = Object.freeze({
   live: "Live",
@@ -6,6 +7,14 @@ export const PROMPTER_WINDOW_WORDS = Object.freeze({
     `Feed lost ${time} — showing last received`,
   feedLostNothing: "Feed lost — nothing received yet",
   nothingSent: "Nothing has been sent yet",
+  nothingSentDetail: "Send a story from the rundown to show it here.",
+  backToRundown: "Back to rundown",
+  prompterLive: "Present on prompter · Live",
+  prompterControlling: "Present on prompter · Controlling",
+  prompterChanged: (n: number): string =>
+    `Present on prompter · ${formatCount(n)} changed`,
+  prompterWithStatus: (status: string): string =>
+    `Present on prompter · ${status}`,
   linkRefused: "Link refused",
   linkRefusedDetail:
     "This prompter link needs access to the rundown. Ask its owner to share it with you.",

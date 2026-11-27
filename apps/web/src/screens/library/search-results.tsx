@@ -5,6 +5,7 @@ import {
 } from "@manent/sync-protocol";
 import type { SearchResult } from "@manent/sync-protocol";
 import {
+  Button,
   LIBRARY_WORDS,
   Row,
   SEARCH_WORDS,
@@ -15,8 +16,10 @@ import {
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { SearchXIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { SearchFilterMenu } from "../../search/filter-menu.tsx";
 import { offlineSearchWorkspace } from "../../search/offline-search.ts";
 import {
@@ -255,16 +258,33 @@ export function SearchResults(props: LibraryViewProps): ReactNode {
     });
   };
 
-  // Focus safety when results clear.
-  useEffect(() => {
-    if (query === "") return;
-  }, [query]);
-
   const nowMs = environment.now();
   const atLimit = !serverTooLong && stableResults.length >= SEARCH_RESULT_LIMIT;
   const emptySentence = parsed.hasFilterOperator
     ? SEARCH_WORDS.emptyFiltered(workspaceName, query)
     : SEARCH_WORDS.empty(workspaceName, query);
+
+  const renderEmptyCard = (
+    description: string,
+    descriptionRole?: "alert",
+  ): ReactNode => (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-full flex-col items-center justify-center p-6">
+        <EmptyHeroCard
+          icon={<SearchXIcon aria-hidden="true" className="size-5" />}
+          headingAs="h2"
+          title={SEARCH_WORDS.noMatchesTitle}
+          description={description}
+          descriptionRole={descriptionRole}
+          actions={
+            <Button variant="outline" size="sm" onClick={() => updateQuery("")}>
+              {SEARCH_WORDS.clearSearch}
+            </Button>
+          }
+        />
+      </div>
+    </div>
+  );
 
   return (
     <section
@@ -297,9 +317,7 @@ export function SearchResults(props: LibraryViewProps): ReactNode {
       </div>
 
       {serverTooLong ? (
-        <p role="alert" className="text-ui text-fg-muted">
-          {SEARCH_WORDS.tooLong}
-        </p>
+        renderEmptyCard(SEARCH_WORDS.tooLong, "alert")
       ) : (
         <>
           {offlineMode ? (
@@ -312,9 +330,9 @@ export function SearchResults(props: LibraryViewProps): ReactNode {
             </p>
           ) : null}
 
-          {!waiting && stableResults.length === 0 ? (
-            <p className="text-ui text-fg-muted">{emptySentence}</p>
-          ) : null}
+          {!waiting && stableResults.length === 0
+            ? renderEmptyCard(emptySentence)
+            : null}
 
           {stableResults.length === 0 ? null : (
             <div
