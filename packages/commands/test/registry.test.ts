@@ -795,6 +795,8 @@ test("the handler table names every command but the generated ones", () => {
     "app.syncCentre": noop,
     "app.signInToSync": noop,
     "app.switchPerson": noop,
+    "app.reloadToUpdate": noop,
+    "app.install": noop,
     "app.signOut": noop,
     "edit.undo": noop,
     "edit.redo": noop,
@@ -1125,4 +1127,30 @@ test("prompter.files stays rundown-only while prompter.reopenFiles runs on any d
     reopen.visible?.(webLibrary),
     "hidden" in reopen.palette,
   ]).toEqual([false, false, true, true, true, false, true]);
+});
+
+test("web PWA update and install commands stay web-only, with reload hidden from the palette", () => {
+  const reload = byId("app.reloadToUpdate");
+  const install = byId("app.install");
+  const webCtx = ctx({ shell: "web" });
+  const desktopCtx = ctx({ shell: "desktop" });
+  expect([
+    labelOf(reload, webCtx),
+    reload.visible?.(webCtx),
+    reload.visible?.(desktopCtx),
+    "hidden" in reload.palette,
+    labelOf(install, webCtx),
+    install.visible?.(webCtx),
+    install.visible?.(desktopCtx),
+    "keywords" in install.palette,
+  ]).toEqual([
+    "Reload to update",
+    true,
+    false,
+    true,
+    "Install Manent",
+    true,
+    false,
+    true,
+  ]);
 });

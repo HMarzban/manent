@@ -2,12 +2,38 @@
 // undo list, and the reverse a setting's message offers.
 import type { CommandHandlers } from "@manent/commands";
 import type { SectionId } from "@manent/settings";
+import { browserInstallStore } from "../pwa/install.ts";
 import { safeNext } from "../session.ts";
 import { rundownActions } from "../state/rundown.store.ts";
 import type { HandlerDeps, RoutePlace } from "./index.ts";
 
 const PREFERENCES_ROUTE = "/preferences/$pane";
 const DOCUMENT_ROUTE = "/s/$docId";
+const RELOAD_FALLBACK_MS = 1000;
+
+/** Activates any waiting service worker and reloads the page to use the new build. */
+async function reloadToUpdate(): Promise<void> {
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker
+      .getRegistration()
+      .catch(() => undefined);
+    if (registration?.waiting) {
+      let reloaded = false;
+      const reload = (): void => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", reload, {
+        once: true,
+      });
+      registration.waiting.postMessage({ type: "SKIP_WAITING" }, []);
+      setTimeout(reload, RELOAD_FALLBACK_MS);
+      return;
+    }
+  }
+  window.location.reload();
+}
 
 /** Where Preferences returns to while it is shown, validated as a path inside the app; elsewhere, here. */
 function returnPlace(here: RoutePlace): string {
@@ -27,6 +53,8 @@ export function preferencesHandlers(
   | "app.shortcuts"
   | "app.aiPledge"
   | "app.benchmarkReport"
+  | "app.reloadToUpdate"
+  | "app.install"
   | "edit.undo"
   | "edit.redo"
   | "settings.undo"
@@ -58,6 +86,19 @@ export function preferencesHandlers(
       router.navigate(preferencesHref("device", returnPlace(router.here()))),
     "app.benchmarkReport": () => {
       window.open("/benchmark-report.html", "_blank", "noopener,noreferrer");
+    },
+    "app.reloadToUpdate": () => {
+      void reloadToUpdate();
+    },
+    "app.install": () => {
+      void browserInstallStore()
+        .promptInstall()
+        .then((outcome) => {
+          if (outcome === "unavailable")
+            router.navigate(
+              preferencesHref("device", returnPlace(router.here())),
+            );
+        });
     },
     // the page's and a field's own undo take the key before this runs; an undo with nothing to undo says nothing
     "edit.undo"() {

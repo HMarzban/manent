@@ -25,6 +25,45 @@ const ATTRIBUTE_SETTINGS: readonly AttributeSetting[] = Object.freeze(
 // the colour transitions are held off for the one frame in which the theme changes
 const THEME_ATTRIBUTE = "data-theme";
 const SWITCHING_ATTRIBUTE = "data-switching";
+const THEME_COLOR_SELECTOR = 'meta[name="theme-color"]:not([media])';
+const TRANSPARENT_ZERO = /\(\s*0[\s,]+0[\s,]+0[\s,/]+0\s*\)$/;
+
+function isUnresolvedColour(value: string): boolean {
+  return (
+    value === "" || value.includes("light-dark(") || value.includes("var(")
+  );
+}
+
+/**
+ * Keeps `<meta name="theme-color">` aligned with `--bg-chrome` on `root`, reading the computed
+ * chrome colour from CSS so no colour literal lives outside the theme.
+ */
+export function syncThemeColorMeta(root: HTMLElement): void {
+  const doc = root.ownerDocument;
+  const win = doc?.defaultView;
+  if (!doc || !win || doc.head === null) return;
+  let colour = win
+    .getComputedStyle(root)
+    .getPropertyValue("--bg-chrome")
+    .trim();
+  if (isUnresolvedColour(colour) && doc.body !== null) {
+    const resolved = win.getComputedStyle(doc.body).backgroundColor.trim();
+    if (
+      resolved !== "" &&
+      resolved !== "transparent" &&
+      !TRANSPARENT_ZERO.test(resolved)
+    )
+      colour = resolved;
+  }
+  if (isUnresolvedColour(colour)) return;
+  let meta = doc.head.querySelector<HTMLMetaElement>(THEME_COLOR_SELECTOR);
+  if (meta === null) {
+    meta = doc.createElement("meta");
+    meta.name = "theme-color";
+    doc.head.append(meta);
+  }
+  if (meta.content !== colour) meta.content = colour;
+}
 
 function attributeValue(
   store: SettingsStore,
@@ -83,6 +122,7 @@ export function applyAppearance(options: {
         switchTheme();
       writeAttribute(root, setting.name, value);
     });
+    if (setting.name === THEME_ATTRIBUTE) syncThemeColorMeta(root);
     onBootWrites(bootWrites(store));
   };
 
@@ -90,8 +130,17 @@ export function applyAppearance(options: {
     write(setting);
     return store.subscribe(setting.def.key, () => write(setting));
   });
+  syncThemeColorMeta(root);
+  const win = root.ownerDocument?.defaultView;
+  const schemeQuery =
+    typeof win?.matchMedia === "function"
+      ? win.matchMedia("(prefers-color-scheme: dark)")
+      : null;
+  const onSchemeChange = (): void => syncThemeColorMeta(root);
+  schemeQuery?.addEventListener("change", onSchemeChange);
   return () => {
     for (const unsubscribe of unsubscribers) unsubscribe();
+    schemeQuery?.removeEventListener("change", onSchemeChange);
     cancelFrame?.();
   };
 }

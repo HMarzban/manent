@@ -69,6 +69,32 @@ export const PREFERENCES_WORDS = {
   browserMayClear: "Kept in this browser. It may clear Manent's data.",
   askToKeep: "Ask the browser to keep it",
   browserKeeps: "Kept in this browser. The browser has agreed to keep it.",
+  offlineRow: "Offline",
+  offlineReady: "Ready — opens without a connection",
+  offlinePreparing: "Preparing…",
+  offlineDataSaver: "Paused on Data Saver",
+  offlineOnlineOnly: "Online only in this browser",
+  spaceUsedRow: "Space used",
+  spaceUsedValue: (bytes: number): string => {
+    if (bytes < 1_000_000) {
+      const kb = bytes <= 0 ? 0 : Math.max(1, Math.round(bytes / 1_000));
+      return `${formatCount(kb)} KB`;
+    }
+    return `${formatCount(Math.round(bytes / 1_000_000))} MB`;
+  },
+  backupBrowser: "Back up everything in this browser",
+  backupBrowserDone: (n: number): string =>
+    n === 1 ? "Exported 1 project." : `Exported ${formatCount(n)} projects.`,
+  backupBrowserEmpty: "Nothing stored in this browser yet.",
+  safariEvictionNote:
+    "Safari may clear data after 7 days without opening Manent unless it is installed.",
+  installGroup: "Install",
+  installChromium: "Open Manent in its own window and from your apps.",
+  installManent: "Install Manent",
+  installMacSafari:
+    "In Safari, choose File → Add to Dock to open Manent in its own window.",
+  installIosSafari:
+    "In Safari, choose Share → Add to Home Screen to open Manent as an app.",
   /** How many scripts this device stores, and their size as formatted ("23 MB"). */
   scriptsStored: (n: number, size: string): string =>
     n === 1 ? `1 script · ${size}` : `${formatCount(n)} scripts · ${size}`,
@@ -95,6 +121,9 @@ export const PREFERENCES_WORDS = {
   checkingForUpdates: "Checking for updates…",
   upToDate: "Manent is up to date.",
   updateReady: "Update ready — installs the next time Manent starts",
+  webUpdateReady: "Update ready — reload to use it, or close every Manent tab.",
+  webUpdateReadyMessage: "An update is ready.",
+  reloadToUpdate: "Reload to update",
   updateCheckFailed: "Couldn't check for updates. Try again later.",
   noUsageData: "Manent sends no usage data.",
   aiPledge:
