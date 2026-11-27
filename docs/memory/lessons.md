@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Accept null docKind on local scripts, avoid opacity over fg-muted, exclude page totals from place search and isolate E2E builds
+
+- Date: 2026-11-27
+
+### What happened
+
+During Smart Command Palette Phases 2 and 3, four subtle classes of defect surfaced in live cross-browser Playwright and `@axe-core/playwright` runs: (1) `doc.linesPerPage` checked `ctx.docKind === "script"`, hiding the command on local or unindexed scripts (such as a fresh `You` script) where `ctx.docKind` is `null`; (2) `.mn-palette-kbd` applied `opacity: 0.78` on top of `var(--fg-muted)`, which pulled light-mode contrast down to `4.11:1` (below WCAG 1.4.3's `4.5:1` floor); (3) `createPlaceSource` matched queries against each page's full display string (`"Page N of M"`), so typing `"page 12"` in a 12-page script matched every page from Page 1 to Page 12 via `"of 12"`, while `"scene 4"` missed `"Sc. 4 · …"`; and (4) running Playwright against the shared `apps/web/dist` directory allowed concurrent non-test builds to overwrite the test-flavour sync hooks, while calling `emulateMedia({ colorScheme: "light" })` without reloading caused `transition-colors` to report mid-blend grey text during immediate axe contrast scans.
+
+### How it was caught
+
+Item (1) was caught by Chromium/Firefox live E2E (`e2e/interface/smart-palette.e2e.ts`); item (2) and the mid-transition contrast reading were caught by light-mode `@axe-core/playwright` WCAG 2.2 AA scans across Chromium, Firefox and WebKit; item (3) was caught during Phase 3 query auditing and locked in `apps/web/test/palette-phase3.test.ts`; and item (4) surfaced when a parallel session built `apps/web/dist` during a three-browser Playwright run.
+
+### Rule
+
+For script-only commands that should work on local/unindexed scripts too, guard visibility with `ctx.docKind === null || ctx.docKind === "script"` (or `ctx.docKind !== "rundown"`), never `ctx.docKind === "script"` alone. Never stack fractional `opacity` on top of `var(--fg-muted)` text — keep full opacity and shift from `color: var(--fg-muted)` to `color: var(--fg)` on hover/highlight so WCAG 1.4.3 contrast holds in every Light and Dark theme. Match page place rows against `["page <label>", "p <label>", "<label>"]` (excluding `"of <total>"`) and scene rows against `[label, "scene <n>", "sc <n>"]` with word-boundary prefix priority in `rankRows`. When running targeted Playwright tests alongside other builds, isolate `MANENT_WEB_DIR` and `MANENT_E2E_PORT`, and set `emulateMedia` before `page.reload()` prior to full-page axe contrast audits.
+
+### Enforced by
+
+`packages/commands/src/definitions/document.ts`, `packages/ui/src/theme.css`, `packages/ui/src/palette/palette-rank.ts`, `apps/web/src/shell/palette-places.ts`, `apps/web/test/palette-phase3.test.ts`, `packages/ui/test/palette.dom.test.tsx`, `e2e/interface/smart-palette.e2e.ts` and `docs/development/testing.md`.
+
 ## Place pure format walkers in `@manent/schema` and keep contextual Play chrome aligned across playable formats
 
 - Date: 2026-11-27
