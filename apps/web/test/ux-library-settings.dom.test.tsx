@@ -245,6 +245,15 @@ test("SeasonSection gives its heading full-width wrap room on narrow containers 
   ));
   const heading = host!.querySelector("h2");
   expect(heading?.className).toContain("basis-full");
+  const toggle = host!.querySelector<HTMLButtonElement>(
+    '[data-tour="setting:project.style"] [data-element] button[aria-expanded]',
+  );
+  expect(toggle).not.toBeNull();
+  expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => {
+    toggle!.click();
+  });
+  expect(toggle?.getAttribute("aria-expanded")).toBe("true");
   const styleGrid = host!.querySelector(
     '[data-tour="setting:project.style"] .grid',
   );

@@ -16,6 +16,12 @@ tourScenario("together-style", async ({ page, scenario, step }) => {
   ).toBeVisible();
   const styleRow = await step(1);
   await expectEvidence([page], { ...scenario, evidence: [lockedCountLine!] });
+  const sceneHeadingToggle = styleRow
+    .locator("[data-element='scene_heading'] button[aria-expanded]")
+    .first();
+  if ((await sceneHeadingToggle.getAttribute("aria-expanded")) !== "true") {
+    await sceneHeadingToggle.click();
+  }
   const spaceBefore = styleRow.getByLabel("Space before").first();
   await spaceBefore.fill("2");
   await spaceBefore.press("Enter");

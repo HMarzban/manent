@@ -22,6 +22,7 @@ import {
 } from "../../integrations/api-keys-api.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readPerson } from "../../session.ts";
+import { SettingsNotice } from "../../settings-shell/settings-card.tsx";
 import {
   ApiKeyRow,
   GuardedButton,
@@ -218,9 +219,9 @@ export function ApiKeysGroup(props: WorkspaceSettingsGroupProps): ReactNode {
           <p className="text-ui text-fg-muted">{API_KEYS_WORDS.intro}</p>
         </div>
         {!online ? (
-          <p className="text-ui text-fg-muted">
+          <SettingsNotice tone="offline">
             {WORKSPACE_WORDS.needsConnection}
-          </p>
+          </SettingsNotice>
         ) : null}
         {online && loadError ? (
           <InlineRefusal

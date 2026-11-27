@@ -9,12 +9,21 @@ export function CommitField(props: {
   label: string;
   disabled?: boolean;
   autoFocus?: boolean;
+  className?: string;
   /** Called only with text that differs from `value`, once per edit. */
   onCommit(typed: string): void;
   /** Called once the field is left, or Enter or Escape is pressed, after any commit. */
   onEnd?(): void;
 }): ReactNode {
-  const { value, label, disabled, autoFocus, onCommit, onEnd } = props;
+  const {
+    value,
+    label,
+    disabled,
+    autoFocus,
+    className = "w-48",
+    onCommit,
+    onEnd,
+  } = props;
   // null while the field shows `value`; a ref as well, so the blur of a field that Enter just closed commits nothing
   const [typed, setTyped] = useState<string | null>(null);
   const pending = useRef<string | null>(null);
@@ -38,7 +47,7 @@ export function CommitField(props: {
   };
   return (
     <Input
-      className="w-48"
+      className={className}
       value={typed ?? value}
       aria-label={label}
       disabled={disabled}

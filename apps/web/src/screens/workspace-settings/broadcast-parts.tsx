@@ -174,7 +174,7 @@ export function BroadcastField(props: {
   return (
     <div
       className={
-        props.span ? "col-span-2 flex flex-col gap-1" : "flex flex-col gap-1"
+        props.span ? "flex flex-col gap-1 sm:col-span-2" : "flex flex-col gap-1"
       }
     >
       <Label htmlFor={props.id} className="text-meta font-medium text-fg">

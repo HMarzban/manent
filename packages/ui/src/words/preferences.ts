@@ -12,6 +12,7 @@ export const PREFERENCES_WORDS = {
   device: (desktop: boolean): string =>
     desktop ? "This device" : "This browser",
   search: "Search…",
+  setByYouLabel: "Set by you",
   setByYouCount: (n: number): string => `Set by you · ${formatCount(n)}`,
   yoursLine: "Yours. These follow you to every device and affect no one else.",
   keyboardLine:

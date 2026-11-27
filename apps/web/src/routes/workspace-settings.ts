@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { loadScreen } from "../router.tsx";
 import { WORKSPACE_SETTINGS_GROUPS } from "../screens/workspace-settings/groups.ts";
 import { routeConfirmMe } from "../services/api-cache.ts";
-import { chooseUrl } from "../session.ts";
+import { chooseUrl, safeNext } from "../session.ts";
 import type { AppRouterDeps } from "./index.ts";
 import { ScreenProblem } from "./screen-problem.ts";
 
@@ -32,9 +32,9 @@ export function workspaceSettingsRoutes(
   const settingsRoute = createRoute({
     getParentRoute: () => root,
     path: "/w/$workspaceId/settings",
-    beforeLoad: ({ params }) => {
+    beforeLoad: ({ params, location }) => {
       throw redirect({
-        href: `/w/${encodeURIComponent(params.workspaceId)}/settings/people`,
+        href: `/w/${encodeURIComponent(params.workspaceId)}/settings/people${location.searchStr}`,
         replace: true,
       });
     },
@@ -51,6 +51,14 @@ export function workspaceSettingsRoutes(
   const groupRoute = createRoute({
     getParentRoute: () => root,
     path: "/w/$workspaceId/settings/$group",
+    validateSearch: (
+      search: Record<string, unknown>,
+    ): { from: string | null } => ({
+      from:
+        typeof search.from === "string" && search.from.trim() !== ""
+          ? safeNext(search.from)
+          : null,
+    }),
     beforeLoad: async ({ params, location }) => {
       const { person, setPerson } = usePerson.getState();
       if (person === null) {
@@ -67,7 +75,7 @@ export function workspaceSettingsRoutes(
       }
       if (!isGroup(params.group)) {
         throw redirect({
-          href: `/w/${encodeURIComponent(params.workspaceId)}/settings/people`,
+          href: `/w/${encodeURIComponent(params.workspaceId)}/settings/people${location.searchStr}`,
           replace: true,
         });
       }
@@ -80,7 +88,12 @@ export function workspaceSettingsRoutes(
     },
     component: function WorkspaceSettingsGroup() {
       const { workspaceId, group } = groupRoute.useParams();
-      return createElement(WorkspaceSettingsScreen, { workspaceId, group });
+      const { from } = groupRoute.useSearch();
+      return createElement(WorkspaceSettingsScreen, {
+        workspaceId,
+        group,
+        from,
+      });
     },
     errorComponent: ScreenProblem,
   });

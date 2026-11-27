@@ -25,6 +25,7 @@ import {
 import type { KeyboardEvent, ReactNode } from "react";
 import { RowMenu } from "../screens/library/row-place.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { SettingsCard } from "../settings-shell/settings-card.tsx";
 import { readNames } from "./names-entries.ts";
 import type { NamesEntry } from "./names-entries.ts";
 
@@ -192,31 +193,45 @@ function NamesList(props: {
   const { randomId } = useEnvironment();
   const [adding, setAdding] = useState(false);
   return (
-    <section aria-label={words.heading} className="flex flex-col">
-      <h3 className="mn-group-label px-0!">{words.heading}</h3>
-      {entries.toSorted(byName).map((entry) => (
-        <NameRow key={entry.id} entry={entry} map={map} editable={editable} />
-      ))}
-      {editable ? (
-        <div className="pt-1">
-          {adding ? (
-            <NameField
-              label={words.add}
-              placeholder={words.placeholder}
-              initial=""
-              onDone={(name) => {
-                if (name === null) setAdding(false);
-                else if (name !== "") map.set(randomId(), { kind, name });
-              }}
-            />
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-              {words.add}
-            </Button>
-          )}
-        </div>
-      ) : null}
-    </section>
+    <SettingsCard asSection aria-label={words.heading} title={words.heading}>
+      <div className="flex flex-col gap-2">
+        {entries.length === 0 ? null : (
+          <div className="-mx-3 divide-y divide-line">
+            {entries.toSorted(byName).map((entry) => (
+              <NameRow
+                key={entry.id}
+                entry={entry}
+                map={map}
+                editable={editable}
+              />
+            ))}
+          </div>
+        )}
+        {editable ? (
+          <div>
+            {adding ? (
+              <NameField
+                label={words.add}
+                placeholder={words.placeholder}
+                initial=""
+                onDone={(name) => {
+                  if (name === null) setAdding(false);
+                  else if (name !== "") map.set(randomId(), { kind, name });
+                }}
+              />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAdding(true)}
+              >
+                {words.add}
+              </Button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </SettingsCard>
   );
 }
 

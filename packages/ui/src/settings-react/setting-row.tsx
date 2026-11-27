@@ -1,13 +1,7 @@
 // One setting's row, generated from its definition: the control, its help, its default and who set it. A value with no
 // plain control (an element style, header slots, labels, fields) is drawn by a row of its own.
 import { SETTINGS } from "@manent/settings";
-import type {
-  Choice,
-  Explained,
-  SettingKey,
-  SettingValue,
-  SettingsStore,
-} from "@manent/settings";
+import type { Choice, SettingKey, SettingValue } from "@manent/settings";
 import { cn } from "cn";
 import { useId, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
@@ -26,12 +20,18 @@ import {
   SelectValue,
 } from "../components/stock/select.tsx";
 import { Switch } from "../components/stock/switch.tsx";
-import { READOUT_WORDS } from "../words/document.ts";
-import { formatCount, formatDate } from "../words/format.ts";
 import { PREFERENCES_WORDS } from "../words/preferences.ts";
-import { TIMING_WORDS } from "../words/timing.ts";
+import {
+  NUMBER_WORDS,
+  choiceLabel,
+  defaultLine,
+  formatSettingValue,
+  setFrom,
+} from "./setting-format.ts";
 import { useSettingsStore } from "./settings-context.tsx";
 import { useSetting } from "./use-setting.ts";
+
+export { formatSettingValue };
 
 // a choice of more options than this is a select
 const RADIO_LIMIT = 4;
@@ -57,75 +57,6 @@ function subscribeToScheme(listener: () => void): () => void {
 }
 
 const isSystemDark = (): boolean => window.matchMedia(DARK_QUERY).matches;
-
-function choiceLabel(
-  choices: readonly Choice<string>[],
-  value: unknown,
-): string {
-  return choices.find((choice) => choice.value === value)?.label ?? "";
-}
-
-/** How a number setting with a unit names its value, and its null. */
-interface NumberWords {
-  none: string;
-  count(n: number): string;
-}
-
-const NUMBER_WORDS: Readonly<Record<string, NumberWords>> = Object.freeze({
-  "project.targetPages": {
-    none: "No target",
-    count: (n: number) => `${formatCount(n)} pages`,
-  },
-  "project.readRate": { none: "", count: TIMING_WORDS.readRateValue },
-});
-
-/**
- * How a setting's value is named in a row: a choice by its label, a switch "On" or "Off", a number by its digits and
- * unit, a text as typed; "" for a value only its own row names.
- */
-export function formatSettingValue(key: SettingKey, value: unknown): string {
-  const { kind, choices } = SETTINGS.get(key).type;
-  if (choices !== null) return choiceLabel(choices, value);
-  if (kind === "boolean")
-    return value === true ? READOUT_WORDS.valueOn : READOUT_WORDS.valueOff;
-  const words = NUMBER_WORDS[key];
-  if (kind === "number" && words !== undefined)
-    return typeof value === "number" ? words.count(value) : words.none;
-  if (typeof value === "number") return formatCount(value);
-  return typeof value === "string" ? value : "";
-}
-
-/** Writes what a control reports, once the setting's own type accepts it. */
-function setFrom(store: SettingsStore, key: SettingKey, input: unknown): void {
-  const parsed = SETTINGS.get(key).type.parse(input);
-  if (parsed.ok) store.set(key, parsed.value);
-}
-
-/** The line under the control: when you set it, with its default; or the default alone. */
-function defaultLine(
-  key: SettingKey,
-  explained: Explained<SettingValue<SettingKey>>,
-  deviceName: string | null,
-): string {
-  const defaultLabel = formatSettingValue(key, SETTINGS.get(key).default);
-  const { modified, provenance } = explained;
-  // a value set by someone else is never said to be yours, and the row has no way to name them
-  if (
-    !modified ||
-    provenance === null ||
-    provenance.at === null ||
-    provenance.byUserId !== null
-  )
-    return PREFERENCES_WORDS.defaultIs(defaultLabel);
-  const { on } = provenance;
-  // "" is a device that never said its name
-  const from = on === null || on === "" || on === deviceName ? null : on;
-  return PREFERENCES_WORDS.setByYou(
-    formatDate(provenance.at),
-    defaultLabel,
-    from,
-  );
-}
 
 function SwitchControl({
   settingKey,
@@ -175,7 +106,7 @@ function RadioControl({
         <label
           key={choice.value}
           className={cn(
-            "flex items-center gap-2 text-ui",
+            "flex min-h-8 items-center gap-2 text-ui",
             disabled ? "cursor-not-allowed text-fg-disabled" : "cursor-pointer",
           )}
         >
@@ -324,8 +255,10 @@ export function SettingRow(props: {
   settingKey: SettingKey;
   deviceName: string | null;
   persisted: boolean;
+  /** Optional roomier card-row padding when rendered inside a divided SettingsCard. */
+  cardRow?: boolean;
 }): ReactNode {
-  const { settingKey, deviceName, persisted } = props;
+  const { settingKey, deviceName, persisted, cardRow = false } = props;
   const store = useSettingsStore();
   const value = useSetting(settingKey);
   // read in each render that the value causes: who set it and the default line change with it
@@ -337,29 +270,38 @@ export function SettingRow(props: {
     def.description === null ? ids.line : `${ids.help} ${ids.line}`;
   const Control = controlFor(settingKey);
   if (Control === null) return null;
-  // a radio group lists its choices under its label; every other control sits at the row's end
-  const stacked = Control === RadioControl;
+  // radio groups and segmented controls stack under their label so narrow viewports and 200% zoom never overflow
+  const stacked = Control === RadioControl || Control === SegmentedControl;
   return (
     <div
       data-tour={`setting:${settingKey}`}
       className={cn(
-        "flex gap-x-4 gap-y-2 py-1",
-        stacked ? "flex-col" : "items-center justify-between",
+        "flex gap-x-4 gap-y-2",
+        cardRow ? "px-4 py-3" : "py-1",
+        stacked ? "flex-col" : "flex-wrap items-center justify-between",
         def.description === null && !explained.modified
           ? "min-h-row"
           : "min-h-row-2",
       )}
     >
-      <div className="flex min-w-0 flex-col">
-        <span id={ids.label} className="text-ui font-medium">
-          {def.label}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="inline-flex items-center gap-1.5">
+          <span id={ids.label} className="text-ui font-medium text-fg">
+            {def.label}
+          </span>
+          {explained.modified ? (
+            <span
+              aria-hidden="true"
+              className="mn-setting-dot size-1.5 shrink-0 rounded-full bg-primary"
+            />
+          ) : null}
         </span>
         {def.description === null ? null : (
-          <p id={ids.help} className="text-meta text-fg-muted">
+          <p id={ids.help} className="max-w-prose text-meta text-fg-muted">
             {def.description}
           </p>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <p
             id={ids.line}
             className={
@@ -385,13 +327,15 @@ export function SettingRow(props: {
           </p>
         )}
       </div>
-      <Control
-        settingKey={settingKey}
-        value={value}
-        labelId={ids.label}
-        describedBy={describedBy}
-        disabled={!explained.writable}
-      />
+      <div className="shrink-0">
+        <Control
+          settingKey={settingKey}
+          value={value}
+          labelId={ids.label}
+          describedBy={describedBy}
+          disabled={!explained.writable}
+        />
+      </div>
     </div>
   );
 }

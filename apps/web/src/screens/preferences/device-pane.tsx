@@ -20,12 +20,13 @@ import type { ReactNode } from "react";
 import { installHint, isStandalone } from "../../platform.ts";
 import type { InstallHint } from "../../platform.ts";
 import { backupEverythingInBrowser } from "../../pwa/export-all.ts";
-import { browserInstallStore } from "../../pwa/install.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { Environment } from "../../services/ports.ts";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { DesktopGroups } from "./desktop-device.tsx";
 import { About } from "./device-about.tsx";
 import { Fact, Group } from "./device-group.tsx";
+import { InstallGroup } from "./device-install.tsx";
 
 export const FORCED_COLOURS = "(forced-colors: active)";
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
@@ -333,42 +334,6 @@ function StoredHere(props: {
   );
 }
 
-/** Compact Install section, shown only on the web when not already standalone and an install path exists. */
-function InstallGroup(props: {
-  standalone: boolean;
-  hint: InstallHint;
-}): ReactNode {
-  const store = browserInstallStore();
-  const canInstall = useSyncExternalStore(
-    useCallback((listener: () => void) => store.subscribe(listener), [store]),
-    () => store.canInstall(),
-  );
-  if (props.standalone) return null;
-  if (!canInstall && props.hint === "none") return null;
-  return (
-    <Group heading={PREFERENCES_WORDS.installGroup}>
-      {canInstall ? (
-        <>
-          <p className="text-ui">{PREFERENCES_WORDS.installChromium}</p>
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void store.promptInstall()}
-            >
-              {PREFERENCES_WORDS.installManent}
-            </Button>
-          </div>
-        </>
-      ) : props.hint === "macos_safari" ? (
-        <p className="text-ui">{PREFERENCES_WORDS.installMacSafari}</p>
-      ) : (
-        <p className="text-ui">{PREFERENCES_WORDS.installIosSafari}</p>
-      )}
-    </Group>
-  );
-}
-
 export function DevicePane(props: {
   deviceName: string | null;
   persisted: boolean;
@@ -378,11 +343,14 @@ export function DevicePane(props: {
   const hint = installHint();
   return (
     <>
-      <SettingRow
-        settingKey="device.interfaceSize"
-        deviceName={props.deviceName}
-        persisted={props.persisted}
-      />
+      <SettingsCard divided>
+        <SettingRow
+          cardRow
+          settingKey="device.interfaceSize"
+          deviceName={props.deviceName}
+          persisted={props.persisted}
+        />
+      </SettingsCard>
       <FromYourSystem />
       {desktop === null ? (
         <>

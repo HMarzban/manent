@@ -4,19 +4,26 @@ import { markEnd, markStart } from "@manent/perf";
 import { SECTION_IDS } from "@manent/settings";
 import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
 import {
-  Button,
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-  MessageSlot,
   PREFERENCES_WORDS,
+  Row,
   SEND_WORDS,
   SettingsProvider,
-  createValue,
-  useSubscribable,
+  formatCount,
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
-import { SearchIcon } from "lucide-react";
+import {
+  GlobeIcon,
+  KeyboardIcon,
+  MonitorIcon,
+  PaletteIcon,
+  PenLineIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  UserIcon,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -30,14 +37,13 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { deviceName as nameOfDevice } from "../../platform.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readDeviceId } from "../../services/device-id.ts";
-import { CommandsButton } from "../../shell/commands-button.tsx";
-import { ShellRegion } from "../../shell/regions.tsx";
-import { TEXT, pageTitle } from "../../text.ts";
+import { SettingsShell } from "../../settings-shell/settings-shell.tsx";
+import type { SettingsNavItem } from "../../settings-shell/settings-shell.tsx";
+import { usePlaceName } from "../../settings-shell/use-place-name.ts";
+import { pageTitle } from "../../text.ts";
 import { useCustomShortcuts } from "./keyboard-pane.tsx";
-import { PaneList } from "./pane-list.tsx";
 import { Pane, paneKeys, paneLabels } from "./pane.tsx";
 import { PreferencesSearch } from "./preferences-search.tsx";
-import { isCommandId } from "./search-index.ts";
 import { SetByYou } from "./set-by-you.tsx";
 import { createVisit } from "./visit-undo.ts";
 import type { Visit } from "./visit-undo.ts";
@@ -48,7 +54,6 @@ const route = getRouteApi("/preferences/$pane");
 const PREFERENCE_KEYS: readonly SettingKey[] = Object.freeze(
   SECTION_IDS.flatMap(paneKeys),
 );
-const DOCUMENT_PATH = /^\/s\/([^/?#]+)/;
 const FOCUSABLE =
   'button:not([disabled]):not([tabindex="-1"]), input:not([tabindex="-1"]), [tabindex="0"]';
 
@@ -72,20 +77,6 @@ function useModified(store: SettingsStore): readonly SettingKey[] {
     () => PREFERENCE_KEYS.filter((key) => joined.split(" ").includes(key)),
     [joined],
   );
-}
-
-/** The name of the place Back returns to: the document's title, or the Library. */
-function usePlaceName(from: string): string {
-  const { library } = useServices();
-  const docId = DOCUMENT_PATH.exec(from)?.[1] ?? null;
-  const title = useMemo(
-    () =>
-      docId === null
-        ? createValue<string | null>(null)
-        : library.documentTitle(docId),
-    [library, docId],
-  );
-  return useSubscribable(title) ?? TEXT.libraryTitle;
 }
 
 /** This visit's changes, and Cmd/Ctrl+Z reaching them while the screen is open. */
@@ -125,40 +116,36 @@ function useTabTitle(pane: SectionId): void {
   }, [userId, where, pane]);
 }
 
-/** Back to the place Preferences was opened from, and the screen's heading. */
-function PreferencesHeader(props: { from: string }): ReactNode {
-  const { from } = props;
-  const navigate = useNavigate();
-  const placeName = usePlaceName(from);
-  return (
-    <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
-      <Button
-        variant="ghost"
-        className="text-fg-muted"
-        onClick={() => void navigate({ href: from })}
-      >
-        {SEND_WORDS.back(placeName)}
-      </Button>
-      <h1 tabIndex={-1} className="truncate text-heading outline-none">
-        {PREFERENCES_WORDS.title}
-      </h1>
-    </header>
-  );
+function paneIcon(pane: SectionId, desktop: boolean): ReactNode {
+  switch (pane) {
+    case "writing":
+      return <PenLineIcon aria-hidden="true" />;
+    case "appearance":
+      return <PaletteIcon aria-hidden="true" />;
+    case "keyboard":
+      return <KeyboardIcon aria-hidden="true" />;
+    case "account":
+      return <UserIcon aria-hidden="true" />;
+    case "device":
+      return desktop ? (
+        <MonitorIcon aria-hidden="true" />
+      ) : (
+        <GlobeIcon aria-hidden="true" />
+      );
+  }
 }
 
-/** The column beside the pane: Search, Set by you while anything is, and the list of panes. */
-function PreferencesColumn(props: {
+/** Search field and Set by you filter row at the top of the Preferences rail. */
+function PreferencesRailTop(props: {
   search: RefObject<HTMLInputElement | null>;
-  /** Where Down arrow moves from the search field: the first control of what is shown. */
-  results: RefObject<HTMLDivElement | null>;
+  results: RefObject<HTMLElement | null>;
   query: string;
   onQuery(query: string): void;
   count: number;
+  setByYouOpen: boolean;
   onSetByYou(): void;
-  pane: SectionId;
-  onPane(pane: SectionId): void;
 }): ReactNode {
-  const { search, results, query, onQuery, count, onSetByYou, pane, onPane } =
+  const { search, results, query, onQuery, count, setByYouOpen, onSetByYou } =
     props;
   // focused on arrival, the field shows no ring until it is left and reached again
   const [arrival, setArrival] = useState(true);
@@ -175,7 +162,7 @@ function PreferencesColumn(props: {
     }
   };
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-line p-4 sm:w-panel-left sm:border-e sm:border-b-0 sm:px-2">
+    <>
       <InputGroup data-arrival={arrival ? "" : undefined} className="h-control">
         <InputGroupAddon>
           <SearchIcon aria-hidden="true" />
@@ -192,12 +179,27 @@ function PreferencesColumn(props: {
         />
       </InputGroup>
       {count === 0 ? null : (
-        <Button variant="ghost" className="justify-start" onClick={onSetByYou}>
-          {PREFERENCES_WORDS.setByYouCount(count)}
-        </Button>
+        <button
+          type="button"
+          aria-pressed={setByYouOpen}
+          className="block w-full cursor-pointer rounded-control text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onSetByYou}
+        >
+          <Row
+            current={setByYouOpen}
+            leading={<SlidersHorizontalIcon aria-hidden="true" />}
+            trailing={[
+              <span key="count" className="mn-tag tabular-nums">
+                {formatCount(count)}
+              </span>,
+            ]}
+          >
+            {PREFERENCES_WORDS.setByYouLabel}
+            <span className="sr-only">{" · "}</span>
+          </Row>
+        </button>
       )}
-      <PaneList pane={pane} onPane={onPane} />
-    </div>
+    </>
   );
 }
 
@@ -241,26 +243,6 @@ function PreferencesBody(props: {
   );
 }
 
-/** The status bar of Preferences: its messages, and the palette. */
-function PreferencesStatusBar(): ReactNode {
-  const { messages, commands } = useServices();
-  return (
-    <ShellRegion
-      region="status_bar"
-      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
-    >
-      <MessageSlot
-        queue={messages}
-        run={(id) => {
-          if (isCommandId(id)) commands.run(id, "control");
-        }}
-        registered={isCommandId}
-      />
-      <CommandsButton />
-    </ShellRegion>
-  );
-}
-
 export function PreferencesScreen(): ReactNode {
   const { pane: param }: { pane: string } = route.useParams();
   const { from }: { from: string } = route.useSearch();
@@ -268,12 +250,13 @@ export function PreferencesScreen(): ReactNode {
   const services = useServices();
   const { where } = useEnvironment();
   const navigate = useNavigate();
+  const placeName = usePlaceName(from);
   const deviceName = nameOfDevice(where);
   const [query, setQuery] = useState("");
   const [setByYouOpen, setSetByYouOpen] = useState(false);
   const [openedAt] = useState(markStart);
   const search = useRef<HTMLInputElement>(null);
-  const results = useRef<HTMLDivElement>(null);
+  const results = useRef<HTMLElement>(null);
   const visit = useVisit(deviceName);
   const modified = useModified(services.settings);
   const shortcutCount = useCustomShortcuts(services.keys).size;
@@ -285,42 +268,68 @@ export function PreferencesScreen(): ReactNode {
   useEffect(() => services.lastPane.set(pane), [services, pane]);
   useTabTitle(pane);
 
+  const labels = paneLabels(where.shell);
+  const desktop = where.shell === "desktop";
+  const navItems: readonly SettingsNavItem<SectionId>[] = useMemo(
+    () =>
+      SECTION_IDS.map((id) => ({
+        id,
+        label: labels[id],
+        icon: paneIcon(id, desktop),
+        separatedBefore: id === "device",
+      })),
+    [labels, desktop],
+  );
+
   const showPane = (next: SectionId): void => {
     setSetByYouOpen(false);
+    setQuery("");
     void navigate({
       href: `/preferences/${next}?from=${encodeURIComponent(from)}`,
     });
   };
+
+  // Passing null while Set by you or Search is active lets clicking the previously selected tab return to it immediately.
+  const activeNavId: SectionId | null =
+    setByYouOpen || query.trim() !== "" ? null : pane;
+
   return (
     <SettingsProvider store={visit.store}>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <PreferencesHeader from={from} />
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row sm:overflow-hidden">
-          <PreferencesColumn
+      <SettingsShell
+        backLabel={SEND_WORDS.back(placeName)}
+        backTitle={placeName}
+        onBack={() => void navigate({ href: from })}
+        title={PREFERENCES_WORDS.title}
+        navLabel={PREFERENCES_WORDS.title}
+        navMode="tabs"
+        navItems={navItems}
+        activeNavId={activeNavId}
+        onSelectNav={showPane}
+        mainRef={results}
+        railTop={
+          <PreferencesRailTop
             search={search}
             results={results}
             query={query}
             onQuery={setQuery}
             count={modified.length + shortcutCount}
-            onSetByYou={() => setSetByYouOpen(true)}
-            pane={pane}
-            onPane={showPane}
+            setByYouOpen={setByYouOpen}
+            onSetByYou={() => {
+              setQuery("");
+              setSetByYouOpen(true);
+            }}
           />
-          <div ref={results} className="min-w-0 flex-1 p-6 sm:overflow-auto">
-            <div className="max-w-content">
-              <PreferencesBody
-                query={query}
-                setByYouOpen={setByYouOpen}
-                pane={pane}
-                modified={modified}
-                visit={visit}
-                deviceName={deviceName}
-              />
-            </div>
-          </div>
-        </div>
-        <PreferencesStatusBar />
-      </div>
+        }
+      >
+        <PreferencesBody
+          query={query}
+          setByYouOpen={setByYouOpen}
+          pane={pane}
+          modified={modified}
+          visit={visit}
+          deviceName={deviceName}
+        />
+      </SettingsShell>
     </SettingsProvider>
   );
 }

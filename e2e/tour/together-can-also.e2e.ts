@@ -14,6 +14,9 @@ async function openPriyaCanAlso(dana: Page): Promise<Locator> {
     .locator("section")
     .filter({ has: dana.getByRole("heading", { name: "People", exact: true }) })
     .first();
+  if (!(await peopleSection.isVisible().catch(() => false))) {
+    await dana.getByRole("tab", { name: "People", exact: true }).click();
+  }
   await expect(peopleSection).toBeVisible();
   const priyaRow = peopleSection
     .locator(".mn-row")

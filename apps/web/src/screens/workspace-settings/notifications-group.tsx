@@ -28,6 +28,7 @@ import type { AddressValidationError } from "../../integrations/notifications-ap
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
 import { readPerson } from "../../session.ts";
+import { SettingsNotice } from "../../settings-shell/settings-card.tsx";
 import type { WorkspaceSettingsGroupProps } from "./groups.ts";
 import {
   InlineRefusal,
@@ -270,9 +271,9 @@ export function NotificationsGroup(
           </p>
         </div>
         {!online ? (
-          <p className="text-ui text-fg-muted">
+          <SettingsNotice tone="offline">
             {WORKSPACE_WORDS.needsConnection}
-          </p>
+          </SettingsNotice>
         ) : null}
         {online && loadError ? (
           <InlineRefusal
