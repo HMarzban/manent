@@ -72,7 +72,11 @@ test("Dana sees Harbour Lights' seasons and episode table, and naming a draft mo
       "Studio",
     );
 
-    // Return to Library and verify 205's stage moved to Studio
+    // Return from History -> script -> Library and verify 205's stage moved to Studio
+    await page
+      .getByRole("button", { name: HISTORY_WORDS.backToScript })
+      .click();
+    await expect(page.locator(EDITABLE)).toBeVisible();
     await page.getByRole("button", { name: DOCUMENT_WORDS.back }).click();
     await page.waitForURL((at) => at.pathname === "/");
     const updatedTable = page
