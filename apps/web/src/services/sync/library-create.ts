@@ -175,7 +175,12 @@ export function removeUntouched(
   handle: DocHandle,
 ): void {
   const found = options.shelves.find(docId);
-  if (found === null || !isProjectUntouched(made, handle)) return;
+  if (
+    found === null ||
+    found.workspaceId === null ||
+    !isProjectUntouched(made, handle)
+  )
+    return;
   const favourites = liveMap(options.privateIndex.handle, "favourites");
   if ([made.projectId, docId].some((key) => favourites.get(key) !== null))
     return;

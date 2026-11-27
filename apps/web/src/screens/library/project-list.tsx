@@ -53,7 +53,7 @@ function PlainTable(props: {
     <div
       className={cn(
         "mn-table flex flex-col",
-        sole ? "min-h-0 flex-1" : "shrink-0",
+        sole ? "min-h-0 max-h-full" : "shrink-0",
       )}
     >
       <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
@@ -62,7 +62,12 @@ function PlainTable(props: {
         <span className={EDITED_COLUMN}>{LIBRARY_WORDS.lastEditedColumn}</span>
         <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
       </div>
-      <div className={cn(sole ? "min-h-0 flex-1" : undefined, PLACE_COLUMN)}>
+      <div
+        className={cn(
+          sole ? "min-h-0 flex-1 overflow-hidden" : undefined,
+          PLACE_COLUMN,
+        )}
+      >
         <VirtualRows
           count={projects.length}
           rowHeight="one"
@@ -110,9 +115,15 @@ export function ProjectList(props: {
   shell: "web" | "desktop";
   now: number;
   open(docId: string): void;
+  /** When true, every project renders as a plain row (used by Private where projects hold single personal scripts). */
+  plainOnly?: boolean;
 }): ReactNode {
-  const { projects, shell, now, open } = props;
-  const segments = segmentsOf(projects);
+  const { projects, shell, now, open, plainOnly = false } = props;
+  const segments: Segment[] = plainOnly
+    ? projects.length > 0
+      ? [{ kind: "plain", projects: [...projects] }]
+      : []
+    : segmentsOf(projects);
   const sole = segments.length === 1 && segments[0]?.kind === "plain";
   const viewProps = (project: ProjectItem): ProjectViewProps => ({
     project,

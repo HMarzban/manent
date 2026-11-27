@@ -110,14 +110,14 @@ export interface SeedDriver {
       capabilities: readonly Capability[];
     }[],
   ): Promise<void>;
-  /** POST /api/docs with the workspace's id: the script takes the index's roles, and each member's capabilities on it. */
+  /** POST /api/docs with the workspace's id (or null for a personal private doc). */
   create(
     userId: string,
     doc: {
       docId: string;
       kind: DocKind;
       home: string;
-      workspaceId: SeedWorkspaceId;
+      workspaceId: SeedWorkspaceId | null;
     },
   ): Promise<void>;
   /** The workspace index's `projects` and `documents` entries, pushed by that person. */

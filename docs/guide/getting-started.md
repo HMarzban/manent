@@ -50,7 +50,7 @@ Hovering or moving keyboard focus across the cards updates the live desk view be
 
 On a first visit in a browser on a secure address (`localhost` or HTTPS), a quiet **Offline status** card appears at the bottom left while Manent prepares offline tools in the background, confirms **Ready offline** once complete, and stays silent on later visits.
 
-Online, each browser tab is its own person, so two tabs can be two people: a new online tab asks who you are before it shows anything, even when it opens on a script's address, and then goes on to that address. When you relaunch offline or open Manent as an installed standalone web app, it restores your last active person automatically so you can go straight back to your cached Library and scripts. Switch person at any time from the bar at the top ("Person: …") or from the person menu in the Library.
+Online, each browser tab is its own person, so two tabs can be two people: a new online tab asks who you are before it shows anything, even when it opens on a script's address, and then goes on to that address. When you relaunch offline or open Manent as an installed standalone web app, it restores your last active person automatically so you can go straight back to your cached Library and scripts. Switch person or open **Preferences** at any time from your avatar at the top right of any screen, or from the demo bar ("Person: …").
 
 ## The demo bar
 
@@ -67,11 +67,11 @@ The Library lists the projects of one workspace. Choose the workspace from the m
 - **New script** makes a film project with one empty script and opens it.
 - **Import…** makes a script from a Final Draft, Fountain, text-based PDF, Word (`.docx`) or plain-text file; see [Import a script](export-and-print.md#import-a-script).
 - **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. Each kind starts with one script in its own format: Film and Series as a screenplay, Show, News and Podcast as Variety, Book as a manuscript, Game as Game Script and Stage play as a stage play. Change the format in **Details → Script**, under Script settings.
-- **Search, folders, Favourites, Private and Trash.** Search every script in the workspace from the top bar (with `type:`, `folder:`, `after:`, `before:` and quoted phrases, plus offline full-text search in the desktop app), organise projects into nested folders, star personal Favourites, keep personal drafts in **Private**, and restore deleted scripts from **Trash** within 30 days.
+- **Search, folders, Favourites, Private and Trash.** Search every script in the workspace from the top bar (with `type:`, `folder:`, `after:`, `before:` and quoted phrases, plus offline full-text search in the desktop app), organise projects into nested folders by dragging them onto folders in the sidebar or choosing **Move to folder** (with **Undo**), mark personal **Favourites**, keep personal drafts in **Private**, and restore deleted scripts from **Trash** within 30 days.
 
 The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. While you are online, the Library fetches each script that is not on this device yet, and the row opens on a click. Offline, such a row says "Not on this device" and does not open until the connection is back.
 
-Every workspace but Your desk starts with seeded projects, such as The Long Night in the Writers' room. Lanternfield Studios holds forty, written after the demo opens; until they are all there, the workspace menu says how many are ready.
+Every workspace but Your desk starts with seeded projects, nested folders (`Scripted` and `Broadcast` in Writers' room, plus studio subfolders in Lanternfield Studios), role-specific **Favourites** and personal **Private** drafts across all five registered people. Lanternfield Studios holds forty projects, written after the demo opens; until they are all there, the workspace menu says how many are ready.
 
 ## The Tour
 

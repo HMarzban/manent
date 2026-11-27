@@ -1,6 +1,6 @@
 # Preferences and accessibility
 
-Open **Preferences** with Ctrl+, (⌘, on a Mac) or from the person menu in the Library. A search at the top finds a preference by name. It also answers for things there is nothing to set for, such as "Auto-save" or "Font". Choose **Set by you** in the left rail to view only preferences you have changed; each changed row carries a quiet accent dot, its default and **Reset**.
+Open **Preferences** with Ctrl+, (⌘, on a Mac) or from your avatar at the top right of any screen. A search at the top finds a preference by name. It also answers for things there is nothing to set for, such as "Auto-save" or "Font". Choose **Set by you** in the left rail to view only preferences you have changed; each changed row carries a quiet accent dot, its default and **Reset**.
 
 Preferences, **Project settings** (`Format and style`, `Names and facts`, `People`, `Drafts`, plus `Templates` for Show and News) and **Workspace settings** (`People`, `Notifications`, `API keys`, `Broadcast`) share one left-rail layout that switches cleanly to a section menu on narrow windows and at 150–200 % interface sizes without sideways scrolling. In Project settings → **Format and style**, **Element style** lists each screenplay element on one collapsed line showing its real format defaults (capitals, spacing, indent and width); click any element to expand and edit it, reset one element, or **Reset all** with Undo.
 

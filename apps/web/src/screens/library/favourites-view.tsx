@@ -19,6 +19,7 @@ import { DOCUMENT_ROW_ITEMS } from "./document-row-items.ts";
 import { LibraryViewHeader } from "./library-view-header.tsx";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
+import { PROJECT_VIEWS } from "./project-views.ts";
 import { RowContextMenu, RowMenu } from "./row-place.tsx";
 import type { LibraryViewProps } from "./views.ts";
 
@@ -105,6 +106,9 @@ export function FavouritesView(props: LibraryViewProps): ReactNode {
     void navigate({ href: `/s/${docId}` });
   };
   const empty = favProjects.length === 0 && favDocs.length === 0;
+  const hasPlainFavProjects = favProjects.some(
+    (project) => !PROJECT_VIEWS.some((view) => view.kind === project.kind),
+  );
 
   return (
     <section
@@ -123,63 +127,69 @@ export function FavouritesView(props: LibraryViewProps): ReactNode {
           </div>
         </div>
       ) : (
-        <LibraryViewHeader
-          icon={<StarIcon aria-hidden="true" className="size-icon" />}
-          title={LIBRARY_FILES_WORDS.favouritesHeading}
-          subtitle={LIBRARY_FILES_WORDS.favouritesNote}
-        />
-      )}
-      {favProjects.length > 0 ? (
-        <div className="flex min-h-0 flex-col gap-2">
-          <h3 className="mn-group-label">
-            {LIBRARY_FILES_WORDS.favouritesProjects}
-          </h3>
-          <ProjectList
-            projects={favProjects}
-            shell={where.shell}
-            now={now()}
-            open={open}
+        <>
+          <LibraryViewHeader
+            icon={<StarIcon aria-hidden="true" className="size-icon" />}
+            title={LIBRARY_FILES_WORDS.favouritesHeading}
+            subtitle={LIBRARY_FILES_WORDS.favouritesNote}
           />
-        </div>
-      ) : null}
-      {favDocs.length > 0 ? (
-        <div className="flex min-h-0 flex-col gap-2">
-          <h3 className="mn-group-label">
-            {LIBRARY_FILES_WORDS.favouritesScripts}
-          </h3>
-          <div className="mn-table">
-            {favDocs.map((doc) => {
-              const entries =
-                DOCUMENT_ROW_ITEMS.length === 0
-                  ? null
-                  : DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
-                      <Item key={id} docId={doc.docId} />
-                    ));
-              const row = (
-                <Row
-                  leading={<KindIcon kind={doc.kind} />}
-                  meta={doc.meta}
-                  onActivate={() => open(doc.docId)}
-                  menu={
-                    entries === null ? undefined : (
-                      <RowMenu title={doc.title}>{entries}</RowMenu>
-                    )
-                  }
-                >
-                  <span className="font-semibold">{doc.title}</span>
-                </Row>
-              );
-              return entries === null ? (
-                <div key={doc.docId}>{row}</div>
-              ) : (
-                <RowContextMenu key={doc.docId} entries={entries}>
-                  {row}
-                </RowContextMenu>
-              );
-            })}
+          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-4">
+            {favProjects.length > 0 ? (
+              <div className="flex shrink-0 flex-col gap-2">
+                {hasPlainFavProjects ? null : (
+                  <h3 className="mn-group-label">
+                    {LIBRARY_FILES_WORDS.favouritesProjects}
+                  </h3>
+                )}
+                <ProjectList
+                  projects={favProjects}
+                  shell={where.shell}
+                  now={now()}
+                  open={open}
+                />
+              </div>
+            ) : null}
+            {favDocs.length > 0 ? (
+              <div className="flex shrink-0 flex-col gap-2">
+                <h3 className="mn-group-label">
+                  {LIBRARY_FILES_WORDS.favouritesScripts}
+                </h3>
+                <div className="mn-table">
+                  {favDocs.map((doc) => {
+                    const entries =
+                      DOCUMENT_ROW_ITEMS.length === 0
+                        ? null
+                        : DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
+                            <Item key={id} docId={doc.docId} />
+                          ));
+                    const row = (
+                      <Row
+                        leading={<KindIcon kind={doc.kind} />}
+                        meta={doc.meta}
+                        onActivate={() => open(doc.docId)}
+                        menu={
+                          entries === null ? undefined : (
+                            <RowMenu title={doc.title}>{entries}</RowMenu>
+                          )
+                        }
+                      >
+                        <span className="font-semibold">{doc.title}</span>
+                      </Row>
+                    );
+                    return entries === null ? (
+                      <div key={doc.docId}>{row}</div>
+                    ) : (
+                      <RowContextMenu key={doc.docId} entries={entries}>
+                        {row}
+                      </RowContextMenu>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        </>
+      )}
     </section>
   );
 }

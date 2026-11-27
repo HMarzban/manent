@@ -16,7 +16,7 @@ const isProjectKind = (value: unknown): value is ProjectKind =>
 const isInstant = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value);
 
-function readPrivateProject(value: unknown): ProjectEntry | null {
+export function readPrivateProject(value: unknown): ProjectEntry | null {
   if (!isFields(value) || typeof value.projectId === "string") return null;
   const { title, kind, createdAt, createdByUserId } = value;
   if (typeof title !== "string" || !isProjectKind(kind)) return null;
@@ -24,7 +24,7 @@ function readPrivateProject(value: unknown): ProjectEntry | null {
   return { title, kind, createdAt, createdByUserId, folderId: null };
 }
 
-function readPrivateDocument(value: unknown): DocumentEntry | null {
+export function readPrivateDocument(value: unknown): DocumentEntry | null {
   if (!isFields(value)) return null;
   const { projectId, title, kind, createdAt, editedAt, editedByUserId } = value;
   if (typeof projectId !== "string" || typeof title !== "string") return null;

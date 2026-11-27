@@ -288,8 +288,12 @@ export function createSeedDriver(options: {
         target.storage.directory.setRole(docId, userId, role, capabilities);
     },
     async create(userId, doc) {
-      // the route gives the script each role and capability held on the workspace's index
-      await d.call(userId, { method: "POST", path: "/api/docs", body: doc });
+      // the route gives the script each role and capability held on the workspace's index; omit workspaceId for private docs
+      const body =
+        doc.workspaceId === null
+          ? { docId: doc.docId, kind: doc.kind, home: doc.home }
+          : doc;
+      await d.call(userId, { method: "POST", path: "/api/docs", body });
     },
     async index(userId, workspaceId, { projects, documents, at }) {
       const session = await open(userId, indexDocId("workspace", workspaceId));

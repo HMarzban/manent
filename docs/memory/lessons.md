@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Resolve private_folder scripts directly in shelves and render Private projects as plain rows
+
+- Date: 2026-11-27
+
+### What happened
+
+Private scripts live in each person's `private_folder` map (`workspaceId: null`) rather than any workspace's `documents` map, and Private projects hold a single personal script with no series or rundown sub-index. Two subtle bugs surfaced as soon as realistic Private drafts were seeded: (1) `findIn` in `apps/web/src/services/sync/index-shelves.ts` searched only workspace `shelves`, so opening any Private script showed `"Untitled script"` and dropped renames and `editedAt` updates; and (2) `PrivateView` passed Private projects into `ProjectList` without disabling workspace-only custom project views (`SeriesView`, `RundownsView`), so a Private `series` project rendered `"No episodes yet"` with a disabled `+ New season` button and requested a non-existent series sub-index (`403` on `/api/docs/describe`).
+
+### How it was caught
+
+The title-lookup gap was caught during design-review tracing of `apps/web/src/services/sync/`, and the Private `series` rendering bug was caught immediately by opening Dana's Private view in the live demo browser.
+
+### Rule
+
+Whenever `index-shelves.ts` resolves document metadata, fall back to `liveMap(privateIndex.handle, "private_folder")` when no workspace shelf holds the document, route renames and `editedAt` writes to `found.mapName`, and skip `continueMap.set` whenever `found.workspaceId === null` so Private drafts stay out of workspace `Continue`. Render `PrivateView`'s list with `ProjectList plainOnly` so every Private project opens its personal script directly without mounting workspace sub-index views.
+
+### Enforced by
+
+`apps/web/test/library-index.test.ts` (asserting Private script title, kind, project lookup, rename and `Continue` exclusion) and `apps/web/src/screens/library/private-view.tsx` (`plainOnly`).
+
 ## Gate localStorage session fallback on offline or standalone PWA launch, and keep leading Row disclosures in a sibling slot
 
 - Date: 2026-11-27

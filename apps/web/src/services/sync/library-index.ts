@@ -77,7 +77,7 @@ function markEdited(
     editedAt !== null &&
     at - editedAt < LAST_EDITED_EVERY_MS;
   if (recent) return;
-  liveMap(found.handle, "documents").set(docId, {
+  liveMap(found.handle, found.mapName).set(docId, {
     ...found.entry,
     editedAt: at,
     editedByUserId: userId,
@@ -156,7 +156,10 @@ export function createSyncLibrary(options: LibraryOptions): SyncLibrary {
     renameDocument(docId, title) {
       const found = shelves.find(docId);
       if (found === null) return;
-      liveMap(found.handle, "documents").set(docId, { ...found.entry, title });
+      liveMap(found.handle, found.mapName).set(docId, {
+        ...found.entry,
+        title,
+      });
     },
     markOpened: values.continueOnce,
     follow(docId, handle) {

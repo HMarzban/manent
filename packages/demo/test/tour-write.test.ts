@@ -13,6 +13,7 @@ test("the Write group lists its scenarios, each waiting one with the feature it 
       .map((s) => [s.id, s.waitsFor]),
   ).toEqual([
     ["write-first-run", null],
+    ["write-library-organise", null],
     ["write-true-pages", null],
     ["write-more-contd", null],
     ["write-format-switch", null],

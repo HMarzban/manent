@@ -207,7 +207,12 @@ function FolderBranch(props: {
         </WithRowMenu>
       </div>
       {isOpen ? (
-        <div>
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-1 w-px bg-line"
+            style={{ insetInlineStart: `${0.875 + depth * 0.875}rem` }}
+          />
           {children.map((child) => (
             <FolderBranch
               key={child.id}

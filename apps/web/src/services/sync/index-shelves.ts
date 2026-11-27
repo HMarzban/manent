@@ -21,6 +21,7 @@ import type {
   RowFacts,
   WorkspaceEntries,
 } from "./index-entries.ts";
+import { readPrivateDocument, readPrivateProject } from "./private-folder.ts";
 import { liveMap } from "./private-index.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
@@ -38,12 +39,13 @@ export interface Shelf {
   opened: { handle: DocHandle; index: WorkspaceEntries } | null;
 }
 
-/** A document the index holds, and the workspace whose index holds it. */
+/** A document an index holds, and the workspace (or null for the person's Private folder) whose index holds it. */
 export interface Found {
-  workspaceId: string;
+  workspaceId: string | null;
   entry: DocumentEntry;
   handle: DocHandle;
   kind: ProjectKind | null;
+  mapName: "documents" | "private_folder";
 }
 
 export interface Shelves {
@@ -61,15 +63,33 @@ export interface Shelves {
 
 function findIn(
   shelves: ReadonlyMap<string, Shelf>,
+  privateIndex: PrivateIndex,
   docId: string,
 ): Found | null {
   for (const [workspaceId, { opened }] of shelves) {
     const entry = opened?.index.documents.get(docId);
     if (entry === undefined || opened === null) continue;
     const kind = opened.index.projects.get(entry.projectId)?.kind ?? null;
-    return { workspaceId, entry, handle: opened.handle, kind };
+    return {
+      workspaceId,
+      entry,
+      handle: opened.handle,
+      kind,
+      mapName: "documents",
+    };
   }
-  return null;
+  const privateFolder = liveMap(privateIndex.handle, "private_folder");
+  const entry = readPrivateDocument(privateFolder.get(docId));
+  if (entry === null) return null;
+  const kind =
+    readPrivateProject(privateFolder.get(entry.projectId))?.kind ?? null;
+  return {
+    workspaceId: null,
+    entry,
+    handle: privateIndex.handle,
+    kind,
+    mapName: "private_folder",
+  };
 }
 
 /** Keeps `shelf` to its index, opened, and says when the person has no access to it; `read` is told each change. */
@@ -250,6 +270,7 @@ export function createShelves(options: {
     return opened;
   };
   privateIndex.continueMap.subscribe(show);
+  liveMap(privateIndex.handle, "private_folder").subscribe(show);
   privateIndex.onDevice.subscribe(scheduleRefresh);
   sync.link.subscribe(scheduleRefresh);
   return {
@@ -258,7 +279,7 @@ export function createShelves(options: {
       for (const ref of options.workspaces.get()) shelf(ref.id);
       if (options.localWorkspaceId !== null) shelf(options.localWorkspaceId);
     },
-    find: (docId) => findIn(shelves, docId),
+    find: (docId) => findIn(shelves, privateIndex, docId),
     refresh,
     show,
   };

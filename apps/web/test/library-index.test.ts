@@ -488,3 +488,50 @@ test("the Library writes each value of the indexes with its fields in their stor
     `{"title":"Untitled script","synced":false,"at":${at}}`,
   ]);
 });
+
+test("the Library resolves, renames and edits Private scripts from private_folder without adding them to Continue", async () => {
+  const w = await createIndexWorld();
+  await w.seedWorkspace(MEDIUM, [["dana", "owner"]]);
+  const dana = await w.personServices({ person: DANA });
+  await w.settleAll();
+  const at = w.world.clock.clock.now();
+  const own = await dana.sync.client.open(indexDocId("user", "dana"));
+  const privateProjectId = "private-project-1";
+  const privateDocId = "private-doc-1";
+  jsonMap(own.doc(), "private_folder").set(privateProjectId, {
+    title: "The Winter Timetable",
+    kind: "series",
+    createdAt: at,
+    createdByUserId: "dana",
+    folderId: null,
+  });
+  jsonMap(own.doc(), "private_folder").set(privateDocId, {
+    projectId: privateProjectId,
+    title: "The Winter Timetable",
+    kind: "script",
+    createdAt: at,
+    editedAt: at,
+    editedByUserId: "dana",
+    airDate: null,
+    rundownId: null,
+    trashedAt: null,
+    trashedByUserId: null,
+  });
+
+  const title = dana.library.documentTitle(privateDocId);
+  const kind = dana.library.documentKind(privateDocId);
+  const projectId = dana.library.documentProject(privateDocId);
+  dana.documents.open(privateDocId);
+  await until(() => title.get() === "The Winter Timetable");
+  expect([title.get(), kind.get(), projectId.get()]).toEqual([
+    "The Winter Timetable",
+    "series",
+    privateProjectId,
+  ]);
+  expect(jsonMap(own.doc(), "continue").get(privateDocId)).toBeNull();
+
+  dana.library.renameDocument(privateDocId, "The Winter Timetable — Pass 2");
+  await until(() => title.get() === "The Winter Timetable — Pass 2");
+  expect(title.get()).toBe("The Winter Timetable — Pass 2");
+  expect(jsonMap(own.doc(), "documents").get(privateDocId)).toBeNull();
+});

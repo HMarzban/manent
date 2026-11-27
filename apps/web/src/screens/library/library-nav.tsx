@@ -58,6 +58,7 @@ const VIEWS_ABOVE: readonly NavEntry[] = [
     label: LIBRARY_FILES_WORDS.privateHeading,
     hint: LIBRARY_FILES_WORDS.privateHint,
     icon: LockIcon,
+    tour: "library:private",
   },
 ];
 

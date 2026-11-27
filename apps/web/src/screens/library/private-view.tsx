@@ -131,7 +131,7 @@ export function PrivateView(_props: LibraryViewProps): ReactNode {
               <>
                 <CommandButton
                   id="library.newScript"
-                  variant="outline"
+                  variant="default"
                   size="sm"
                 />
                 <Button
@@ -178,6 +178,7 @@ export function PrivateView(_props: LibraryViewProps): ReactNode {
           shell={where.shell}
           now={now()}
           open={open}
+          plainOnly
         />
       )}
     </section>

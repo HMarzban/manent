@@ -66,11 +66,15 @@ export function createDocumentValues(options: {
       0,
     draw() {
       for (const docId of continuing) {
-        const workspaceId = find(docId)?.workspaceId;
-        if (workspaceId === undefined) continue;
+        const found = find(docId);
+        if (found === null) continue;
         continuing.delete(docId);
+        if (found.workspaceId === null) continue;
         const openedAt = options.now();
-        options.privateIndex.continueMap.set(docId, { workspaceId, openedAt });
+        options.privateIndex.continueMap.set(docId, {
+          workspaceId: found.workspaceId,
+          openedAt,
+        });
       }
       for (const [docId, title] of titles)
         title.set(find(docId)?.entry.title ?? null);

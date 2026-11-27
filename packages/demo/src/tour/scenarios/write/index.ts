@@ -1,6 +1,7 @@
 // The Tour's Write scenarios, in the order the Tour shows them.
 import type { TourScenario } from "../../format.ts";
 import { WRITE_FIRST_RUN } from "./write-first-run.ts";
+import { WRITE_LIBRARY_ORGANISE } from "./write-library-organise.ts";
 import { WRITE_TRUE_PAGES } from "./write-true-pages.ts";
 import { WRITE_MORE_CONTD } from "./write-more-contd.ts";
 import { WRITE_FORMAT_SWITCH } from "./write-format-switch.ts";
@@ -29,6 +30,7 @@ import { WRITE_INLINE_GRAPHICS } from "./write-inline-graphics.ts";
 
 export const WRITE: readonly TourScenario[] = [
   WRITE_FIRST_RUN,
+  WRITE_LIBRARY_ORGANISE,
   WRITE_TRUE_PAGES,
   WRITE_MORE_CONTD,
   WRITE_FORMAT_SWITCH,

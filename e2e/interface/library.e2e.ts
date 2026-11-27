@@ -111,17 +111,17 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
-  // the title bar, then the side rail: Continue, Favourites, Private, the project list (with each row's menu),
+  // the title bar, then the side rail: Continue, Favourites, Private, the folder tree and loose projects (with each row's menu),
   // New folder, Trash, and then the first Continue row
   const order: string[] = [];
   const continueRow = /^Untitled scriptUntitled film( \d+)? · Film/;
-  for (let press = 0; press < 40; press++) {
+  for (let press = 0; press < 60; press++) {
     await page.keyboard.press(tab);
     const label = await focusedText(page);
     order.push(label);
     if (continueRow.test(label)) break;
   }
-  expect(order.slice(0, 11)).toEqual([
+  expect(order.slice(0, 17)).toEqual([
     "Writers' room",
     "Search this workspace",
     "Import…",
@@ -129,8 +129,14 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
     "New project",
     "PN",
     "Continue",
-    "Favourites",
-    "Private",
+    "Favourites4",
+    "Private2",
+    "Broadcast1",
+    "Broadcast",
+    "Broadcast — row menu",
+    "Scripted2",
+    "Scripted",
+    "Scripted — row menu",
     // the project is numbered after the film projects the workspace holds already
     expect.stringMatching(/^Untitled film( \d+)?$/),
     expect.stringMatching(/^Untitled film( \d+)? — row menu$/),

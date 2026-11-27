@@ -146,7 +146,7 @@ export function ContinueList(props: {
   return (
     <section
       aria-label={LIBRARY_WORDS.continueHeading}
-      className="@container flex max-h-1/3 shrink-0 flex-col"
+      className="@container flex shrink-0 flex-col"
     >
       <div className="flex items-baseline justify-between gap-2 px-3 pt-4 pb-1">
         <h2 className="mn-group-label p-0!">{LIBRARY_WORDS.continueHeading}</h2>
@@ -154,7 +154,7 @@ export function ContinueList(props: {
           {LIBRARY_FILES_WORDS.continueNote}
         </span>
       </div>
-      <div className={cn("mn-table min-h-0 flex-1", PLACE_COLUMN)}>
+      <div className={cn("mn-table mn-continue-table min-h-0", PLACE_COLUMN)}>
         <VirtualRows
           count={items.length}
           rowHeight="two"
