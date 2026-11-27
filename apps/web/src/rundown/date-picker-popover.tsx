@@ -4,6 +4,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RUNDOWN_WORDS,
   formatCount,
 } from "@manent/ui";
 import {
@@ -41,6 +42,7 @@ export interface DatePickerPopoverProps {
   readonly readOnly: boolean;
   readonly describedBy: string | undefined;
   readonly nowMs: number;
+  readonly isDateTaken?: (isoDate: string) => boolean;
   readonly onSelect: (isoDate: string) => void;
 }
 
@@ -82,6 +84,7 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
     readOnly,
     describedBy,
     nowMs,
+    isDateTaken,
     onSelect,
   } = props;
   const [open, setOpen] = useState(false);
@@ -121,15 +124,7 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
     setOpen(nextOpen);
   };
 
-  const handleDayKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    iso: string,
-  ): void => {
-    const delta = DAY_OFFSETS[event.key];
-    if (delta === undefined) return;
-    event.preventDefault();
-    const targetIso = addDays(iso, delta);
-    if (targetIso === null) return;
+  const focusDate = (targetIso: string): void => {
     const targetParts = parseIsoDate(targetIso);
     if (
       targetParts !== null &&
@@ -143,6 +138,46 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
       `[data-date="${targetIso}"]`,
     ) as HTMLElement | null;
     nextButton?.focus();
+  };
+
+  const handleDayKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    iso: string,
+    dayIndexInWeek: number,
+  ): void => {
+    const delta = DAY_OFFSETS[event.key];
+    if (delta !== undefined) {
+      event.preventDefault();
+      const targetIso = addDays(iso, delta);
+      if (targetIso !== null) focusDate(targetIso);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      const targetIso = addDays(iso, -dayIndexInWeek);
+      if (targetIso !== null) focusDate(targetIso);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      const targetIso = addDays(iso, 6 - dayIndexInWeek);
+      if (targetIso !== null) focusDate(targetIso);
+      return;
+    }
+    if (event.key === "PageUp" || event.key === "PageDown") {
+      event.preventDefault();
+      const parts = parseIsoDate(iso);
+      if (parts === null) return;
+      const shifted = shiftMonth(
+        parts.year,
+        parts.month,
+        event.key === "PageUp" ? -1 : 1,
+      );
+      const lastDay = new Date(shifted.year, shifted.month, 0).getDate();
+      focusDate(
+        toIsoDate(shifted.year, shifted.month, Math.min(parts.day, lastDay)),
+      );
+    }
   };
 
   const triggerButton = (
@@ -184,7 +219,11 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
             >
               <ChevronLeftIcon aria-hidden="true" className="size-icon" />
             </Button>
-            <span className="text-ui font-medium text-fg tabular-nums">
+            <span
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-ui font-medium text-fg tabular-nums"
+            >
               {formatMonthYear(view.year, view.month)}
             </span>
             <Button
@@ -222,16 +261,20 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
                 role="row"
                 className="grid grid-cols-7 gap-1"
               >
-                {week.map((cell) => {
+                {week.map((cell, dayIndex) => {
                   const selected = cell.iso === value;
                   const isToday = cell.iso === todayIso;
+                  const taken = !selected && (isDateTaken?.(cell.iso) ?? false);
+                  const dayLabel = taken
+                    ? `${formatAirDate(cell.iso, nowMs)} — ${RUNDOWN_WORDS.dateHasRundown}`
+                    : formatAirDate(cell.iso, nowMs);
                   const dayClass = selected
-                    ? "h-control-sm w-8 cursor-pointer rounded-control bg-selected text-ui font-medium text-fg tabular-nums ring-1 ring-focus"
+                    ? "relative h-control-sm w-8 cursor-pointer rounded-control bg-selected text-ui font-medium text-fg tabular-nums ring-1 ring-focus"
                     : cell.inMonth
                       ? isToday
-                        ? "h-control-sm w-8 cursor-pointer rounded-control text-ui font-semibold text-fg-accent tabular-nums transition-colors hover:bg-subtle active:bg-control"
-                        : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg tabular-nums transition-colors hover:bg-subtle active:bg-control"
-                      : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg-muted tabular-nums transition-colors hover:bg-subtle active:bg-control";
+                        ? "relative h-control-sm w-8 cursor-pointer rounded-control text-ui font-semibold text-fg-accent tabular-nums transition-colors hover:bg-subtle active:bg-control"
+                        : "relative h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg tabular-nums transition-colors hover:bg-subtle active:bg-control"
+                      : "relative h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg-muted tabular-nums transition-colors hover:bg-subtle active:bg-control";
                   return (
                     <div
                       key={cell.iso}
@@ -241,7 +284,9 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
                       <button
                         type="button"
                         data-date={cell.iso}
-                        aria-label={formatAirDate(cell.iso, nowMs)}
+                        data-taken={taken ? "true" : undefined}
+                        aria-label={dayLabel}
+                        title={taken ? RUNDOWN_WORDS.dateHasRundown : undefined}
                         aria-pressed={selected}
                         aria-current={isToday ? "date" : undefined}
                         className={dayClass}
@@ -249,9 +294,17 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
                           setOpen(false);
                           onSelect(cell.iso);
                         }}
-                        onKeyDown={(event) => handleDayKeyDown(event, cell.iso)}
+                        onKeyDown={(event) =>
+                          handleDayKeyDown(event, cell.iso, dayIndex)
+                        }
                       >
                         {formatCount(cell.day)}
+                        {taken ? (
+                          <span
+                            aria-hidden="true"
+                            className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-fg-muted"
+                          />
+                        ) : null}
                       </button>
                     </div>
                   );

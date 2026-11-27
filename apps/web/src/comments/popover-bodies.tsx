@@ -32,7 +32,7 @@ export function CommentCompose(props: {
       {mode.anchor === null ? (
         <p className="text-meta text-fg-muted">{COMMENTS_WORDS.wholeScript}</p>
       ) : contextQuote !== null ? (
-        <blockquote className="mn-comment-quote line-clamp-2 pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-comment-quote line-clamp-2 ps-2 text-meta text-fg-muted">
           {contextQuote}
         </blockquote>
       ) : null}
@@ -79,7 +79,7 @@ export function NoteCompose(props: {
   return (
     <div className="flex flex-col gap-3 p-3">
       {mode.anchor.quote !== "" ? (
-        <blockquote className="mn-note-quote line-clamp-2 pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-note-quote line-clamp-2 ps-2 text-meta text-fg-muted">
           {mode.anchor.quote}
         </blockquote>
       ) : null}
@@ -149,7 +149,7 @@ export function NoteBody(props: {
         <p className="text-meta text-fg-muted">{COMMENTS_WORDS.textRemoved}</p>
       ) : null}
       {note.note.anchor !== null && note.note.anchor.quote !== "" ? (
-        <blockquote className="mn-note-quote line-clamp-2 pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-note-quote line-clamp-2 ps-2 text-meta text-fg-muted">
           {note.note.anchor.quote}
         </blockquote>
       ) : null}

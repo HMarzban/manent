@@ -10,20 +10,35 @@ import type { StateLine } from "./state-line.ts";
 const ACTION_LIMIT = 2;
 const ACTION_VARIANTS = ["outline", "ghost"] as const;
 const OVER_MARKER = " · Over ";
+const UNDER_MARKER = " · Under ";
 
 function renderSentence(line: StateLine): ReactNode {
   if (line.attention) return line.sentence;
   const overAt = line.sentence.indexOf(OVER_MARKER);
-  if (overAt === -1) return line.sentence;
-  const splitAt = overAt + 3;
-  return (
-    <>
-      {line.sentence.slice(0, splitAt)}
-      <span className="font-medium text-attention">
-        {line.sentence.slice(splitAt)}
-      </span>
-    </>
-  );
+  if (overAt !== -1) {
+    const splitAt = overAt + 3;
+    return (
+      <>
+        {line.sentence.slice(0, splitAt)}
+        <span className="font-medium text-attention">
+          {line.sentence.slice(splitAt)}
+        </span>
+      </>
+    );
+  }
+  const underAt = line.sentence.indexOf(UNDER_MARKER);
+  if (underAt !== -1) {
+    const splitAt = underAt + 3;
+    return (
+      <>
+        {line.sentence.slice(0, splitAt)}
+        <span className="font-medium text-ok">
+          {line.sentence.slice(splitAt)}
+        </span>
+      </>
+    );
+  }
+  return line.sentence;
 }
 
 interface StateBarProps {
@@ -62,7 +77,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
         <span data-rev={line.chip} aria-hidden="true" className="mn-rev-chip" />
       )}
       <span
-        className="max-sm:whitespace-normal sm:truncate"
+        className="tabular-nums max-sm:whitespace-normal sm:truncate"
         title={line.sentence}
       >
         {renderSentence(line)}

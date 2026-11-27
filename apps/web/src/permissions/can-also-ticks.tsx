@@ -75,6 +75,9 @@ function CanAlsoForProject(props: {
   const shortName = shortNameOf(fullName);
   const canEdit = snapshot.canEdit;
   const refused = snapshot.refusedUsers.has(userId);
+  const activeCount = CAN_ALSO_TICKS.filter((tick) =>
+    isTickChecked(snapshot.entries, userId, tick),
+  ).length;
 
   return (
     <Popover>
@@ -83,12 +86,18 @@ function CanAlsoForProject(props: {
           <Button
             variant="ghost"
             size="sm"
+            aria-label={WORKSPACE_WORDS.canAlsoGroupLabel(fullName)}
             data-tour="workspace:can_also"
             className="h-7 cursor-pointer gap-1 px-2 text-meta font-normal text-fg-muted hover:text-fg"
           />
         }
       >
         <span>{WORKSPACE_WORDS.canAlso}</span>
+        {activeCount > 0 ? (
+          <span className="rounded-micro bg-subtle px-1 text-micro font-medium text-fg tabular-nums">
+            {activeCount}
+          </span>
+        ) : null}
         <ChevronDownIcon aria-hidden="true" className="size-3.5 opacity-70" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 gap-2 p-3 text-ui">

@@ -17,6 +17,9 @@ import type { GridColumn } from "./types.ts";
 const KEY_STEP_PX = 8;
 const SHIFT_STEP_PX = 24;
 
+const isRtl = (el: HTMLElement): boolean =>
+  el.closest("[dir]")?.getAttribute("dir") === "rtl";
+
 interface ColumnResizeHandleProps {
   readonly column: GridColumn;
   onResize(columnId: string, widthPx: number): void;
@@ -54,10 +57,9 @@ function ColumnResizeHandle({
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const active = drag.current;
     if (active === null || active.pointerId !== event.pointerId) return;
-    const next = clampColumnWidth(
-      column,
-      active.startWidth + (event.clientX - active.startX),
-    );
+    const rawDelta = event.clientX - active.startX;
+    const delta = isRtl(event.currentTarget) ? -rawDelta : rawDelta;
+    const next = clampColumnWidth(column, active.startWidth + delta);
     if (next !== active.lastWidth) {
       active.lastWidth = next;
       onResize(column.id, next);
@@ -71,13 +73,20 @@ function ColumnResizeHandle({
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
+  const onDoubleClick = (): void => {
+    if (column.defaultWidthPx === undefined) return;
+    const next = clampColumnWidth(column, column.defaultWidthPx);
+    if (next !== width) onResize(column.id, next);
+  };
+
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     const step = event.shiftKey ? SHIFT_STEP_PX : KEY_STEP_PX;
+    const rtl = isRtl(event.currentTarget);
     let next: number | null = null;
     if (event.key === "ArrowLeft")
-      next = clampColumnWidth(column, width - step);
+      next = clampColumnWidth(column, width + (rtl ? step : -step));
     else if (event.key === "ArrowRight")
-      next = clampColumnWidth(column, width + step);
+      next = clampColumnWidth(column, width + (rtl ? -step : step));
     else if (event.key === "Home") next = min;
     else if (event.key === "End") next = max;
     if (next === null) return;
@@ -95,13 +104,14 @@ function ColumnResizeHandle({
       aria-valuemax={max}
       aria-valuenow={width}
       aria-valuetext={column.resizeValueText?.(width)}
-      tabIndex={0}
+      tabIndex={-1}
       data-resize-handle={column.id}
       className="group/resize absolute inset-y-0 end-0 flex w-2 cursor-col-resize items-stretch justify-end select-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
     >
       <span

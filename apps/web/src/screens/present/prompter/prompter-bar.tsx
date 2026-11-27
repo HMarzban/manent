@@ -170,7 +170,7 @@ export function PrompterBar(props: PrompterBarProps): ReactNode {
   return (
     <header
       aria-label={PROMPTER_WINDOW_WORDS.barLabel}
-      className="flex min-h-titlebar shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-chrome px-2 py-1 text-ui sm:gap-4 sm:px-4"
+      className="flex min-h-titlebar shrink-0 items-center justify-between gap-2 border-b border-line bg-chrome px-2 py-1 text-ui sm:gap-4 sm:px-4"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {onBack !== undefined ? (

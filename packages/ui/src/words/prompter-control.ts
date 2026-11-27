@@ -29,4 +29,7 @@ export const PROMPTER_CONTROL_WORDS = Object.freeze({
   linesPerSecond: (n: number): string => `${n} l/s`,
   playingAt: (n: number): string => `Playing · ${n} l/s`,
   paused: "Paused",
+  decreaseSpeed: "Scroll rate down",
+  increaseSpeed: "Scroll rate up",
+  onAirPlaying: "Scrolling",
 });

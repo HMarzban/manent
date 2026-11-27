@@ -10,6 +10,7 @@ export const FIND_WORDS = {
   previous: "Previous match",
   next: "Next match",
   close: "Close Find bar",
+  clearFind: "Clear search",
   /** The count beside the field: "3 of 17", "0 of 17" while the selection holds no match, never an error state. */
   count: (current: number | null, count: number): string =>
     count === 0 ? "No matches" : formatPosition(current ?? 0, count),
@@ -24,6 +25,8 @@ const sceneLength = (eighths: number): string => {
 
 export const SCENES_WORDS = {
   synopsis: "Synopsis",
+  synopsisPlaceholder: "Scene summary…",
+  omitted: "Omitted",
   /** A scene's length in pages and eighths of a page: "3/8", "1", "2 1/8". */
   length: sceneLength,
   /** A scene's length with its unit for tooltips: "1 page", "5 5/8 pages". */

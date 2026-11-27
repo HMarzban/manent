@@ -66,13 +66,37 @@ function EntryRow(props: {
 }): ReactNode {
   const { entry, doc } = props;
   const { review } = useServices();
-  const wordings =
+  const names =
+    entry.kind === "recovered" ? [] : entry.otherUserIds.map(nameOf);
+  const wordings: readonly {
+    readonly label: string;
+    readonly tone: "mine" | "theirs" | "recovered";
+    readonly text: string;
+  }[] =
     entry.kind === "recovered"
-      ? [entry.text]
-      : [textOf(entry.mine), textOf(entry.theirs)];
+      ? [
+          {
+            label: REVIEW_WORDS.recoveredLabel,
+            tone: "recovered",
+            text: entry.text,
+          },
+        ]
+      : [
+          {
+            label: REVIEW_WORDS.mineLabel,
+            tone: "mine",
+            text: textOf(entry.mine),
+          },
+          {
+            label: REVIEW_WORDS.theirsLabel(names),
+            tone: "theirs",
+            text: textOf(entry.theirs),
+          },
+        ];
+  const blockId = entry.blockId;
   return (
     <div
-      data-review-block={entry.blockId ?? entry.id}
+      data-review-block={blockId ?? entry.id}
       className="flex flex-col gap-2 border-b border-line pb-3"
     >
       <Row
@@ -83,16 +107,21 @@ function EntryRow(props: {
           />
         }
       >
-        {labelOf(entry, sceneWords(doc, entry.blockId))}
+        {labelOf(entry, sceneWords(doc, blockId))}
       </Row>
-      {wordings.map((text, index) => (
-        // each wording quoted behind a rule, as a comment quotes its text
-        <p
-          key={index}
-          className="mx-3 border-s-2 border-line ps-2 text-ui whitespace-pre-wrap"
-        >
-          {text}
-        </p>
+      {wordings.map((wording, index) => (
+        // attribution label stays outside <p> so To review's quoted <p> cadence and textContent stay exact
+        <div key={index} className="mx-3 flex flex-col gap-0.5">
+          <span className="text-micro font-medium text-fg-muted">
+            {wording.label}
+          </span>
+          <p
+            data-tone={wording.tone}
+            className="mn-review-quote ps-2 text-ui whitespace-pre-wrap"
+          >
+            {wording.text}
+          </p>
+        </div>
       ))}
       <div className="flex flex-wrap gap-1 px-3">
         {choicesOf(entry, doc, review).map((choice) => (

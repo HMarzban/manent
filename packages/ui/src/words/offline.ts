@@ -30,6 +30,12 @@ export const REVIEW_WORDS = {
     inScene(scene, "Recovered text from this device"),
   /** The accessible name of a margin bar. */
   marginBar: "To review",
+  mineLabel: "Yours",
+  theirsLabel: (names: readonly string[]): string =>
+    names.length > 0 && names.length < 3
+      ? `${joinNames(names)}'s`
+      : "Other wording",
+  recoveredLabel: "Recovered",
 } as const;
 
 export const CLOSE_WORDS = {

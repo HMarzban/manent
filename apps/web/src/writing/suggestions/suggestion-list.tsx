@@ -52,13 +52,20 @@ function SuggestionRow(props: {
         {SUGGESTIONS_WORDS.suggested(scene, name)}
       </Row>
       {(["keep", "use"] as const).map((decision) => (
-        // each wording quoted behind a rule, as a passage's wordings are
-        <p
-          key={decision}
-          className="mx-3 border-s-2 border-line ps-2 text-ui whitespace-pre-wrap"
-        >
-          {wordingOf(suggestion, decision)}
-        </p>
+        // attribution label stays outside <p> so To review's quoted <p> cadence and textContent stay exact
+        <div key={decision} className="mx-3 flex flex-col gap-0.5">
+          <span className="text-micro font-medium text-fg-muted">
+            {decision === "use"
+              ? SUGGESTIONS_WORDS.suggestedLabel
+              : SUGGESTIONS_WORDS.beforeLabel}
+          </span>
+          <p
+            data-tone={decision === "use" ? "suggested" : "keep"}
+            className="mn-review-quote ps-2 text-ui whitespace-pre-wrap"
+          >
+            {wordingOf(suggestion, decision)}
+          </p>
+        </div>
       ))}
       <div className="flex flex-wrap gap-1 px-3">
         {CHOICES.map((choice) => (

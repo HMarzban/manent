@@ -1,6 +1,7 @@
 // Details → Rundown: Date, Air (24-hour HH:MM, data-tour="rundown:air"), Target, Air window starts and MOS toggle.
 import { setRundownFields } from "@manent/crdt";
-import type { RundownFieldsJSON } from "@manent/schema";
+import type { RundownClock } from "@manent/pagination";
+import type { RundownFieldsJSON, RundownRowJSON } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
 import {
   Button,
@@ -15,6 +16,7 @@ import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { DatePickerPopover } from "./date-picker-popover.tsx";
 import { DetailsBroadcast } from "./details-broadcast.tsx";
+import { DetailsTimingCard } from "./details-timing-card.tsx";
 import {
   MS_PER_MINUTE,
   airAtOnDate,
@@ -56,10 +58,12 @@ const EMPTY: Drafts = Object.freeze({
 function RundownDetailsForm(props: {
   readonly docId: string;
   readonly fields: RundownFieldsJSON;
+  readonly clock: RundownClock | null;
+  readonly rows: readonly RundownRowJSON[];
   readonly readOnly: boolean;
   readonly showNeedsEditRundowns: boolean;
 }): ReactNode {
-  const { docId, fields, readOnly, showNeedsEditRundowns } = props;
+  const { docId, fields, clock, rows, readOnly, showNeedsEditRundowns } = props;
   const services = useServices();
   const { now } = useEnvironment();
   const handleRef = useRef<DocHandle | null>(null);
@@ -195,6 +199,12 @@ function RundownDetailsForm(props: {
 
   return (
     <div className="flex flex-col gap-3">
+      <DetailsTimingCard
+        clock={clock}
+        fields={fields}
+        rows={rows}
+        nowMs={nowMs}
+      />
       {showNeedsEditRundowns ? (
         <p className="text-meta text-fg">{RW.needsEditRundowns}</p>
       ) : null}
@@ -223,6 +233,7 @@ function RundownDetailsForm(props: {
             readOnly={false}
             describedBy={st.dateError ? `${uid}-de` : undefined}
             nowMs={nowMs}
+            isDateTaken={isDateTaken}
             onSelect={handleSelectDate}
           />
         )}
@@ -307,6 +318,8 @@ export function RundownDetails(props: { docId: string }): ReactNode {
       key={props.docId}
       docId={props.docId}
       fields={view.rundown.rundown}
+      clock={view.clock}
+      rows={view.rundown.rows}
       readOnly={view.access !== "edit"}
       showNeedsEditRundowns={view.access === "view_only"}
     />

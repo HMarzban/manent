@@ -7,7 +7,9 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   RUNDOWN_WORDS,
 } from "@manent/ui";
@@ -91,6 +93,7 @@ export interface RundownColumnsState {
   readonly prefs: RundownColumnPrefs;
   toggleColumn(columnId: RundownColumnId): void;
   resizeColumn(columnId: RundownColumnId, widthPx: number): void;
+  resetColumns(): void;
 }
 
 /**
@@ -189,7 +192,17 @@ export function useRundownColumns(
     [write],
   );
 
-  return { prefs, toggleColumn, resizeColumn };
+  const resetColumns = useCallback((): void => {
+    const current = prefsRef.current;
+    if (
+      current.hidden.length === 0 &&
+      Object.keys(current.widthsPx).length === 0
+    )
+      return;
+    write(EMPTY_COLUMN_PREFS);
+  }, [write]);
+
+  return { prefs, toggleColumn, resizeColumn, resetColumns };
 }
 
 /**
@@ -199,9 +212,11 @@ export function useRundownColumns(
 export function RundownColumnsMenu(props: {
   readonly columns: readonly RundownColumnId[];
   readonly hidden: readonly string[];
+  readonly hasCustomPrefs?: boolean;
   onToggle(columnId: RundownColumnId): void;
+  onReset?: () => void;
 }): ReactNode {
-  const { columns, hidden, onToggle } = props;
+  const { columns, hidden, hasCustomPrefs = false, onToggle, onReset } = props;
   const { dom } = useEnvironment();
   const [open, setOpen] = useState(false);
 
@@ -255,6 +270,22 @@ export function RundownColumnsMenu(props: {
             );
           })}
         </DropdownMenuGroup>
+        {onReset !== undefined ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!hasCustomPrefs}
+              className={
+                hasCustomPrefs
+                  ? "cursor-pointer"
+                  : "cursor-not-allowed text-fg-muted opacity-50"
+              }
+              onClick={onReset}
+            >
+              <span>{RUNDOWN_WORDS.resetColumns}</span>
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

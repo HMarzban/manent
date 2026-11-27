@@ -60,6 +60,39 @@ export const RUNDOWN_WORDS = Object.freeze({
   rowNumber: "Row number",
   /** Heading of the View ▾ → Columns menu. */
   columnsHeading: "Yours, on this rundown",
+  /** Quiet footer button opening the Columns menu. */
+  columnsButton: "Columns",
+  /** Menu item restoring default rundown column widths and visibility. */
+  resetColumns: "Reset columns",
+  /** Accessible name of a script row's Open beside button. */
+  openBesideRow: (title: string): string => `Open '${title}' beside`,
+  /** Footer total runtime label. */
+  totalRuntime: (duration: string): string => `Total ${duration}`,
+  /** Footer prompter tally for script rows. */
+  prompterSentSummary: (sent: number, total: number): string =>
+    `${formatCount(sent)} of ${formatCount(total)} on prompter`,
+  /** Footer count of prompter rows changed since last send. */
+  prompterChangedCount: (count: number): string =>
+    `${formatCount(count)} changed`,
+  /** Accessible label for a header row's section subtotal. */
+  sectionTotal: (duration: string): string => `Section total ${duration}`,
+  /** Accessible name for expanding a rundown's story rows in Library. */
+  expandRundown: (date: string): string => `Show rows for ${date}`,
+  /** Accessible name for collapsing a rundown's story rows in Library. */
+  collapseRundown: (date: string): string => `Hide rows for ${date}`,
+  /** Details → Rundown live broadcast timing summary heading (visual label, not h2). */
+  timingSummary: "Timing",
+  /** Details → Rundown total runtime row label. */
+  totalLabel: "Total",
+  /** Formats a signed over/under string (e.g. "-1:12" or "0:48") into "Under 1:12" / "Over 0:48". */
+  overUnderText: (over: string): string =>
+    over.startsWith("-") ? `Under ${over.slice(1)}` : `Over ${over}`,
+  /** Details → Rundown air window range value. */
+  airWindowRange: (start: string, end: string): string => `${start}–${end}`,
+  /** Details → Rundown active air-window pill. */
+  inAirWindow: "In air window",
+  /** Date picker marker for a date that already has a rundown. */
+  dateHasRundown: "Already has a rundown",
   /** Accessible name of the rundown grid. */
   gridLabel: (date: string): string => `Rundown for ${date}`,
   /** Accessible name of a column edge resize handle. */

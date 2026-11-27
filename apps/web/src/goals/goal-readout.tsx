@@ -5,6 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   WRITING_TOOLS_WORDS,
+  cn,
 } from "@manent/ui";
 import type { ReactNode } from "react";
 import { openDetailsAt } from "../screens/document/details-tab.tsx";
@@ -16,6 +17,7 @@ export function GoalReadout(props: { docId: string }): ReactNode {
   const { frame } = useEnvironment();
   const { goal, done } = useScriptGoal(props.docId);
   if (goal === null) return null;
+  const reached = done >= goal.target;
   const readout = WRITING_TOOLS_WORDS.goalReadout(done, goal.target, goal.kind);
   const tooltip = WRITING_TOOLS_WORDS.goalTooltip(done, goal.target, goal.kind);
   return (
@@ -27,8 +29,10 @@ export function GoalReadout(props: { docId: string }): ReactNode {
             size="sm"
             data-tour="status:goal"
             aria-label={tooltip}
-            title={tooltip}
-            className="shrink-0 cursor-pointer text-meta font-normal text-fg-muted tabular-nums"
+            className={cn(
+              "shrink-0 cursor-pointer text-meta tabular-nums",
+              reached ? "font-medium text-ok" : "font-normal text-fg-muted",
+            )}
             onClick={() => openDetailsAt("script", frame)}
           />
         }

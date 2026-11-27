@@ -1,8 +1,9 @@
-// Details → Script → Goal: personal daily page or word goal for this script and Start sprint.
+// Details → Script → Goal: personal daily page or word goal with live progress bar, and timed sprint controls.
 import {
   Button,
   Segmented,
   WRITING_TOOLS_WORDS,
+  cn,
   useSubscribable,
 } from "@manent/ui";
 import {
@@ -14,10 +15,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
+import { formatMmSs } from "../../goals/goal-model.ts";
 import type { GoalKind } from "../../goals/goal-model.ts";
+import { endSprint } from "../../goals/sprint.ts";
 import { useScriptGoal } from "../../goals/use-goal.ts";
 import { useServices } from "../../services/context.tsx";
-import { useSprintRunning } from "../../state/sprint.store.ts";
+import { useActiveSprint } from "../../state/sprint.store.ts";
 
 const UNIT_OPTIONS: readonly { value: GoalKind; label: string }[] =
   Object.freeze([
@@ -46,8 +49,9 @@ export function GoalSection(props: { docId: string }): ReactNode {
     scriptStore.get("script.format"),
   );
 
-  const { goal, setGoal, removeGoal } = useScriptGoal(docId);
-  const sprintRunning = useSprintRunning();
+  const { goal, done, setGoal, removeGoal } = useScriptGoal(docId);
+  const activeSprint = useActiveSprint();
+  const sprintRunning = activeSprint !== null;
   const inputId = useId();
   const reasonId = useId();
 
@@ -92,6 +96,16 @@ export function GoalSection(props: { docId: string }): ReactNode {
     else if (goal !== null) setGoal(nextUnit, goal.target);
   };
 
+  const progressRatio =
+    goal === null || goal.target <= 0
+      ? 0
+      : Math.max(0, Math.min(1, done / goal.target));
+  const goalReached = goal !== null && done >= goal.target;
+  const sprintTime =
+    activeSprint !== null
+      ? formatMmSs(Math.ceil(activeSprint.remainingMs / 1000))
+      : null;
+
   return (
     <div
       data-tour="script.goal"
@@ -109,7 +123,28 @@ export function GoalSection(props: { docId: string }): ReactNode {
         <p className="text-meta text-fg-muted">
           {WRITING_TOOLS_WORDS.goalEmpty}
         </p>
-      ) : null}
+      ) : (
+        <div className="flex flex-col gap-1.5 rounded-control border border-line bg-subtle p-2">
+          <div className="flex items-center justify-between gap-2 text-meta tabular-nums">
+            <span
+              className={cn(goalReached ? "font-medium text-ok" : "text-fg")}
+            >
+              {WRITING_TOOLS_WORDS.goalReadout(done, goal.target, goal.kind)}
+            </span>
+            {goalReached ? (
+              <span className="font-medium text-ok">
+                {WRITING_TOOLS_WORDS.goalReached}
+              </span>
+            ) : null}
+          </div>
+          <div className="mn-progress-track">
+            <div
+              className="mn-progress-fill"
+              style={{ transform: `scaleX(${progressRatio})` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={inputId} className="shrink-0 text-ui text-fg-muted">
           {WRITING_TOOLS_WORDS.goalEachDay}
@@ -134,6 +169,26 @@ export function GoalSection(props: { docId: string }): ReactNode {
           onChange={onUnitChange}
         />
       </div>
+      {sprintTime !== null ? (
+        <div className="flex items-center justify-between gap-2 rounded-control border border-line bg-subtle px-2.5 py-1.5 text-meta tabular-nums">
+          <span
+            role="status"
+            aria-live="polite"
+            className="font-medium text-fg"
+          >
+            {WRITING_TOOLS_WORDS.sprintRemaining(sprintTime)}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-control-sm cursor-pointer text-fg-muted hover:text-fg"
+            onClick={endSprint}
+          >
+            {WRITING_TOOLS_WORDS.sprintEnd}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
         <Button
           variant="outline"

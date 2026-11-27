@@ -28,7 +28,8 @@ export interface ShareActions {
   addPerson(choice: SignInChoice, role: ShareRole): Promise<boolean>;
   /** False when the server refused it. */
   addGroup(groupId: string, name: string): Promise<boolean>;
-  copyLink(role: ShareRole, expiresInMs: number | null): Promise<void>;
+  /** False when the server or clipboard refused it. */
+  copyLink(role: ShareRole, expiresInMs: number | null): Promise<boolean>;
   turnOffLink(): Promise<void>;
 }
 
@@ -190,10 +191,13 @@ export function createShareActions(options: {
         madeLink(role, expiresInMs) ?? (await newLink(role, expiresInMs));
       if (made === null) {
         refuse("link", WORDS.linkRefused);
-        return;
+        return false;
+      }
+      if (!(await options.copy(linkAddress(made.token)))) {
+        refuse("link", WORDS.clipboardRefused);
+        return false;
       }
       refuse("link", null);
-      if (!(await options.copy(linkAddress(made.token)))) return;
       const { expiresAt } = made.link;
       messages.push(
         briefMessage(
@@ -205,6 +209,7 @@ export function createShareActions(options: {
           ),
         ),
       );
+      return true;
     },
 
     async turnOffLink() {

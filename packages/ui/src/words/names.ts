@@ -29,6 +29,12 @@ export const NAMES_WORDS = Object.freeze({
   kinds: KINDS,
   rename: "Rename",
   remove: "Remove",
+  save: "Save",
+  cancel: "Cancel",
+  filterPlaceholder: "Filter names…",
+  clearFilter: "Clear filter",
+  noMatches: "No names match this filter.",
+  alreadyListed: (name: string): string => `"${name}" is already listed.`,
   empty:
     "Names listed here are offered as you type, and a near miss is underlined.",
   /** The underline's accessible description. */
@@ -45,6 +51,7 @@ export const NAMES_WORDS = Object.freeze({
 /** The words of project facts: Pin to project facts, its brief message, and the facts list in Names and facts. */
 export const FACTS_WORDS = Object.freeze({
   heading: "Facts",
+  listLabel: "Pinned facts",
   pin: "Pin to project facts",
   pinned: "Pinned to project facts.",
   projectSettings: "Project settings",

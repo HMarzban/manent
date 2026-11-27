@@ -22,7 +22,7 @@ export function CommentSceneItem(props: {
         aria-hidden="true"
         className="size-icon text-fg-muted"
       />
-      {COMMENTS_WORDS.commentOnSceneCommand}
+      <span>{COMMENTS_WORDS.commentOnSceneCommand}</span>
     </DropdownMenuItem>
   );
 }

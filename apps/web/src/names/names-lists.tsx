@@ -1,4 +1,4 @@
-// The project's characters, sets and terms, each a list that adds, renames and removes its names in place.
+// The project's characters, sets and terms, each a list with counts, quick filter, inline rename/add and row menu.
 import type { JsonMapView } from "@manent/crdt";
 import { PROJECT_NAME_KINDS } from "@manent/revisions";
 import type { ProjectNameKind } from "@manent/revisions";
@@ -6,29 +6,42 @@ import {
   Button,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   NAMES_WORDS,
   Row,
   Skeleton,
+  formatCount,
+  matchesQuery,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { BookOpenIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import {
+  BookOpenIcon,
+  PencilIcon,
+  SearchIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { RowMenu } from "../screens/library/row-place.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { SettingsCard } from "../settings-shell/settings-card.tsx";
+import { NameField } from "./name-field.tsx";
 import { readNames } from "./names-entries.ts";
 import type { NamesEntry } from "./names-entries.ts";
+
+const QUICK_FILTER_THRESHOLD = 8;
 
 const byName = (a: NamesEntry, b: NamesEntry): number =>
   a.name.localeCompare(b.name);
@@ -94,63 +107,29 @@ function useEntries(map: JsonMapView): readonly NamesEntry[] {
   return useSyncExternalStore(subscribe, snapshot, snapshot);
 }
 
-/** A name typed in place: Enter gives the name, trimmed; Escape, or leaving it, gives null. */
-function NameField(props: {
-  label: string;
-  placeholder: string;
-  initial: string;
-  onDone(name: string | null): void;
-}): ReactNode {
-  const { label, placeholder, initial, onDone } = props;
-  const [value, setValue] = useState(initial);
-  const input = useRef<HTMLInputElement>(null);
-  useLayoutEffect(() => {
-    input.current?.focus({ preventScroll: true });
-    input.current?.select();
-  }, []);
-  const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      onDone(null);
-      return;
-    }
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    onDone(value.trim());
-    setValue("");
-  };
-  return (
-    <Input
-      ref={input}
-      aria-label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => onDone(null)}
-    />
-  );
-}
-
 function NameRow(props: {
   entry: NamesEntry;
+  existingNames: readonly string[];
   map: JsonMapView;
   editable: boolean;
 }): ReactNode {
-  const { entry, map, editable } = props;
+  const { entry, existingNames, map, editable } = props;
   const [renaming, setRenaming] = useState(false);
   if (renaming)
     return (
-      <NameField
-        label={NAMES_WORDS.rename}
-        placeholder={NAMES_WORDS.kinds[entry.kind].placeholder}
-        initial={entry.name}
-        onDone={(name) => {
-          setRenaming(false);
-          if (name !== null && name !== "" && name !== entry.name)
-            map.set(entry.id, { kind: entry.kind, name });
-        }}
-      />
+      <div className="px-3 py-1.5">
+        <NameField
+          label={NAMES_WORDS.rename}
+          placeholder={NAMES_WORDS.kinds[entry.kind].placeholder}
+          initial={entry.name}
+          existingNames={existingNames}
+          onDone={(name) => {
+            setRenaming(false);
+            if (name !== null && name !== "" && name !== entry.name)
+              map.set(entry.id, { kind: entry.kind, name });
+          }}
+        />
+      </div>
     );
   if (!editable)
     return (
@@ -160,11 +139,12 @@ function NameRow(props: {
     );
   return (
     <Row
+      menuReveal="hover"
       menu={
         <RowMenu title={entry.name}>
           <DropdownMenuItem onClick={() => setRenaming(true)}>
             <PencilIcon aria-hidden="true" className="size-icon shrink-0" />
-            {NAMES_WORDS.rename}
+            <span>{NAMES_WORDS.rename}</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -172,7 +152,7 @@ function NameRow(props: {
             onClick={() => map.delete(entry.id)}
           >
             <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
-            {NAMES_WORDS.remove}
+            <span>{NAMES_WORDS.remove}</span>
           </DropdownMenuItem>
         </RowMenu>
       }
@@ -182,19 +162,24 @@ function NameRow(props: {
   );
 }
 
-/** One kind's list: its names by name, then the field that adds one, which stays open for the next until left. */
+/** One kind's list: its names by name, with count badge and inline add field. */
 function NamesList(props: {
   kind: ProjectNameKind;
   entries: readonly NamesEntry[];
+  allKindNames: readonly string[];
   map: JsonMapView;
   editable: boolean;
 }): ReactNode {
-  const { kind, entries, map, editable } = props;
+  const { kind, entries, allKindNames, map, editable } = props;
   const words = NAMES_WORDS.kinds[kind];
   const { randomId } = useEnvironment();
   const [adding, setAdding] = useState(false);
+  const titleWithCount =
+    allKindNames.length > 0
+      ? `${words.heading} (${formatCount(allKindNames.length)})`
+      : words.heading;
   return (
-    <SettingsCard asSection aria-label={words.heading} title={words.heading}>
+    <SettingsCard asSection aria-label={words.heading} title={titleWithCount}>
       <div className="flex flex-col gap-2">
         {entries.length === 0 ? null : (
           <div className="-mx-3 divide-y divide-line">
@@ -202,6 +187,7 @@ function NamesList(props: {
               <NameRow
                 key={entry.id}
                 entry={entry}
+                existingNames={allKindNames}
                 map={map}
                 editable={editable}
               />
@@ -215,6 +201,8 @@ function NamesList(props: {
                 label={words.add}
                 placeholder={words.placeholder}
                 initial=""
+                existingNames={allKindNames}
+                keepOpenAfterSave
                 onDone={(name) => {
                   if (name === null) setAdding(false);
                   else if (name !== "") map.set(randomId(), { kind, name });
@@ -265,6 +253,17 @@ function OpenLists(props: { open: OpenNames }): ReactNode {
   const { map, readOnly } = props.open;
   const entries = useEntries(map);
   const editable = useSubscribable(readOnly) === null;
+  const [filter, setFilter] = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
+
+  const visibleEntries = useMemo(
+    () =>
+      filter === ""
+        ? entries
+        : entries.filter((entry) => matchesQuery(filter, [entry.name])),
+    [entries, filter],
+  );
+
   if (entries.length === 0 && !editable) {
     return (
       <EmptyHeroCard
@@ -274,20 +273,88 @@ function OpenLists(props: { open: OpenNames }): ReactNode {
       />
     );
   }
+  const showFilter = entries.length >= QUICK_FILTER_THRESHOLD || filter !== "";
+  const noMatches = filter !== "" && visibleEntries.length === 0;
   return (
     <div className="flex flex-col gap-2">
       {entries.length === 0 ? (
         <p className="text-ui text-fg-muted">{NAMES_WORDS.empty}</p>
       ) : null}
-      {PROJECT_NAME_KINDS.map((kind) => (
-        <NamesList
-          key={kind}
-          kind={kind}
-          entries={entries.filter((entry) => entry.kind === kind)}
-          map={map}
-          editable={editable}
+      {showFilter ? (
+        <InputGroup className="h-control">
+          <InputGroupAddon align="inline-start">
+            <SearchIcon aria-hidden="true" className="size-icon" />
+          </InputGroupAddon>
+          <InputGroupInput
+            ref={filterRef}
+            type="search"
+            aria-label={NAMES_WORDS.filterPlaceholder}
+            placeholder={NAMES_WORDS.filterPlaceholder}
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Escape" || filter === "") return;
+              event.preventDefault();
+              setFilter("");
+            }}
+          />
+          {filter === "" ? null : (
+            <InputGroupAddon align="inline-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={NAMES_WORDS.clearFilter}
+                className="size-6 cursor-pointer text-fg-muted hover:text-fg"
+                onClick={() => {
+                  setFilter("");
+                  filterRef.current?.focus();
+                }}
+              >
+                <XIcon aria-hidden="true" className="size-3.5" />
+              </Button>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
+      ) : null}
+      {noMatches ? (
+        <EmptyHeroCard
+          compact
+          icon={<BookOpenIcon aria-hidden="true" className="size-4" />}
+          description={NAMES_WORDS.noMatches}
+          actions={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilter("");
+                filterRef.current?.focus();
+              }}
+            >
+              {NAMES_WORDS.clearFilter}
+            </Button>
+          }
         />
-      ))}
+      ) : (
+        PROJECT_NAME_KINDS.map((kind) => {
+          const allOfKind = entries.filter((entry) => entry.kind === kind);
+          const matchingOfKind = visibleEntries.filter(
+            (entry) => entry.kind === kind,
+          );
+          if (filter !== "" && matchingOfKind.length === 0) return null;
+          return (
+            <NamesList
+              key={kind}
+              kind={kind}
+              entries={matchingOfKind}
+              allKindNames={allOfKind.map((entry) => entry.name)}
+              map={map}
+              editable={editable}
+            />
+          );
+        })
+      )}
     </div>
   );
 }

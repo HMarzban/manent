@@ -4,6 +4,46 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep To review quote attribution outside `<p>` and preserve DOM test contracts during inspector polish
+
+- Date: 2026-11-27
+
+### What happened
+
+During the three-track Rundown, Comments/Share and Editor Inspector maturity wave, two subtle test and accessibility contracts surfaced: (1) adding an attribution label `<span>` inside `To review`'s quoted `<p>` elements and turning the row header into a clickable `<Row onActivate>` broke `apps/web/test/to-review.dom.test.tsx`, which asserts exact `p.textContent` values and expects focus on the first action button (`Keep as merged`) inside `[data-review-block]`; and (2) `PrompterControlBar`'s `Play`/`Pause` button is asserted to carry `aria-pressed` in `apps/web/test/prompter-remote-scroll.dom.test.tsx`, while `Library` rundowns had a `<button>` nested inside a clickable `<Row>`, tripping WCAG 4.1.2 `nested-interactive`.
+
+### How it was caught
+
+By running the targeted `apps/web/test/` DOM regression suites immediately after each track (`to-review.dom.test.tsx`, `prompter-remote-scroll.dom.test.tsx`, `share-dialog.dom.test.tsx`) and auditing row disclosures against `Row`'s `leadingControl` slot.
+
+### Rule
+
+Place attribution labels on `To review` and suggestion wordings as sibling `<span>` elements above each quoted `<p>` (keeping `<p>` text pure) and keep the row header non-focusable so `focusPending()` lands on the primary decision button. Always place disclosure chevrons on clickable `<Row>` items in `Row`'s `leadingControl` sibling slot (never inside `children`), and grep existing DOM test assertions before altering ARIA attributes on transport buttons or dialog labels.
+
+### Enforced by
+
+`apps/web/test/to-review.dom.test.tsx`, `apps/web/test/prompter-remote-scroll.dom.test.tsx`, `apps/web/test/rundown-a11y.dom.test.tsx`, `apps/web/test/comments-tab.dom.test.tsx`, and `apps/web/test/inspector-writing-tools.dom.test.tsx`.
+
+## Narrow shellState subscriptions off the caret path and guard opaque URL origins in companion launchers
+
+- Date: 2026-11-27
+
+### What happened
+
+Three subtle runtime and test defects surfaced while building Concept A's Smart Demo Stage: (1) subscribing `DemoBarControls` directly to raw `shellState` (whose `spaceBeforeSet` flips as the caret moves across blocks) and `WritersControl` directly to `useEditorFact("blockId")` re-rendered demo toolbar components on caret movement; (2) `companionUrlFor` passed `window.location.origin || "http://manent.invalid"` to `new URL(...)`, which threw on opaque `about:blank` origins where `location.origin` is the truthy string `"null"`; and (3) picking the first non-current person from `DEMO_PEOPLE` paired Dana with Sam on Lanternfield Studios (`heavy`), where only Dana and Priya are members, and `TourFloatingBar` broke standalone unit mounts when it called `useServices()` unconditionally.
+
+### How it was caught
+
+By the Principal Architecture audit before implementation and by DOM unit tests in `apps/web/test/demo-stage.dom.test.tsx` and `apps/web/test/tour-redesign.dom.test.tsx`.
+
+### Rule
+
+Never subscribe persistent shell chrome to full `shellState` or `useEditorFact("blockId")` when it only needs route, document or panel identity—use `useNarrowedShellState()` and read caret facts lazily from `FactsContext` inside click handlers. When constructing relative URLs from `window.location.origin`, reject `"null"` as well as empty strings (`origin && origin !== "null"`). Resolve demo companions against the active workspace's `memberUserIds`, and keep `TourFloatingBar` free of `ServicesProvider` hooks so standalone mounts remain pure.
+
+### Enforced by
+
+`apps/web/src/demo/demo-context.ts`, `apps/web/src/demo/demo-stage-hooks.ts`, `apps/web/src/demo/writers-control.tsx`, `apps/web/test/demo-stage.dom.test.tsx`, and `apps/web/test/tour-redesign.dom.test.tsx`.
+
 ## Gate initial selectionEmpty facts on blockId and rank runnable palette rows ahead of unavailable sections
 
 - Date: 2026-11-27

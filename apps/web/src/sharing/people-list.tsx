@@ -2,7 +2,7 @@
 // access. The owner changes a role or removes it on the row; anyone else sees the list only.
 import { Avatar, Button, Row, SHARING_WORDS, formatWhen } from "@manent/ui";
 import { UsersIcon } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useEnvironment } from "../services/context.tsx";
@@ -37,6 +37,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
   const { person, editing, colours, actions } = props;
   const { now } = useEnvironment();
   const nameId = useId();
+  const [busy, setBusy] = useState(false);
   const refusal = props.refusals.get(`person:${person.userId}`) ?? null;
   const line = secondLine(person, now());
   // a refusal takes the second line's place until the row's next change goes through
@@ -88,7 +89,11 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         value={shareRole}
         labelledBy={nameId}
         className="w-36"
-        onChange={(chosen) => void actions.changeRole(person, chosen)}
+        onChange={(chosen) => {
+          if (busy) return;
+          setBusy(true);
+          void actions.changeRole(person, chosen).finally(() => setBusy(false));
+        }}
       />
     );
   const remove = !editing
@@ -98,7 +103,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
           <span
             key="remove-spacer"
             aria-hidden="true"
-            className="hidden sm:inline-block sm:w-16"
+            className="hidden sm:inline-block sm:min-w-16"
           />,
         ]
       : [
@@ -106,9 +111,14 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
             key="remove"
             variant="ghost"
             size="sm"
-            className="w-16 text-fg-muted hover:text-danger"
+            disabled={busy}
+            className="min-w-16 text-fg-muted hover:text-danger"
             aria-label={WORDS.removeName(person.name)}
-            onClick={() => void actions.removePerson(person)}
+            onClick={() => {
+              if (busy) return;
+              setBusy(true);
+              void actions.removePerson(person).finally(() => setBusy(false));
+            }}
           >
             {WORDS.remove}
           </Button>,
@@ -136,6 +146,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
 
 function GroupRow(props: ListProps & { group: ShareGroup }): ReactNode {
   const { group, access, editing, actions } = props;
+  const [busy, setBusy] = useState(false);
   const name = groupName(group.groupId);
   const members = access.people.filter(
     (person) => person.groupId === group.groupId,
@@ -159,9 +170,16 @@ function GroupRow(props: ListProps & { group: ShareGroup }): ReactNode {
                 key="remove"
                 variant="ghost"
                 size="sm"
-                className="text-fg-muted hover:text-danger"
+                disabled={busy}
+                className="min-w-16 text-fg-muted hover:text-danger"
                 aria-label={WORDS.removeName(name)}
-                onClick={() => void actions.removeGroup(group, name)}
+                onClick={() => {
+                  if (busy) return;
+                  setBusy(true);
+                  void actions
+                    .removeGroup(group, name)
+                    .finally(() => setBusy(false));
+                }}
               >
                 {WORDS.remove}
               </Button>,
@@ -188,6 +206,7 @@ export function PeopleList(props: ListProps): ReactNode {
   return (
     <div
       role="list"
+      aria-label={WORDS.peopleListLabel}
       className="mn-table flex flex-col [&_.mn-row]:flex-wrap [&_.mn-row]:gap-2 [&_.mn-row]:py-2 sm:[&_.mn-row]:flex-nowrap"
     >
       {people.map((person, index) => (

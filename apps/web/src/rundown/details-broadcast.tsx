@@ -287,9 +287,20 @@ export function DetailsBroadcast(props: { readonly docId: string }): ReactNode {
         <span
           role="status"
           aria-live="polite"
-          className={statusTone(state.status)}
+          className={`inline-flex items-center gap-1.5 ${statusTone(state.status)}`}
         >
-          {statusWord(state.status)}
+          <span
+            aria-hidden="true"
+            className="mn-status-dot"
+            data-tone={
+              state.status === "live"
+                ? "ok"
+                : state.status === "lost"
+                  ? "attention"
+                  : "muted"
+            }
+          />
+          <span>{statusWord(state.status)}</span>
         </span>
       </div>
       <div className="flex items-center justify-between gap-2">

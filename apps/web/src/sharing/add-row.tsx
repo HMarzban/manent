@@ -7,7 +7,9 @@ import {
   SHARING_WORDS,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@manent/ui";
@@ -27,12 +29,22 @@ const WORDS = SHARING_WORDS;
 type Target =
   { kind: "person"; choice: SignInChoice } | { kind: "group"; groupId: string };
 
+interface TargetOption {
+  readonly value: string;
+  readonly label: string;
+  readonly target: Target;
+}
+
 /** Who may be added: people with an account and no role yet, then the groups not yet given access. */
 function targetsOf(
   access: ShareAccess,
   choices: readonly SignInChoice[],
-): readonly { value: string; label: string; target: Target }[] {
-  const people = choices
+): {
+  readonly people: readonly TargetOption[];
+  readonly groups: readonly TargetOption[];
+  readonly all: readonly TargetOption[];
+} {
+  const people: TargetOption[] = choices
     .filter(
       (choice) =>
         choice.registered &&
@@ -43,14 +55,42 @@ function targetsOf(
       label: choice.name,
       target: { kind: "person", choice } as const,
     }));
-  const groups = ADDABLE_GROUP_IDS.filter(
+  const groups: TargetOption[] = ADDABLE_GROUP_IDS.filter(
     (id) => !access.groups.some((group) => group.groupId === id),
   ).map((groupId) => ({
     value: `group:${groupId}`,
     label: groupName(groupId),
     target: { kind: "group", groupId } as const,
   }));
-  return [...people, ...groups];
+  return { people, groups, all: [...people, ...groups] };
+}
+
+function TargetItem(props: {
+  readonly item: TargetOption;
+  readonly colours: ReadonlyMap<string, number>;
+}): ReactNode {
+  const { item, colours } = props;
+  return (
+    <SelectItem value={item.value}>
+      {item.target.kind === "person" ? (
+        <Avatar
+          name={item.label}
+          initials={initialsOf(item.label)}
+          colour={colours.get(item.target.choice.userId) ?? null}
+          size="sm"
+          decorative
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="flex size-avatar-sm shrink-0 items-center justify-center rounded-full border border-line bg-raised text-fg-muted"
+        >
+          <UsersIcon className="size-3" />
+        </span>
+      )}
+      <span className="truncate">{item.label}</span>
+    </SelectItem>
+  );
 }
 
 export function AddRow(props: {
@@ -63,23 +103,30 @@ export function AddRow(props: {
   const { actions, colours } = props;
   const [chosen, setChosen] = useState<string | null>(null);
   const [role, setRole] = useState<ShareRole | null>(null);
+  const [busy, setBusy] = useState(false);
   // a refusal is said while the one refused is still chosen
   const [tried, setTried] = useState<string | null>(null);
   const reasonId = useId();
-  const items = targetsOf(props.access, props.choices);
+  const grouped = targetsOf(props.access, props.choices);
+  const items = grouped.all;
   const target = items.find((item) => item.value === chosen)?.target ?? null;
   const needsRole = target?.kind === "person" && role === null;
 
   const add = async (): Promise<void> => {
-    if (target === null) return;
+    if (target === null || busy) return;
+    setBusy(true);
     setTried(chosen);
-    const added =
-      target.kind === "group"
-        ? await actions.addGroup(target.groupId, groupName(target.groupId))
-        : role !== null && (await actions.addPerson(target.choice, role));
-    if (!added) return;
-    setChosen(null);
-    setRole(null);
+    try {
+      const added =
+        target.kind === "group"
+          ? await actions.addGroup(target.groupId, groupName(target.groupId))
+          : role !== null && (await actions.addPerson(target.choice, role));
+      if (!added) return;
+      setChosen(null);
+      setRole(null);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -88,36 +135,48 @@ export function AddRow(props: {
         <Select
           items={items}
           value={chosen}
+          disabled={items.length === 0 || busy}
           onValueChange={(value) => setChosen(value)}
         >
           <SelectTrigger
             aria-label={WORDS.addPlaceholder}
             className="min-w-0 flex-1 bg-raised!"
           >
-            <SelectValue placeholder={WORDS.addPlaceholder} />
+            <SelectValue
+              placeholder={
+                items.length === 0 ? WORDS.everyoneAdded : WORDS.addPlaceholder
+              }
+            />
           </SelectTrigger>
           <SelectContent>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.target.kind === "person" ? (
-                  <Avatar
-                    name={item.label}
-                    initials={initialsOf(item.label)}
-                    colour={colours.get(item.target.choice.userId) ?? null}
-                    size="sm"
-                    decorative
-                  />
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    className="flex size-avatar-sm shrink-0 items-center justify-center rounded-full border border-line bg-raised text-fg-muted"
-                  >
-                    <UsersIcon className="size-3" />
-                  </span>
-                )}
-                <span className="truncate">{item.label}</span>
-              </SelectItem>
-            ))}
+            {grouped.people.length > 0 && grouped.groups.length > 0 ? (
+              <>
+                <SelectGroup>
+                  <SelectLabel>{WORDS.peopleGroup}</SelectLabel>
+                  {grouped.people.map((item) => (
+                    <TargetItem
+                      key={item.value}
+                      item={item}
+                      colours={colours}
+                    />
+                  ))}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>{WORDS.groupsGroup}</SelectLabel>
+                  {grouped.groups.map((item) => (
+                    <TargetItem
+                      key={item.value}
+                      item={item}
+                      colours={colours}
+                    />
+                  ))}
+                </SelectGroup>
+              </>
+            ) : (
+              items.map((item) => (
+                <TargetItem key={item.value} item={item} colours={colours} />
+              ))
+            )}
           </SelectContent>
         </Select>
         {target?.kind === "group" ? null : (
@@ -125,7 +184,7 @@ export function AddRow(props: {
         )}
         <Button
           variant={target !== null && !needsRole ? "default" : "outline"}
-          disabled={target === null}
+          disabled={target === null || busy}
           aria-disabled={needsRole ? true : undefined}
           aria-describedby={needsRole ? reasonId : undefined}
           onClick={() => {

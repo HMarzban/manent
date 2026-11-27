@@ -77,7 +77,7 @@ export function handleGridKeyDown(ctx: GridKeyContext): void {
   }
 
   if (
-    event.key === "Enter" &&
+    (event.key === "Enter" || event.key === "F2") &&
     !event.ctrlKey &&
     !event.metaKey &&
     !event.altKey &&

@@ -1,7 +1,7 @@
 // Inline typed Writer cell editor offering the project's people matched by first name or full name.
 import { RUNDOWN_WORDS } from "@manent/ui";
 import type { GridEditorContext } from "@manent/ui";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import type { RundownPerson } from "./rundown-access.ts";
 
@@ -27,8 +27,10 @@ export function WriterEditor(props: {
   const { context, people } = props;
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxRef = useRef<HTMLUListElement>(null);
   const settled = useRef(false);
   const [highlighted, setHighlighted] = useState(-1);
+  const [openUpward, setOpenUpward] = useState(false);
   const matches = filterWriterPeople(people, context.value);
 
   useLayoutEffect(() => {
@@ -41,7 +43,18 @@ export function WriterEditor(props: {
       const end = input.value.length;
       input.setSelectionRange(end, end);
     }
+    const rect = input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setOpenUpward(spaceBelow < 210 && rect.top > spaceBelow);
   }, [context.initialKey]);
+
+  useEffect(() => {
+    if (highlighted < 0) return;
+    const opt = listboxRef.current?.querySelector<HTMLElement>(
+      `[id="${listboxId}-${highlighted}"]`,
+    );
+    opt?.scrollIntoView?.({ block: "nearest" });
+  }, [highlighted, listboxId]);
 
   const pick = (
     name: string,
@@ -141,10 +154,15 @@ export function WriterEditor(props: {
       />
       {matches.length === 0 ? null : (
         <ul
+          ref={listboxRef}
           id={listboxId}
           role="listbox"
           aria-label={RUNDOWN_WORDS.columns.writer}
-          className="absolute start-0 top-full z-30 mt-1 max-h-48 min-w-full overflow-auto rounded-surface border border-line bg-overlay p-1 shadow-overlay"
+          className={
+            openUpward
+              ? "absolute start-0 bottom-full z-30 mb-1 max-h-48 min-w-full overflow-auto rounded-surface border border-line bg-overlay p-1 shadow-overlay"
+              : "absolute start-0 top-full z-30 mt-1 max-h-48 min-w-full overflow-auto rounded-surface border border-line bg-overlay p-1 shadow-overlay"
+          }
         >
           {matches.map((person, index) => (
             <li

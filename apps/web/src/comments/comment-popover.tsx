@@ -127,6 +127,21 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
     props;
   const state = useComments(docId);
   const rootRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const active = document.activeElement;
+    openerRef.current = active instanceof HTMLElement ? active : null;
+    if (mode.kind === "thread") {
+      rootRef.current?.focus({ preventScroll: true });
+    }
+    return () => {
+      const opener = openerRef.current;
+      if (opener !== null && opener.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const el = rootRef.current;
@@ -155,6 +170,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       onClose();
     }
   };
@@ -265,10 +281,12 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
     <div
       ref={rootRef}
       role="dialog"
+      tabIndex={-1}
       aria-label={heading}
       data-open=""
+      data-popup-open=""
       data-tour="comment_popover"
-      className="fixed z-50 flex w-popover max-w-[calc(100vw-1rem)] animate-in flex-col overflow-y-auto rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95"
+      className="fixed z-50 flex w-popover max-w-[calc(100vw-1rem)] animate-in flex-col overflow-y-auto overscroll-contain rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line outline-none duration-(--dur-fast) ease-out fade-in-0 zoom-in-95"
       style={{
         left: mode.place.left,
         top: mode.place.top,

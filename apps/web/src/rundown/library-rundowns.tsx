@@ -12,13 +12,9 @@ import {
   formatWhen,
   useCommandState,
 } from "@manent/ui";
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  ListOrderedIcon,
-} from "lucide-react";
+import { ChevronRightIcon, ListOrderedIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode, SyntheticEvent } from "react";
+import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { KindIcon } from "../screens/library/project-kind.tsx";
 import { PROJECT_ROW_ITEMS } from "../screens/library/project-row-items.ts";
@@ -58,8 +54,6 @@ type FlatRow =
   | { readonly kind: "rundown"; readonly item: RundownViewItem }
   | { readonly kind: "story"; readonly story: StoryViewItem };
 
-const stopRowEvent = (event: SyntheticEvent): void => event.stopPropagation();
-
 function formatLastEdited(edited: EpisodeLastEdited, now: number): string {
   if (edited === null) return RUNDOWN_WORDS.dash;
   if ("changedSinceOpened" in edited) return LIBRARY_WORDS.changedSinceOpened;
@@ -82,27 +76,39 @@ function RundownListRow(props: {
       : RUNDOWN_WORDS.dash;
   const dateLabel =
     (item.airDate === "" ? "" : formatAirDate(item.airDate, now)) || fallback;
-  const ToggleIcon = expanded ? ChevronDownIcon : ChevronRightIcon;
   const { trailing, ...place } = placeProps(item.place, shell);
+  const leadingControl =
+    item.stories.length > 0 ? (
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-label={
+          expanded
+            ? RUNDOWN_WORDS.collapseRundown(dateLabel)
+            : RUNDOWN_WORDS.expandRundown(dateLabel)
+        }
+        className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle hover:text-fg"
+        onClick={onToggle}
+      >
+        <ChevronRightIcon
+          aria-hidden="true"
+          data-open={expanded ? "true" : undefined}
+          className="mn-tree-chevron size-icon"
+        />
+      </button>
+    ) : (
+      <span aria-hidden="true" className="size-6 shrink-0" />
+    );
   return (
-    <Row onActivate={onOpen} trailing={trailing} {...place}>
+    <Row
+      onActivate={onOpen}
+      leadingControl={leadingControl}
+      trailing={trailing}
+      {...place}
+    >
       <span className="flex min-w-0 items-center gap-2">
-        <span className="flex min-w-0 flex-1 items-center gap-1">
-          {item.stories.length > 0 ? (
-            <button
-              type="button"
-              aria-expanded={expanded}
-              aria-label={dateLabel}
-              className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle hover:text-fg"
-              onClick={(event) => (stopRowEvent(event), onToggle())}
-              onKeyDown={stopRowEvent}
-            >
-              <ToggleIcon aria-hidden="true" className="size-icon" />
-            </button>
-          ) : (
-            <span aria-hidden="true" className="size-6 shrink-0" />
-          )}
-          <span className="truncate font-semibold">{dateLabel}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold">
+          {dateLabel}
         </span>
         <span className={cn(COL_AIR, "text-meta text-fg-muted")}>
           {item.airAt === null ? RUNDOWN_WORDS.dash : formatTime(item.airAt)}

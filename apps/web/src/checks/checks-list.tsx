@@ -116,31 +116,58 @@ function LiveChecksList(props: {
     editor.editable;
   return (
     <CollapsibleChecks count={checks.length} collapsible={collapsible}>
-      <ul className="flex flex-col gap-2">
+      <ul className="@container flex flex-col gap-2">
         {checks.map(({ key, sentence, action }) => {
           const detail = detailOfCheck(docId, key);
+          const anchor = detail?.anchor ?? null;
+          const jump =
+            anchor !== null && editor !== null
+              ? (): void => {
+                  services.editor.run({
+                    kind: "go_to",
+                    blockId: anchor.blockId,
+                    offset: anchor.start,
+                  });
+                }
+              : null;
           return (
-            <li key={key} className="group flex items-start gap-2">
+            <li
+              key={key}
+              className="group flex flex-wrap items-start gap-x-2 gap-y-1.5"
+            >
               <CheckMark ok={false} />
-              <span className="min-w-0 flex-1">{sentence}</span>
-              {action === null ? null : (
-                <Button variant="outline" size="sm" onClick={action.run}>
-                  {action.label}
-                </Button>
+              {jump !== null ? (
+                <button
+                  type="button"
+                  title={CHECKS_WORDS.jumpToLine}
+                  onClick={jump}
+                  className="min-w-0 flex-1 cursor-pointer text-start text-ui text-fg underline-offset-2 hover:underline"
+                >
+                  {sentence}
+                </button>
+              ) : (
+                <span className="min-w-0 flex-1">{sentence}</span>
               )}
-              <FlagControl
-                docId={docId}
-                checkKey={key}
-                sentence={sentence}
-                subject={detail?.subject ?? sentence}
-                anchor={detail?.anchor ?? null}
-                canFlag={canFlag}
-                flags={commentsState.flags}
-                threads={commentsState.threads}
-                knownPeople={commentsState.people}
-                presentPeople={presentPeople}
-                quiet={collapsible}
-              />
+              <div className="flex shrink-0 items-center gap-1.5 @max-[20rem]:ms-5 @max-[20rem]:w-full">
+                {action === null ? null : (
+                  <Button variant="outline" size="sm" onClick={action.run}>
+                    {action.label}
+                  </Button>
+                )}
+                <FlagControl
+                  docId={docId}
+                  checkKey={key}
+                  sentence={sentence}
+                  subject={detail?.subject ?? sentence}
+                  anchor={anchor}
+                  canFlag={canFlag}
+                  flags={commentsState.flags}
+                  threads={commentsState.threads}
+                  knownPeople={commentsState.people}
+                  presentPeople={presentPeople}
+                  quiet={collapsible}
+                />
+              </div>
             </li>
           );
         })}

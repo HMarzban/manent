@@ -47,7 +47,8 @@ export function RowReadout(props: { docId: string }): ReactNode {
   return (
     <span
       data-tour="status:row"
-      className="shrink-0 px-2 text-meta font-normal text-fg-muted tabular-nums"
+      title={text}
+      className="max-w-64 shrink-0 truncate px-2 text-meta font-normal text-fg-muted tabular-nums"
     >
       {text}
     </span>

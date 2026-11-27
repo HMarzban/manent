@@ -1,10 +1,11 @@
-// Details → Scene: the caret's scene, its synopsis, and Omit scene or Bring back scene while page numbers are locked.
+// Details → Scene: the caret's scene, its length and omitted badge, synopsis, and Omit/Bring back actions.
 import {
   CommandButton,
   Input,
   Label,
   PLACE_WORDS,
   SCENES_WORDS,
+  useCommandState,
 } from "@manent/ui";
 import { useContext, useId, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -32,7 +33,7 @@ function useOutlineRowOf(blockId: string | null): OutlineRow | null {
   );
 }
 
-/** What is typed commits on Enter or when the field loses focus, never per key; read-only for a person who cannot edit. */
+/** What is typed commits on Enter or blur and reverts on Escape; read-only for a person who cannot edit. */
 function SynopsisField(props: {
   row: OutlineRow;
   readOnly: boolean;
@@ -54,9 +55,16 @@ function SynopsisField(props: {
       <Input
         id={id}
         readOnly={readOnly}
+        placeholder={readOnly ? undefined : SCENES_WORDS.synopsisPlaceholder}
         value={draft ?? row.synopsis}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            return;
+          }
           if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           event.preventDefault();
           commit();
@@ -73,25 +81,49 @@ export function SceneSection(props: { docId: string }): ReactNode {
   const sceneId = useEditorFact("sceneId");
   const row = useOutlineRowOf(sceneId);
   const editable = useCanEdit(props.docId);
+  const omitCmd = useCommandState("production.omitScene");
+  const bringBackCmd = useCommandState("production.bringBackScene");
   if (row === null) return null;
+  const showActions = omitCmd.visible || bringBackCmd.visible;
   return (
     <div className="flex flex-col gap-2">
-      <p className="truncate text-ui">
-        {row.number === null
-          ? row.heading
-          : PLACE_WORDS.scene(row.number, row.heading)}
-      </p>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="min-w-0 flex-1 truncate text-ui font-medium text-fg">
+          {row.number === null
+            ? row.heading
+            : PLACE_WORDS.scene(row.number, row.heading)}
+        </p>
+        {row.omitted ? (
+          <span className="mn-tag shrink-0 font-medium text-attention">
+            {SCENES_WORDS.omitted}
+          </span>
+        ) : null}
+        {row.eighths !== null ? (
+          <span
+            title={SCENES_WORDS.lengthPages(row.eighths)}
+            className="mn-tag shrink-0 tabular-nums"
+          >
+            {SCENES_WORDS.length(row.eighths)}
+          </span>
+        ) : null}
+      </div>
       {row.number === null ? null : (
         <SynopsisField key={row.blockId} row={row} readOnly={!editable} />
       )}
-      <div className="flex gap-2">
-        <CommandButton id="production.omitScene" variant="outline" size="sm" />
-        <CommandButton
-          id="production.bringBackScene"
-          variant="outline"
-          size="sm"
-        />
-      </div>
+      {showActions ? (
+        <div className="flex flex-wrap gap-2">
+          <CommandButton
+            id="production.omitScene"
+            variant="outline"
+            size="sm"
+          />
+          <CommandButton
+            id="production.bringBackScene"
+            variant="outline"
+            size="sm"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

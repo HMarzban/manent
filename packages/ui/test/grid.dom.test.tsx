@@ -4,7 +4,7 @@ import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { EditableGrid } from "../src/index.ts";
+import { EditableGrid, StateBar } from "../src/index.ts";
 import type { GridColumn, GridRow } from "../src/index.ts";
 
 withDom();
@@ -261,4 +261,107 @@ test("row presence attaches to the primary or first non-numeric column even when
     el.querySelector('[data-col-id="segment"] [data-presence]')?.textContent,
     el.querySelector('[data-col-id="dur"] [data-presence]'),
   ]).toEqual(["DS", null]);
+});
+
+test("F2 enters edit mode, active cell carries data-active-cell, and corner mark has a 24x24 button target", () => {
+  const columns: readonly GridColumn[] = [
+    { id: "title", label: "Title", editable: true, flex: true },
+  ];
+  const rows: readonly GridRow[] = [
+    {
+      id: "r1",
+      kind: "item",
+      label: "Opening",
+      cells: {
+        title: {
+          value: "Opening",
+          cornerMark: { label: "Dana changed this at 18:52", onOpen: () => {} },
+        },
+      },
+    },
+  ];
+  const { el } = render(
+    <EditableGrid
+      label="Rundown"
+      columns={columns}
+      rows={rows}
+      selectedRowIds={new Set()}
+      activeCell={{ rowId: "r1", columnId: "title" }}
+      readOnly={false}
+      surface={null}
+      onActiveCellChange={() => {}}
+      onSelectionChange={() => {}}
+      onCommitCell={() => true}
+    />,
+  );
+  const cell = el.querySelector<HTMLElement>(
+    '[data-row-id="r1"][data-col-id="title"]',
+  )!;
+  const cornerBtn = el.querySelector<HTMLButtonElement>(
+    'button[data-corner-mark="true"]',
+  )!;
+  expect([
+    cell.getAttribute("data-active-cell"),
+    cornerBtn.className.includes("size-6"),
+  ]).toEqual(["true", true]);
+
+  act(() => {
+    cell.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "F2", bubbles: true }),
+    );
+  });
+  expect(el.querySelector("input")).not.toBeNull();
+});
+
+test("double-clicking a column resize handle resets width to defaultWidthPx and handle stays out of Tab order", () => {
+  const resizes: [string, number][] = [];
+  const columns: readonly GridColumn[] = [
+    { id: "dur", label: "Dur", widthPx: 140, defaultWidthPx: 80 },
+  ];
+  const { el } = render(
+    <EditableGrid
+      label="Rundown"
+      columns={columns}
+      rows={ROWS}
+      selectedRowIds={new Set()}
+      activeCell={null}
+      readOnly={false}
+      surface={null}
+      onActiveCellChange={() => {}}
+      onSelectionChange={() => {}}
+      onCommitCell={() => true}
+      onColumnResize={(columnId, widthPx) => resizes.push([columnId, widthPx])}
+    />,
+  );
+  const handle = el.querySelector<HTMLElement>('[data-resize-handle="dur"]')!;
+  expect(handle.getAttribute("tabindex")).toBe("-1");
+  act(() => {
+    handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  expect(resizes).toEqual([["dur", 80]]);
+});
+
+test("StateBar accents Under delta in text-ok and uses tabular numerals", () => {
+  const { el } = render(
+    <StateBar
+      left={{
+        sentence: "Air 23:35 · Target 12:00 · Under 1:12",
+        attention: false,
+        chip: null,
+        actions: [],
+        dismiss: null,
+      }}
+      right={null}
+      run={() => {}}
+      registered={() => false}
+    />,
+  );
+  const under = [...el.querySelectorAll("span")].find(
+    (s) => s.textContent === "Under 1:12",
+  );
+  const sentence = el.querySelector("[title]");
+  expect([
+    under?.className.includes("text-ok"),
+    sentence?.className.includes("tabular-nums"),
+  ]).toEqual([true, true]);
 });

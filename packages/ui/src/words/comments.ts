@@ -59,6 +59,25 @@ export const COMMENTS_WORDS = {
   notePlaceholder: "Note — only writers see this",
   filterOpen: "Open",
   filterMine: "Mine",
+  filterAll: "All",
+  filterResolved: "Resolved",
+  filterWithCount: (label: string, count: number): string =>
+    count > 0 ? `${label} (${formatCount(count)})` : label,
+  showOpen: "Show open",
+  emptyMine: "No comments for you yet.",
+  emptyRoundOpen: "Every comment in this round is resolved.",
+  emptyRoundResolved: "No resolved comments in this round yet.",
+  emptyRoundAll: "No comments in this round yet.",
+  earlierReplies: (count: number): string =>
+    count === 1
+      ? "Show 1 earlier reply"
+      : `Show ${formatCount(count)} earlier replies`,
+  roundProgress: (resolved: number, total: number): string =>
+    `${formatCount(resolved)} of ${formatCount(total)} resolved`,
+  roundOpenCount: (open: number, total: number): string =>
+    `${formatCount(open)}/${formatCount(total)}`,
+  loadingComments: "Opening comments…",
+  loadingPeople: "Opening people…",
   roundTitle: (name: string, dayDate: string): string => `${name} · ${dayDate}`,
   rename: "Rename",
   roundNameField: "Round name",

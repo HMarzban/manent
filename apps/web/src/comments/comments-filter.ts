@@ -1,4 +1,4 @@
-// Pure filtering and sorting helpers for the Comments tab.
+// Pure filtering, counting and sorting helpers for the Comments tab.
 import type {
   CommentFlag,
   CommentItem,
@@ -17,6 +17,20 @@ export interface ThreadEntry {
 export interface RoundEntry {
   readonly id: string;
   readonly round: CommentRound;
+}
+
+export type RoundThreadFilter = "all" | "open" | "resolved";
+
+export interface CommentFilterCounts {
+  readonly open: number;
+  readonly mine: number;
+  readonly writers: number;
+}
+
+export interface RoundTriageStats {
+  readonly total: number;
+  readonly open: number;
+  readonly resolved: number;
 }
 
 export function sortedRounds(
@@ -44,12 +58,10 @@ export function isMineThread(
   return flags.some((flag) => flag.flaggedUserId === userId);
 }
 
-export function filteredThreads(
-  state: ScriptCommentsState,
-  filter: string,
-  userId: string,
-): readonly ThreadEntry[] {
-  if (filter === "writers") return [];
+function indexThreadDetails(state: ScriptCommentsState): {
+  byThreadItems: Map<string, CommentItem[]>;
+  byThreadFlags: Map<string, CommentFlag[]>;
+} {
   const byThreadItems = new Map<string, CommentItem[]>();
   for (const item of Object.values(state.items)) {
     const list = byThreadItems.get(item.threadId) ?? [];
@@ -62,6 +74,50 @@ export function filteredThreads(
     list.push(flag);
     byThreadFlags.set(flag.threadId, list);
   }
+  return { byThreadItems, byThreadFlags };
+}
+
+export function commentCounts(
+  state: ScriptCommentsState,
+  userId: string,
+): CommentFilterCounts {
+  const { byThreadItems, byThreadFlags } = indexThreadDetails(state);
+  let open = 0;
+  let mine = 0;
+  for (const [id, thread] of Object.entries(state.threads)) {
+    if (thread.state.kind === "open") open += 1;
+    if (thread.state.kind === "resolved" && thread.roundId !== null) continue;
+    const items = byThreadItems.get(id) ?? [];
+    const flags = byThreadFlags.get(id) ?? [];
+    if (isMineThread(thread, items, flags, userId)) mine += 1;
+  }
+  return { open, mine, writers: state.canEdit ? state.notes.length : 0 };
+}
+
+export function roundStats(
+  state: ScriptCommentsState,
+  roundId: string,
+): RoundTriageStats {
+  let total = 0;
+  let open = 0;
+  let resolved = 0;
+  for (const thread of Object.values(state.threads)) {
+    if (thread.roundId !== roundId) continue;
+    total += 1;
+    if (thread.state.kind === "open") open += 1;
+    else resolved += 1;
+  }
+  return { total, open, resolved };
+}
+
+export function filteredThreads(
+  state: ScriptCommentsState,
+  filter: string,
+  userId: string,
+  roundState: RoundThreadFilter = "all",
+): readonly ThreadEntry[] {
+  if (filter === "writers") return [];
+  const { byThreadItems, byThreadFlags } = indexThreadDetails(state);
   const roundId = filter.startsWith("round:")
     ? filter.slice("round:".length)
     : null;
@@ -74,6 +130,9 @@ export function filteredThreads(
     const flags = byThreadFlags.get(id) ?? [];
     if (roundId !== null) {
       if (thread.roundId !== roundId) continue;
+      if (roundState === "open" && thread.state.kind !== "open") continue;
+      if (roundState === "resolved" && thread.state.kind !== "resolved")
+        continue;
     } else if (filter === "open") {
       if (thread.state.kind !== "open") continue;
     } else if (filter === "mine") {

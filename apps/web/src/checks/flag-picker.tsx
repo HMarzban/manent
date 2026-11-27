@@ -224,7 +224,7 @@ export function FlagControl(props: {
             disabled={writing}
             className={
               quiet
-                ? "shrink-0 text-fg-muted hover:text-fg sm:opacity-0 sm:transition-opacity sm:duration-(--dur-fast) sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 sm:focus-visible:opacity-100 sm:data-[popup-open]:opacity-100"
+                ? "shrink-0 text-fg-muted hover:text-fg [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:duration-(--dur-fast) [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:data-[popup-open]:opacity-100"
                 : "shrink-0"
             }
           />
@@ -264,9 +264,9 @@ export function FlagControl(props: {
           ) : loading ? (
             <FlagPickerSkeleton />
           ) : (
-            <p className="px-2 py-1 text-ui text-fg-muted">
-              {CHECKS_WORDS.flagEmpty}
-            </p>
+            <DropdownMenuItem disabled className="text-ui text-fg-muted">
+              <span>{CHECKS_WORDS.flagEmpty}</span>
+            </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
       </DropdownMenuContent>

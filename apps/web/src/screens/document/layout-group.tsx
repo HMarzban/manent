@@ -98,12 +98,19 @@ function LayoutField(props: {
         id={id}
         role="spinbutton"
         inputMode="decimal"
+        aria-valuemin={0}
         aria-valuenow={current === null ? undefined : unit.amount(current)}
         aria-valuetext={current === null ? undefined : unit.shown(current)}
         readOnly={props.readOnly}
         value={draft ?? (value === null ? "" : unit.shown(value))}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            return;
+          }
           const by = ARROW_STEPS[event.key];
           if (by === undefined && event.key !== "Enter") return;
           event.preventDefault();
@@ -111,7 +118,7 @@ function LayoutField(props: {
           else step(by);
         }}
         onBlur={commit}
-        className="h-control w-24 text-ui"
+        className="h-control w-24 text-ui tabular-nums"
       />
     </div>
   );

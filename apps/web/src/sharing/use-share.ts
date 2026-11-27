@@ -14,7 +14,7 @@ import { shareHeld } from "./share-store.ts";
 
 export interface ShareView {
   /** `sign_in`: the script never synced, or the person has no session; `offline`: the last answer heard is listed. */
-  state: "ready" | "sign_in" | "offline";
+  state: "ready" | "sign_in" | "offline" | "unavailable";
   /** True while the server is being asked who has access. */
   loading: boolean;
   /** Null until the server first answers. */
@@ -25,6 +25,7 @@ export interface ShareView {
   /** The people a role may be given to; asked only for the owner. */
   choices: readonly SignInChoice[];
   actions: ShareActions;
+  retry(): void;
 }
 
 /** This tab's token, while the tab is still `userId`. */
@@ -49,33 +50,40 @@ function useAsked(
   docId: string,
   asking: boolean,
   owner: boolean,
+  attempt: number,
 ): {
   unauthenticated: boolean;
+  unavailable: boolean;
   loading: boolean;
   choices: readonly SignInChoice[];
 } {
   const { userId } = useServices();
   const held = shareHeld(userId, docId);
   const [unauthenticated, setUnauthenticated] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [loading, setLoading] = useState(asking);
   const [choices, setChoices] = useState<readonly SignInChoice[]>([]);
   useEffect(() => {
     if (!asking) {
       setLoading(false);
+      setUnavailable(false);
       return undefined;
     }
     let shown = true;
     setLoading(true);
+    setUnavailable(false);
     void requests
       .access(docId)
       .then(
         (answer) => {
           if (!shown) return;
-          setUnauthenticated(!answer.ok && answer.code === "unauthenticated");
+          const unauth = !answer.ok && answer.code === "unauthenticated";
+          setUnauthenticated(unauth);
+          setUnavailable(!answer.ok && !unauth);
           if (answer.ok) held.access.set(answer.value);
         },
         () => {
-          // a failed request settles loading so the dialog does not stay on a placeholder
+          if (shown) setUnavailable(true);
         },
       )
       .finally(() => {
@@ -84,7 +92,7 @@ function useAsked(
     return () => {
       shown = false;
     };
-  }, [requests, docId, asking, held]);
+  }, [requests, docId, asking, held, attempt]);
   useEffect(() => {
     if (!asking || !owner) return undefined;
     let shown = true;
@@ -94,8 +102,8 @@ function useAsked(
     return () => {
       shown = false;
     };
-  }, [requests, asking, owner]);
-  return { unauthenticated, loading, choices };
+  }, [requests, asking, owner, attempt]);
+  return { unauthenticated, unavailable, loading, choices };
 }
 
 export function useShare(
@@ -114,6 +122,7 @@ export function useShare(
   const [refusals, setRefusals] = useState<ReadonlyMap<RowKey, string>>(
     () => new Map(),
   );
+  const [attempt, setAttempt] = useState(0);
   // what a row refused is said while Share stays open
   useEffect(() => {
     if (!open) setRefusals(new Map());
@@ -131,6 +140,7 @@ export function useShare(
     docId,
     open && !offline && !facts.neverSynced,
     owner,
+    attempt,
   );
   const actions = useMemo(
     () =>
@@ -159,7 +169,9 @@ export function useShare(
       ? "sign_in"
       : offline
         ? "offline"
-        : "ready";
+        : asked.unavailable && access === null
+          ? "unavailable"
+          : "ready";
   return {
     state,
     loading: asked.loading,
@@ -168,5 +180,6 @@ export function useShare(
     refusals,
     choices: asked.choices,
     actions,
+    retry: () => setAttempt((n) => n + 1),
   };
 }

@@ -114,6 +114,8 @@ export function ThreadBody(props: {
   const removed = thread.anchor !== null && state.removedIds.has(threadId);
   const authorFull = fullNameFor(thread.authorUserId, state.people);
   const place = anchorPlaceLabel(thread.anchor, state.blockScenes);
+  const round =
+    thread.roundId !== null ? (state.rounds[thread.roundId] ?? null) : null;
   const inRoundOutcome =
     thread.roundId !== null &&
     (state.canEdit || thread.authorUserId === services.userId);
@@ -169,16 +171,19 @@ export function ThreadBody(props: {
           </span>
         </div>
       </div>
-      {flagText === null ? null : (
-        <div>
-          <span className="mn-tag">{flagText}</span>
+      {flagText !== null || round !== null ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {round !== null ? <span className="mn-tag">{round.name}</span> : null}
+          {flagText !== null ? (
+            <span className="mn-tag">{flagText}</span>
+          ) : null}
         </div>
-      )}
+      ) : null}
       {removed ? (
         <p className="text-meta text-fg-muted">{COMMENTS_WORDS.textRemoved}</p>
       ) : null}
       {thread.anchor !== null && thread.anchor.quote !== "" ? (
-        <blockquote className="mn-comment-quote line-clamp-2 pl-2 text-meta text-fg-muted">
+        <blockquote className="mn-comment-quote line-clamp-2 ps-2 text-meta text-fg-muted">
           {thread.anchor.quote}
         </blockquote>
       ) : null}
@@ -244,27 +249,17 @@ export function ThreadBody(props: {
         </div>
       ) : state.canComment ? (
         <div className="flex flex-col gap-2 border-t border-line pt-2">
-          <MentionField
-            placeholder={COMMENTS_WORDS.replyPlaceholder}
-            submitLabel={COMMENTS_WORDS.reply}
-            mentions
-            people={state.people}
-            peopleState={state.peopleState}
-            leadingAction={resolving ? undefined : resolveButton}
-            onLoadPeople={() =>
-              void commentsActions.loadPeople(docId, services.userId)
-            }
-            onSubmit={({ body, mentionedUserIds }) =>
-              commentsActions.reply(
-                docId,
-                services,
-                { threadId, body, mentionedUserIds },
-                now,
-              )
-            }
-          />
           {resolving ? (
-            <div className="flex flex-col gap-2 rounded-md bg-subtle p-2">
+            <div
+              className="flex flex-col gap-2 rounded-md bg-subtle p-2"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setResolving(false);
+                }
+              }}
+            >
               <Segmented
                 label={COMMENTS_WORDS.resolve}
                 size="sm"
@@ -284,6 +279,15 @@ export function ThreadBody(props: {
                   placeholder={COMMENTS_WORDS.reasonPlaceholder}
                   aria-label={COMMENTS_WORDS.reason}
                   onChange={(event) => setReason(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      confirmResolve();
+                    }
+                  }}
                 />
               </label>
               <div className="flex justify-end gap-2">
@@ -299,7 +303,27 @@ export function ThreadBody(props: {
                 </Button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <MentionField
+              placeholder={COMMENTS_WORDS.replyPlaceholder}
+              submitLabel={COMMENTS_WORDS.reply}
+              mentions
+              people={state.people}
+              peopleState={state.peopleState}
+              leadingAction={resolveButton}
+              onLoadPeople={() =>
+                void commentsActions.loadPeople(docId, services.userId)
+              }
+              onSubmit={({ body, mentionedUserIds }) =>
+                commentsActions.reply(
+                  docId,
+                  services,
+                  { threadId, body, mentionedUserIds },
+                  now,
+                )
+              }
+            />
+          )}
         </div>
       ) : null}
     </div>

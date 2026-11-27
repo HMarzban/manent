@@ -3,7 +3,13 @@ import { readEpisodes } from "@manent/crdt";
 import type { CrdtDoc, EpisodeEntry, JsonMapView } from "@manent/crdt";
 import type { AnchorResolution } from "@manent/revisions";
 import type { DocHandle } from "@manent/sync-client";
-import { DropdownMenuItem, FACTS_WORDS, Row, Skeleton } from "@manent/ui";
+import {
+  DropdownMenuItem,
+  FACTS_WORDS,
+  Row,
+  Skeleton,
+  formatCount,
+} from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { PinIcon, Trash2Icon } from "lucide-react";
 import {
@@ -159,7 +165,7 @@ function FactRow(props: {
     <RowMenu title={fact.anchor.quote}>
       <DropdownMenuItem variant="destructive" onClick={() => onRemove(fact.id)}>
         <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
-        {FACTS_WORDS.remove}
+        <span>{FACTS_WORDS.remove}</span>
       </DropdownMenuItem>
     </RowMenu>
   ) : undefined;
@@ -176,6 +182,7 @@ function FactRow(props: {
           removed ? undefined : () => onOpen(fact.docId, targetBlockId)
         }
         menu={menu}
+        menuReveal="hover"
       >
         <span title={fact.anchor.quote}>{fact.anchor.quote}</span>
       </Row>
@@ -235,11 +242,16 @@ function OpenFactsList(props: {
     void navigate({ href: factUrl(docId, blockId) });
   };
 
+  const titleWithCount =
+    facts.length > 0
+      ? `${FACTS_WORDS.heading} (${formatCount(facts.length)})`
+      : FACTS_WORDS.heading;
+
   return (
     <SettingsCard
       asSection
       aria-label={FACTS_WORDS.heading}
-      title={FACTS_WORDS.heading}
+      title={titleWithCount}
     >
       {facts.length === 0 ? (
         <EmptyHeroCard
@@ -248,7 +260,11 @@ function OpenFactsList(props: {
           description={FACTS_WORDS.empty}
         />
       ) : (
-        <div role="list" className="-mx-3 divide-y divide-line">
+        <div
+          role="list"
+          aria-label={FACTS_WORDS.listLabel}
+          className="-mx-3 divide-y divide-line"
+        >
           {facts.map((fact) => (
             <FactRow
               key={fact.id}

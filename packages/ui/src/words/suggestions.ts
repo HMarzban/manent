@@ -9,6 +9,8 @@ const inScene = (scene: string | null, text: string): string =>
 export const SUGGESTIONS_WORDS = {
   useThis: "Use this",
   keepAsItWas: "Keep as it was",
+  beforeLabel: "Before",
+  suggestedLabel: "Suggested",
   /** The entry's line; `name` is null for the person's own suggestion. */
   suggested: (scene: string | null, name: string | null): string =>
     inScene(scene, `${name ?? "You"} suggested this`),

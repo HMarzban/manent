@@ -44,6 +44,7 @@ export const WRITING_TOOLS_WORDS = Object.freeze({
   goalPages: "Pages",
   goalWords: "Words",
   goalRemove: "Remove goal",
+  goalReached: "Goal reached",
   goalReadout: goalCount,
   goalTooltip: (
     done: number,
@@ -51,6 +52,8 @@ export const WRITING_TOOLS_WORDS = Object.freeze({
     kind: "pages" | "words",
   ): string => `Goal for today: ${goalCount(done, target, kind)}`,
   sprintStart: "Start sprint",
+  sprintRemaining: (time: string): string => `Sprint · ${time}`,
+  sprintEnd: "End",
   sprintPrompt: "Sprint for how many minutes?",
   sprintChoice: (minutes: number): string => `${minutes} minutes`,
   sprintOver: (words: number, duration: string): string =>
@@ -71,6 +74,8 @@ export const WRITING_TOOLS_WORDS = Object.freeze({
   numbersCharacterSummary: (speeches: number, words: number): string =>
     `${speechCount(speeches)} · ${dialogueWordCount(words)}`,
   numbersNoDialogue: "No dialogue yet",
+  numbersShowAll: (count: number): string => `Show all (${formatCount(count)})`,
+  numbersShowFewer: "Show less",
   characterReportCsv: "Character report (CSV)",
   characterReportPdf: "Character report (PDF)",
   sceneReportCsv: "Scene report (CSV)",

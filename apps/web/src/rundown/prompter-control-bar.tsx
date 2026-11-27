@@ -41,6 +41,22 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(TYPING_SELECTOR) !== null;
 }
 
+function isInsideGrid(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('[role="grid"]') !== null;
+}
+
+function moveToolbarFocus(bar: HTMLDivElement | null, direction: -1 | 1): void {
+  if (bar === null) return;
+  const controls = [
+    ...bar.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+  ];
+  if (controls.length === 0) return;
+  const index = controls.indexOf(document.activeElement as HTMLButtonElement);
+  const next =
+    index === -1 ? 0 : (index + direction + controls.length) % controls.length;
+  controls[next]?.focus();
+}
+
 /**
  * Docked remote prompter control strip (mounted inside `style={PAGE_AREA}` directly above `<SurfaceState />`
  * ONLY while the signed-in device holds the server operator lease).
@@ -109,12 +125,16 @@ export function PrompterControlBar(props: {
         return;
       }
       if (event.key === "ArrowUp") {
+        // Leave plain Alt+ArrowUp for rundown row reorder inside the grid; require Shift there.
+        if (isInsideGrid(event.target) && !event.shiftKey) return;
         event.preventDefault();
         event.stopPropagation();
         setSpeed(speed + SPEED_STEP);
         return;
       }
       if (event.key === "ArrowDown") {
+        // Leave plain Alt+ArrowDown for rundown row reorder inside the grid; require Shift there.
+        if (isInsideGrid(event.target) && !event.shiftKey) return;
         event.preventDefault();
         event.stopPropagation();
         setSpeed(speed - SPEED_STEP);
@@ -138,6 +158,16 @@ export function PrompterControlBar(props: {
       role="toolbar"
       aria-label={PROMPTER_CONTROL_WORDS.controlPrompter}
       className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line bg-chrome px-3 py-1 text-ui"
+      onKeyDown={(event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          moveToolbarFocus(barRef.current, 1);
+        } else if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          moveToolbarFocus(barRef.current, -1);
+        }
+      }}
       onFocusCapture={() => {
         hadFocusRef.current = true;
       }}
@@ -157,6 +187,9 @@ export function PrompterControlBar(props: {
           className="cursor-pointer gap-1.5"
           onClick={togglePlay}
         >
+          {playing && online ? (
+            <span aria-hidden="true" className="mn-status-dot" data-tone="ok" />
+          ) : null}
           {playing ? (
             <PauseIcon aria-hidden="true" className="size-icon" />
           ) : (
@@ -178,7 +211,8 @@ export function PrompterControlBar(props: {
             type="button"
             variant="outline"
             size="icon-sm"
-            aria-label={PROMPTER_CONTROL_WORDS.slow}
+            aria-label={PROMPTER_CONTROL_WORDS.decreaseSpeed}
+            title={PROMPTER_CONTROL_WORDS.decreaseSpeed}
             disabled={!online || speed <= PROMPTER_MIN_SPEED_LPS}
             className="cursor-pointer"
             onClick={() => setSpeed(speed - SPEED_STEP)}
@@ -197,7 +231,8 @@ export function PrompterControlBar(props: {
             type="button"
             variant="outline"
             size="icon-sm"
-            aria-label={PROMPTER_CONTROL_WORDS.fast}
+            aria-label={PROMPTER_CONTROL_WORDS.increaseSpeed}
+            title={PROMPTER_CONTROL_WORDS.increaseSpeed}
             disabled={!online || speed >= PROMPTER_MAX_SPEED_LPS}
             className="cursor-pointer"
             onClick={() => setSpeed(speed + SPEED_STEP)}

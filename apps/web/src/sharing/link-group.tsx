@@ -11,8 +11,8 @@ import {
   Switch,
   formatDate,
 } from "@manent/ui";
-import { CopyIcon, Link2Icon } from "lucide-react";
-import { useId, useState } from "react";
+import { CheckIcon, CopyIcon, Link2Icon } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { RoleSelect } from "./role-select.tsx";
 import { RowRefusal } from "./row-refusal.tsx";
@@ -53,9 +53,17 @@ export function LinkGroup(props: {
   const [shown, setShown] = useState(false);
   const [chosenRole, setRole] = useState<ShareRole | null>(null);
   const [chosenExpiry, setExpiry] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copiedFeedback, setCopiedFeedback] = useState(false);
   const on = newest !== null || shown;
   const role = chosenRole ?? newest?.role ?? null;
   const expiry = chosenExpiry ?? expiryOf(newest);
+
+  useEffect(() => {
+    if (!copiedFeedback) return undefined;
+    const timer = setTimeout(() => setCopiedFeedback(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copiedFeedback]);
 
   const turn = (next: boolean): void => {
     if (next) {
@@ -63,7 +71,11 @@ export function LinkGroup(props: {
       return;
     }
     setShown(false);
-    if (newest !== null) void actions.turnOffLink();
+    setCopiedFeedback(false);
+    if (newest !== null) {
+      setBusy(true);
+      void actions.turnOffLink().finally(() => setBusy(false));
+    }
   };
 
   return (
@@ -91,9 +103,12 @@ export function LinkGroup(props: {
             </label>
             {newest === null ? null : (
               <p className="text-meta text-fg-muted">
-                {newest.expiresAt === null
-                  ? WORDS.neverExpires
-                  : WORDS.expiresOn(formatDate(newest.expiresAt))}
+                {WORDS.linkActiveSummary(
+                  WORDS.roles[newest.role],
+                  newest.expiresAt === null
+                    ? WORDS.neverExpires
+                    : WORDS.expiresOn(formatDate(newest.expiresAt)),
+                )}
               </p>
             )}
           </div>
@@ -125,23 +140,39 @@ export function LinkGroup(props: {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
+              disabled={busy}
               aria-disabled={role === null ? true : undefined}
               aria-describedby={role === null ? reasonId : undefined}
               onClick={() => {
-                if (role !== null)
-                  void actions.copyLink(role, LINK_EXPIRIES_MS[expiry] ?? null);
+                if (role === null || busy) return;
+                setBusy(true);
+                void actions
+                  .copyLink(role, LINK_EXPIRIES_MS[expiry] ?? null)
+                  .then((ok) => {
+                    if (ok) setCopiedFeedback(true);
+                  })
+                  .finally(() => setBusy(false));
               }}
             >
-              <CopyIcon aria-hidden="true" className="size-icon" />
-              {WORDS.copyLink}
+              {copiedFeedback ? (
+                <CheckIcon aria-hidden="true" className="size-icon text-ok" />
+              ) : (
+                <CopyIcon aria-hidden="true" className="size-icon" />
+              )}
+              <span>
+                {copiedFeedback ? WORDS.copiedButton : WORDS.copyLink}
+              </span>
             </Button>
             {newest === null ? null : (
               <Button
                 variant="ghost"
+                disabled={busy}
                 className="text-fg-muted hover:text-danger"
                 onClick={() => {
                   setShown(false);
-                  void actions.turnOffLink();
+                  setCopiedFeedback(false);
+                  setBusy(true);
+                  void actions.turnOffLink().finally(() => setBusy(false));
                 }}
               >
                 {WORDS.turnOffLink}

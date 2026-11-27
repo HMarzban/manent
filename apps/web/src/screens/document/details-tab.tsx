@@ -39,9 +39,13 @@ function DetailsPanel(props: { docId: string }): ReactNode {
     );
     if (scope !== "script" && sections.length === 0) return null;
     return (
-      <section key={scope} data-scope={scope} className="flex flex-col pb-2">
+      <section
+        key={scope}
+        data-scope={scope}
+        className="mn-details-scope flex flex-col pb-2"
+      >
         <h2 className="mn-group-label">{heading}</h2>
-        <div className="flex flex-col gap-2 px-3">
+        <div data-scope-body="" className="flex flex-col gap-2 px-3">
           {scope === "script" ? (
             <Suspense fallback={<PanelListSkeleton />}>
               <ScriptSettings docId={docId} />

@@ -11,7 +11,7 @@ import {
   VirtualRows,
   matchesQuery,
 } from "@manent/ui";
-import { SearchIcon } from "lucide-react";
+import { ScissorsIcon, SearchIcon, XIcon } from "lucide-react";
 import {
   useCallback,
   useContext,
@@ -21,6 +21,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { liveEditor, livePagination } from "../../editor-host/live-editor.ts";
 import { panelRenderers } from "../../screens/document/panel-surface.tsx";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
@@ -178,6 +179,8 @@ export function CutsList(props: { docId: string }): ReactNode {
     );
   };
 
+  const filterRef = useRef<HTMLInputElement>(null);
+
   return (
     <SurfaceState
       surface="left_panel"
@@ -185,12 +188,13 @@ export function CutsList(props: { docId: string }): ReactNode {
       render={panelRenderers({
         ready: () => (
           <div className="flex h-full min-h-0 flex-col">
-            <div className="p-2">
+            <div className="flex flex-col gap-1 p-2">
               <InputGroup className="h-control">
-                <InputGroupAddon>
-                  <SearchIcon aria-hidden="true" />
+                <InputGroupAddon align="inline-start">
+                  <SearchIcon aria-hidden="true" className="size-icon" />
                 </InputGroupAddon>
                 <InputGroupInput
+                  ref={filterRef}
                   type="search"
                   aria-label={MATERIAL_WORDS.filter}
                   placeholder={MATERIAL_WORDS.filter}
@@ -202,40 +206,101 @@ export function CutsList(props: { docId: string }): ReactNode {
                     setFilter("");
                   }}
                 />
+                {filter === "" ? null : (
+                  <InputGroupAddon align="inline-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={MATERIAL_WORDS.clearFilter}
+                      className="size-6 cursor-pointer text-fg-muted hover:text-fg"
+                      onClick={() => {
+                        setFilter("");
+                        filterRef.current?.focus();
+                      }}
+                    >
+                      <XIcon aria-hidden="true" className="size-3.5" />
+                    </Button>
+                  </InputGroupAddon>
+                )}
               </InputGroup>
+              {filter !== "" ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="px-1 text-micro text-fg-muted tabular-nums"
+                >
+                  {MATERIAL_WORDS.cutsMatchCount(filtered.length, rows.length)}
+                </p>
+              ) : null}
             </div>
             <div className="min-h-0 flex-1">
-              <VirtualRows
-                count={filtered.length}
-                rowHeight="two"
-                label={MATERIAL_WORDS.cuts}
-                renderRow={(index) => {
-                  const row = filtered[index];
-                  if (row === undefined) return null;
-                  return (
-                    <Row
-                      meta={<span title={row.meta}>{row.meta}</span>}
-                      trailing={[
-                        <Button
-                          key="restore"
-                          variant="outline"
-                          size="sm"
-                          aria-label={MATERIAL_WORDS.restoreName(row.firstLine)}
-                          onClick={() => onRestore(row.id)}
-                        >
-                          {MATERIAL_WORDS.restore}
-                        </Button>,
-                      ]}
-                    >
-                      <span title={row.firstLine}>{row.firstLine}</span>
-                    </Row>
-                  );
-                }}
-              />
+              {filtered.length === 0 ? (
+                <div className="flex h-full items-center justify-center p-4">
+                  <EmptyHeroCard
+                    compact
+                    icon={
+                      <ScissorsIcon aria-hidden="true" className="size-4" />
+                    }
+                    description={MATERIAL_WORDS.cutsNoMatches}
+                    actions={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFilter("");
+                          filterRef.current?.focus();
+                        }}
+                      >
+                        {MATERIAL_WORDS.clearFilter}
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : (
+                <VirtualRows
+                  count={filtered.length}
+                  rowHeight="two"
+                  label={MATERIAL_WORDS.cuts}
+                  renderRow={(index) => {
+                    const row = filtered[index];
+                    if (row === undefined) return null;
+                    return (
+                      <Row
+                        meta={<span title={row.meta}>{row.meta}</span>}
+                        trailing={[
+                          <Button
+                            key="restore"
+                            variant="outline"
+                            size="sm"
+                            aria-label={MATERIAL_WORDS.restoreName(
+                              row.firstLine,
+                            )}
+                            onClick={() => onRestore(row.id)}
+                          >
+                            {MATERIAL_WORDS.restore}
+                          </Button>,
+                        ]}
+                      >
+                        <span title={row.firstLine}>{row.firstLine}</span>
+                      </Row>
+                    );
+                  }}
+                />
+              )}
             </div>
           </div>
         ),
-        empty: () => null,
+        empty: () => (
+          <div className="flex h-full items-center justify-center p-4">
+            <EmptyHeroCard
+              compact
+              icon={<ScissorsIcon aria-hidden="true" className="size-4" />}
+              description={MATERIAL_WORDS.cutsEmpty}
+            />
+          </div>
+        ),
       })}
     />
   );

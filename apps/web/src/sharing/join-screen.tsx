@@ -60,26 +60,28 @@ export function JoinScreen(props: { outcome: JoinOutcome }): ReactNode {
   }, [outcome, services, navigate]);
   if (outcome.ok) return null;
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-chrome p-6">
-      <EmptyHeroCard
-        icon={<Link2OffIcon aria-hidden="true" className="size-5" />}
-        headingAs="h1"
-        headingTabIndex={-1}
-        title={LINKS_WORDS.linkUnavailable}
-        description={
-          outcome.reason === "link_expired"
-            ? SHARING_WORDS.linkExpired
-            : SHARING_WORDS.linkRevoked
-        }
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => void navigate({ href: "/" })}
-          >
-            {LINKS_WORDS.backToLibrary}
-          </Button>
-        }
-      />
+    <div className="min-h-0 flex-1 overflow-y-auto bg-chrome">
+      <div className="flex min-h-full items-center justify-center p-6">
+        <EmptyHeroCard
+          icon={<Link2OffIcon aria-hidden="true" className="size-5" />}
+          headingAs="h1"
+          headingTabIndex={-1}
+          title={LINKS_WORDS.linkUnavailable}
+          description={
+            outcome.reason === "link_expired"
+              ? SHARING_WORDS.linkExpired
+              : SHARING_WORDS.linkRevoked
+          }
+          actions={
+            <Button
+              variant="outline"
+              onClick={() => void navigate({ href: "/" })}
+            >
+              {LINKS_WORDS.backToLibrary}
+            </Button>
+          }
+        />
+      </div>
     </div>
   );
 }

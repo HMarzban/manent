@@ -25,6 +25,7 @@ import {
   presenceBadges,
 } from "./rundown-cell-parts.tsx";
 import { ReadOnlyPrompterStatus, ReadOnlyRowMenu } from "./rundown-states.tsx";
+import { sectionDurationsByHeader } from "./section-timing.ts";
 import { WriterEditor } from "./writer-editor.tsx";
 
 const EDITABLE_COLUMNS = new Set<RundownColumnId>([
@@ -157,8 +158,9 @@ function buildItemCells(options: {
                 <button
                   type="button"
                   tabIndex={-1}
-                  aria-label={label}
-                  className="inline-flex shrink-0 cursor-pointer items-center text-fg-muted hover:text-fg"
+                  aria-label={RUNDOWN_WORDS.openBesideRow(label)}
+                  title={RUNDOWN_WORDS.openBesideRow(label)}
+                  className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted transition-colors hover:bg-subtle hover:text-fg"
                   onClick={(event) => {
                     event.stopPropagation();
                     onOpenBeside(row.id);
@@ -171,7 +173,7 @@ function buildItemCells(options: {
                 </span>
               </span>
             ) : (
-              <span className="block truncate ps-4 text-fg">{text}</span>
+              <span className="block truncate ps-7 text-fg">{text}</span>
             ),
           tooltip: text !== "" ? text : undefined,
           presence,
@@ -257,6 +259,7 @@ export function buildGridRows(options: {
   readonly titleColumn: "segment" | "story";
   readonly online: boolean;
   readonly readOnly?: boolean;
+  readonly besideDocId?: string | null;
   readonly onDevice: ReadonlySet<string>;
   readonly liveDuration: (rowId: string) => number | null;
   readonly cellPresence: (rowId: string, columnId: string) => readonly string[];
@@ -280,6 +283,8 @@ export function buildGridRows(options: {
     onOpenPrevious,
   } = options;
   const timingById = new Map(clock.rows.map((entry) => [entry.id, entry]));
+  const sectionDurs = sectionDurationsByHeader(rundown.rows, clock);
+  const besideDocId = options.besideDocId ?? null;
 
   return rundown.rows.map((row, index) => {
     const timing = timingById.get(row.id) ?? {
@@ -320,12 +325,27 @@ export function buildGridRows(options: {
     if (row.kind === "header") {
       const storedCell =
         row.cells[titleColumn] ?? row.cells.segment ?? row.cells.story;
+      const sectionMs = sectionDurs.get(row.id);
+      const sectionDurText =
+        sectionMs !== undefined ? formatDuration(sectionMs) : null;
       return {
         id: row.id,
         kind: "header",
         label,
         cells: {},
         headerValue: title,
+        headerDisplay:
+          title !== "" && sectionDurText !== null ? (
+            <span className="flex w-full min-w-0 items-center justify-between gap-2">
+              <span className="min-w-0 truncate">{title}</span>
+              <span
+                aria-label={RUNDOWN_WORDS.sectionTotal(sectionDurText)}
+                className="shrink-0 font-normal tracking-normal text-fg-muted normal-case tabular-nums"
+              >
+                {sectionDurText}
+              </span>
+            </span>
+          ) : undefined,
         headerCornerMark: cornerMarkOf(
           storedCell,
           cornerMark(row.id, titleColumn),
@@ -349,6 +369,10 @@ export function buildGridRows(options: {
       id: row.id,
       kind: "item",
       label,
+      current:
+        besideDocId !== null &&
+        row.kind === "script" &&
+        row.docId === besideDocId,
       cells: buildItemCells({
         ...options,
         readOnly,

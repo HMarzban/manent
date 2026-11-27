@@ -1,6 +1,7 @@
-// Details → Script → Numbers: pages, scenes, estimated runtime, eighths while locked, and dialogue by character.
+// Details → Script → Numbers: 3-tile summary, capped eighths while locked, and cast dialogue share bars.
 import { numbersOf } from "@manent/revisions";
 import {
+  Button,
   CommandButton,
   SCENES_WORDS,
   WRITING_TOOLS_WORDS,
@@ -9,7 +10,13 @@ import {
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
-import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import {
   livePagination,
@@ -19,8 +26,10 @@ import { useServices } from "../../services/context.tsx";
 import { FactsContext, OutlineContext } from "../../state/bridge-contexts.ts";
 import type { OutlineRow } from "../../state/outline.store.ts";
 import { useProductionContext } from "../../state/production-context.store.ts";
+import { NumbersCast } from "./numbers-cast.tsx";
 
 const MINUTE_MS = 60_000;
+const EIGHTHS_CAP = 8;
 const EMPTY_ROWS: readonly OutlineRow[] = Object.freeze([]);
 const noopSubscribe = (): (() => void) => () => {};
 
@@ -61,6 +70,7 @@ function useOptionalOutlineRows(): readonly OutlineRow[] {
 export function NumbersSection(props: { docId: string }): ReactNode {
   const { docId } = props;
   const services = useServices();
+  const [eighthsExpanded, setEighthsExpanded] = useState(false);
   const docKindSource = useMemo(
     () => services.library.docKindOf(docId),
     [services.library, docId],
@@ -107,6 +117,10 @@ export function NumbersSection(props: { docId: string }): ReactNode {
           row.kind === "scene" && row.eighths !== null,
       )
     : [];
+  const shownEighths =
+    lockedScenes.length > EIGHTHS_CAP && !eighthsExpanded
+      ? lockedScenes.slice(0, EIGHTHS_CAP)
+      : lockedScenes;
 
   return (
     <div
@@ -116,39 +130,45 @@ export function NumbersSection(props: { docId: string }): ReactNode {
       <h3 className="text-ui font-semibold text-fg">
         {WRITING_TOOLS_WORDS.numbers}
       </h3>
-      <dl className="flex flex-col gap-2 text-ui">
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-fg-muted">{WRITING_TOOLS_WORDS.numbersPages}</dt>
-          <dd className="text-fg tabular-nums">{formatCount(numbers.pages)}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-fg-muted">{WRITING_TOOLS_WORDS.numbersScenes}</dt>
-          <dd className="text-fg tabular-nums">
-            {formatCount(numbers.scenes)}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-fg-muted">
+      <div className="flex flex-col gap-1.5">
+        <dl className="grid grid-cols-3 gap-1.5 tabular-nums">
+          <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
+            <dt className="truncate text-micro text-fg-muted">
+              {WRITING_TOOLS_WORDS.numbersPages}
+            </dt>
+            <dd className="text-title font-semibold text-fg">
+              {formatCount(numbers.pages)}
+            </dd>
+          </div>
+          <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
+            <dt className="truncate text-micro text-fg-muted">
+              {WRITING_TOOLS_WORDS.numbersScenes}
+            </dt>
+            <dd className="text-title font-semibold text-fg">
+              {formatCount(numbers.scenes)}
+            </dd>
+          </div>
+          <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
+            <dt className="truncate text-micro text-fg-muted">
               {WRITING_TOOLS_WORDS.numbersEstimatedRuntime}
             </dt>
-            <dd className="text-fg tabular-nums">
+            <dd className="text-title font-semibold text-fg">
               {formatDuration(numbers.estimatedRuntimeMinutes * MINUTE_MS)}
             </dd>
           </div>
-          <p className="text-meta text-fg-muted">
-            {WRITING_TOOLS_WORDS.numbersRuntimeNote}
-          </p>
-        </div>
-      </dl>
+        </dl>
+        <p className="text-meta text-fg-muted">
+          {WRITING_TOOLS_WORDS.numbersRuntimeNote}
+        </p>
+      </div>
 
       {locked && lockedScenes.length > 0 ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <h4 className="text-meta font-semibold text-fg">
             {WRITING_TOOLS_WORDS.numbersEighths}
           </h4>
           <dl className="flex flex-col gap-1 text-ui">
-            {lockedScenes.map((row) => (
+            {shownEighths.map((row) => (
               <div
                 key={row.blockId}
                 className="flex items-baseline justify-between gap-2"
@@ -164,35 +184,29 @@ export function NumbersSection(props: { docId: string }): ReactNode {
               </div>
             ))}
           </dl>
+          {lockedScenes.length > EIGHTHS_CAP ? (
+            <div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-control-sm cursor-pointer px-1.5 text-meta text-fg-muted hover:text-fg"
+                onClick={() => setEighthsExpanded((v) => !v)}
+              >
+                {eighthsExpanded
+                  ? WRITING_TOOLS_WORDS.numbersShowFewer
+                  : WRITING_TOOLS_WORDS.numbersShowAll(lockedScenes.length)}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <h4 className="text-meta font-semibold text-fg">
           {WRITING_TOOLS_WORDS.numbersDialogueByCharacter}
         </h4>
-        {numbers.characters.length === 0 ? (
-          <p className="text-meta text-fg-muted">
-            {WRITING_TOOLS_WORDS.numbersNoDialogue}
-          </p>
-        ) : (
-          <dl className="flex flex-col gap-1 text-ui">
-            {numbers.characters.map((character) => (
-              <div
-                key={character.name}
-                className="flex items-baseline justify-between gap-2"
-              >
-                <dt className="min-w-0 truncate text-fg">{character.name}</dt>
-                <dd className="shrink-0 text-meta text-fg-muted tabular-nums">
-                  {WRITING_TOOLS_WORDS.numbersCharacterSummary(
-                    character.speeches,
-                    character.words,
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
+        <NumbersCast characters={numbers.characters} />
       </div>
 
       {reportsState.visible ? (

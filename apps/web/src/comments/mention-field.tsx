@@ -1,7 +1,8 @@
-// Comment/reply/note composer field with @mention autocomplete, offline fallback and keyboard submission.
-import { Button, COMMENTS_WORDS, Skeleton, Textarea } from "@manent/ui";
-import { useEffect, useRef, useState } from "react";
+// Comment/reply/note composer field with @mention autocomplete, full listbox ARIA, offline fallback and keyboard submit.
+import { Avatar, Button, COMMENTS_WORDS, Skeleton, Textarea } from "@manent/ui";
+import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { initialsOf } from "../initials.ts";
 import type { CommentPerson } from "./people-request.ts";
 
 interface MentionMatch {
@@ -48,6 +49,7 @@ export function MentionField(props: {
     onLoadPeople,
     onSubmit,
   } = props;
+  const listboxId = useId();
   const [value, setValue] = useState("");
   const [caret, setCaret] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -70,6 +72,12 @@ export function MentionField(props: {
       : people.filter((p) => p.name.toLowerCase().includes(query));
   const hasLoader = onLoadPeople !== undefined;
   const mentionActive = mention !== null;
+  const clampedIndex =
+    filtered.length > 0 ? Math.min(selectedIndex, filtered.length - 1) : -1;
+  const activeOptionId =
+    mentionActive && clampedIndex >= 0
+      ? `${listboxId}-opt-${clampedIndex}`
+      : undefined;
 
   useEffect(() => {
     if (peopleState !== "idle") {
@@ -142,7 +150,7 @@ export function MentionField(props: {
         filtered.length > 0
       ) {
         event.preventDefault();
-        const picked = filtered[Math.min(selectedIndex, filtered.length - 1)];
+        const picked = filtered[clampedIndex];
         if (picked !== undefined) pickPerson(picked);
         return;
       }
@@ -159,8 +167,14 @@ export function MentionField(props: {
 
   return (
     <div className="relative flex flex-col gap-2">
+      {loadingPeople ? (
+        <p role="status" aria-live="polite" className="sr-only">
+          {COMMENTS_WORDS.loadingPeople}
+        </p>
+      ) : null}
       {mention === null ? null : (
         <div
+          id={listboxId}
           role="listbox"
           aria-busy={loadingPeople || undefined}
           aria-label={placeholder}
@@ -188,27 +202,37 @@ export function MentionField(props: {
               {COMMENTS_WORDS.noMatches}
             </p>
           ) : (
-            filtered.map((person, index) => (
-              <button
-                key={person.userId}
-                type="button"
-                role="option"
-                aria-selected={
-                  index === Math.min(selectedIndex, filtered.length - 1)
-                }
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  pickPerson(person);
-                }}
-                className={
-                  index === Math.min(selectedIndex, filtered.length - 1)
-                    ? "flex w-full cursor-pointer items-center rounded border-l-2 border-accent-solid bg-control px-2 py-1 text-left text-fg"
-                    : "flex w-full cursor-pointer items-center rounded px-2 py-1 text-left text-fg hover:bg-subtle"
-                }
-              >
-                {person.name}
-              </button>
-            ))
+            filtered.map((person, index) => {
+              const highlighted = index === clampedIndex;
+              return (
+                <button
+                  key={person.userId}
+                  id={`${listboxId}-opt-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={highlighted}
+                  data-highlighted={highlighted ? "" : undefined}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    pickPerson(person);
+                  }}
+                  className={
+                    highlighted
+                      ? "flex w-full cursor-pointer items-center gap-2 rounded border-s-2 border-accent-solid bg-control px-2 py-1 text-start text-fg"
+                      : "flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-start text-fg hover:bg-subtle"
+                  }
+                >
+                  <Avatar
+                    name={person.name}
+                    initials={initialsOf(person.name)}
+                    colour={null}
+                    size="sm"
+                    decorative
+                  />
+                  <span className="truncate">{person.name}</span>
+                </button>
+              );
+            })
           )}
         </div>
       )}
@@ -218,6 +242,10 @@ export function MentionField(props: {
         value={value}
         placeholder={placeholder}
         aria-label={placeholder}
+        aria-expanded={mentions ? mentionActive : undefined}
+        aria-controls={mentionActive ? listboxId : undefined}
+        aria-activedescendant={activeOptionId}
+        aria-autocomplete={mentions ? "list" : undefined}
         onChange={(event) => {
           const next = event.target.value;
           const pos = event.target.selectionStart ?? next.length;
@@ -230,6 +258,7 @@ export function MentionField(props: {
           const pos = event.currentTarget.selectionStart ?? value.length;
           setCaret(pos);
         }}
+        onBlur={() => setMenuOpen(false)}
         onKeyDown={onKeyDown}
         className="min-h-14 resize-none text-ui"
       />

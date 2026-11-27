@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 
 export function CheckMark(props: { ok: boolean }): ReactNode {
   return props.ok ? (
-    <CheckIcon aria-hidden="true" className="mt-0.5 shrink-0" />
+    <CheckIcon aria-hidden="true" className="mt-0.5 size-icon shrink-0" />
   ) : (
     <TriangleExclamationPointIcon
       aria-hidden="true"
-      className="mt-0.5 shrink-0 text-attention"
+      className="mt-0.5 size-icon shrink-0 text-attention"
     />
   );
 }

@@ -13,7 +13,7 @@ tourScenario("together-comments", async ({ windows, scenario, step }) => {
   const [resolvedMsg, replyText] = scenario.evidence;
   await expect(sam.locator("[data-tour='status:server']")).toHaveText("Synced");
   // open Sam's side panel and Comments tab so he watches Leo's reply arrive and the thread leave Open
-  await pressKeyOf(sam, "history.open");
+  await pressKeyOf(sam, "view.sidePanel");
   await (await step(2)).click();
   // find the dialogue block containing "you say it twice" and its gutter marker button
   const block = leo

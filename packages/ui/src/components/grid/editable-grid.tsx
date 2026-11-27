@@ -1,7 +1,7 @@
 // Editable rundown grid: cell keys, virtual rows, sortable rows, sticky header, column resize and corner marks.
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cn";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { SortableArea } from "../sortable/sortable-area.tsx";
 import { GridHeader } from "./grid-header.tsx";
@@ -52,6 +52,7 @@ export function EditableGrid(props: EditableGridProps): ReactNode {
   const areaRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const surfaceRunnerRef = useRef<SurfaceKeyRunner | null>(null);
+  const [scrolledY, setScrolledY] = useState(false);
 
   const virtual = rows.length > PLAIN_LIMIT;
   const virtualizer = useVirtualizer({
@@ -131,8 +132,13 @@ export function EditableGrid(props: EditableGridProps): ReactNode {
       <div
         ref={scrollRef}
         data-grid-scroll=""
+        data-scrolled-y={scrolledY ? "true" : undefined}
         data-ring="inset"
         className="h-full overflow-auto bg-raised text-ui text-fg"
+        onScroll={(event) => {
+          const next = event.currentTarget.scrollTop > 0;
+          setScrolledY((prev) => (prev === next ? prev : next));
+        }}
       >
         <div
           role="grid"

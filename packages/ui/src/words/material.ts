@@ -35,6 +35,11 @@ export const MATERIAL_WORDS = Object.freeze({
   moveToCuts: "Move to cuts",
   cuts: "Cuts",
   filter: "Filter…",
+  clearFilter: "Clear filter",
+  cutsEmpty: "Cut passages appear here so you can restore them later.",
+  cutsNoMatches: "No cuts match this filter.",
+  cutsMatchCount: (shown: number, total: number): string =>
+    `${formatCount(shown)} of ${formatCount(total)}`,
   beforeFirstScene: "Before the first scene",
   /** After moving a selection to cuts. */
   movedToCuts: (count: number): string =>

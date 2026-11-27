@@ -39,6 +39,17 @@ export const SHARING_WORDS = Object.freeze({
     guests: "Guests",
   }) satisfies Readonly<Record<string, string>>,
   copyLink: "Copy link",
+  copiedButton: "Copied",
+  clipboardRefused: "Couldn't copy the link. Try again.",
+  loadingAccess: "Opening…",
+  unavailable: "Couldn't load who has access.",
+  tryAgain: "Try again",
+  peopleGroup: "People",
+  groupsGroup: "Groups",
+  everyoneAdded: "Everyone in this workspace already has access.",
+  peopleListLabel: "People with access",
+  linkActiveSummary: (role: string, expiry: string): string =>
+    `${role} · ${expiry}`,
   /** `count` includes the owner, so it is at least 2 once anyone else can open the script. */
   summary: (count: number, link: boolean): string => {
     if (count > 1)

@@ -11,6 +11,8 @@ export const CHECKS_WORDS = Object.freeze({
     n === 1 ? "1 check to review" : `${formatCount(n)} checks to review`,
   showAll: "Show all",
   hide: "Hide",
+  refresh: "Check again",
+  jumpToLine: "Jump to line",
   nothing: "Nothing needs a look before you send.",
   /** New character cue or new proper noun with no sent draft. */
   newName: (name: string): string =>

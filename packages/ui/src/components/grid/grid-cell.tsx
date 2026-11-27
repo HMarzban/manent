@@ -8,69 +8,11 @@ import type {
   MouseEvent as ReactMouseEvent,
   ReactNode,
 } from "react";
-import type { GridCell, GridColumn, GridCornerMark } from "./types.ts";
+import { CornerMark } from "./corner-mark.tsx";
+import type { GridCell, GridColumn } from "./types.ts";
 
 const isComposing = (event: ReactKeyboardEvent): boolean =>
   event.nativeEvent.isComposing || event.keyCode === 229;
-
-function CornerMark({
-  mark,
-  descriptionId,
-}: {
-  readonly mark: GridCornerMark;
-  readonly descriptionId: string;
-}): ReactNode {
-  const triangle = (
-    <svg
-      width="6"
-      height="6"
-      viewBox="0 0 6 6"
-      aria-hidden="true"
-      className="pointer-events-none text-attention"
-    >
-      <polygon points="0,0 6,0 6,6" fill="currentColor" />
-    </svg>
-  );
-  if (mark.onOpen !== undefined) {
-    const open = mark.onOpen;
-    return (
-      <>
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={mark.label}
-          title={mark.label}
-          data-corner-mark="true"
-          className="absolute top-0 end-0 flex size-3 cursor-pointer items-start justify-end border-0 bg-transparent p-0"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            open();
-          }}
-        >
-          {triangle}
-        </button>
-        <span id={descriptionId} className="sr-only">
-          {mark.label}
-        </span>
-      </>
-    );
-  }
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        data-corner-mark="true"
-        className="pointer-events-none absolute top-0 end-0 flex"
-      >
-        {triangle}
-      </span>
-      <span id={descriptionId} className="sr-only">
-        {mark.label}
-      </span>
-    </>
-  );
-}
 
 interface InlineEditorProps {
   readonly rowId: string;
@@ -214,7 +156,10 @@ function InlineEditor({
         <div
           id={errorId}
           role="alert"
-          className="absolute start-0 top-full z-20 mt-1 flex items-center gap-1 rounded-surface border border-line bg-overlay px-2 py-1 text-meta font-normal tracking-normal whitespace-nowrap text-fg normal-case shadow-overlay"
+          className={cn(
+            "absolute top-full z-20 mt-1 flex max-w-popover items-center gap-1 rounded-surface border border-line bg-overlay px-2 py-1 text-meta font-normal tracking-normal whitespace-normal text-fg normal-case shadow-overlay",
+            column.numeric && !isHeader ? "end-0" : "start-0",
+          )}
         >
           <TriangleExclamationPointIcon
             aria-hidden="true"
@@ -290,6 +235,7 @@ export function GridCellView({
       tabIndex={active ? 0 : -1}
       data-row-id={rowId}
       data-col-id={column.id}
+      data-active-cell={active ? "true" : undefined}
       data-tour={cell.tourTarget}
       data-leading={leading ? "" : undefined}
       title={cell.tooltip}

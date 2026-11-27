@@ -21,6 +21,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { useBeside } from "../beside/open-beside.ts";
 import { focusHeading } from "../focus.ts";
 import { DocumentStateBar } from "../screens/document/document-state-bar.tsx";
 import { SidePanel } from "../screens/document/side-panel.tsx";
@@ -188,6 +189,8 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
   };
 
   const readOnly = view.access !== "edit";
+  const beside = useBeside();
+  const besideDocId = beside?.docId ?? null;
   const gridRows = useMemo(() => {
     if (view.rundown === null || view.clock === null) return [];
     return buildGridRows({
@@ -198,6 +201,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       titleColumn,
       online,
       readOnly,
+      besideDocId,
       onDevice: view.onDevice,
       liveDuration,
       cellPresence,
@@ -217,6 +221,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     titleColumn,
     online,
     readOnly,
+    besideDocId,
     view.onDevice,
     liveDuration,
     cellPresence,
@@ -335,6 +340,8 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
         <RundownFooterBar
           readOnly={readOnly}
           hasRows={view.rundown !== null && view.rundown.rows.length > 0}
+          clock={view.clock}
+          rows={view.rundown?.rows ?? []}
         />
       </div>
       <SidePanel docId={docId} overlay={sideOverPage} />
@@ -346,7 +353,12 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       <RundownColumnsMenu
         columns={allColumns}
         hidden={columnsState.prefs.hidden}
+        hasCustomPrefs={
+          columnsState.prefs.hidden.length > 0 ||
+          Object.keys(columnsState.prefs.widthsPx).length > 0
+        }
         onToggle={columnsState.toggleColumn}
+        onReset={columnsState.resetColumns}
       />
       <PreviousValuePopover
         docId={docId}

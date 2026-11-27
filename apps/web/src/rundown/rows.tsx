@@ -202,7 +202,7 @@ export function RowMenu(props: RowMenuProps): ReactNode {
                 }}
               >
                 <CommandMenuIcon id={entry.id} />
-                {entry.label}
+                <span>{entry.label}</span>
               </DropdownMenuItem>
             </Fragment>
           );

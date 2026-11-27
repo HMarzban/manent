@@ -89,7 +89,10 @@ export function buildDurCell(options: {
     return {
       value: editValue,
       display: (
-        <span className="inline-flex items-center justify-end gap-1">
+        <span
+          data-live-dur="true"
+          className="inline-flex items-center justify-end gap-1"
+        >
           <span>{formatted}</span>
           <svg
             width="6"
@@ -114,6 +117,10 @@ export function buildDurCell(options: {
       : undefined;
   return {
     value: formatted,
+    display:
+      overrideNote !== undefined ? (
+        <span className="mn-dur-override">{formatted}</span>
+      ) : undefined,
     tooltip: overrideNote,
     accessibleLabel: overrideNote ? `${formatted}. ${overrideNote}` : undefined,
     presence,

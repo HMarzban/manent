@@ -104,7 +104,7 @@ test("PrompterBar shows live remote playback pill for passive viewers and wraps 
     ),
   );
   const header = container.querySelector("header")!;
-  expect(header.className).toContain("flex-wrap");
+  expect(header.firstElementChild?.className).toContain("flex-wrap");
   expect(header.textContent).toContain(PROMPTER_CONTROL_WORDS.playingAt(2.5));
 });
 

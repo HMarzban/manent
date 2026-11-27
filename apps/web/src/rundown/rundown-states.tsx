@@ -2,6 +2,7 @@
 import type { RundownColumnId, RundownRowJSON } from "@manent/schema";
 import {
   Button,
+  CommandMenuIcon,
   DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +21,7 @@ import {
   CheckIcon,
   CircleAlertIcon,
   CloudOffIcon,
-  EllipsisVerticalIcon,
+  EllipsisIcon,
   ListOrderedIcon,
   LockIcon,
   TriangleExclamationPointIcon,
@@ -255,11 +256,11 @@ export function ReadOnlyRowMenu(props: {
             variant="ghost"
             size="icon-sm"
             aria-label={label}
-            className="cursor-pointer text-fg-muted hover:bg-subtle hover:text-fg"
+            className="cursor-pointer text-fg-muted opacity-0 transition-opacity duration-(--dur-fast) hover:bg-subtle hover:text-fg focus-visible:opacity-100 data-popup-open:opacity-100 [.mn-row:hover_&]:opacity-100 [.mn-row:focus-within_&]:opacity-100 [@media(hover:none)]:opacity-100"
           />
         }
       >
-        <EllipsisVerticalIcon aria-hidden="true" className="size-icon" />
+        <EllipsisIcon aria-hidden="true" className="size-icon" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -271,7 +272,8 @@ export function ReadOnlyRowMenu(props: {
             className="cursor-pointer hover:bg-subtle"
             onClick={() => onOpenBeside(row.id)}
           >
-            {openBesideLabel}
+            <CommandMenuIcon id="rundown.openBeside" />
+            <span>{openBesideLabel}</span>
           </DropdownMenuItem>
         ) : null}
         {previousCol !== null ? (
@@ -283,7 +285,8 @@ export function ReadOnlyRowMenu(props: {
               onOpenPrevious(row.id, previousCol);
             }}
           >
-            {previousLabel}
+            <CommandMenuIcon id="rundown.previousValue" />
+            <span>{previousLabel}</span>
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>

@@ -13,7 +13,13 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { LogInIcon, SendIcon, WifiOffIcon, XIcon } from "lucide-react";
+import {
+  CircleAlertIcon,
+  LogInIcon,
+  SendIcon,
+  WifiOffIcon,
+  XIcon,
+} from "lucide-react";
 import { useId, useMemo } from "react";
 import type { ReactNode } from "react";
 import { sendPath } from "../screens/send/form-ids.ts";
@@ -33,58 +39,70 @@ const PLACEHOLDER_PEOPLE = 3;
 
 function ShareSkeleton(): ReactNode {
   return (
-    <div aria-busy="true" className="flex flex-col gap-4">
-      <div
-        aria-hidden="true"
-        className="flex items-center gap-2 rounded-surface border border-line bg-subtle p-3"
-      >
-        <Skeleton className="h-control min-w-0 flex-1" />
-        <Skeleton className="h-control w-28 shrink-0" />
-        <Skeleton className="h-control w-14 shrink-0" />
-      </div>
-      <div aria-hidden="true" className="mn-table flex flex-col">
-        {Array.from({ length: PLACEHOLDER_PEOPLE }, (_, index) => (
-          <div
-            key={index}
-            className={
-              index > 0
-                ? "flex min-h-row-2 items-center gap-2 border-t border-line px-3 py-2"
-                : "flex min-h-row-2 items-center gap-2 px-3 py-2"
-            }
-          >
-            <Skeleton className="size-avatar shrink-0 rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <Skeleton className="h-3.5 w-32" />
-              <Skeleton className="h-3 w-24" />
+    <div className="flex flex-col gap-4">
+      <p role="status" aria-live="polite" className="sr-only">
+        {WORDS.loadingAccess}
+      </p>
+      <div aria-busy="true" className="flex flex-col gap-4">
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-2 rounded-surface border border-line bg-subtle p-3"
+        >
+          <Skeleton className="h-control min-w-0 flex-1" />
+          <Skeleton className="h-control w-28 shrink-0" />
+          <Skeleton className="h-control w-14 shrink-0" />
+        </div>
+        <div aria-hidden="true" className="mn-table flex flex-col">
+          {Array.from({ length: PLACEHOLDER_PEOPLE }, (_, index) => (
+            <div
+              key={index}
+              className={
+                index > 0
+                  ? "flex min-h-row-2 items-center gap-2 border-t border-line px-3 py-2"
+                  : "flex min-h-row-2 items-center gap-2 px-3 py-2"
+              }
+            >
+              <Skeleton className="size-avatar shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <Skeleton className="h-3.5 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-control w-24 shrink-0" />
             </div>
-            <Skeleton className="h-control w-24 shrink-0" />
+          ))}
+        </div>
+        <div
+          aria-hidden="true"
+          className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-4"
+        >
+          <Skeleton className="h-3 w-12" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="size-avatar shrink-0 rounded-full" />
+              <Skeleton className="h-3.5 w-36" />
+            </div>
+            <Skeleton className="h-4 w-7 shrink-0 rounded-full" />
           </div>
-        ))}
-      </div>
-      <div
-        aria-hidden="true"
-        className="flex flex-col gap-3 rounded-surface border border-line bg-raised p-4"
-      >
-        <Skeleton className="h-3 w-12" />
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="size-avatar shrink-0 rounded-full" />
-            <Skeleton className="h-3.5 w-36" />
-          </div>
-          <Skeleton className="h-4 w-7 shrink-0 rounded-full" />
         </div>
       </div>
     </div>
   );
 }
 
-function NoticeBanner(props: { icon: ReactNode; text: string }): ReactNode {
+function NoticeBanner(props: {
+  icon: ReactNode;
+  text: string;
+  action?: ReactNode;
+}): ReactNode {
   return (
-    <div className="flex items-center gap-2 rounded-surface border border-line bg-subtle px-4 py-3 text-ui text-fg">
-      <span aria-hidden="true" className="flex shrink-0 text-fg-muted">
-        {props.icon}
-      </span>
-      <p className="min-w-0">{props.text}</p>
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-surface border border-line bg-subtle px-4 py-3 text-ui text-fg">
+      <div className="flex min-w-0 items-center gap-2">
+        <span aria-hidden="true" className="flex shrink-0 text-fg-muted">
+          {props.icon}
+        </span>
+        <p className="min-w-0">{props.text}</p>
+      </div>
+      {props.action}
     </div>
   );
 }
@@ -154,6 +172,18 @@ function ShareBody(props: {
         text={WORDS.signIn}
       />
     );
+  if (view.state === "unavailable")
+    return (
+      <NoticeBanner
+        icon={<CircleAlertIcon className="size-icon text-attention" />}
+        text={WORDS.unavailable}
+        action={
+          <Button variant="outline" size="sm" onClick={view.retry}>
+            {WORDS.tryAgain}
+          </Button>
+        }
+      />
+    );
   const editing = owner && view.state === "ready";
   return (
     <>
@@ -213,7 +243,6 @@ export function ShareDialog(props: {
     () => new Map(people.map((person) => [person.userId, person.colour])),
     [people],
   );
-  const editing = view.owner && view.state === "ready";
   const onOpenChange = (next: boolean): void => {
     if (next) return;
     dialogActions.close();
@@ -224,14 +253,14 @@ export function ShareDialog(props: {
       <DialogContent
         showCloseButton={false}
         finalFocus={false}
-        className="max-h-[calc(100dvh-4rem)] w-[calc(100%-1.5rem)] gap-4 overflow-y-auto p-6"
+        className="max-h-[calc(100dvh-4rem)] w-[calc(100%-1.5rem)] gap-4 overflow-y-auto overscroll-contain p-6"
         style={{ maxWidth: "var(--dialog-w-wide)" }}
       >
         <div className="flex flex-col gap-1 pe-8">
           <DialogTitle className="text-title font-semibold">
             {SELECTION_WORDS.share}
           </DialogTitle>
-          {editing && view.access !== null ? (
+          {view.access !== null ? (
             <DialogDescription className="text-ui text-fg-muted">
               {WORDS.summary(
                 view.access.people.length,
