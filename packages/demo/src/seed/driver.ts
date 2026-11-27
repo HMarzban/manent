@@ -169,6 +169,12 @@ export interface SeedDriver {
   prompter: SeedPrompter | null;
   /** Puts `docId` in Trash as `userId` at `at`, in milliseconds since the epoch. */
   trash(userId: string, docId: string, at: number): Promise<void>;
+  /** Uploads a PNG/JPEG/WebP binary asset for `projectId` via PUT /api/projects/:projectId/assets/:assetId. */
+  uploadAsset(
+    userId: string,
+    project: { projectId: string; workspaceId: SeedWorkspaceId },
+    bytes: Uint8Array,
+  ): Promise<{ assetId: string; width: number; height: number }>;
 }
 
 /** The server refused an action, cannot do it, or did not answer. */

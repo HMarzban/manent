@@ -138,7 +138,7 @@ export function ReaderScreen(props: {
   }, [token, userId, bearerToken, signedIn]);
 
   const readyDraft = state.kind === "ready" ? state.draft : null;
-  const readAloudFacts = useReaderReadAloudFacts();
+  const readAloudFacts = useReaderReadAloudFacts(readyDraft?.docId ?? null);
   const offline = state.kind === "ready" && state.offlineOpenedAt !== null;
   const commentsSession = useMemo<ReaderCommentsSession | null>(() => {
     if (

@@ -131,10 +131,10 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
     "Continue",
     "Favourites4",
     "Private2",
-    "Broadcast1",
+    "Broadcast2",
     "Broadcast",
     "Broadcast — row menu",
-    "Scripted2",
+    "Scripted3",
     "Scripted",
     "Scripted — row menu",
     // the project is numbered after the film projects the workspace holds already

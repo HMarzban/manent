@@ -106,6 +106,12 @@ const HEAVY_FOLDER_SPECS: readonly HeavyFolderSpec[] = [
     parentId: AUDIO_BOOKS_GAMES_ID,
     projects: ["heavy/h35", "heavy/h36"],
   },
+  {
+    id: seedDocId("folder:heavy/6/stage"),
+    name: "Stage",
+    parentId: AUDIO_BOOKS_GAMES_ID,
+    projects: ["heavy/h41"],
+  },
 ];
 
 const DANA_FAVOURITES: readonly {

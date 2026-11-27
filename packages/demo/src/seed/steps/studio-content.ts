@@ -1,5 +1,6 @@
 // What each of Lanternfield Studios' documents holds and how its history goes; the studio's step loads it when it runs.
 import type { BlockType } from "@manent/schema";
+import { parseSeedText } from "../../content/markup.ts";
 import type { SeedBlock } from "../../content/markup.ts";
 import * as banks from "../../generate/banks/heavy/index.ts";
 import { sessionsBetween } from "../../generate/drafts.ts";
@@ -168,8 +169,26 @@ function toInk(blocks: readonly SeedBlock[]): SeedBlock[] {
  * Everything the document at `index` of its project holds once its history is written: none for one its
  * project's beats leave out, and none for the long book, which is written as it is fitted to its pages.
  */
+const HEAVY_STAGE_PLAY = `
+act_break ACT ONE
+scene_heading Scene 1: The Signal Room
+action *A high stone chamber above the outer harbour. Brass levers along the south wall, a tin kettle steaming on a ring, and fog pressing hard against the tall glass.*
+character MARTHA
+dialogue Three rings from the outer bell, Arthur. That means the mail boat is turning back.
+character ARTHUR
+parenthetical (checking the barometer)
+dialogue She never turns back before ten. The glass has dropped half an inch since supper.
+scene_heading Scene 2: The Steps
+action *Dawn grey through the narrow doorway. MARTHA trims the spare wick while ARTHUR coils a wet hawser.*
+character MARTHA
+dialogue Leave the lamp burning till the relief boat clears the bar.
+character ARTHUR
+dialogue Always do. Someone has to keep the steps lit.
+`;
+
 export function blocksOf(doc: SeedDoc, index: number, rng: Rng): SeedBlock[] {
   const code = codeOf(doc.key);
+  if (code === "H41") return [...parseSeedText(HEAVY_STAGE_PLAY).blocks];
   if (isLiveShow(code)) return liveScript(doc, code, index, rng);
   if (code === "H34")
     return largest((share) =>
@@ -352,6 +371,7 @@ const HISTORIES: Readonly<
   H33: () => [{ op: "book", day: 200 }],
   H34: () => [write(320, 600, 30)],
   H35: () => [write(200, 300, 2)],
+  H41: () => [write(3, 28, 12), name(10, "Rehearsal draft")],
 };
 
 /**

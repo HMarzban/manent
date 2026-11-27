@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Append new foreground seed steps at the tail, initialise project indexes before asset uploads, and keep Tour targets isolated
+
+- Date: 2026-11-27
+
+### What happened
+
+While expanding Writers' room and Lanternfield Studios to cover all eight project kinds, all eight formats, inline graphics, reusable Show/News templates and recoverable Trash, four seed-architecture constraints surfaced: (1) `buildSeed` shares one `DEMO_SEED` RNG stream across every foreground step, so inserting a new step before existing steps shifts generated block IDs and page fits downstream; (2) `PUT /api/projects/:projectId/assets/:assetId` checks roles on `indexDocId("project", projectId)` and returns `403 forbidden` if the project index document has not been created yet, while `@manent/demo` runs in the browser boundary and cannot import `node:crypto` or `node:zlib` to create PNG binaries; (3) pre-seeding inline graphics on `medium/lannick-one-news/stories/01`, a rundown default skeleton on `medium/the-late-desk`, extra documents inside `medium/the-lamp-room`, or filing `The Lamp Room` into a folder would collide with `write-inline-graphics`, `rundown-show-template`, `duplicate-and-archive` and `write-library-organise` E2E assertions; and (4) combining five showcase builders and content banks into single files tripped `tools/test/size.test.ts`'s 400-line ceiling.
+
+### How it was caught
+
+The shared RNG stream, project-index asset precondition and Tour target collisions were caught by design review against `packages/demo/src/seed/seed.ts`, `packages/server-core/src/assets/service.ts` and the Tour E2E specs before wiring; the 400-line limit was caught immediately by `tools/test/size.test.ts`, and every end-to-end invariant was verified by `apps/server/test/writers-room-showcase-seed.test.ts` plus live Chromium Playwright Tour runs.
+
+### Rule
+
+Place any new foreground seed steps at the tail of `SEED_STEPS` (immediately before `WORKSPACE_ORGANISATION`) so existing steps keep their exact `DEMO_SEED` RNG stream. Keep seeded binary image generators pure JavaScript inside `@manent/demo` (`packages/demo/src/seed/png.ts`), route uploads through `SeedDriver.uploadAsset` (`apps/server/src/seed/assets.ts`), and ensure `indexDocId("project", projectId)` exists before issuing `PUT /api/projects/:projectId/assets/:assetId`. Never mutate Tour fixture targets (`stories/01` graphics, `the-late-desk` `project.rundownSkeleton`, `the-lamp-room` single-doc root placement), and split seed content/step modules cleanly below 400 lines.
+
+### Enforced by
+
+`packages/demo/test/writers-room-showcase.test.ts`, `apps/server/test/writers-room-showcase-seed.test.ts`, `tools/test/size.test.ts`, `tools/test/check-boundaries.test.ts`, `e2e/interface/library.e2e.ts`, `e2e/tour/write-library-organise.e2e.ts`, `e2e/tour/write-inline-graphics.e2e.ts`, and `e2e/tour/rundown-show-template.e2e.ts`.
+
 ## Keep To review quote attribution outside `<p>` and preserve DOM test contracts during inspector polish
 
 - Date: 2026-11-27

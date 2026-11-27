@@ -19,6 +19,7 @@ import type {
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
 import { docIdV7, indexDocId, workspaceHome } from "@manent/sync-protocol";
+import { uploadSeedAsset } from "./assets.ts";
 import { createDriving, isSeedClock } from "./driving.ts";
 import type { Driving } from "./driving.ts";
 import { isFields } from "./link.ts";
@@ -365,5 +366,7 @@ export function createSeedDriver(options: {
     rundowns: d.capabilities.has("rundowns") ? createRundownsDriver(d) : null,
     prompter: d.capabilities.has("prompter") ? createPrompterDriver(d) : null,
     trash: (userId, docId, at) => trashDocument(d, userId, docId, at),
+    uploadAsset: (userId, project, bytes) =>
+      uploadSeedAsset(d, userId, project, bytes),
   };
 }

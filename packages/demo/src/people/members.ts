@@ -84,7 +84,7 @@ const HEAVY_MEMBERS: readonly Row[] = [
     "Ines Arbeloa",
     "Author of the Ned Ashby novels; co-writer of the film",
     EDIT,
-    "H01, H34",
+    "H01, H34, H41",
   ],
   ["Tobias Lindqvist", "Screenwriter, Ned Ashby films", EDIT, "H01, H02", true],
   ["Rosalind Kemp", "Producer, Ned Ashby films", COMMENT, "H01, H02"],

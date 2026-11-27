@@ -278,6 +278,7 @@ const ROWS: readonly Row[] = [
   ["h34", "Ned Ashby and the Lantern of Hours", "book", "manuscript"],
   ["h35", "Ember Fleet: Wayfinder", "game", "game"],
   ["h36", "Moss & Pebble: Puddle Hunt", "game", "ink"],
+  ["h41", "The Watchman's Lamp", "stage_play", "stage_play"],
 ];
 
 const projectKey = (slug: string): string => `heavy/${slug}`;

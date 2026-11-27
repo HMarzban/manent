@@ -25,6 +25,8 @@ import { HARBOUR_LIGHTS_ROOM } from "./harbour-lights-room.ts";
 import { HEAVY_SERIES } from "./heavy-series.ts";
 import { ROW_FIVE_COMMENT } from "./row-five-comment.ts";
 import { HEAVY_FOLDERS } from "./heavy-folders.ts";
+import { WRITERS_ROOM_SHOWCASE } from "./writers-room-showcase.ts";
+import { WRITERS_ROOM_BROADCAST_EXTRAS } from "./writers-room-broadcast-extras.ts";
 import { WORKSPACE_ORGANISATION } from "./workspace-organisation.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
@@ -53,5 +55,7 @@ export const SEED_STEPS: readonly SeedStep[] = [
   HARBOUR_LIGHTS_ROOM,
   HEAVY_SERIES,
   ROW_FIVE_COMMENT,
+  WRITERS_ROOM_SHOWCASE,
+  WRITERS_ROOM_BROADCAST_EXTRAS,
   WORKSPACE_ORGANISATION,
 ];

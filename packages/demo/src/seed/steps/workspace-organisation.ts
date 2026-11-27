@@ -46,7 +46,17 @@ const MEDIUM_FOLDERS: readonly MediumFolderSpec[] = [
     id: seedDocId("folder:medium/scripted/series"),
     name: "Series",
     parentId: SCRIPTED_ID,
-    projects: ["medium/harbour-lights"],
+    projects: [
+      "medium/harbour-lights",
+      "medium/platform-two",
+      "medium/tin-boat",
+    ],
+  },
+  {
+    id: seedDocId("folder:medium/scripted/books-and-stage"),
+    name: "Books & Stage",
+    parentId: SCRIPTED_ID,
+    projects: ["medium/the-salt-almanac", "medium/pier-four-at-low-water"],
   },
   {
     id: BROADCAST_ID,
@@ -59,6 +69,12 @@ const MEDIUM_FOLDERS: readonly MediumFolderSpec[] = [
     name: "Daily & Live",
     parentId: BROADCAST_ID,
     projects: ["medium/lannick-one-news", "medium/the-late-desk"],
+  },
+  {
+    id: seedDocId("folder:medium/broadcast/audio"),
+    name: "Audio",
+    parentId: BROADCAST_ID,
+    projects: ["medium/harbour-tape"],
   },
 ];
 

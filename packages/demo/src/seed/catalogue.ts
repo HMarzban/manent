@@ -178,6 +178,16 @@ export const SEED_PROJECTS: readonly SeedProject[] = Object.freeze([
   project("medium", "lannick-one-news", "Lannick One News", "news"),
   project("medium", "game-samples", "Game samples", "game"),
   project("medium", "the-lamp-room", "The Lamp Room", "film"),
+  project("medium", "the-salt-almanac", "The Salt Almanac", "book"),
+  project(
+    "medium",
+    "pier-four-at-low-water",
+    "Pier Four at Low Water",
+    "stage_play",
+  ),
+  project("medium", "platform-two", "Platform Two", "series"),
+  project("medium", "tin-boat", "Tin Boat", "series"),
+  project("medium", "harbour-tape", "The Harbour Tape", "podcast"),
   ...HEAVY_PROJECTS,
 ]);
 
@@ -236,6 +246,46 @@ export const SEED_DOCS: readonly SeedDoc[] = Object.freeze([
     hero: true,
   }),
   doc("medium/the-lamp-room", "script", "The Lamp Room", "screenplay", {
+    hero: true,
+  }),
+  doc(
+    "medium/the-salt-almanac",
+    "manuscript",
+    "The Salt Almanac",
+    "manuscript",
+    { hero: true },
+  ),
+  doc(
+    "medium/pier-four-at-low-water",
+    "script",
+    "Pier Four at Low Water",
+    "stage_play",
+    { hero: true },
+  ),
+  doc("medium/platform-two", "101", "101 The Nine-Fourteen", "multicam", {
+    hero: true,
+  }),
+  doc("medium/platform-two", "102", "102 Lost Property", "multicam", {
+    hero: true,
+  }),
+  doc(
+    "medium/platform-two",
+    "103-outline",
+    "103 Night Replacement — Outline",
+    "multicam",
+    { kind: "outline" },
+  ),
+  doc("medium/platform-two", "100-early-pitch", "100 Early Pitch", "multicam"),
+  doc("medium/tin-boat", "101", "101 The Brass Compass", "animation", {
+    hero: true,
+  }),
+  doc("medium/tin-boat", "102", "102 Fog in the Cove", "animation", {
+    hero: true,
+  }),
+  doc("medium/harbour-tape", "ep1", "1 The Last Night Watch", "variety", {
+    hero: true,
+  }),
+  doc("medium/harbour-tape", "ep2", "2 Bells Along the Bar", "variety", {
     hero: true,
   }),
   ...HEAVY_DOCS,
