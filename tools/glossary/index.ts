@@ -74,6 +74,9 @@ export const NAMES: readonly string[] = Object.freeze([
   "Final Draft",
   "Word",
   "Safari",
+  "GitHub",
+  "Mac",
+  "Windows",
 ]);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */

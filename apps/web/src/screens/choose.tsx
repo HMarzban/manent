@@ -1,5 +1,5 @@
 import {
-  Avatar,
+  BRAND_WORDS,
   ManentMark,
   Skeleton,
   SurfaceState,
@@ -16,7 +16,6 @@ import type { ReactNode, RefObject } from "react";
 import type { Api } from "../api.ts";
 import { AiPledge } from "../account/ai-pledge.tsx";
 import { focusHeading } from "../focus.ts";
-import { initialsOf } from "../initials.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { CloseGuard } from "../services/sync/close-guard.ts";
 import { CloseQuestion } from "../services/sync/close-question.tsx";
@@ -24,24 +23,37 @@ import { choosePerson } from "../session.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import type { TabPerson } from "../session.ts";
 import { TEXT, pageTitle } from "../text.ts";
+import {
+  CHOOSE_GRID_COMPACT,
+  CHOOSE_GRID_SPLIT,
+  PeopleGrid,
+} from "./choose/people-grid.tsx";
+import {
+  PersonaSpotlight,
+  StudioPillars,
+} from "./choose/persona-spotlight.tsx";
+import { StudioFooter } from "./choose/studio-footer.tsx";
+import { ThemeToggle } from "./choose/theme-toggle.tsx";
 
 const RETRY_CHOICES_MS = 2000;
 const PLACEHOLDER_CARDS = 6;
-// three cards a row on a wide window (1100 px), two from 640 px, one below
-const GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 min-[68.75rem]:grid-cols-3";
 
-/** Cards of the final size, with no words. */
-function placeholders(): ReactNode {
+/** Cards of the final size and anatomy, with no words. */
+function Placeholders(props: { compact: boolean }): ReactNode {
   return (
-    <ul className={GRID}>
+    <ul className={props.compact ? CHOOSE_GRID_COMPACT : CHOOSE_GRID_SPLIT}>
       {Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (
         <li
           key={i}
           aria-hidden="true"
           data-placeholder
-          className="flex rounded-surface border border-line p-4"
+          className="flex min-h-[5.5rem] items-start gap-3.5 rounded-surface border border-line bg-raised p-4"
         >
-          <Skeleton className="size-avatar-lg rounded-full" />
+          <Skeleton className="size-avatar-lg shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
+            <Skeleton className="h-4 w-28 rounded-micro" />
+            <Skeleton className="h-3.5 w-44 max-w-full rounded-micro" />
+          </div>
         </li>
       ))}
     </ul>
@@ -51,63 +63,12 @@ function placeholders(): ReactNode {
 // with no list to draw, the alert above it says why when there is a reason
 const nothing = (): ReactNode => null;
 const WITHOUT_LIST = {
-  loading: placeholders,
   empty: nothing,
   problem: nothing,
   offline: nothing,
   read_only: nothing,
   no_access: nothing,
-} satisfies Omit<SurfaceRenderers, "ready">;
-
-/**
- * Each person is a card naming them and their role. A person without an account yet ("You") is a new person: an
- * open card with a plus in place of initials. Outside a script nobody has a colour.
- */
-function People(props: {
-  choices: readonly SignInChoice[];
-  chosenUserId: string | null;
-  disabled: boolean;
-  onChoose(choice: SignInChoice): void;
-}): ReactNode {
-  return (
-    <ul className={GRID}>
-      {props.choices.map((choice) => {
-        const chosen = props.chosenUserId === choice.userId;
-        return (
-          <li key={choice.userId} className="flex">
-            <button
-              type="button"
-              disabled={props.disabled}
-              onClick={() => props.onChoose(choice)}
-              aria-current={chosen ? "true" : undefined}
-              data-new={choice.registered ? undefined : ""}
-              className="mn-card flex w-full items-start gap-3 p-4 text-start"
-            >
-              <Avatar
-                name={choice.name}
-                initials={choice.registered ? initialsOf(choice.name) : null}
-                colour={null}
-                size="lg"
-                decorative
-              />
-              <span className="flex min-w-0 flex-col">
-                <span className="text-title">{choice.name}</span>
-                <span className="text-ui text-fg">
-                  {choice.title}
-                  {chosen && (
-                    <span className="mn-tag ms-2 align-text-bottom">
-                      {TEXT.chosen}
-                    </span>
-                  )}
-                </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
+} satisfies Omit<SurfaceRenderers, "ready" | "loading">;
 
 function Back(props: { next: string }): ReactNode {
   const navigate = useNavigate();
@@ -120,7 +81,7 @@ function Back(props: { next: string }): ReactNode {
       }}
       className={buttonVariants({
         variant: "ghost",
-        className: "-ms-2 mb-2 self-start text-fg-muted hover:text-fg",
+        className: "self-start text-fg-muted hover:text-fg",
       })}
     >
       {TEXT.back}
@@ -200,12 +161,14 @@ export function ChooseScreen(props: {
   person: TabPerson | null;
   setPerson: (person: TabPerson) => void;
   next: string;
+  compact?: boolean;
 }): ReactNode {
-  const { api, person, setPerson, next } = props;
+  const { api, person, setPerson, next, compact = false } = props;
   const { now, schedule } = useEnvironment();
   // before a person is chosen the chooser is drawn outside the shell, which times every other surface
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const [loadingSince] = useState(now);
+  const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
   const guard = useRef<CloseGuard | null>(null);
   const { choices, choose, unreachable } = useChooser(
     api,
@@ -219,52 +182,122 @@ export function ChooseScreen(props: {
     focusHeading(document);
   }, []);
 
+  const list = choices.data ?? [];
   const state: SurfaceStateValue =
     choices.data !== undefined
       ? { kind: choices.data.length === 0 ? "empty" : "ready" }
       : choices.isError
         ? { kind: "problem", reason: "unreachable" }
         : { kind: "loading", sinceMs: loadingSince };
+
+  const activeChoice =
+    list.find((c) => c.userId === (hoveredUserId ?? person?.userId)) ??
+    list[0] ??
+    null;
+  const pendingUserId = choose.isPending
+    ? (choose.variables?.userId ?? null)
+    : null;
+  const showStudio =
+    !compact && state.kind === "ready" && activeChoice !== null;
+
   const render: SurfaceRenderers = {
     ...WITHOUT_LIST,
+    loading: () => <Placeholders compact={compact} />,
     ready: () => (
-      <People
-        choices={choices.data ?? []}
-        chosenUserId={person?.userId ?? null}
-        disabled={choose.isPending}
-        onChoose={(choice) => choose.mutate(choice)}
-      />
+      <div
+        className="mn-choose-split animate-in fade-in-0 duration-(--dur-fast) ease-out"
+        data-split={showStudio ? "two" : undefined}
+      >
+        <div className="flex min-w-0 flex-col">
+          <PeopleGrid
+            choices={list}
+            chosenUserId={person?.userId ?? null}
+            spotlightUserId={hoveredUserId}
+            pendingUserId={pendingUserId}
+            disabled={choose.isPending}
+            compact={compact}
+            onChoose={(choice) => choose.mutate(choice)}
+            onSpotlight={setHoveredUserId}
+          />
+          {!compact && person === null && <StudioPillars />}
+        </div>
+        {showStudio && (
+          <PersonaSpotlight choice={activeChoice} choices={list} />
+        )}
+      </div>
     ),
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-content-wide flex-col px-6 py-12">
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <ManentMark className="size-8 text-fg" decorative />
-        {person && <Back next={next} />}
-      </div>
-      <h1 tabIndex={-1} className="text-display outline-none">
-        {TEXT.chooseTitle}
-      </h1>
-      <p className="mt-1 text-ui text-fg-muted">{TEXT.chooseHint}</p>
-      {(choices.isError || unreachable) && (
-        <p
-          role="alert"
-          className="mt-6 flex items-center gap-2 text-ui text-attention"
-        >
-          <CloudExclamationPointIcon aria-hidden="true" />
-          {TEXT.chooseUnreachable}
+    <div
+      className="mn-choose-stage flex min-h-full w-full flex-1 flex-col"
+      data-compact={compact ? "" : undefined}
+    >
+      <div
+        className={
+          compact
+            ? "mn-choose-shell mx-auto flex w-full max-w-content-wide flex-col px-6 py-8"
+            : "mn-choose-shell mx-auto flex w-full max-w-[68rem] flex-col px-6 py-10 sm:py-12"
+        }
+      >
+        <div className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="mn-choose-brand-badge inline-flex size-9 shrink-0 items-center justify-center rounded-surface">
+              <ManentMark className="size-6 text-fg" decorative />
+            </span>
+            {showStudio && (
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 animate-in fade-in-0 duration-(--dur-fast) ease-out">
+                <span className="text-heading tracking-tight text-fg">
+                  {BRAND_WORDS.name}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="hidden h-3.5 w-px self-center bg-line sm:inline-block"
+                />
+                <span className="hidden text-meta text-fg-muted sm:inline">
+                  {BRAND_WORDS.tagline}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {showStudio && <ThemeToggle />}
+            {person && <Back next={next} />}
+          </div>
+        </div>
+
+        <h1 tabIndex={-1} className="text-display text-fg outline-none">
+          {TEXT.chooseTitle}
+        </h1>
+        <p className="mt-1.5 max-w-[38rem] text-ui text-fg-muted">
+          {TEXT.chooseHint}
         </p>
-      )}
-      <div className="mt-6">
-        <TimingProvider timing={timing}>
-          <SurfaceState surface="choose" state={state} render={render} />
-        </TimingProvider>
+
+        {(choices.isError || unreachable) && (
+          <p
+            role="alert"
+            className="mt-5 flex items-center gap-2.5 rounded-surface border border-line bg-raised px-3.5 py-2.5 text-ui text-attention"
+          >
+            <CloudExclamationPointIcon
+              aria-hidden="true"
+              className="size-icon-lg shrink-0"
+            />
+            {TEXT.chooseUnreachable}
+          </p>
+        )}
+
+        <div className="mt-6">
+          <TimingProvider timing={timing}>
+            <SurfaceState surface="choose" state={state} render={render} />
+          </TimingProvider>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-5 border-t border-line pt-6">
+          {showStudio && <StudioFooter />}
+          <AiPledge />
+        </div>
+        {person && <SwitchGuard into={guard} />}
       </div>
-      <div className="mt-8 border-t border-line pt-6">
-        <AiPledge />
-      </div>
-      {person && <SwitchGuard into={guard} />}
     </div>
   );
 }

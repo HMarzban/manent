@@ -42,6 +42,7 @@ export function ReaderChooser(props: {
         person={person}
         setPerson={setPerson}
         next={next}
+        compact
       />
     </div>
   );

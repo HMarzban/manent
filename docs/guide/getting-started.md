@@ -31,7 +31,7 @@ To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `
 
 ## Choose who you are
 
-![The "Choose who you are" screen, listing the six demo people and their roles](../images/choose-who-you-are.png)
+![The "Choose who you are" Studio Desk screen, showing the six demo people, the live script desk preview, and the Light and Dark theme switch](../images/choose-who-you-are.png)
 
 The demo has no passwords. You choose a person with one click:
 
@@ -46,7 +46,11 @@ The demo has no passwords. You choose a person with one click:
 
 **You** is not signed in, so nothing You writes is sent to the server; choose anyone else to see syncing.
 
-Each browser tab is its own person, so two tabs can be two people. A new tab asks who you are before it shows anything, even when it opens on a script's address, and then goes on to that address. Switch person from the bar at the top ("Person: …") or from the person menu in the Library.
+Hovering or moving keyboard focus across the cards updates the live desk view beside them with each person's workspace, format and capabilities. You can switch between **Light** and **Dark** themes from the top right before signing in, or use the footer cards to get the desktop app, install Manent as an offline web app, or open the public repository on GitHub.
+
+On a first visit in a browser on a secure address (`localhost` or HTTPS), a quiet **Offline status** card appears at the bottom left while Manent prepares offline tools in the background, confirms **Ready offline** once complete, and stays silent on later visits.
+
+Online, each browser tab is its own person, so two tabs can be two people: a new online tab asks who you are before it shows anything, even when it opens on a script's address, and then goes on to that address. When you relaunch offline or open Manent as an installed standalone web app, it restores your last active person automatically so you can go straight back to your cached Library and scripts. Switch person at any time from the bar at the top ("Person: …") or from the person menu in the Library.
 
 ## The demo bar
 
