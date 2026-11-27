@@ -20,7 +20,7 @@ Preferences are yours: they follow you to every device you sign in from and chan
 
 - **Theme:** System, Light or Dark. The default is System.
 - **App theme:** choose from 24 calibrated Light and Dark studio palettes designed for long writing sessions. Palette choices stay personal and never alter pagination, print paper or what collaborators see.
-- **Theme hidden gems:** shows or hides subtle collector emblems paired with each studio palette. On by default.
+- **Theme hidden gems:** shows or hides the subtle collector emblem paired with each studio palette — shown in the Appearance gallery, the Studio Desk chooser folio and the trailing edge of the Library, Script, Rundown and Settings status bars (hidden in forced colours and print). On by default.
 - **White page in dark theme:** keeps the page white when the rest is dark. Off by default.
 - **Match each project's format:** optionally switches palettes automatically to suit the format of the script you open (with per-format defaults and per-project overrides). Off by default so your chosen palette stays steady unless you turn it on.
 
