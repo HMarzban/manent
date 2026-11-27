@@ -123,3 +123,4 @@ The evidence or event that would reopen this.
 - [0075. Reusable Show and News templates live in the workspace and project indexes](0075-reusable-show-templates.md)
 - [0076. Rundown viewers receive server-projected views and rundowns carry full version history](0076-rundown-viewer-and-full-history.md)
 - [0077. Parallel gate and CI job fan-out](0077-parallel-gate-and-ci-fan-out.md)
+- [0078. Installable PWA delivery, safe service-worker updates and landing-site freshness](0078-pwa-installability-update-lifecycle-and-site-freshness.md)

@@ -30,7 +30,7 @@ import { Fact, Group } from "./device-group.tsx";
 export const FORCED_COLOURS = "(forced-colors: active)";
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 const MORE_CONTRAST = "(prefers-contrast: more)";
-const NO_OFFLINE_SOURCE: Subscribable<string | null> = createValue(null);
+const NO_OFFLINE_SOURCE: Subscribable<unknown> = createValue(null);
 
 type OfflineStatus = "ready" | "preparing" | "save_data" | "online_only";
 
@@ -43,20 +43,32 @@ const OFFLINE_LABELS: Readonly<Record<OfflineStatus, string>> = Object.freeze({
 
 function readEnvironmentOfflineSource(
   environment: Environment,
-): Subscribable<string | null> {
-  const candidate = (
-    environment as Environment & {
-      readonly offlineReadiness?: Subscribable<string>;
-    }
-  ).offlineReadiness;
-  return candidate ?? NO_OFFLINE_SOURCE;
+): Subscribable<unknown> {
+  return environment.offlineReadiness ?? NO_OFFLINE_SOURCE;
 }
 
-function normaliseOfflineStatus(raw: string | null): OfflineStatus | null {
-  if (raw === null) return null;
-  if (raw === "ready") return "ready";
-  if (raw === "preparing" || raw === "installing") return "preparing";
-  if (raw === "save_data" || raw === "paused_data_saver") return "save_data";
+function normaliseOfflineStatus(raw: unknown): OfflineStatus | null {
+  const status =
+    typeof raw === "string"
+      ? raw
+      : typeof raw === "object" && raw !== null && "status" in raw
+        ? Reflect.get(raw, "status")
+        : null;
+  if (typeof status !== "string") return null;
+  if (status === "ready") return "ready";
+  if (
+    status === "preparing" ||
+    status === "installing" ||
+    status === "warming" ||
+    status === "shell_only"
+  )
+    return "preparing";
+  if (
+    status === "save_data" ||
+    status === "paused_data_saver" ||
+    status === "paused_save_data"
+  )
+    return "save_data";
   return "online_only";
 }
 

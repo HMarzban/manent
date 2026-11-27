@@ -88,7 +88,8 @@ export function preferencesHandlers(
       window.open("/benchmark-report.html", "_blank", "noopener,noreferrer");
     },
     "app.reloadToUpdate": () => {
-      void reloadToUpdate();
+      if (deps.webUpdate !== undefined) void deps.webUpdate.apply();
+      else void reloadToUpdate();
     },
     "app.install": () => {
       void browserInstallStore()

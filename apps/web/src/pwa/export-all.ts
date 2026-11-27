@@ -2,6 +2,10 @@
 import { formatDate } from "@manent/ui";
 import type { WrittenFile } from "../send/script-file.ts";
 import type { PersonServices, ProjectItem } from "../services/ports.ts";
+import {
+  browserStores,
+  createDeviceMemory,
+} from "../services/sync/device-memory.ts";
 
 const ZIP_EXTENSION = ".zip";
 const NAME_LIMIT = 200;
@@ -179,10 +183,19 @@ async function discoverCachedProjects(
   const me = await services.api
     .me()
     .catch(() => ({ ok: false as const, reason: "unreachable" as const }));
+  const cached =
+    createDeviceMemory({
+      local: browserStores().local,
+      session: null,
+    }).workspaces(services.userId) ?? [];
   const listed = me.ok
     ? me.me.workspaces.filter((ws) => ws.seeding === null).map((ws) => ws.id)
-    : [];
-  const workspaceIds = new Set([...listed, services.userId]);
+    : cached.map((ws) => ws.id);
+  const workspaceIds = new Set([
+    ...listed,
+    ...cached.map((ws) => ws.id),
+    services.userId,
+  ]);
   const seen = new Set<string>();
   const found: BackupProject[] = [];
   for (const workspaceId of workspaceIds) {

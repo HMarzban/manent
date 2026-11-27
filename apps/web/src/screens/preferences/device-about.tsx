@@ -65,7 +65,7 @@ async function checkWebUpdate(): Promise<UpdateState> {
 
 /** The web build's version and Check for updates, with a calm Reload to update action once ready. */
 function WebVersion(props: { versionLine: string }): ReactNode {
-  const { dom, updateState } = useEnvironment();
+  const { dom, updateState, webUpdate } = useEnvironment();
   const { commands } = useServices();
   const update = useSubscribable(updateState);
   const line = update === null ? null : WEB_UPDATE_LINES[update];
@@ -75,9 +75,13 @@ function WebVersion(props: { versionLine: string }): ReactNode {
     said.current = line;
   }, [line, dom]);
   const checkForUpdates = useCallback(() => {
+    if (webUpdate !== undefined) {
+      void webUpdate.check();
+      return;
+    }
     updateState.set("checking");
     void checkWebUpdate().then((result) => updateState.set(result));
-  }, [updateState]);
+  }, [updateState, webUpdate]);
   const reload = useCallback(() => {
     void commands.run("app.reloadToUpdate", "control");
   }, [commands]);

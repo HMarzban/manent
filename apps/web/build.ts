@@ -114,7 +114,12 @@ async function insertBootScript(outDir: string): Promise<void> {
   );
 }
 
-/** Inserts `<meta name="manent-build" ...>` right after `<meta name="color-scheme" ...>`. */
+const PWA_HEAD_LINKS =
+  '<link rel="manifest" href="/manifest.webmanifest" />' +
+  '<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />' +
+  '<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />';
+
+/** Inserts `<meta name="manent-build" ...>` and PWA manifest/icon links right after `<meta name="color-scheme" ...>`. */
 async function insertBuildMetaTag(
   outDir: string,
   id: string,
@@ -125,7 +130,8 @@ async function insertBuildMetaTag(
     throw new RangeError(`the built page has no color-scheme meta: ${page}`);
   const updated = html.replace(
     COLOR_SCHEME_META,
-    (match) => `${match}<meta name="manent-build" content="${id}" />`,
+    (match) =>
+      `${match}<meta name="manent-build" content="${id}" />${PWA_HEAD_LINKS}`,
   );
   await writeFile(page, updated);
   return Bun.file(page).bytes();

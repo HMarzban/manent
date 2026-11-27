@@ -157,17 +157,21 @@ test("the build writes a service worker holding the whole shell, fonts included"
       !heavyOnDemand.has(basename(f)),
   ))
     expect(sw).toContain(JSON.stringify(`/${file.replaceAll("\\", "/")}`));
-  // heavy on-demand chunks and legacy .woff PDF fonts stay out of eager precache and use runtime caching
-  for (const file of heavyOnDemand)
-    expect(sw).not.toContain(JSON.stringify(`/${file}`));
+  // heavy on-demand chunks and legacy .woff PDF fonts stay out of eager precache ({url: ...}) and sit in the idle warm list instead
+  for (const file of heavyOnDemand) {
+    expect(sw).not.toContain(`{url:${JSON.stringify(`/${file}`)},`);
+    expect(sw).toContain(JSON.stringify(`/${file}`));
+  }
   const allJsTexts = await Promise.all(
     built.files
       .filter((f) => f.endsWith(".js") && f !== "sw.js" && f !== inkWorkerName)
       .map((f) => Bun.file(join(outDir, f)).text()),
   );
   expect(allJsTexts.some((t) => t.includes(`/${inkWorkerName}`))).toBe(true);
-  for (const file of built.files.filter((f) => f.endsWith(".woff")))
-    expect(sw).not.toContain(JSON.stringify(`/${basename(file)}`));
+  for (const file of built.files.filter((f) => f.endsWith(".woff"))) {
+    expect(sw).not.toContain(`{url:${JSON.stringify(`/${basename(file)}`)},`);
+    expect(sw).toContain(JSON.stringify(`/${basename(file)}`));
+  }
   expect(sw).toContain("manent-runtime-assets-");
   expect(sw).not.toContain("manent-runtime-assets-v1");
   const css = built.files.filter((f) => f.endsWith(".css"));

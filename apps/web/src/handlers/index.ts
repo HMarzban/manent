@@ -72,7 +72,7 @@ export interface Navigation {
 
 export interface HandlerDeps extends Pick<
   Environment,
-  "language" | "now" | "storage"
+  "language" | "now" | "storage" | "webUpdate"
 > {
   services: PersonServices;
   api: Api;
