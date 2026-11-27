@@ -206,12 +206,21 @@ export function createServer(config: ServerConfig): ManentServer {
     async fetch(request, peer) {
       const url = new URL(request.url);
       const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
+      const connectOrigins: string[] = [];
+      if (config.demo?.control?.url) {
+        try {
+          connectOrigins.push(new URL(config.demo.control.url).origin);
+        } catch {
+          // ignore malformed control URL
+        }
+      }
       const finish = (response: Response | null): Response | null =>
         response === null
           ? null
           : applySecurityHeaders(response, {
               isApi,
               meta: readBuildMeta(webDir),
+              connectOrigins,
             });
       if (!allowedHosts.has(url.host)) {
         if (isApi) return finish(failure("forbidden_host", 403));

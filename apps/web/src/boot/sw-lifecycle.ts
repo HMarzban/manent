@@ -142,8 +142,9 @@ export function startSwLifecycle(
     };
   }
 
-  // Capture BEFORE register() so first-install clientsClaim() never reloads the page.
-  const hadController = container.controller !== null;
+  // Capture BEFORE register() so first-install clientsClaim() never reloads the page;
+  // once that initial claim fires controllerchange, flip hadController so a later update reloads cleanly.
+  let hadController = container.controller !== null;
   let updateRequested = false;
   let reloading = false;
   let disposed = false;
@@ -187,7 +188,12 @@ export function startSwLifecycle(
   };
 
   const onControllerChange = (): void => {
-    if (disposed || !hadController || !updateRequested || reloading) return;
+    if (disposed || reloading) return;
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
+    if (!updateRequested) return;
     reloading = true;
     reload();
   };

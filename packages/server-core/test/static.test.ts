@@ -182,7 +182,7 @@ test("security headers, HTML CSP, API X-Manent-Build-Id, and WELCOME webBuildId 
     "DENY",
     "no-referrer",
     "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-    "default-src 'none'; script-src 'self' 'sha256-BOOT1'; worker-src 'self'; child-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'none'; script-src 'self' 'sha256-BOOT1'; worker-src 'self'; child-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' ws: wss: http://127.0.0.1:4748; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
   ]);
 
   const api = await fetchAt("/api/sign-in");

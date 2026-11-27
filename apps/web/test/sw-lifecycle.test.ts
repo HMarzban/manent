@@ -140,6 +140,13 @@ test("first install (controller === null) never reloads on controllerchange", as
   container.controller = new FakeWorker("activated");
   container.dispatch("controllerchange");
   expect(reloads).toBe(0);
+  // A subsequent update in that same session reloads cleanly once explicitly requested.
+  const waiting = new FakeWorker("installed");
+  container.registration.waiting = waiting;
+  await handle.controller.apply();
+  expect(waiting.posted).toEqual([{ type: "SKIP_WAITING" }]);
+  container.dispatch("controllerchange");
+  expect(reloads).toBe(1);
   handle.dispose();
 });
 

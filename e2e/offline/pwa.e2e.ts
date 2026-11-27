@@ -143,7 +143,8 @@ test("an update waiting in the background surfaces a calm reload action and acti
     undefined,
     { timeout: 30_000 },
   );
-  await expect
-    .poll(() => pageText(page))
-    .toContain("The boats are in kept safe");
+  await expect(page.locator("[data-editor-host]")).toContainText(
+    "The boats are in kept safe",
+    { timeout: 20_000 },
+  );
 });

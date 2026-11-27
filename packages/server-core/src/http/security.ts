@@ -75,14 +75,22 @@ export function readBuildMeta(webDir: string | null): BuildMeta | null {
 }
 
 /** Strict Content-Security-Policy for Manent HTML documents given the boot script's SHA-256 hash. */
-export function htmlCsp(bootScriptHash: string): string {
-  return `default-src 'none'; script-src 'self' '${bootScriptHash}'; worker-src 'self'; child-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
+export function htmlCsp(
+  bootScriptHash: string,
+  connectOrigins: readonly string[] = [],
+): string {
+  const connect = ["'self'", "ws:", "wss:", ...connectOrigins].join(" ");
+  return `default-src 'none'; script-src 'self' '${bootScriptHash}'; worker-src 'self'; child-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src ${connect}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 /** Adds baseline security headers, API cache/build headers, and HTML CSP without clobbering existing directives. */
 export function applySecurityHeaders(
   response: Response,
-  options: { readonly isApi: boolean; readonly meta: BuildMeta | null },
+  options: {
+    readonly isApi: boolean;
+    readonly meta: BuildMeta | null;
+    readonly connectOrigins?: readonly string[];
+  },
 ): Response {
   const headers = new Headers(response.headers);
   for (const [name, value] of BASE_SECURITY_HEADERS)
@@ -100,7 +108,7 @@ export function applySecurityHeaders(
   )
     headers.set(
       "Content-Security-Policy",
-      htmlCsp(options.meta.bootScriptHash),
+      htmlCsp(options.meta.bootScriptHash, options.connectOrigins),
     );
   const noBody = response.status === 204 || response.status === 304;
   return new Response(noBody ? null : response.body, {
