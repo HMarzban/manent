@@ -133,17 +133,19 @@ async function runContainer(
     join(resolve(options.outDir), ".container-"),
   );
   try {
-    const readOnly = ["traces", "cache"]
-      .map((name) => ({
-        from: join(REPO, "bench", "corpus", name),
-        to: `/repo/bench/corpus/${name}`,
-      }))
-      .filter((v) => existsSync(v.from));
+    const tracesDir = join(REPO, "bench", "corpus", "traces");
+    const cacheDir = join(REPO, "bench", "corpus", "cache");
+    await mkdir(cacheDir, { recursive: true });
+    const readOnly = existsSync(tracesDir)
+      ? [{ from: tracesDir, to: "/repo/bench/corpus/traces" }]
+      : [];
+    const readWrite = [{ from: cacheDir, to: "/repo/bench/corpus/cache" }];
     const args = dockerRunArgs(TIERS[run.tier], {
       image,
       throttle: run.throttle,
       resultsDir,
       readOnly,
+      readWrite,
       args: insideArgs(options, run),
     });
     const ran = await ask(options.docker, args.slice(1));

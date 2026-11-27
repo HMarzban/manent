@@ -14,11 +14,10 @@ const NOT_FETCHED =
   "the editing traces are not fetched: run bun run bench fetch-traces";
 const QUICK_MAX_PATCHES = 200;
 
-function fetchedTraces(): Trace[] {
+function fetchedTraceFiles(): { name: string; file: string }[] {
   return TRACE_SOURCES.flatMap(({ name }) => {
     const file = join(TRACES_DIR, `${name}.json.gz`);
-    if (!existsSync(file)) return [];
-    return [{ ...readTrace(readFileSync(file)), name }];
+    return existsSync(file) ? [{ name, file }] : [];
   });
 }
 
@@ -50,10 +49,13 @@ const scenario: Scenario = {
   workload: null,
   processes: 5,
   async run(): Promise<Measurement[]> {
-    const traces = fetchedTraces();
-    if (traces.length === 0) throw new NotMeasured(NOT_FETCHED);
+    const files = fetchedTraceFiles();
+    if (files.length === 0) throw new NotMeasured(NOT_FETCHED);
     const measured: Measurement[] = [];
-    for (const trace of traces) measured.push(...(await measureTrace(trace)));
+    for (const { name, file } of files) {
+      const trace: Trace = { ...readTrace(readFileSync(file)), name };
+      measured.push(...(await measureTrace(trace)));
+    }
     return measured;
   },
 };

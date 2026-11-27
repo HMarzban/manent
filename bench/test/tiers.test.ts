@@ -77,14 +77,12 @@ test("a tier's container is started with its caps and its throttle", () => {
       image: "i",
       throttle: 1,
       resultsDir: "/r",
-      readOnly: [
-        { from: "/t", to: "/repo/bench/corpus/traces" },
-        { from: "/c", to: "/repo/bench/corpus/cache" },
-      ],
+      readOnly: [{ from: "/t", to: "/repo/bench/corpus/traces" }],
+      readWrite: [{ from: "/c", to: "/repo/bench/corpus/cache" }],
       args: [],
     }).join(" "),
   ).toBe(
-    "docker run --rm --init --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --volume /r:/repo/bench/results --volume /t:/repo/bench/corpus/traces:ro --volume /c:/repo/bench/corpus/cache:ro i bun bench/run.ts --inside",
+    "docker run --rm --init --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --volume /r:/repo/bench/results --volume /t:/repo/bench/corpus/traces:ro --volume /c:/repo/bench/corpus/cache i bun bench/run.ts --inside",
   );
 });
 

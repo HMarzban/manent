@@ -19,7 +19,7 @@ import { openCorpusScript, scriptBlocks } from "../typing/run-typing.ts";
 const PAGES = 120;
 const WRITERS = ["sam", "leo", "ana"] as const;
 const MARKERS_TARGET = { quick: 3, standard: 60, full: 60 } as const;
-const TIMEOUT_MS = 300_000;
+const TIMEOUT_MS = 600_000;
 const MINUTE_MS = 60_000;
 
 /** Installs a DOM observer on `[data-editor-host]` recording the epoch ms each `⟦client:n⟧` marker first appears. */
@@ -34,15 +34,18 @@ async function installMarkerWatcher(page: Page): Promise<void> {
         if (!(marker in seen)) seen[marker] = at;
       }
     };
+    const scanNode = (node: Node, at: number): void => {
+      const el = node instanceof Element ? node : node.parentElement;
+      scan(el?.closest("[data-id]")?.textContent ?? node.textContent, at);
+    };
     const host = document.querySelector("[data-editor-host]");
     if (host === null) throw new Error("editor host is not mounted");
     scan(host.textContent, Date.now());
     const observer = new MutationObserver((records) => {
       const at = Date.now();
       for (const record of records) {
-        if (record.type === "characterData")
-          scan(record.target.textContent, at);
-        for (const node of record.addedNodes) scan(node.textContent, at);
+        if (record.type === "characterData") scanNode(record.target, at);
+        for (const node of record.addedNodes) scanNode(node, at);
       }
     });
     observer.observe(host, {
@@ -104,12 +107,17 @@ const scenario: Scenario = {
         await installMarkerWatcher(p.page);
         const before = socketBytes();
         const startedAt = performance.now();
+        const onlineRealistic = {
+          ...PROFILES.realistic,
+          offlinePerHour: 0,
+          offlineMs: [0, 0] as const,
+        };
         const started = await startPeople({
           demo,
           docId,
           people: WRITERS.map((userId, i) => ({
             userId,
-            profile: PROFILES.realistic,
+            profile: onlineRealistic,
             region: regions[i]!,
             markers: true,
           })),

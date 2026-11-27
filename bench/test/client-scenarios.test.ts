@@ -182,8 +182,6 @@ function runAll(): Promise<Map<Id, Told>> {
 const NOT_MEASURED: Partial<Record<Id, string>> = {
   "saved-web-120":
     "the status bar did not read Saved within 10000 ms of a keystroke",
-  interface:
-    "no ui.facts.publish, ui.outline.publish, ui.open.panel, ui.open.dialog, ui.open.popover mark was recorded",
 };
 
 test("each client scenario measures what its budget names, and nothing is unbudgeted by accident", async () => {

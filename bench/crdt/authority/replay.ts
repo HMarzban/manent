@@ -166,20 +166,24 @@ export function replayThroughAuthority(trace: Trace): AuthorityReplay {
   let clientA = createClient(initialDoc, CLIENT_A);
   let clientB = createClient(initialDoc, CLIENT_B);
 
+  let logBytes = 2; // "[]"
+  let serializedSteps = 0;
   for (const patch of trace.patches) {
     clientA = applyTracePatch(clientA, lineLengths, patch, newId);
     const committed = acceptFromClient(authority, clientA);
     clientA = committed.sender;
     if (committed.steps.length > 0) {
+      for (const step of committed.steps) {
+        if (serializedSteps > 0) logBytes += 1; // ","
+        logBytes += Buffer.byteLength(JSON.stringify(step.toJSON()));
+        serializedSteps += 1;
+      }
       clientB = clientB.apply(
         receiveTransaction(clientB, committed.steps, committed.clientIDs),
       );
     }
   }
 
-  const logBytes = Buffer.byteLength(
-    JSON.stringify(authority.steps.map((step) => step.toJSON())),
-  );
   return { clientA, clientB, authority, logBytes };
 }
 

@@ -245,12 +245,15 @@ async function signInToken(url: string, userId: string): Promise<string> {
 /** The demo in the test flavour on a free port and a fresh data directory (mkdtemp) unless given; Chromium by default, or Firefox/WebKit. */
 export async function startBenchDemo(options?: {
   dataDir?: string;
-  browser?: BenchBrowser;
+  browser?: BenchBrowser | false;
   headed?: boolean;
 }): Promise<BenchDemo> {
-  const browserName = options?.browser ?? "chromium";
+  const browserOption = options?.browser ?? "chromium";
   const headed = options?.headed ?? false;
-  const browser = await launchBenchBrowser(browserName, headed);
+  const browser =
+    browserOption === false
+      ? null
+      : await launchBenchBrowser(browserOption, headed);
   const ownData = options?.dataDir === undefined;
   const dataDir =
     options?.dataDir ?? (await mkdtemp(join(tmpdir(), "manent bench ")));
@@ -265,7 +268,7 @@ export async function startBenchDemo(options?: {
   try {
     demo = await spawnDemo({ ...ports, dataDir, webDir });
   } catch (error) {
-    await browser.close();
+    await browser?.close();
     await removeDirs();
     throw error;
   }
@@ -282,11 +285,13 @@ export async function startBenchDemo(options?: {
     url,
     dataDir,
     async openPage({ userId, offline = false }) {
+      if (browser === null)
+        throw new RangeError("startBenchDemo was started with browser: false");
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
         let cdp: CDPSession | null = null;
-        if (browserName === "chromium") {
+        if (browserOption === "chromium") {
           cdp = await context.newCDPSession(page);
           await throttlePage(page, cdp);
         }
@@ -320,7 +325,7 @@ export async function startBenchDemo(options?: {
         }
       }),
     async stop() {
-      await browser.close();
+      await browser?.close();
       await halt();
       await removeDirs();
     },

@@ -513,6 +513,24 @@ test("a scenario that says it cannot run is recorded, and the run goes on", asyn
     { reason: "traces not fetched" },
     { exitCode: 3 },
   ]);
+  expect(
+    file.scenarios[1]?.outcome === "failed" && file.scenarios[1].output,
+  ).toContain("exited with code 3 and no output");
+});
+
+test("a scenario killed by a signal records the signal in its failure output", async () => {
+  const root = await trees.tree({
+    "corpus/killed.bench.ts": scenarioFile(
+      "fixture.killed",
+      1,
+      `process.kill(process.pid, "SIGKILL"); return [];`,
+    ),
+  });
+  const r = await runSuite({ root, outDir: join(root, "out"), now: fixedNow });
+  expect(r.failed).toBe(1);
+  const [killed] = await resultsOf(r);
+  expect(killed).toMatchObject({ outcome: "failed" });
+  expect(killed?.outcome === "failed" && killed.output).toContain("SIGKILL");
 });
 
 test("a timed scenario on a busy machine is void, with the load it saw", async () => {

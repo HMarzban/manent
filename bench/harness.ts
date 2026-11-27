@@ -57,32 +57,23 @@ export interface SuiteRun {
   unmatched: string[];
 }
 
-/** Until the corpus module names its version, the corpus every scenario generates is this one. */
 const CORPUS_VERSION = 1;
 const OUTPUT_CHARS = 4000;
-
 interface Run extends JudgingRun {
   budgets: readonly Budget[];
   quiet: (() => Quiet) | null;
   waitMs: (ms: number) => Promise<void>;
-  /** The cores this process sees, against which the load average is read. */
   cpus: number;
-  /** Milliseconds since the epoch. */
   now: () => number;
 }
-
-/** A scenario file, by its path under the suite's root. */
 interface ScenarioFile {
   rel: string;
   file: string;
   area: Area;
 }
-
-/** A scenario file and what its default export declares. */
 interface Found extends ScenarioFile {
   scenario: Scenario;
 }
-
 interface Row {
   scenario: string;
   metric: string;
@@ -214,7 +205,14 @@ async function runProcess(
     exitCode,
     output: output.slice(-OUTPUT_CHARS),
   });
-  if (exitCode !== 0) return failed(printed);
+  if (exitCode !== 0) {
+    const note =
+      child.signalCode !== null
+        ? `${found.rel}: process terminated by ${child.signalCode} (exit ${exitCode})`
+        : `${found.rel}: process exited with code ${exitCode} and no output`;
+    if (printed.trim() === "") return failed(note);
+    return failed(child.signalCode !== null ? `${printed}\n${note}` : printed);
+  }
   const read = readResultLine(found, stdout);
   return typeof read === "string" ? failed(`${printed}\n${read}`) : read;
 }
@@ -324,13 +322,7 @@ function suiteRun(
   };
 }
 
-/**
- * Runs every scenario under `root` of `areas` (default: all) whose path contains `filter`, and
- * writes the result file. `now` is in milliseconds since the epoch; `tier` and `throttle` default
- * to the environment's. A proof runs only scenarios with a row to prove; `cannotRun` records every
- * chosen scenario as not measured, for that reason, and runs none; `container` is what a tier's
- * container records in place of this process's limits and command line.
- */
+/** Runs every scenario of `areas` matching `filter` under `root` and writes the result file. */
 export async function runSuite(options: {
   root: string;
   outDir: string;

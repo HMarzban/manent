@@ -12,7 +12,6 @@ export const STORAGE_KEYSTROKES = {
   standard: 200,
   full: 200,
 } as const;
-export const QUOTA_HEADROOM_BYTES = 65_536;
 export const TOLD_TIMEOUT_MS = 15_000;
 export const SYNC_SETTLE_TIMEOUT_MS = 30_000;
 
@@ -202,9 +201,17 @@ export async function armQuotaObserver(
       const markRefused = (): void => {
         if (firstRefusedAt === null) firstRefusedAt = performance.now();
       };
-      // Observe IndexedDB transaction/request quota refusals directly.
+      // Observe IndexedDB transaction abort and request quota refusals directly.
+      const origTx = IDBDatabase.prototype.transaction;
       const origAdd = IDBObjectStore.prototype.add;
       const origPut = IDBObjectStore.prototype.put;
+      IDBDatabase.prototype.transaction = function txWatched(...args) {
+        const tx = origTx.apply(this, args);
+        tx.addEventListener("abort", () => {
+          if (tx.error?.name === "QuotaExceededError") markRefused();
+        });
+        return tx;
+      };
       const watchRequest = <T>(request: IDBRequest<T>): IDBRequest<T> => {
         request.addEventListener("error", () => {
           if (request.error?.name === "QuotaExceededError") markRefused();
@@ -218,6 +225,7 @@ export async function armQuotaObserver(
         return watchRequest(origPut.call(this, value, key));
       };
       const restore = (): void => {
+        IDBDatabase.prototype.transaction = origTx;
         IDBObjectStore.prototype.add = origAdd;
         IDBObjectStore.prototype.put = origPut;
       };

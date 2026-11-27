@@ -1,6 +1,6 @@
 // Repaginating in the real editor: the frame after the paper changes, when every break moves, and the keystroke that
 // pushes one line over a page's end.
-import type { Page } from "@playwright/test";
+import type { CDPSession, Page } from "@playwright/test";
 import { benchMode } from "../../env.ts";
 import type { Scenario } from "../../harness.ts";
 import { inputBlocks, measurement } from "../../measure.ts";
@@ -36,7 +36,11 @@ async function untilBreaksMove(page: Page, before: string): Promise<void> {
 }
 
 /** Each change of paper, Letter to A4 and back `rounds` times: the palette's Enter to the next paint, ms. */
-async function paperFrames(page: Page, rounds: number): Promise<number[]> {
+async function paperFrames(
+  page: Page,
+  cdp: CDPSession | null,
+  rounds: number,
+): Promise<number[]> {
   const samples: number[] = [];
   for (let n = 0; n < rounds; n++)
     for (const label of PAPERS) {
@@ -44,6 +48,7 @@ async function paperFrames(page: Page, rounds: number): Promise<number[]> {
       samples.push(await runFromPalette(page, label));
       await untilBreaksMove(page, before);
       await settled(page);
+      if (cdp !== null) await cdp.send("HeapProfiler.collectGarbage");
     }
   return samples;
 }
@@ -79,9 +84,9 @@ export function repaginateScenario(pages: 120 | 2000): Scenario {
       const rounds = ROUNDS[benchMode()];
       const demo = await startBenchDemo();
       try {
-        const { page } = await demo.openPage({ userId: "dana" });
+        const { page, cdp } = await demo.openPage({ userId: "dana" });
         const { d } = await openCorpusScript(page, pages);
-        const breaks = await paperFrames(page, rounds.paper);
+        const breaks = await paperFrames(page, cdp, rounds.paper);
         const lines = await pushedLines(page, rounds.lines);
         return [
           measurement("breaks_frame_ms", "ms", breaks),

@@ -77,14 +77,18 @@ const scenario: Scenario = {
         await log.gather(names, fromMs);
       };
       const blocks = await scriptBlocks(page);
-      const typedIn = blocks[Math.floor(blocks.length / 2)]!.id;
+      const mid = Math.floor(blocks.length / 2);
+      const typedIn = (
+        blocks.find((b, i) => i >= mid && b.type === "scene_heading") ??
+        blocks[mid]!
+      ).id;
       for (let n = 0; n < rounds.times; n++) {
         await step(["ui.open.palette", "ui.search.palette"], () =>
           searchPalette(page),
         );
-        await step(["ui.open.popover"], () => openPopover(page));
-        await step(["ui.open.panel"], () => togglePanel(page));
-        await step(["ui.open.dialog"], () => openDialog(page));
+        log.record("ui.open.popover", await openPopover(page));
+        log.record("ui.open.panel", await togglePanel(page));
+        log.record("ui.open.dialog", await openDialog(page));
         await step(["ui.setting.apply"], () => switchTheme(page));
         await step(["ui.open.preferences"], () =>
           openPreferences(page, d.blocks),
@@ -99,6 +103,8 @@ const scenario: Scenario = {
             Array.from({ length: rounds.keys }, () => "x"),
             KEY_INTERVAL_MS,
           );
+          // let the 250 ms outline throttle publish even in quick mode
+          await Bun.sleep(350);
         });
         // each is a load of its own, so it keeps only its own marks
         await openSendScreen(page, at);

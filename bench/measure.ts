@@ -79,8 +79,9 @@ export const QUIET = {
   spread: 1.25,
   retries: 12,
   waitMs: 5000,
+  calibrationWarmup: 3,
   calibrationRuns: 21,
-  calibrationIterations: 2_000_000,
+  calibrationIterations: 400_000,
 } as const;
 
 /** The highest 1-minute load average that counts as quiet: max(1, 0.25 × the cores the process sees). */
@@ -101,8 +102,9 @@ function calibrationRun(): void {
   calibrationSink ^= x;
 }
 
-/** Times calibrationRuns runs of a fixed loop (calibrationIterations steps of a 32-bit xorshift from seed 1, its result kept) and returns their p90 ÷ p10. */
+/** Times calibrationRuns runs of a fixed loop (after warm-up, well inside one 100 ms CFS period) and returns p90 ÷ p10. */
 export function calibrationSpread(): number {
+  for (let i = 0; i < QUIET.calibrationWarmup; i++) calibrationRun();
   const times = Array.from({ length: QUIET.calibrationRuns }, () => {
     const startMs = performance.now();
     calibrationRun();

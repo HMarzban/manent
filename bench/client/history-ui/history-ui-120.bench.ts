@@ -151,13 +151,19 @@ async function measureCompareMs(page: Page): Promise<number> {
   const history = page
     .locator("[data-region='side_panel']")
     .getByRole("region", { name: "History" });
-  const trigger = history.getByRole("button", { name: "Draft 50" }).first();
-  if (!(await trigger.isVisible()))
+  const trigger = history.locator("[data-changes-since]").first();
+  try {
+    await trigger.waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
+  } catch {
     throw new NotMeasured("the History compare picker was not visible");
+  }
   await trigger.click();
   const option = page.getByRole("menuitem", { name: COMPARE_DRAFT }).first();
-  if (!(await option.isVisible()))
+  try {
+    await option.waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
+  } catch {
     throw new NotMeasured(`the History compare menu lacked ${COMPARE_DRAFT}`);
+  }
   const start = performance.now();
   await option.click();
   try {
@@ -177,25 +183,45 @@ async function measureRestoreMs(page: Page): Promise<number> {
   const history = page
     .locator("[data-region='side_panel']")
     .getByRole("region", { name: "History" });
+  const draftsOnly = history.getByRole("button", {
+    name: "Drafts only",
+    exact: true,
+  });
+  if ((await draftsOnly.getAttribute("aria-pressed")) !== "true") {
+    await draftsOnly.click();
+    await settled(page);
+  }
   const row = history
     .getByRole("listitem")
     .filter({ hasText: COMPARE_DRAFT })
     .first();
+  await row.waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
   await row.getByRole("button", { name: COMPARE_DRAFT }).click();
   const restore = page.getByRole("menuitem", { name: "Restore", exact: true });
+  await restore.waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
+  const restoredResponse = page.waitForResponse(
+    (res) =>
+      res.request().method() === "POST" &&
+      res.url().includes("/api/versions/restore") &&
+      res.status() === 200,
+    { timeout: UI_TIMEOUT_MS },
+  );
   const start = performance.now();
   await restore.click();
   const confirm = page
     .getByRole("alertdialog")
-    .getByRole("button", { name: `Restore '${COMPARE_DRAFT}'`, exact: true });
+    .getByRole("button", { name: "Restore", exact: true });
   if (await confirm.isVisible({ timeout: 500 }).catch(() => false))
     await confirm.click();
   try {
+    await restoredResponse;
     await page
-      .getByText(`Restored '${COMPARE_DRAFT}'`, { exact: false })
-      .waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
+      .locator("[data-editor-host]")
+      .getByRole("insertion")
+      .first()
+      .waitFor({ state: "hidden", timeout: UI_TIMEOUT_MS });
   } catch {
-    throw new NotMeasured("History restore confirmation was not shown");
+    throw new NotMeasured("History restore did not complete on the page");
   }
   await settled(page);
   return performance.now() - start;

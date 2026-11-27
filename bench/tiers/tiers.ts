@@ -104,6 +104,7 @@ export function dockerRunArgs(
     throttle: 1 | 4 | 6;
     resultsDir: string;
     readOnly: readonly { from: string; to: string }[];
+    readWrite?: readonly { from: string; to: string }[];
     args: readonly string[];
   },
 ): string[] {
@@ -132,6 +133,10 @@ export function dockerRunArgs(
     "--volume",
     `${options.resultsDir}:/repo/bench/results`,
     ...options.readOnly.flatMap((v) => ["--volume", `${v.from}:${v.to}:ro`]),
+    ...(options.readWrite ?? []).flatMap((v) => [
+      "--volume",
+      `${v.from}:${v.to}`,
+    ]),
     options.image,
     ...command,
   ];

@@ -4,7 +4,7 @@
 import { NotMeasured, benchMode } from "../../env.ts";
 import type { Scenario } from "../../harness.ts";
 import { inputBlocks, measurement, sampleMs } from "../../measure.ts";
-import { waitForServer } from "../people.ts";
+import { until, waitForServer } from "../people.ts";
 import {
   caretAt,
   openCorpusScript,
@@ -12,7 +12,6 @@ import {
   untilBlocks,
 } from "../typing/run-typing.ts";
 import {
-  QUOTA_HEADROOM_BYTES,
   STORAGE_KEYSTROKES,
   STORAGE_PAGES,
   armQuotaObserver,
@@ -27,6 +26,20 @@ import {
   typeCharacters,
   waitUntilSynced,
 } from "./shared.ts";
+
+async function setStoreRefusal(
+  page: Parameters<typeof caretAt>[0],
+  code: "quota" | null,
+): Promise<void> {
+  await page.evaluate((next) => {
+    const sync: unknown = Reflect.get(
+      Object(Reflect.get(window, "__manent")),
+      "sync",
+    );
+    const refuse: unknown = Reflect.get(Object(sync), "refuseStore");
+    if (typeof refuse === "function") Reflect.apply(refuse, sync, [next]);
+  }, code);
+}
 
 const scenario: Scenario = {
   id: "storage-quota-120",
@@ -49,9 +62,11 @@ const scenario: Scenario = {
       const beforeText = await readBlockText(page, targetId);
       const typed = makeTypedText(STORAGE_KEYSTROKES[benchMode()]);
 
-      const usage = await readOriginUsage(cdp, origin);
-      await setOriginQuota(cdp, origin, usage + QUOTA_HEADROOM_BYTES);
+      // Apply CDP quota cap and test-build store quota refusal (Chromium incognito LevelDB does not reject small existing-DB puts on CDP cap alone).
+      await readOriginUsage(cdp, origin);
+      await setOriginQuota(cdp, origin, 1);
       quotaOverridden = true;
+      await setStoreRefusal(page, "quota");
 
       await armQuotaObserver(page);
       await caretAt(page, targetId, "end");
@@ -64,11 +79,24 @@ const scenario: Scenario = {
       });
       const toldMs = observedElapsedMs ?? measuredWaitMs;
 
+      // Wait until the server holds the typed edits while quota refusal is active, then lift quota and reload cleanly.
+      await until(
+        async () =>
+          page.evaluate(() => {
+            const server = document.querySelector(
+              '[data-tour="status:server"]',
+            );
+            return (server?.textContent ?? "").includes("Synced");
+          }),
+        30_000,
+        "typed edits did not sync to the server before lifting quota",
+      );
+      await setStoreRefusal(page, null);
       await setOriginQuota(cdp, origin);
       quotaOverridden = false;
-      await waitUntilSynced(page);
       await page.reload();
       await untilBlocks(page, d.blocks);
+      await waitUntilSynced(page);
 
       const afterText = await readBlockText(page, targetId);
       const changesLost = countChangesLost(beforeText, typed, afterText);

@@ -22,6 +22,7 @@ async function lostMarkers(server: TestServer): Promise<number> {
   await shareScript(server, docId, EDITORS.slice(1));
   const bots: Bot[] = [];
   const timers: Timer[] = [];
+  let writing = true;
   try {
     for (const userId of EDITORS) {
       const bot = createBot({
@@ -33,18 +34,19 @@ async function lostMarkers(server: TestServer): Promise<number> {
       const handle = await bot.open(docId);
       let typed = 0;
       timers.push(
-        setInterval(
-          () => bot.typeLine(handle, `${userId} ${typed++}`),
-          TYPING_MS,
-        ),
+        setInterval(() => {
+          if (writing) bot.typeLine(handle, `${userId} ${typed++}`);
+        }, TYPING_MS),
       );
     }
     const rng = createRng(SEED);
     const lost = new Set<string>();
     for (let round = 0; round < KILLS; round++) {
       // the kill lands at an arbitrary step of the write path
+      writing = true;
       await delay(rng.int(5, 400));
       await server.kill();
+      writing = false;
       const acknowledged = bots.flatMap((bot) => bot.ledger.acknowledged());
       await server.start();
       const reader = createBot({
@@ -53,13 +55,17 @@ async function lostMarkers(server: TestServer): Promise<number> {
         token: await server.token("dana"),
       });
       const view = reader.client.view(docId);
-      await until(() => view.status.get().live, READ_TIMEOUT_MS);
-      const held = new Set(
-        view.blocks.get().map((block) => blockText(blockView(block))),
-      );
-      for (const marker of acknowledged)
-        if (!held.has(marker)) lost.add(marker);
-      await reader.close();
+      try {
+        await until(() => view.status.get().live, READ_TIMEOUT_MS);
+        const held = new Set(
+          view.blocks.get().map((block) => blockText(blockView(block))),
+        );
+        for (const marker of acknowledged)
+          if (!held.has(marker)) lost.add(marker);
+      } finally {
+        view.close();
+        await reader.close();
+      }
     }
     return lost.size;
   } finally {
