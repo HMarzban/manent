@@ -85,6 +85,18 @@ test("a tier's container is started with its caps and its throttle", () => {
   ).toBe(
     "docker run --rm --init --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --env MANENT_SOAK_MINUTES=110 --volume /r:/repo/bench/results --volume /t:/repo/bench/corpus/traces:ro --volume /c:/repo/bench/corpus/cache i bun bench/run.ts --inside",
   );
+  expect(
+    dockerRunArgs(TIERS["D-small"], {
+      image: "i",
+      throttle: 1,
+      resultsDir: "/r",
+      readOnly: [],
+      soakMinutes: "",
+      args: [],
+    }).join(" "),
+  ).toBe(
+    "docker run --rm --init --cpus=1 --memory=1g --memory-swap=1g --shm-size=1g --env MANENT_BENCH_TIER=D-small --env MANENT_BENCH_THROTTLE=1 --volume /r:/repo/bench/results i bun bench/run.ts --inside",
+  );
 });
 
 test("a container whose limits are not the tier's is refused", () => {
@@ -380,6 +392,36 @@ test("a Docker tier runs in its container, built once, and keeps the file the co
     ),
   );
   expect(runs[1]).toContain("--inside --quick --prove --command ");
+});
+
+test("a Docker tier forwards MANENT_SOAK_MINUTES only when non-empty", async () => {
+  const saved = process.env.MANENT_SOAK_MINUTES;
+  const root = await suite();
+  const runOnce = async (value: string | undefined): Promise<string> => {
+    if (value === undefined) delete process.env.MANENT_SOAK_MINUTES;
+    else process.env.MANENT_SOAK_MINUTES = value;
+    const { docker, calls } = fakeDocker({
+      version: { exitCode: 0, output: "29.8.2" },
+      run: written,
+    });
+    await runTiers({
+      root,
+      outDir: join(root, "out"),
+      runs: [{ tier: "D-small", throttle: 1, filter: "server/" }],
+      mode: "quick",
+      prove: false,
+      docker,
+    });
+    return calls.find((c) => c.startsWith("run ")) ?? "";
+  };
+  try {
+    expect(await runOnce("110")).toContain("--env MANENT_SOAK_MINUTES=110");
+    expect(await runOnce("")).not.toContain("MANENT_SOAK_MINUTES");
+    expect(await runOnce(undefined)).not.toContain("MANENT_SOAK_MINUTES");
+  } finally {
+    if (saved === undefined) delete process.env.MANENT_SOAK_MINUTES;
+    else process.env.MANENT_SOAK_MINUTES = saved;
+  }
 });
 
 test("an area name runs that area on the tier that judges it", () => {

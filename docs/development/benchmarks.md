@@ -19,7 +19,7 @@ bun run bench --quick --filter history    # one process each, fewer samples, not
 | `--prove`               | Runs each scenario that has a budget row with a wait added inside every sample, and reports a row that could not fail                                                                                 |
 | `MANENT_BENCH_TIER`     | The machine class the run is recorded as: `host` (the default), `D-modest`, `D-typical`, `D-small` or `ci-shared`                                                                                     |
 | `MANENT_BENCH_THROTTLE` | The processor slowdown a client scenario applies: 1 (the default), 4 or 6                                                                                                                             |
-| `MANENT_SOAK_MINUTES`   | The length of the server soak, a whole number of minutes, 2 or more; 2 by default                                                                                                                     |
+| `MANENT_SOAK_MINUTES`   | Overrides the client and server soak duration in minutes (defaulting by mode: 1 in `quick`, 10 in `standard`, and 120 client / 480 server in `full`); forwarded into Docker tier containers           |
 
 Each run prints its tier, slowdown and mode, and how many scenarios were measured, could not finish, were not measured or were void. It writes one JSON file to `bench/results/` (not tracked) recording the commit, Bun's version, the platform and, for each metric, its unit, the number of samples, p50, p95, p99 and max, with a bootstrap interval for each percentile. A mean is never reported. A timing run first checks that the machine is quiet; on a busy machine the scenario is recorded as void, not measured.
 

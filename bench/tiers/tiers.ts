@@ -131,7 +131,7 @@ export function dockerRunArgs(
     `MANENT_BENCH_TIER=${tier.id}`,
     "--env",
     `MANENT_BENCH_THROTTLE=${options.throttle}`,
-    ...(options.soakMinutes === undefined
+    ...(options.soakMinutes === undefined || options.soakMinutes === ""
       ? []
       : ["--env", `MANENT_SOAK_MINUTES=${options.soakMinutes}`]),
     "--volume",
