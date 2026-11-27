@@ -1,9 +1,32 @@
 // The palette's list: its sections and rows, drawn in full up to 100 rows and as a window of rows above.
 import { Autocomplete } from "@base-ui/react/autocomplete";
+import type { MenuId } from "@manent/settings";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CheckIcon, ChevronRightIcon } from "lucide-react";
+import {
+  AlignLeftIcon,
+  AppWindowIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CircleHelpIcon,
+  ClapperboardIcon,
+  EyeIcon,
+  FileTextIcon,
+  FolderOpenIcon,
+  HashIcon,
+  PencilIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
+  TerminalIcon,
+  TypeIcon,
+  UserIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Fragment, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
+import {
+  commandIconFor,
+  isDestructiveCommand,
+} from "../commands-react/command-icons.tsx";
 import { Kbd } from "../components/stock/kbd.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
 import { PALETTE_WORDS } from "../words/palette.ts";
@@ -22,6 +45,41 @@ const HOME = "text-meta text-fg-muted @max-[30rem]:hidden";
 const sizeOf = (element: Element): number =>
   element.getBoundingClientRect().height || ROW_PX;
 
+const MENU_ICONS: Readonly<Partial<Record<MenuId, LucideIcon>>> = Object.freeze(
+  {
+    app: SettingsIcon,
+    file: FolderOpenIcon,
+    edit: PencilIcon,
+    view: EyeIcon,
+    format: TypeIcon,
+    script: FileTextIcon,
+    production: ClapperboardIcon,
+    window: AppWindowIcon,
+    help: CircleHelpIcon,
+  },
+);
+
+function iconForRow(row: PaletteRow): LucideIcon {
+  const mapped = commandIconFor(row.id);
+  if (mapped !== null) return mapped;
+  switch (row.kind) {
+    case "setting":
+      return SlidersHorizontalIcon;
+    case "place":
+      if (row.id.startsWith("place:page:")) return HashIcon;
+      if (row.id.startsWith("place:scene:")) return ClapperboardIcon;
+      return AlignLeftIcon;
+    case "document":
+      return FileTextIcon;
+    case "person":
+      return UserIcon;
+    case "help":
+      return CircleHelpIcon;
+    case "command":
+      return TerminalIcon;
+  }
+}
+
 /** What a row's parts are drawn with; `home` is false inside an opened menu, whose label already names it. */
 interface Drawing {
   query: string;
@@ -31,14 +89,17 @@ interface Drawing {
 
 function RowContent(props: { row: PaletteRow; drawing: Drawing }): ReactNode {
   const { row, drawing } = props;
-  const label =
-    row.enabled || row.whyNot === null
-      ? row.label
-      : READOUT_WORDS.unavailable(row.label, row.whyNot);
+  const Icon = iconForRow(row);
   return (
     <>
+      <span
+        aria-hidden="true"
+        className="mn-palette-icon flex w-4 shrink-0 items-center justify-center"
+      >
+        <Icon className="size-icon shrink-0" />
+      </span>
       <span className="min-w-0 flex-1 truncate">
-        {matchedRuns(drawing.query, label).map((run, index) =>
+        {matchedRuns(drawing.query, row.label).map((run, index) =>
           run.matched ? (
             <span key={index} className="font-semibold">
               {run.text}
@@ -47,14 +108,29 @@ function RowContent(props: { row: PaletteRow; drawing: Drawing }): ReactNode {
             run.text
           ),
         )}
-        {row.value === null ? null : `: ${row.value}`}
+        {!row.enabled && row.whyNot !== null ? (
+          <span className="text-fg-muted">
+            {PALETTE_WORDS.whyNotSuffix(row.whyNot)}
+          </span>
+        ) : null}
         {row.scopeWord === null ? null : (
-          <span className="text-fg-muted"> · {row.scopeWord}</span>
+          <span className="text-fg-muted">
+            {PALETTE_WORDS.scopeSeparator(row.scopeWord)}
+          </span>
         )}
         {row.checked === true ? (
           <span className="sr-only">{PALETTE_WORDS.chosen}</span>
         ) : null}
       </span>
+      {row.value === null ? null : (
+        <span
+          data-state={row.value === READOUT_WORDS.valueOn ? "on" : "off"}
+          className="mn-palette-toggle inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full px-2 text-micro font-medium tabular-nums"
+        >
+          <span aria-hidden="true" className="mn-palette-toggle-dot" />
+          <span>{row.value}</span>
+        </span>
+      )}
       {row.home === null || !drawing.home ? null : (
         <span className={HOME}>{row.home}</span>
       )}
@@ -64,7 +140,11 @@ function RowContent(props: { row: PaletteRow; drawing: Drawing }): ReactNode {
           className="size-icon shrink-0 text-fg-accent"
         />
       ) : null}
-      {row.keys === null ? null : <Kbd aria-hidden="true">{row.keys}</Kbd>}
+      {row.keys === null ? null : (
+        <Kbd aria-hidden="true" className="mn-palette-kbd">
+          {row.keys}
+        </Kbd>
+      )}
     </>
   );
 }
@@ -75,28 +155,40 @@ function EntryItem(props: {
   drawing: Drawing;
 }): ReactNode {
   const { entry, index, drawing } = props;
+  const isRow = entry.type === "row";
+  const MenuIcon = isRow ? null : (MENU_ICONS[entry.menu] ?? FolderOpenIcon);
   return (
     <Autocomplete.Item
       value={entry}
       index={index}
-      data-tour={entry.type === "row" ? entry.row.id : undefined}
-      // not `disabled`, which would leave a press and Enter unheard: an unavailable row says why it cannot run
-      aria-disabled={
-        entry.type === "row" && !entry.row.enabled ? true : undefined
+      data-tour={isRow ? entry.row.id : undefined}
+      data-checked={isRow && entry.row.checked === true ? "true" : undefined}
+      data-variant={
+        isRow && isDestructiveCommand(entry.row.id) ? "destructive" : undefined
       }
+      // not `disabled`, which would leave a press and Enter unheard: an unavailable row says why it cannot run
+      aria-disabled={isRow && !entry.row.enabled ? true : undefined}
       onClick={() => drawing.activate(entry)}
-      className="mn-row flex min-h-row items-center gap-2 px-2 text-ui"
+      className="mn-row mn-palette-row flex min-h-row items-center gap-2 px-2 text-ui"
     >
-      {entry.type === "menu" ? (
+      {isRow ? (
+        <RowContent row={entry.row} drawing={drawing} />
+      ) : (
         <>
+          <span
+            aria-hidden="true"
+            className="mn-palette-icon flex w-4 shrink-0 items-center justify-center"
+          >
+            {MenuIcon === null ? null : (
+              <MenuIcon className="size-icon shrink-0" />
+            )}
+          </span>
           <span className="min-w-0 flex-1 truncate">{entry.label}</span>
           <ChevronRightIcon
             aria-hidden="true"
-            className="size-icon shrink-0 text-fg-muted"
+            className="mn-palette-chevron size-icon shrink-0 text-fg-muted"
           />
         </>
-      ) : (
-        <RowContent row={entry.row} drawing={drawing} />
       )}
     </Autocomplete.Item>
   );

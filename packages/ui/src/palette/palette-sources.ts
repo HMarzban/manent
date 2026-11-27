@@ -1,4 +1,5 @@
 // What the palette lists: a row's shape, a source's shape, and the sources of commands and settings.
+import { synonymsFor } from "@manent/commands";
 import type { CommandDefinition, CommandService } from "@manent/commands";
 import { SECTION_IDS, SETTINGS } from "@manent/settings";
 import type { Platform, Scope, SectionId } from "@manent/settings";
@@ -34,6 +35,10 @@ export interface PaletteSource {
 
 /** Which sources the palette asks: all of them, places alone, or Beside's alone, with no menus. */
 export type PaletteFilter = "all" | "places" | "beside";
+
+/** Narrowing filter pills inside the palette while `filter === "all"`. */
+export type PaletteScope =
+  "all" | "commands" | "settings" | "places" | "documents";
 
 type Shell = "web" | "desktop";
 
@@ -107,14 +112,15 @@ function baseRow(
   };
 }
 
-/** Every command but the settings', found by its evaluated label and its palette keywords. */
+/** Every command but the settings', found by its evaluated label, palette keywords and synonyms. */
 export function createCommandSource(options: SourceOptions): PaletteSource {
   return {
     kind: "command",
     rows: (query) =>
       listed(options, "command").flatMap(({ def, keywords }) => {
         const label = options.service.state(def.id).label;
-        if (!matchesQuery(query, [label, ...keywords])) return [];
+        const texts = [label, ...keywords, ...synonymsFor(def.id)];
+        if (!matchesQuery(query, texts)) return [];
         const row: PaletteRow = {
           ...baseRow(def, options),
           kind: "command",
@@ -159,7 +165,13 @@ export function createSettingSource(
           // read from the store the value is read from, which is the open script's; a switch says its value in words
           checked: isSwitch ? null : current === target.value,
         };
-        const texts = [row.label, commandLabel, row.value ?? "", ...keywords];
+        const texts = [
+          row.label,
+          commandLabel,
+          row.value ?? "",
+          ...keywords,
+          ...synonymsFor(def.id),
+        ];
         return matchesQuery(query, texts) ? [row] : [];
       }),
   };

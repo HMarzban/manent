@@ -34,6 +34,7 @@ import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createCommands } from "./person-commands.ts";
+import { createPaletteUsage } from "../shell/palette-usage.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type {
   EditorParts,
@@ -173,6 +174,11 @@ function wirePerson(options: Options) {
   const resolved = createResolved(sync.maps.keys, options.where);
   const flags = createFlags({ index: sync.maps.flags });
   const control = createEditorControl();
+  const paletteUsage = createPaletteUsage({
+    userId: options.person.userId,
+    storage: options.storage,
+    events: options.storageEvents,
+  });
   const { commands, fillHandlers, stop } = createCommands(options, {
     settings,
     openScriptStore: scripts.openScriptStore,
@@ -182,6 +188,10 @@ function wirePerson(options: Options) {
     network: sync.network,
     library: sync.library,
     documents: scripts.documents,
+    onCommandRan(id, source) {
+      if (source === "tour") return;
+      paletteUsage.record(id, options.shellState.get().screen, options.now());
+    },
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
@@ -199,6 +209,7 @@ function wirePerson(options: Options) {
     place,
     stop() {
       stopKeeping();
+      paletteUsage.dispose();
       stop();
     },
     closing: { guard, question },

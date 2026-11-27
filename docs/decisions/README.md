@@ -126,3 +126,5 @@ The evidence or event that would reopen this.
 - [0078. Brand identity, 24 studio themes and eye-health standard](0078-brand-identity-and-studio-themes.md)
 - [0079. Dedicated read-only Version history page with floating Change-Aware Minimap TOC](0079-dedicated-read-only-version-history-page.md)
 - [0080. Installable PWA delivery, safe service-worker updates and landing-site freshness](0080-pwa-installability-update-lifecycle-and-site-freshness.md)
+- [0081. Archival Stone & Ochre demo stage and three-tier blast-radius controls](0081-archival-demo-stage-and-blast-radius-controls.md)
+- [0082. Smart contextual Command Palette](0082-smart-contextual-command-palette.md)

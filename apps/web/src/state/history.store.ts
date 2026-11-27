@@ -64,6 +64,7 @@ export function useHistory<K extends keyof HistoryState>(
 
 /** `reset` starts the tab afresh on `docId` and keeps the mode. */
 export const historyActions: {
+  get(): HistoryState;
   select(id: string | null): void;
   setBaseline(b: HistoryState["baseline"]): void;
   setMode(m: ChangesMode): void;
@@ -74,6 +75,7 @@ export const historyActions: {
   setSinceDismissed(docId: string | null): void;
   reset(docId: string | null): void;
 } = Object.freeze({
+  get: () => store.getState(),
   select: (selected: string | null) => write({ selected }),
   setBaseline: (baseline: HistoryState["baseline"]) => write({ baseline }),
   setMode: (mode: ChangesMode) => write({ mode }),

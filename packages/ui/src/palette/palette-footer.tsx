@@ -43,8 +43,9 @@ export function KeyHint(props: {
 export function PaletteFooter(props: {
   keyed: Entry | null;
   inMenu: boolean;
+  showScopeHint?: boolean;
 }): ReactNode {
-  const { keyed, inMenu } = props;
+  const { keyed, inMenu, showScopeHint = false } = props;
   const { platform } = useCommands();
   const label = (key: string): string => keyLabel(key, platform);
   const enter = enterWord(keyed);
@@ -58,6 +59,9 @@ export function PaletteFooter(props: {
         word={PALETTE_WORDS.keys.move}
       />
       {enter === null ? null : <KeyHint keys={[label("Enter")]} word={enter} />}
+      {showScopeHint && !inMenu ? (
+        <KeyHint keys={[label("Tab")]} word={PALETTE_WORDS.keys.scope} />
+      ) : null}
       {inMenu ? (
         <KeyHint keys={[label("Backspace")]} word={PALETTE_WORDS.keys.back} />
       ) : null}

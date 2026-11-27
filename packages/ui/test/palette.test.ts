@@ -246,3 +246,36 @@ test("3,000 places are filtered within 50 ms", () => {
   expect(performance.now() - t0).toBeLessThan(50);
   expect(found.filter((r) => r.kind === "place").length).toBe(1714);
 });
+
+test("query matching normalises apostrophes, supports multi-word acronyms and resolves palette synonyms", () => {
+  expect([
+    matchesQuery("contd", ["Same-speaker (CONT'D)"]),
+    matchesQuery("fm", ["Focus mode"]),
+    matchesQuery("tp", ["Title page"]),
+    search("zen")
+      .map((r) => r.id)
+      .includes("view.focusMode"),
+    search("sidebar")
+      .map((r) => r.id)
+      .includes("view.leftPanel"),
+    search("scene numbers")
+      .map((r) => r.id)
+      .includes("setting.script.sceneNumbers.left"),
+  ]).toEqual([true, true, true, true, true, true]);
+});
+
+test("rankRows puts enabled commands before unavailable ones and honours contextual boost within a tier", () => {
+  const rows: PaletteRow[] = [
+    {
+      ...row("disabled", "Export…"),
+      enabled: false,
+      whyNot: "needs a document open",
+    },
+    { ...row("a", "Export PDF") },
+    { ...row("b", "Export script") },
+  ];
+  const ranked = rankRows("export", rows, {
+    boost: (r) => (r.id === "b" ? 20 : 0),
+  });
+  expect(ranked.map((r) => r.id)).toEqual(["b", "a", "disabled"]);
+});

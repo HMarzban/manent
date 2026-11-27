@@ -1,4 +1,4 @@
-// What the palette lists, in sections: the recent commands and the menus while empty, an opened menu, or the rows for a query.
+// What the palette lists, in sections: Smart Home (suggested, quick settings, recent, menus), an opened menu, or ranked query results.
 import { COMMANDS, menuModel } from "@manent/commands";
 import type { CommandService } from "@manent/commands";
 import { mark } from "@manent/perf";
@@ -12,6 +12,7 @@ import { rankRows } from "./palette-rank.ts";
 import type {
   PaletteFilter,
   PaletteRow,
+  PaletteScope,
   PaletteSource,
 } from "./palette-sources.ts";
 
@@ -34,6 +35,15 @@ const SECTION_LABELS: Readonly<Record<PaletteRow["kind"], string | null>> =
     // no source finds help yet
     help: null,
   });
+
+const SCOPE_KINDS: Readonly<
+  Record<Exclude<PaletteScope, "all">, PaletteRow["kind"]>
+> = Object.freeze({
+  commands: "command",
+  settings: "setting",
+  places: "place",
+  documents: "document",
+});
 
 export const keyOf = (entry: Entry): string =>
   entry.type === "menu" ? `menu:${entry.menu}` : entry.row.id;
@@ -67,11 +77,11 @@ function menuEntries(service: CommandService): Entry[] {
 
 /** `rows` in the order shown before for the same query, with rows that arrived since drawn below them. */
 function keepShownOrder(
-  shown: { query: string; ids: readonly string[] },
-  query: string,
+  shown: { key: string; ids: readonly string[] },
+  key: string,
   rows: readonly PaletteRow[],
 ): readonly PaletteRow[] {
-  if (shown.query !== query) return rows;
+  if (shown.key !== key) return rows;
   const place = new Map(shown.ids.map((id, index) => [id, index]));
   const before = rows
     .filter((row) => place.has(row.id))
@@ -94,41 +104,87 @@ function sectionsByKind(rows: readonly PaletteRow[]): Section[] {
   }));
 }
 
-/** The sections the palette lists for `query`, inside `menu` when one is open. */
+/** Returns the scope pills available for the currently mounted sources. */
+export function availableScopes(
+  sources: readonly PaletteSource[],
+): readonly PaletteScope[] {
+  const kinds = new Set(sources.map((s) => s.kind));
+  const scopes: PaletteScope[] = ["all"];
+  if (kinds.has("command")) scopes.push("commands");
+  if (kinds.has("setting")) scopes.push("settings");
+  if (kinds.has("place")) scopes.push("places");
+  if (kinds.has("document")) scopes.push("documents");
+  return scopes;
+}
+
+/** The sections the palette lists for `query`, inside `menu` or `scope` when active. */
 export function usePaletteSections(options: {
   filter: PaletteFilter;
+  scope: PaletteScope;
   sources: readonly PaletteSource[];
   recent: readonly string[];
+  suggested?: readonly string[];
+  quickSettings?: readonly string[];
+  boost?: (row: PaletteRow) => number;
   query: string;
   menu: MenuId | null;
 }): readonly Section[] {
-  const { filter, sources, recent, query, menu } = options;
+  const {
+    filter,
+    scope,
+    sources,
+    recent,
+    suggested = [],
+    quickSettings = [],
+    boost,
+    query,
+    menu,
+  } = options;
   const { service } = useCommands();
-  const shown = useRef<{ query: string; ids: readonly string[] }>({
-    query: "",
+  const shown = useRef<{ key: string; ids: readonly string[] }>({
+    key: "",
     ids: [],
   });
   const active =
-    filter === "places" ? sources.filter((s) => s.kind === "place") : sources;
-  // every row, by id, asked of the sources once per drawing
+    filter === "places"
+      ? sources.filter((s) => s.kind === "place")
+      : filter === "all" && scope !== "all"
+        ? sources.filter((s) => s.kind === SCOPE_KINDS[scope])
+        : sources;
+
   let byId: Map<string, PaletteRow> | null = null;
-  const rowsIn = (ids: readonly string[]): PaletteRow[] => {
-    byId ??= new Map(
-      active.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
+  const rowsIn = (
+    ids: readonly string[],
+    pool: readonly PaletteSource[] = active,
+  ): PaletteRow[] => {
+    if (pool === active) {
+      byId ??= new Map(
+        active.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
+      );
+      const rows = byId;
+      return ids.flatMap((id) => rows.get(id) ?? []);
+    }
+    const map = new Map(
+      pool.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
     );
-    const rows = byId;
-    return ids.flatMap((id) => rows.get(id) ?? []);
+    return ids.flatMap((id) => map.get(id) ?? []);
   };
+
   const ranked = (
     inMenu: ReadonlySet<string> | null,
   ): readonly PaletteRow[] => {
     const found = active
       .flatMap((s) => s.rows(query))
       .filter((row) => inMenu === null || inMenu.has(row.id));
+    const shownKey = `${scope}\0${menu ?? ""}\0${query}`;
     const rows = mark("ui.search.palette", () =>
-      keepShownOrder(shown.current, query, rankRows(query, found)),
+      keepShownOrder(
+        shown.current,
+        shownKey,
+        rankRows(query, found, { boost }),
+      ),
     );
-    shown.current = { query, ids: rows.map((row) => row.id) };
+    shown.current = { key: shownKey, ids: rows.map((row) => row.id) };
     return rows;
   };
 
@@ -138,17 +194,72 @@ export function usePaletteSections(options: {
     );
     const found = (
       query === ""
-        ? groups.map((ids) => asRows(rowsIn(ids)))
+        ? groups.map((ids) => asRows(rowsIn(ids, sources)))
         : [asRows(ranked(new Set(groups.flat())))]
     ).filter((group) => group.length > 0);
-    // the menu's name is the one statement of where the person is, so it is drawn whenever a row is
     return found.length === 0
       ? []
       : [{ key: menu, label: MENU_LABELS[menu], groups: found }];
   }
+
   if (filter === "all" && query === "") {
-    const last = asRows(rowsIn(recent.slice(0, RECENT_LIMIT)));
-    return labelled([
+    if (scope === "places" || scope === "documents") {
+      return labelled(sectionsByKind(ranked(null)));
+    }
+    if (scope === "settings") {
+      const quick = asRows(rowsIn(quickSettings));
+      const quickSet = new Set(quickSettings);
+      const rest = asRows(ranked(null).filter((row) => !quickSet.has(row.id)));
+      return labelled([
+        ...(quick.length === 0
+          ? []
+          : [
+              {
+                key: "quick_settings",
+                label: PALETTE_WORDS.quickSettings,
+                groups: [quick],
+              },
+            ]),
+        ...(rest.length === 0
+          ? []
+          : [
+              {
+                key: "setting",
+                label: PALETTE_WORDS.sections.setting,
+                groups: [rest],
+              },
+            ]),
+      ]);
+    }
+    const suggestedRows = asRows(rowsIn(suggested));
+    const quickRows = scope === "commands" ? [] : asRows(rowsIn(quickSettings));
+    const shownAbove = new Set([
+      ...suggested,
+      ...(scope === "commands" ? [] : quickSettings),
+    ]);
+    const recentIds = recent
+      .filter((id) => !shownAbove.has(id))
+      .slice(0, RECENT_LIMIT);
+    const last = asRows(rowsIn(recentIds));
+    const sections: Section[] = [
+      ...(suggestedRows.length === 0
+        ? []
+        : [
+            {
+              key: "suggested",
+              label: PALETTE_WORDS.suggested,
+              groups: [suggestedRows],
+            },
+          ]),
+      ...(quickRows.length === 0
+        ? []
+        : [
+            {
+              key: "quick_settings",
+              label: PALETTE_WORDS.quickSettings,
+              groups: [quickRows],
+            },
+          ]),
       ...(last.length === 0
         ? []
         : [{ key: "recent", label: PALETTE_WORDS.recent, groups: [last] }]),
@@ -157,7 +268,8 @@ export function usePaletteSections(options: {
         label: PALETTE_WORDS.menus,
         groups: [menuEntries(service)],
       },
-    ]);
+    ];
+    return labelled(sections);
   }
   return labelled(sectionsByKind(ranked(null)));
 }

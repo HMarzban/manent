@@ -119,17 +119,7 @@ export const APPEARANCE_SETTINGS = Object.freeze([
     },
     boot: true,
     guard: null,
-    keywords: [
-      "palette",
-      "colour",
-      "studio",
-      "film",
-      "news",
-      "books",
-      "stage",
-      "podcast",
-      "games",
-    ],
+    keywords: ["palette", "studio"],
   }),
   setting({
     key: "appearance.whitePage",

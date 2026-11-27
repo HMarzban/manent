@@ -90,6 +90,9 @@ function zoomCommand<const Id extends string>(
   };
 }
 
+const canEditGame = (ctx: CommandContext): boolean =>
+  canEdit(ctx) && (ctx.format === null || ctx.format === "game");
+
 /** A command heard only in the page and shown only to people who can edit. */
 function pageCommand<const Id extends string>(
   id: Id,
@@ -99,6 +102,7 @@ function pageCommand<const Id extends string>(
     menus?: readonly MenuPlacement[];
     keywords?: readonly string[];
     checked?: (ctx: CommandContext) => boolean;
+    visible?: (ctx: CommandContext) => boolean;
   } = {},
 ): CommandDefinition<Id> & {
   readonly scope: "editor";
@@ -114,7 +118,7 @@ function pageCommand<const Id extends string>(
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: canEdit,
+    visible: more.visible ?? canEdit,
     checked: more.checked ?? null,
     passThrough: null,
     menus: more.menus ?? [],
@@ -148,9 +152,11 @@ export const EDITOR_COMMANDS = defineCommands([
   // Mod+0 is the zoom's actual size; General is the picker's 0
   pageCommand("element.general", "General"),
   pageCommand("element.endOfAct", "End of Act"),
-  pageCommand("element.emote", "Emote"),
-  pageCommand("element.camera", "Camera"),
-  pageCommand("element.engineDirection", "Engine Direction"),
+  pageCommand("element.emote", "Emote", { visible: canEditGame }),
+  pageCommand("element.camera", "Camera", { visible: canEditGame }),
+  pageCommand("element.engineDirection", "Engine Direction", {
+    visible: canEditGame,
+  }),
   pageCommand("format.dualDialogue", "Dual dialogue", {
     keys: same("Mod+D"),
     menus: inFormat("speech", 10),

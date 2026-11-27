@@ -23,6 +23,9 @@ export function useBeside(): BesideOpen | null {
   return useSubscribable(shown);
 }
 
+/** Point-in-time read of what is open beside the page (no subscription). */
+export const currentBeside = (): BesideOpen | null => shown.get();
+
 /**
  * Opens `docId` as `kind` beside the page, in place of what was beside it, with its caret at `at`'s block when `at` is
  * given. It takes the side position, so the side panel closes.

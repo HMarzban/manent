@@ -42,3 +42,23 @@ export type { CommandHandlers, CommandId } from "./definitions/index.ts";
 export { EDITOR_COMMANDS } from "./definitions/editor.ts";
 export { waitingReason } from "./definitions/production.ts";
 export type { EditorCommandId } from "./definitions/editor.ts";
+export {
+  MAX_USAGE_ENTRIES,
+  PALETTE_SYNONYMS,
+  frecencyScore,
+  recordUsage,
+  synonymsFor,
+} from "./recommend-data.ts";
+export type { CommandUsage } from "./recommend-data.ts";
+export {
+  DEFAULT_QUICK_SETTINGS_LIMIT,
+  DEFAULT_RECENT_LIMIT,
+  DEFAULT_SUGGESTED_LIMIT,
+  contextBoost,
+  recommendPalette,
+} from "./recommend.ts";
+export type {
+  CommandAvailability,
+  PaletteRecommendations,
+  RecommendationSignals,
+} from "./recommend.ts";

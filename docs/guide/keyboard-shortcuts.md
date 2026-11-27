@@ -51,6 +51,17 @@ Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#
 
 **Zoom.** In a browser, Ctrl+=, Ctrl+- and Ctrl+0 are left to the browser's own zoom, and the page zooms from **View ▾ → Zoom**. In the desktop app they are Zoom in, Zoom out and Zoom: 100 %.
 
+## Command palette
+
+Open the command palette with **Ctrl+K** (⌘K on a Mac) from anywhere. Before you type, it adapts to where you are — showing a quiet context caption beside the filter strip (`Library`, `Screenplay · Scene 4`, `Locked · Pink`, `Rundown`, `Version history` and so on) and four concise sections:
+
+- **Suggested here** surfaces up to four runnable actions for the open screen, document kind, caret position, selection or production lock.
+- **Settings here** surfaces up to three live settings for your current context; pressing **Enter** or clicking a switch flips it in place without closing the palette.
+- **Last used** keeps your most-used recent commands on this device (deduplicated against the sections above).
+- **Menus** lists the full menu groups; press **Enter** or **→** on a menu to browse inside it, and **←** or **Backspace** on an empty field to return.
+
+Press **Tab** (or **Shift+Tab**) to filter by **All**, **Commands**, **Settings**, **Go to** or **Scripts**, or type a leading prefix shortcut (`>` for Commands, `,` for Settings, `#` for Go to, `/` for Scripts). Search matches word starts, apostrophe-free forms (`contd` finds `(CONT'D)`), multi-word acronyms (`fm` finds `Focus mode`) and common synonyms (`zen`, `sidebar`, `scene numbers`). **Escape** closes the palette in one press and returns focus to where you were.
+
 ## Find and Go to
 
 **Find** (Ctrl+F) opens the Find bar above the page, holding the selected text if there is any. It looks as you type and counts the matches ("3 of 17"). Enter goes to the next match and Shift+Enter to the previous one; Escape closes the bar. **Replace** opens a second field with **Replace** and **Replace all**; it is there only for people who can edit the script.

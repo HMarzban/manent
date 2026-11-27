@@ -37,7 +37,7 @@ export const SCRIPT_LAYOUT_SETTINGS = Object.freeze([
     apply: { how: "editor", effect: "decorations" },
     boot: false,
     guard: null,
-    keywords: [],
+    keywords: ["scene numbers"],
   }),
   setting({
     key: "script.engineVersion",

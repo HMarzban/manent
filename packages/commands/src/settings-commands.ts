@@ -95,6 +95,15 @@ function shared(
   };
 }
 
+const capitalised = (text: string): string =>
+  text.length === 0 ? text : `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+
+/** Standalone palette label for a setting whose in-section label is too generic on its own ("Show" under "Scene numbers"). */
+function choiceHeading(def: SettingDefinition): string {
+  if (def.label === "Show" && def.noun !== null) return capitalised(def.noun);
+  return def.label;
+}
+
 function commandsOf(
   def: SettingDefinition,
   registry: Registry,
@@ -114,10 +123,11 @@ function commandsOf(
         setting: { key, value: null },
       },
     ];
+  const heading = choiceHeading(def);
   return type.choices.map((choice) => ({
     ...shared(def),
     id: `setting.${key}.${choice.value}`,
-    label: `${label}: ${choice.label}`,
+    label: `${heading}: ${choice.label}`,
     checked: (_ctx, read) => read.get(key) === choice.value,
     menus: menusOf(def, registry),
     setting: { key, value: choice.value },

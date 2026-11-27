@@ -656,3 +656,101 @@ test("palette ask options carry aria-selected matching the highlighted choice", 
   await pressEnter();
   expect(chosen).toEqual(["OTTO"]);
 });
+
+test("Smart Home renders Suggested here, Quick settings with On/Off pills, deduplicated Last used, and Scope filtering via Tab and prefixes", async () => {
+  const p = palette();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  const resolved = createValue(
+    resolveBindings({
+      commands: COMMANDS,
+      custom: [],
+      platform: "mac",
+      shell: "web",
+      findings: { failsHere: new Set() },
+    }),
+  );
+  await act(async () => {
+    root.render(
+      <CommandsProvider service={p.service} resolved={resolved} platform="mac">
+        <CommandPalette
+          open
+          filter="all"
+          sources={p.sources}
+          recent={["doc.export", "app.shortcuts"]}
+          suggested={["doc.export", "view.focusMode"]}
+          quickSettings={["setting.writing.typewriterScrolling"]}
+          context="Screenplay · Scene 4"
+          enableScopes
+          onRun={(row: PaletteRow) => {
+            p.calls.push(`run ${row.id}`);
+            p.service.run(row.id, "palette");
+          }}
+          onClose={() => p.calls.push("close")}
+        />
+      </CommandsProvider>,
+    );
+  });
+
+  expect(labels()).toEqual([
+    "Suggested here",
+    "Settings here",
+    "Last used",
+    "Menus",
+  ]);
+  expect(document.querySelector("[data-palette-context]")?.textContent).toBe(
+    "Screenplay · Scene 4",
+  );
+  // doc.export is deduplicated out of Last used
+  const optTexts = options();
+  expect(optTexts.filter((text) => text.startsWith("Export…")).length).toBe(1);
+  expect(optTexts.some((text) => text.startsWith("Keyboard shortcuts"))).toBe(
+    true,
+  );
+  // Toggle pill renders Off then flips to On in place when clicked
+  const togglePill = document.querySelector(".mn-palette-toggle");
+  expect(togglePill?.getAttribute("data-state")).toBe("off");
+  const toggleRow = [...document.querySelectorAll('[role="option"]')].find(
+    (el) =>
+      el.getAttribute("data-tour") === "setting.writing.typewriterScrolling",
+  );
+  await act(async () => {
+    toggleRow?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  expect(
+    document.querySelector(".mn-palette-toggle")?.getAttribute("data-state"),
+  ).toBe("on");
+  expect(p.store.get("writing.typewriterScrolling")).toBe(true);
+
+  // Tab cycles scope from All -> Commands -> Settings
+  await press("Tab");
+  expect(
+    document
+      .querySelector('[data-palette-scope="commands"]')
+      ?.getAttribute("aria-pressed"),
+  ).toBe("true");
+  await press("Tab");
+  expect(
+    document
+      .querySelector('[data-palette-scope="settings"]')
+      ?.getAttribute("aria-pressed"),
+  ).toBe("true");
+  // Backspace on empty query resets scope back to All
+  await press("Backspace");
+  expect(
+    document
+      .querySelector('[data-palette-scope="all"]')
+      ?.getAttribute("aria-pressed"),
+  ).toBe("true");
+
+  // Prefix "," jumps straight to Settings scope and clears the input
+  await type(",");
+  expect([
+    field().value,
+    document
+      .querySelector('[data-palette-scope="settings"]')
+      ?.getAttribute("aria-pressed"),
+  ]).toEqual(["", "true"]);
+});

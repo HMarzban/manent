@@ -64,43 +64,31 @@ interface CommandsParts {
   library: Pick<LibraryIndex, "documentKind" | "docKindOf">;
   /** The open document's status, whose access sets the person's role in it. */
   documents: DocumentSource;
+  onCommandRan?: (id: string, source: RunSource) => void;
 }
 
 type Access = StatusFacts["access"];
 
-// an app too old for the script leaves the person's commands in place, and each says the page is read-only
 const ROLE_OF: Readonly<Record<Access, CommandContext["role"]>> = Object.freeze(
   { edit: "editor", comment: "commenter", view: "viewer", too_old: "editor" },
 );
+const EMPTY_DOC_CONTEXT = Object.freeze({
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+});
 
-/** What a command may know of the open document beyond its format, zoom and production; each null or false off one. */
 function documentContext(
   docId: string | null,
   library: CommandsParts["library"],
-): Pick<
-  CommandContext,
-  | "docKind"
-  | "projectKind"
-  | "outlineStart"
-  | "writing"
-  | "material"
-  | "rundown"
-  | "prompter"
-  | "inTrash"
-  | "canDelete"
-> {
-  if (docId === null)
-    return {
-      docKind: null,
-      projectKind: null,
-      outlineStart: false,
-      writing: null,
-      material: null,
-      rundown: null,
-      prompter: null,
-      inTrash: false,
-      canDelete: false,
-    };
+) {
+  if (docId === null) return EMPTY_DOC_CONTEXT;
   return {
     docKind: library.docKindOf(docId).get(),
     projectKind: library.documentKind(docId).get(),
@@ -264,12 +252,14 @@ const isSignedIn = (
 function reportingRuns(
   service: CommandService,
   options: CommandsOptions,
+  onCommandRan?: (id: string, source: RunSource) => void,
 ): CommandService {
   return {
     run(id, from) {
       const result = service.run(id, from);
       if (result !== "ran") return result;
       options.ran(id);
+      onCommandRan?.(id, from);
       if (isSaidZoom(id, from))
         options.dom.announce(zoomAnnouncement(zoomActions.get()));
       return result;
@@ -379,7 +369,7 @@ export function createCommands(
   ];
   if (nodeCloud !== null)
     unsubscribers.push(nodeCloud.signedIn.subscribe(service.notify));
-  const commands = reportingRuns(service, options);
+  const commands = reportingRuns(service, options, parts.onCommandRan);
   // the environment's now and schedule are the clock
   const shell =
     desktop === null ? null : reachedFromShell(commands, desktop, options);

@@ -32,6 +32,9 @@ export interface DocumentSourceOptions {
   readonly online: () => boolean;
   readonly token: () => string | null;
   readonly fetchFn?: typeof fetch;
+  /** Optional debounce before issuing async body search requests (default 0 ms). */
+  readonly debounceMs?: number;
+  readonly schedule?: (fn: () => void, delayMs: number) => () => void;
   /** Triggered when asynchronous body search hits arrive so the palette re-renders. */
   readonly onUpdate: () => void;
 }
@@ -51,18 +54,19 @@ export function createDocumentSource(
     online,
     token,
     fetchFn = globalThis.fetch,
+    debounceMs = 0,
+    schedule,
     onUpdate,
   } = options;
 
   const cache = new Map<string, readonly SearchResult[]>();
   const inflight = new Set<string>();
   let latestQuery = "";
+  let cancelPending: (() => void) | null = null;
 
-  const requestBodyMatches = (trimmed: string): void => {
-    if (trimmed === "" || !online() || token() === null) return;
+  const fireBodySearch = (trimmed: string): void => {
     if (cache.has(trimmed) || inflight.has(trimmed)) return;
     inflight.add(trimmed);
-    latestQuery = trimmed;
     void fetchSearch({
       fetch: fetchFn,
       token,
@@ -74,6 +78,23 @@ export function createDocumentSource(
       cache.set(trimmed, outcome.results);
       if (latestQuery === trimmed && outcome.results.length > 0) onUpdate();
     });
+  };
+
+  const requestBodyMatches = (trimmed: string): void => {
+    if (trimmed === "" || !online() || token() === null) return;
+    if (cache.has(trimmed) || inflight.has(trimmed)) return;
+    if (latestQuery === trimmed && cancelPending !== null) return;
+    latestQuery = trimmed;
+    cancelPending?.();
+    cancelPending = null;
+    if (debounceMs > 0 && schedule !== undefined) {
+      cancelPending = schedule(() => {
+        cancelPending = null;
+        if (latestQuery === trimmed) fireBodySearch(trimmed);
+      }, debounceMs);
+      return;
+    }
+    fireBodySearch(trimmed);
   };
 
   return {

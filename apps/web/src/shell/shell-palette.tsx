@@ -1,5 +1,5 @@
 // The shell's palette over commands, settings, places, scripts and the people present, loaded apart from the entry.
-import { COMMANDS } from "@manent/commands";
+import { COMMANDS, contextBoost, recommendPalette } from "@manent/commands";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   BESIDE_WORDS,
@@ -11,7 +11,7 @@ import {
 import type { PaletteFilter, PaletteRow } from "@manent/ui";
 import { QueryClientContext } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
-import { useCallback, useContext, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createBesideSource, runBesideRow } from "../beside/beside-source.ts";
 import { BESIDE_BODY } from "../beside/open-beside.ts";
@@ -26,14 +26,20 @@ import {
 import {
   selectors as paletteSelectors,
   usePaletteAsk,
+  usePaletteInTitlePage,
   usePaletteOpen,
 } from "../state/palette.store.ts";
+import {
+  formatPaletteContext,
+  snapshotPaletteSignals,
+} from "./palette-context.ts";
 import { createDocumentSource } from "./palette-documents.ts";
 import {
   createPersonSource,
   createPlaceSource,
   runPlaceRow,
 } from "./palette-places.ts";
+import { createPaletteUsage } from "./palette-usage.ts";
 
 /** The palette's placeholder for each filter. */
 const PLACEHOLDERS: Readonly<Record<PaletteFilter, string>> = Object.freeze({
@@ -41,6 +47,12 @@ const PLACEHOLDERS: Readonly<Record<PaletteFilter, string>> = Object.freeze({
   places: PALETTE_WORDS.placeholderPlaces,
   beside: BESIDE_WORDS.choose,
 });
+
+const KNOWN_COMMAND_IDS: ReadonlySet<string> = new Set(
+  COMMANDS.map((command) => command.id),
+);
+
+const BODY_SEARCH_DEBOUNCE_MS = 150;
 
 /** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked. */
 function useKnownWorkspaces(userId: string): () => readonly WorkspaceRef[] {
@@ -62,7 +74,8 @@ export function ShellPalette(props: {
 }): ReactNode {
   const { docId, close } = props;
   const services = useServices();
-  const { where, dom, frame, online, tabStorage } = useEnvironment();
+  const env = useEnvironment();
+  const { where, dom, frame, online, tabStorage, schedule, now } = env;
   const router = useRouter();
   const outline = useContext(OutlineContext);
   const people = useContext(PeopleContext);
@@ -76,8 +89,66 @@ export function ShellPalette(props: {
   );
   const filter = usePaletteOpen();
   const ask = usePaletteAsk();
-  const [recent, setRecent] = useState<readonly string[]>([]);
+  const inTitlePage = usePaletteInTitlePage();
+  const isOpen = filter !== null || ask !== null;
   const [, setSearchVersion] = useState(0);
+
+  const usageStore = useMemo(
+    () =>
+      createPaletteUsage({
+        userId: services.userId,
+        storage: env.storage,
+        events: env.storageEvents,
+      }),
+    [services.userId, env.storage, env.storageEvents],
+  );
+  useEffect(() => () => usageStore.dispose(), [usageStore]);
+
+  // Snapshot once on each open (zero reactive subscriptions to editor transactions)
+  const routeId = router.state.matches.at(-1)?.routeId ?? null;
+  const smart = useMemo(() => {
+    if (!isOpen || filter !== "all") return null;
+    const openedNow = now();
+    const signals = snapshotPaletteSignals({
+      docId,
+      routeId,
+      inTitlePage,
+      services,
+      env,
+      facts,
+      outline,
+      people,
+    });
+    const usage = usageStore.read();
+    const available = (id: string) =>
+      KNOWN_COMMAND_IDS.has(id) ? services.commands.state(id) : null;
+    const recommendations = recommendPalette({
+      signals,
+      usage,
+      available,
+      now: openedNow,
+    });
+    const context = formatPaletteContext(signals, facts);
+    const boost = (row: PaletteRow): number =>
+      row.kind === "command" || row.kind === "setting"
+        ? contextBoost(row.id, signals, usage, openedNow)
+        : 0;
+    return { recommendations, context, boost };
+  }, [
+    isOpen,
+    filter,
+    docId,
+    routeId,
+    inTitlePage,
+    services,
+    env,
+    facts,
+    outline,
+    people,
+    usageStore,
+    now,
+  ]);
+
   // before the editor's code arrives no editor is open, and there are no pages
   const pagination = () => (docId === null ? null : livePagination(docId));
   const sources = useMemo(() => {
@@ -131,6 +202,8 @@ export function ShellPalette(props: {
         },
         online,
         token: () => readPerson(tabStorage)?.token ?? null,
+        debounceMs: BODY_SEARCH_DEBOUNCE_MS,
+        schedule,
         onUpdate: () => setSearchVersion((v) => v + 1),
       }),
       ...(docId === null || people === null
@@ -149,6 +222,7 @@ export function ShellPalette(props: {
     router,
     online,
     tabStorage,
+    schedule,
   ]);
   const run = (row: PaletteRow): void => {
     if (runBesideRow(row.id)) {
@@ -165,13 +239,12 @@ export function ShellPalette(props: {
       });
       return;
     }
-    // only a command that ran is one of those run last; a refused one has said why
-    if (services.commands.run(row.id, "palette") !== "ran") return;
-    setRecent((before) => [row.id, ...before.filter((id) => id !== row.id)]);
+    // only a command that ran is recorded; reportingRuns persists usage into palette-usage
+    services.commands.run(row.id, "palette");
   };
   return (
     <CommandPalette
-      open={filter !== null || ask !== null}
+      open={isOpen}
       filter={filter ?? "all"}
       sources={sources}
       placeholder={PLACEHOLDERS[filter ?? "all"]}
@@ -180,7 +253,12 @@ export function ShellPalette(props: {
       onClose={() => {
         if (paletteSelectors.isOpen()) close();
       }}
-      recent={recent}
+      recent={smart?.recommendations.recent ?? []}
+      context={smart?.context ?? null}
+      suggested={smart?.recommendations.suggested}
+      quickSettings={smart?.recommendations.quickSettings}
+      boost={smart?.boost}
+      enableScopes={filter === "all"}
     />
   );
 }
