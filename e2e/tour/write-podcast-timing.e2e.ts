@@ -31,13 +31,20 @@ async function selectBlockText(page: Page, block: Locator): Promise<void> {
 
 async function dragSelectBlock(page: Page, block: Locator): Promise<void> {
   await block.scrollIntoViewIfNeeded();
-  const box = await block.boundingBox();
-  expect(box).not.toBeNull();
-  const y = box!.y + Math.min(10, box!.height / 2);
-  await page.mouse.move(box!.x + 4, y);
+  const rect = await block.evaluate((el) => {
+    const range = el.ownerDocument.createRange();
+    range.selectNodeContents(el.firstChild ?? el);
+    const first = range.getClientRects()[0] ?? range.getBoundingClientRect();
+    return first.width > 0
+      ? { x: first.x, y: first.y, width: first.width, height: first.height }
+      : null;
+  });
+  expect(rect).not.toBeNull();
+  const y = rect!.y + rect!.height / 2;
+  await page.mouse.move(rect!.x + 2, y);
   await page.mouse.down();
-  await page.mouse.move(box!.x + Math.max(40, box!.width - 8), y, {
-    steps: 5,
+  await page.mouse.move(rect!.x + Math.max(40, rect!.width - 2), y, {
+    steps: 6,
   });
   await page.mouse.up();
   await settled(page);

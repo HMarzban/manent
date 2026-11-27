@@ -370,7 +370,7 @@ test("TrashView reaches 1 day left when one full day remains", async () => {
   expect(host!.textContent).toContain("1 day left");
 });
 
-test("LinesPerPageRow shows a leading alert icon on range refusal and HeaderFooterRow renders without spurious Custom announcement", () => {
+test("LinesPerPageRow shows a leading alert icon on range refusal and HeaderFooterRow renders without spurious Custom announcement", async () => {
   const environment = testEnvironment();
   const services = testServices({ userId: "sam", environment });
   const scriptStore = services.openScriptStore("doc-1");
@@ -395,4 +395,22 @@ test("LinesPerPageRow shows a leading alert icon on range refusal and HeaderFoot
 
   mounted.rerender(<HeaderFooterRow settingKey="script.header" />);
   expect(services.messages.current()).toBeNull();
+
+  const headerTrigger = host!.querySelector<HTMLButtonElement>(
+    '[data-tour="setting:script.header"] [role="combobox"]',
+  )!;
+  await act(async () => {
+    headerTrigger.click();
+    await Promise.resolve();
+  });
+  const customOption = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((el) => el.textContent === "Custom");
+  expect(customOption).toBeDefined();
+  await act(async () => {
+    customOption!.click();
+    await Promise.resolve();
+  });
+  expect(services.messages.current()?.text).toBe("Header is now Custom.");
+  expect(host!.textContent).toContain("Centre");
 });
