@@ -61,6 +61,8 @@ export interface ShellDom {
   focusPage(): boolean;
   /** Focus goes to the next region that is drawn (1) or the previous one (-1), wrapping round. */
   focusNextRegion(direction: 1 | -1): void;
+  /** Focus goes to the first control of the left panel's tab, or of the part of it `within` selects. */
+  focusLeftPanel(within?: string): void;
   /** Focus goes to the first control of the side panel's tab, or of the part of it `within` selects. */
   focusSidePanel(within?: string): void;
   /** Keeps the element that holds focus, for `restoreFocus`. */
@@ -127,6 +129,40 @@ export function createShellDom(doc: Document): ShellDom {
     return focusInside(page);
   };
 
+  const focusPanel = (
+    region: "left_panel" | "side_panel",
+    within?: string,
+  ): void => {
+    const panel = regionElement(region);
+    if (panel === null) return;
+    const tab =
+      panel.querySelector("[role='tabpanel'], [data-panel-body]") ?? panel;
+    // the part, once it holds a control
+    const drawnPart = (): Element | null => {
+      const part = within === undefined ? tab : tab.querySelector(within);
+      return part !== null && part.querySelector(FOCUSABLE_SELECTOR) !== null
+        ? part
+        : null;
+    };
+    const part = drawnPart();
+    if (part !== null) {
+      focusInside(part);
+      return;
+    }
+    // a part whose controls load apart is drawn later: the tab holds focus until its first control takes it,
+    // unless focus has moved on by then
+    holdFocus(tab);
+    const drawn = new MutationObserver(() => {
+      const found = drawnPart();
+      if (doc.activeElement !== tab) drawn.disconnect();
+      else if (found !== null) {
+        drawn.disconnect();
+        focusInside(found);
+      }
+    });
+    drawn.observe(tab, { childList: true, subtree: true });
+  };
+
   return {
     focusKind() {
       const active = doc.activeElement;
@@ -146,35 +182,11 @@ export function createShellDom(doc: Document): ShellDom {
         return element !== null && focusInside(element);
       });
     },
+    focusLeftPanel(within) {
+      focusPanel("left_panel", within);
+    },
     focusSidePanel(within) {
-      const panel = regionElement("side_panel");
-      if (panel === null) return;
-      const tab =
-        panel.querySelector("[role='tabpanel'], [data-panel-body]") ?? panel;
-      // the part, once it holds a control
-      const drawnPart = (): Element | null => {
-        const part = within === undefined ? tab : tab.querySelector(within);
-        return part !== null && part.querySelector(FOCUSABLE_SELECTOR) !== null
-          ? part
-          : null;
-      };
-      const part = drawnPart();
-      if (part !== null) {
-        focusInside(part);
-        return;
-      }
-      // a part whose controls load apart is drawn later: the tab holds focus until its first control takes it,
-      // unless focus has moved on by then
-      holdFocus(tab);
-      const drawn = new MutationObserver(() => {
-        const found = drawnPart();
-        if (doc.activeElement !== tab) drawn.disconnect();
-        else if (found !== null) {
-          drawn.disconnect();
-          focusInside(found);
-        }
-      });
-      drawn.observe(tab, { childList: true, subtree: true });
+      focusPanel("side_panel", within);
     },
     rememberFocus() {
       origin.push(doc.activeElement);

@@ -124,6 +124,7 @@ export function usePaletteSections(options: {
   sources: readonly PaletteSource[];
   recent: readonly string[];
   suggested?: readonly string[];
+  jumpTo?: readonly string[];
   quickSettings?: readonly string[];
   boost?: (row: PaletteRow) => number;
   query: string;
@@ -135,6 +136,7 @@ export function usePaletteSections(options: {
     sources,
     recent,
     suggested = [],
+    jumpTo = [],
     quickSettings = [],
     boost,
     query,
@@ -232,9 +234,11 @@ export function usePaletteSections(options: {
       ]);
     }
     const suggestedRows = asRows(rowsIn(suggested));
+    const jumpRows = scope === "all" ? asRows(rowsIn(jumpTo)) : [];
     const quickRows = scope === "commands" ? [] : asRows(rowsIn(quickSettings));
     const shownAbove = new Set([
       ...suggested,
+      ...(scope === "all" ? jumpTo : []),
       ...(scope === "commands" ? [] : quickSettings),
     ]);
     const recentIds = recent
@@ -249,6 +253,15 @@ export function usePaletteSections(options: {
               key: "suggested",
               label: PALETTE_WORDS.suggested,
               groups: [suggestedRows],
+            },
+          ]),
+      ...(jumpRows.length === 0
+        ? []
+        : [
+            {
+              key: "jump_to",
+              label: PALETTE_WORDS.jumpTo,
+              groups: [jumpRows],
             },
           ]),
       ...(quickRows.length === 0

@@ -48,7 +48,9 @@ interface PaletteProps {
   context?: string | null;
   /** Runnable contextual command ids for Smart Home's "Suggested here" section. */
   suggested?: readonly string[];
-  /** Runnable real setting ids for Smart Home's "Quick settings" section. */
+  /** Contextual quick-jump row ids (scripts, next character line, collaborators) for "Jump to". */
+  jumpTo?: readonly string[];
+  /** Runnable real setting ids for Smart Home's "Settings here" section. */
   quickSettings?: readonly string[];
   /** Optional contextual + frecency boost used inside query ranking. */
   boost?: (row: PaletteRow) => number;
@@ -211,6 +213,7 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
     placeholder,
     context = null,
     suggested,
+    jumpTo,
     quickSettings,
     boost,
     enableScopes = false,
@@ -233,6 +236,7 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
     sources,
     recent,
     suggested,
+    jumpTo,
     quickSettings,
     boost,
     query,

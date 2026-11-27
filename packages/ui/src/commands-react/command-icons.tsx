@@ -111,6 +111,10 @@ import type { ReactNode } from "react";
 const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   // App, person & help
   "app.preferences": SettingsIcon,
+  "app.preferencesWriting": PenLineIcon,
+  "app.preferencesAppearance": PaletteIcon,
+  "app.preferencesAccount": UsersIcon,
+  "app.preferencesDevice": MonitorIcon,
   "app.switchPerson": UsersIcon,
   "app.signOut": LogOutIcon,
   "app.palette": TerminalIcon,
@@ -182,6 +186,15 @@ const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   // View & appearance
   "view.leftPanel": PanelLeftIcon,
   "view.sidePanel": PanelRightIcon,
+  "view.scenes": ListTreeIcon,
+  "view.cuts": ScissorsIcon,
+  "view.details": SlidersHorizontalIcon,
+  "view.comments": MessageSquarePlusIcon,
+  "checks.open": CheckCheckIcon,
+  "series.openBoard": Columns3Icon,
+  "doc.linesPerPage": RulerIcon,
+  "project.readRate": Volume2Icon,
+  "project.targetPages": TargetIcon,
   "view.pageView": BookOpenIcon,
   "view.reflow": WrapTextIcon,
   "view.ruler": RulerIcon,

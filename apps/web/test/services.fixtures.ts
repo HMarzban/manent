@@ -181,6 +181,7 @@ export const QUIET_DOM: ShellDom = Object.freeze({
   pageFocused: () => false,
   focusPage: () => false,
   focusNextRegion: () => {},
+  focusLeftPanel: () => {},
   focusSidePanel: () => {},
   rememberFocus: () => {},
   restoreFocus: () => {},

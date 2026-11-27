@@ -44,11 +44,15 @@ export function usePaletteInTitlePage(): boolean {
 }
 
 /** What code outside React reads of the palette. */
-export const selectors: { isOpen(): boolean } = Object.freeze({
+export const selectors: {
+  isOpen(): boolean;
+  ask(): PaletteAsk | null;
+} = Object.freeze({
   isOpen: () => {
     const state = store.getState();
     return state.filter !== null || state.ask !== null;
   },
+  ask: () => store.getState().ask,
 });
 
 export const paletteActions: {

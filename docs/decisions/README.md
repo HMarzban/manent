@@ -128,3 +128,4 @@ The evidence or event that would reopen this.
 - [0080. Installable PWA delivery, safe service-worker updates and landing-site freshness](0080-pwa-installability-update-lifecycle-and-site-freshness.md)
 - [0081. Archival Stone & Ochre demo stage and three-tier blast-radius controls](0081-archival-demo-stage-and-blast-radius-controls.md)
 - [0082. Smart contextual Command Palette](0082-smart-contextual-command-palette.md)
+- [0083. Smart Command Palette direct jumps, inline numeric prompts and contextual Quick Jumps](0083-smart-palette-direct-jumps-and-inline-numeric-settings.md)

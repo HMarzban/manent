@@ -46,4 +46,27 @@ export const DOCUMENT_COMMANDS = [
     reach: "self",
     setting: null,
   },
+  {
+    id: "doc.linesPerPage",
+    label: "Lines per page",
+    group: "format",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.production?.locked !== true,
+    whyNot: () => "can't change while page numbers are locked",
+    visible: (ctx) =>
+      ctx.docOpen &&
+      (ctx.docKind === null || ctx.docKind === "script") &&
+      ctx.format !== "ink" &&
+      (ctx.role === "owner" || ctx.role === "editor"),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["page height", "page length", "lines"] },
+    opens: null,
+    reach: "others",
+    setting: null,
+  },
 ] as const satisfies readonly CommandDefinition[];

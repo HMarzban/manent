@@ -754,3 +754,90 @@ test("Smart Home renders Suggested here, Quick settings with On/Off pills, dedup
       ?.getAttribute("aria-pressed"),
   ]).toEqual(["", "true"]);
 });
+
+test("Smart Home renders Jump to between Suggested here and Settings here, and PaletteAsk supports allowEmpty and placeholder", async () => {
+  const p = palette();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  const resolved = createValue(
+    resolveBindings({
+      commands: COMMANDS,
+      custom: [],
+      platform: "mac",
+      shell: "web",
+      findings: { failsHere: new Set() },
+    }),
+  );
+  const docs: PaletteSource = {
+    kind: "document",
+    rows: () => [
+      {
+        id: "document:d1",
+        kind: "document",
+        label: "Harbour Lights",
+        value: null,
+        scopeWord: null,
+        home: "Film",
+        keys: null,
+        checked: null,
+        enabled: true,
+        whyNot: null,
+      },
+    ],
+  };
+  await act(async () => {
+    root.render(
+      <CommandsProvider service={p.service} resolved={resolved} platform="mac">
+        <CommandPalette
+          open
+          filter="all"
+          sources={[...p.sources, docs]}
+          recent={[]}
+          suggested={["doc.export"]}
+          jumpTo={["document:d1"]}
+          quickSettings={["setting.writing.typewriterScrolling"]}
+          enableScopes
+          onRun={noop}
+          onClose={noop}
+        />
+      </CommandsProvider>,
+    );
+  });
+  expect(labels()).toEqual([
+    "Suggested here",
+    "Jump to",
+    "Settings here",
+    "Menus",
+  ]);
+  expect(options().some((text) => text.startsWith("Harbour Lights"))).toBe(
+    true,
+  );
+
+  // PaletteAsk with allowEmpty submits "" on Enter
+  const submitted: string[] = [];
+  await act(async () => {
+    root.render(
+      <CommandPalette
+        open
+        filter="all"
+        sources={[]}
+        recent={[]}
+        ask={{
+          prompt: "Lines per page",
+          choices: null,
+          initial: "",
+          placeholder: "55 (the format's figure)",
+          allowEmpty: true,
+          submit: (value) => submitted.push(value),
+        }}
+        onRun={noop}
+        onClose={noop}
+      />,
+    );
+  });
+  expect(field().placeholder).toBe("55 (the format's figure)");
+  await pressEnter();
+  expect(submitted).toEqual([""]);
+});

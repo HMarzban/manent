@@ -23,4 +23,53 @@ export const PROJECT_COMMANDS = defineCommands([
     reach: "self",
     setting: null,
   },
+  {
+    id: "project.readRate",
+    label: "Read rate",
+    group: "format",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: null,
+    whyNot: null,
+    visible: (ctx) =>
+      ctx.docOpen &&
+      ctx.projectKind !== null &&
+      (ctx.format === "variety" ||
+        ctx.projectKind === "show" ||
+        ctx.projectKind === "news" ||
+        ctx.projectKind === "podcast") &&
+      (ctx.role === "owner" || ctx.role === "editor"),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["timing", "speed", "pace", "characters per second"] },
+    opens: null,
+    reach: "others",
+    setting: null,
+  },
+  {
+    id: "project.targetPages",
+    label: "Target length",
+    group: "format",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: null,
+    whyNot: null,
+    visible: (ctx) =>
+      ctx.docOpen &&
+      ctx.projectKind !== null &&
+      ctx.format !== "ink" &&
+      (ctx.role === "owner" || ctx.role === "editor"),
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: { keywords: ["target pages", "page target", "episode length"] },
+    opens: null,
+    reach: "others",
+    setting: null,
+  },
 ]);

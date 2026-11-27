@@ -1013,6 +1013,19 @@ test("the handler table names every command but the generated ones", () => {
     "graphics.insertFullScreen": noop,
     "production.includeInSides": noop,
     "template.save": noop,
+    "view.scenes": noop,
+    "view.cuts": noop,
+    "view.details": noop,
+    "view.comments": noop,
+    "checks.open": noop,
+    "series.openBoard": noop,
+    "app.preferencesWriting": noop,
+    "app.preferencesAppearance": noop,
+    "app.preferencesAccount": noop,
+    "app.preferencesDevice": noop,
+    "doc.linesPerPage": noop,
+    "project.readRate": noop,
+    "project.targetPages": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

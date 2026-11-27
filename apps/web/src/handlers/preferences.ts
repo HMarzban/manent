@@ -50,6 +50,10 @@ export function preferencesHandlers(
 ): Pick<
   CommandHandlers,
   | "app.preferences"
+  | "app.preferencesWriting"
+  | "app.preferencesAppearance"
+  | "app.preferencesAccount"
+  | "app.preferencesDevice"
   | "app.shortcuts"
   | "app.aiPledge"
   | "app.benchmarkReport"
@@ -60,6 +64,8 @@ export function preferencesHandlers(
   | "settings.undo"
 > {
   const { services, router, visitUndo } = deps;
+  const openPane = (pane: SectionId) => () =>
+    router.navigate(preferencesHref(pane, returnPlace(router.here())));
   const onPreferences = (): boolean =>
     router.here().routeId === PREFERENCES_ROUTE;
   // a screen that hides the page never touches the script
@@ -79,11 +85,13 @@ export function preferencesHandlers(
         onPreferences() ? from : preferencesHref(services.lastPane.get(), from),
       );
     },
-    "app.shortcuts": () =>
-      router.navigate(preferencesHref("keyboard", returnPlace(router.here()))),
+    "app.preferencesWriting": openPane("writing"),
+    "app.preferencesAppearance": openPane("appearance"),
+    "app.preferencesAccount": openPane("account"),
+    "app.preferencesDevice": openPane("device"),
+    "app.shortcuts": openPane("keyboard"),
     // the pledge is read under This device's About
-    "app.aiPledge": () =>
-      router.navigate(preferencesHref("device", returnPlace(router.here()))),
+    "app.aiPledge": openPane("device"),
     "app.benchmarkReport": () => {
       window.open("/benchmark-report.html", "_blank", "noopener,noreferrer");
     },

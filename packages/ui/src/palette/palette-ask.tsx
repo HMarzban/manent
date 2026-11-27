@@ -19,6 +19,10 @@ export interface PaletteAsk {
   /** Null for a free-text prompt; a list of choices to filter and choose from otherwise. */
   readonly choices: readonly string[] | null;
   readonly initial: string;
+  /** Optional input placeholder when the field is empty (free-text mode). */
+  readonly placeholder?: string;
+  /** When true in free-text mode, Enter submits "" so nullable settings can reset cleanly. */
+  readonly allowEmpty?: boolean;
   submit(value: string): void;
 }
 
@@ -194,12 +198,14 @@ export function PaletteAskView(props: PaletteAskViewProps): ReactNode {
     if (event.key === "Enter") {
       event.preventDefault();
       const trimmed = value.trim();
-      if (trimmed !== "") submitValue(trimmed);
+      if (trimmed !== "" || ask.allowEmpty === true) submitValue(trimmed);
     }
   };
 
   const isChoices = choices !== null;
-  const canSubmit = isChoices ? filtered.length > 0 : value.trim() !== "";
+  const canSubmit = isChoices
+    ? filtered.length > 0
+    : ask.allowEmpty === true || value.trim() !== "";
 
   return (
     <div
@@ -236,6 +242,7 @@ export function PaletteAskView(props: PaletteAskViewProps): ReactNode {
               setActiveIndex(0);
             }}
             onKeyDown={onKeyDown}
+            placeholder={ask.placeholder}
             aria-label={ask.prompt}
             role={isChoices ? "combobox" : undefined}
             aria-expanded={isChoices ? true : undefined}

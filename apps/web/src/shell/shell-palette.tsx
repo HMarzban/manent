@@ -1,5 +1,12 @@
 // The shell's palette over commands, settings, places, scripts and the people present, loaded apart from the entry.
-import { COMMANDS, contextBoost, recommendPalette } from "@manent/commands";
+import {
+  COMMANDS,
+  DEFAULT_QUICK_SETTINGS_LIMIT,
+  DEFAULT_RECENT_LIMIT,
+  DEFAULT_SUGGESTED_LIMIT,
+  contextBoost,
+  recommendPalette,
+} from "@manent/commands";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   BESIDE_WORDS,
@@ -34,6 +41,7 @@ import {
   snapshotPaletteSignals,
 } from "./palette-context.ts";
 import { createDocumentSource } from "./palette-documents.ts";
+import { computeQuickJumps } from "./palette-jumps.ts";
 import {
   createPersonSource,
   createPlaceSource,
@@ -122,18 +130,31 @@ export function ShellPalette(props: {
     const usage = usageStore.read();
     const available = (id: string) =>
       KNOWN_COMMAND_IDS.has(id) ? services.commands.state(id) : null;
+    const jumpTo = computeQuickJumps({
+      signals,
+      userId: services.userId,
+      workspaceIds: workspaceIds(),
+      library: services.library,
+      pagination: () => (docId === null ? null : livePagination(docId)),
+      caretBlockId: facts?.get("blockId") ?? null,
+      people: people?.get() ?? [],
+    });
+    const hasJumps = jumpTo.length > 0;
     const recommendations = recommendPalette({
       signals,
       usage,
       available,
       now: openedNow,
+      suggestedLimit: hasJumps ? 3 : DEFAULT_SUGGESTED_LIMIT,
+      quickSettingsLimit: hasJumps ? 2 : DEFAULT_QUICK_SETTINGS_LIMIT,
+      recentLimit: hasJumps ? 2 : DEFAULT_RECENT_LIMIT,
     });
     const context = formatPaletteContext(signals, facts);
     const boost = (row: PaletteRow): number =>
       row.kind === "command" || row.kind === "setting"
         ? contextBoost(row.id, signals, usage, openedNow)
         : 0;
-    return { recommendations, context, boost };
+    return { recommendations, jumpTo, context, boost };
   }, [
     isOpen,
     filter,
@@ -145,6 +166,7 @@ export function ShellPalette(props: {
     facts,
     outline,
     people,
+    workspaceIds,
     usageStore,
     now,
   ]);
@@ -256,6 +278,7 @@ export function ShellPalette(props: {
       recent={smart?.recommendations.recent ?? []}
       context={smart?.context ?? null}
       suggested={smart?.recommendations.suggested}
+      jumpTo={smart?.jumpTo}
       quickSettings={smart?.recommendations.quickSettings}
       boost={smart?.boost}
       enableScopes={filter === "all"}

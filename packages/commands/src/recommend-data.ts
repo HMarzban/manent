@@ -87,6 +87,12 @@ export const PALETTE_SYNONYMS: Readonly<Record<string, readonly string[]>> =
     "setting.appearance.autoByFormat": ["format theme", "automatic palette"],
     "setting.script.sameSpeakerContd": ["contd", "continued"],
     "setting.script.moresAtBreaks": ["more", "contd", "page break"],
+    "view.scenes": ["sidebar", "outline"],
+    "view.details": ["inspector"],
+    "series.openBoard": ["season board", "episode grid"],
+    "doc.linesPerPage": ["lines per page", "layout"],
+    "project.readRate": ["read speed", "prompter pace"],
+    "project.targetPages": ["page goal", "target"],
   });
 
 const EMPTY_SYNONYMS: readonly string[] = Object.freeze([]);

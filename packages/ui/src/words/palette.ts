@@ -12,7 +12,16 @@ export const PALETTE_WORDS = Object.freeze({
   clearSearch: "Clear search",
   /** Smart home contextual sections. */
   suggested: "Suggested here",
+  jumpTo: "Jump to",
   quickSettings: "Settings here",
+  /** Inline free-text prompts for numeric script and project settings. */
+  ask: Object.freeze({
+    linesPerPage: (defaultLines: number, maxLines: number): string =>
+      `Lines per page (10–${maxLines}, empty for ${defaultLines})`,
+    readRate: "Read rate (1–50 characters a second)",
+    targetPages: "Target length in pages (1–999, empty for no target)",
+    targetPagesRange: "Target length is a number from 1 to 999.",
+  }),
   /** The commands run last from the palette. */
   recent: "Last used",
   menus: "Menus",

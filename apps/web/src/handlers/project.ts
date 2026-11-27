@@ -1,9 +1,13 @@
 import type { CommandHandlers } from "@manent/commands";
 import type { HandlerDeps } from "./index.ts";
+import { askReadRate, askTargetPages } from "./numeric-settings.ts";
 
 export function projectHandlers(
   deps: HandlerDeps,
-): Pick<CommandHandlers, "project.openSettings"> {
+): Pick<
+  CommandHandlers,
+  "project.openSettings" | "project.readRate" | "project.targetPages"
+> {
   return {
     "project.openSettings"() {
       const { docId } = deps.shellState();
@@ -15,5 +19,7 @@ export function projectHandlers(
         `/p/${projectId}/settings?from=${encodeURIComponent(from)}`,
       );
     },
+    "project.readRate": () => askReadRate(deps),
+    "project.targetPages": () => askTargetPages(deps),
   };
 }
