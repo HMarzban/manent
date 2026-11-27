@@ -579,3 +579,64 @@ test("non-owner cannot run check handshake, and inbound MOS TCP server handles h
     world.prompter.stop();
   }
 });
+
+test("MOS bridge serializes overlapping feed batches per workspace in FIFO order", async () => {
+  const fc = fakeClock(300_000);
+  const world = createMosWorld(fc);
+  await seedWorld(world, fc, { insideAirWindow: true });
+  const mock = await createMockMosPrompter({
+    dialect: "autoscript_winplus_ip",
+  });
+
+  try {
+    const saved = await callMos(
+      world.mos,
+      ANA,
+      "PUT",
+      `/api/workspaces/${WORKSPACE}/mos`,
+      {
+        enabled: true,
+        dialect: "autoscript_winplus_ip",
+        host: mock.host,
+        lowerPort: mock.port,
+        upperPort: mock.port,
+      },
+    );
+    expect(saved.status).toBe(200);
+
+    // Trigger opt-in (queues roCreate) and immediately fire a manual send (queues roStorySend) before TCP connects.
+    const optIn = await callMos(
+      world.mos,
+      ANA,
+      "PUT",
+      `/api/prompter/${RUNDOWN_LIVE}/mos`,
+      { workspaceId: WORKSPACE, enabled: true, roSlug: "Six O'Clock News" },
+    );
+    expect(optIn.status).toBe(200);
+
+    const sent = world.prompter.send(ANA.userId, {
+      docId: RUNDOWN_LIVE,
+      rowId: ROW_1,
+      key: keyOf(9),
+    });
+    await flushAll(fc);
+    expect((await sent).ok).toBe(true);
+
+    await mock.waitFor(
+      (msgs) =>
+        msgs.some((m) => m.kind === "roCreate") &&
+        msgs.some((m) => m.kind === "roStorySend"),
+    );
+    const firstCreate = mock.received.findIndex((m) => m.kind === "roCreate");
+    const firstStory = mock.received.findIndex((m) => m.kind === "roStorySend");
+    expect(firstCreate).toBeGreaterThanOrEqual(0);
+    expect(firstStory).toBeGreaterThan(firstCreate);
+    expect(
+      mock.runningOrders.get(RUNDOWN_LIVE)?.stories[0]?.paragraphs,
+    ).toEqual(["ANA", "Initial spoken copy."]);
+  } finally {
+    await world.mos.stop();
+    world.prompter.stop();
+    await mock.close();
+  }
+});
