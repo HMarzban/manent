@@ -2,7 +2,7 @@ import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { SECTION_IDS, entryKey } from "@manent/settings";
 import type { SectionId } from "@manent/settings";
-import { createValue } from "@manent/ui";
+import { createValue, syncThemeColorMeta } from "@manent/ui";
 import {
   Outlet,
   RouterProvider,
@@ -15,6 +15,7 @@ import type { AnyRouter } from "@tanstack/react-router";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
+import { resetBrowserInstallStore } from "../src/pwa/install.ts";
 import { PreferencesScreen } from "../src/screens/preferences/preferences-screen.tsx";
 import {
   EnvironmentProvider,
@@ -43,9 +44,13 @@ let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  resetBrowserInstallStore();
   document.body.replaceChildren();
+  document.head.querySelector('meta[name="theme-color"]')?.remove();
   Reflect.deleteProperty(navigator, "storage");
   Reflect.deleteProperty(navigator, "platform");
+  Reflect.deleteProperty(navigator, "userAgent");
+  Reflect.deleteProperty(navigator, "serviceWorker");
 });
 
 /** A system that prefers nothing: no dark scheme, no reduced motion, no more contrast, no forced colours. */
@@ -75,6 +80,7 @@ async function renderPreferences(options: {
   container: HTMLElement;
   router: AnyRouter;
   services: PersonServices;
+  environment: ReturnType<typeof testEnvironment>;
   advance(ms: number): void;
 }> {
   systemPrefersNothing();
@@ -149,6 +155,7 @@ async function renderPreferences(options: {
     container,
     router,
     services,
+    environment,
     advance: (ms) => act(() => clock.advance(ms)),
   };
 }
@@ -644,4 +651,76 @@ test("Escape clears the search and does not leave the screen", async () => {
     router.state.location.pathname,
     document.activeElement,
   ]).toEqual([[1, null], ["", "Writing"], "/preferences/writing", search]);
+});
+
+test("This browser shows offline status, space used, backup button, Safari install guidance, and web update state", async () => {
+  Object.defineProperty(navigator, "userAgent", {
+    configurable: true,
+    value:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
+  });
+  Object.defineProperty(navigator, "platform", {
+    configurable: true,
+    value: "MacIntel",
+  });
+  Reflect.set(navigator, "storage", {
+    persisted: async () => true,
+    persist: async () => true,
+    estimate: async () => ({ usage: 12_400_000, quota: 500_000_000 }),
+  });
+  Reflect.set(navigator, "serviceWorker", {
+    controller: {},
+    getRegistration: async () => ({ active: {}, update: async () => {} }),
+  });
+  const { container, environment } = await renderPreferences({
+    pane: "device",
+  });
+  await act(async () => {});
+  expect([
+    texts(container, "Offline").length,
+    texts(container, "Ready — opens without a connection").length,
+    texts(container, "Space used").length,
+    texts(container, "12 MB").length,
+    buttonsNamed(container, "Back up everything in this browser").length,
+    texts(
+      container,
+      "Safari may clear data after 7 days without opening Manent unless it is installed.",
+    ).length,
+    texts(
+      container,
+      "In Safari, choose File → Add to Dock to open Manent in its own window.",
+    ).length,
+    buttonsNamed(container, "Check for updates").length,
+  ]).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+
+  act(() => {
+    environment.updateState.set("ready");
+  });
+  const pane = container.querySelector("section[aria-labelledby]");
+  const slot = container.querySelector('[role="status"][aria-live="polite"]');
+  expect([
+    slot?.querySelector("p")?.textContent,
+    slot ? buttonsNamed(slot, "Reload to update").length : 0,
+    pane
+      ? texts(
+          pane,
+          "Update ready — reload to use it, or close every Manent tab.",
+        ).length
+      : 0,
+    buttonsNamed(container, "Reload to update").length,
+  ]).toEqual(["An update is ready.", 1, 1, 2]);
+});
+
+test("syncThemeColorMeta keeps meta[name=theme-color] synced to --bg-chrome", () => {
+  const root = document.documentElement;
+  root.style.setProperty("--bg-chrome", "#f6f4f0");
+  syncThemeColorMeta(root);
+  const meta = document.head.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]',
+  );
+  expect(meta?.content).toBe("#f6f4f0");
+  root.style.setProperty("--bg-chrome", "#1a1918");
+  syncThemeColorMeta(root);
+  expect(meta?.content).toBe("#1a1918");
+  root.style.removeProperty("--bg-chrome");
 });

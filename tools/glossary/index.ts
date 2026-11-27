@@ -73,6 +73,7 @@ export const NAMES: readonly string[] = Object.freeze([
   "Courier Prime",
   "Final Draft",
   "Word",
+  "Safari",
 ]);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
@@ -117,6 +118,7 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "1 viewer",
   "{raw} isn't a duration — write minutes and two-digit seconds, as 2:07.",
   "Estimated runtime",
+  "In Safari, choose Share → Add to Home Screen to open Manent as an app.",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

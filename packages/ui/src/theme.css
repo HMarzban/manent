@@ -2690,6 +2690,48 @@ html[data-switching] *::after {
 }
 
 /* --------------------------------------------------------------------------
+   INSTALLED APP CHROME (standalone and window-controls-overlay).
+   Safe-area insets and draggable title-bar regions apply to the shell chrome
+   only, never to the page.
+   -------------------------------------------------------------------------- */
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  [data-region="title_bar"] {
+    padding-block-start: env(safe-area-inset-top, 0px);
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+  }
+  [data-region="status_bar"] {
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+  }
+}
+
+@media (display-mode: window-controls-overlay) {
+  .mn-titlebar-wco,
+  .mn-wco [data-region="title_bar"] {
+    min-block-size: max(
+      var(--titlebar-h),
+      env(titlebar-area-height, var(--titlebar-h))
+    );
+    padding-inline-start: env(titlebar-area-x, 0px);
+    padding-inline-end: calc(
+      100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%)
+    );
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .mn-titlebar-wco
+    :is(button, a, input, select, textarea, [role="button"], [tabindex]),
+  .mn-wco
+    [data-region="title_bar"]
+    :is(button, a, input, select, textarea, [role="button"], [tabindex]) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
+
+/* --------------------------------------------------------------------------
    PRINT. The print DOM is white paper whatever the theme, and
    keeps its bands, tints and the writer's highlights.
    -------------------------------------------------------------------------- */
