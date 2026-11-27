@@ -18,7 +18,12 @@ import { DOCUMENT_ROW_ITEMS } from "./document-row-items.ts";
 import { DOCUMENT_ROW_LINES } from "./document-row-lines.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { NoProjects, ProjectList } from "./project-list.tsx";
-import { PLACE_COLUMN, RowMenu, placeProps } from "./row-place.tsx";
+import {
+  PLACE_COLUMN,
+  RowContextMenu,
+  RowMenu,
+  placeProps,
+} from "./row-place.tsx";
 
 // structured placeholder widths for the two library sections while the workspace is not known
 const PLACEHOLDER_SECTIONS: readonly {
@@ -72,18 +77,16 @@ function ContinueRow(props: {
   const { item, shell, open } = props;
   const meta = useSecondLine(item);
   const { trailing, ...place } = placeProps(item.place, shell);
+  const hasMenu =
+    DOCUMENT_ROW_ITEMS.length > 0 && place.unavailable === undefined;
+  const entries = hasMenu
+    ? DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
+        <Item key={id} docId={item.docId} />
+      ))
+    : null;
   // a row that cannot be opened has no menu
-  const menu =
-    DOCUMENT_ROW_ITEMS.length === 0 || place.unavailable !== undefined
-      ? []
-      : [
-          <RowMenu title={item.title}>
-            {DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
-              <Item key={id} docId={item.docId} />
-            ))}
-          </RowMenu>,
-        ];
-  return (
+  const menu = hasMenu ? [<RowMenu title={item.title}>{entries}</RowMenu>] : [];
+  const row = (
     <Row
       leading={<KindIcon kind={item.kind} />}
       meta={meta}
@@ -93,6 +96,11 @@ function ContinueRow(props: {
     >
       <span className="font-semibold">{item.title}</span>
     </Row>
+  );
+  return hasMenu ? (
+    <RowContextMenu entries={entries}>{row}</RowContextMenu>
+  ) : (
+    row
   );
 }
 

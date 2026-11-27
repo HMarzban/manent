@@ -2090,3 +2090,15 @@ html:has(.jump) {
     margin-top: 1.5rem;
   }
 }
+
+/* Bound "M" Monogram Ligature wordmark (ADR 0078) */
+.brand.brand-ligature {
+  gap: 0;
+  letter-spacing: -0.032em;
+}
+.brand.brand-ligature svg {
+  height: 0.78em;
+  width: auto;
+  margin-inline-end: 0.055em;
+  transform: translateY(0.01em);
+}

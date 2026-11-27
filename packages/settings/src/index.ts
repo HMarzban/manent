@@ -51,5 +51,15 @@ export {
   scriptTwinOf,
 } from "./project-follow.ts";
 export { PREFERENCE_LIST, RETIRED_KEYS, SETTINGS } from "./settings.ts";
+export {
+  DEFAULT_FORMAT_PALETTES,
+  FORMAT_PALETTE_KEYS,
+  STUDIO_PALETTE_CHOICES,
+  STUDIO_PALETTE_IDS,
+} from "./definitions/appearance.ts";
+export type {
+  FormatPaletteKey,
+  StudioPaletteId,
+} from "./definitions/appearance.ts";
 export { POINTERS } from "./definitions/pointers.ts";
 export { appliesToFormat, paperForRegion } from "./definitions/script.ts";

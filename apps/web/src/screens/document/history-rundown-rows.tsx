@@ -16,7 +16,7 @@ import {
   joinNames,
   versionRef,
 } from "@manent/ui";
-import { StarIcon } from "lucide-react";
+import { BookmarkIcon, EllipsisIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
@@ -36,7 +36,17 @@ import {
 } from "./history-rundown-dialog.tsx";
 
 const MORE_WITHIN_ROWS = 50;
-const STAR = <StarIcon aria-hidden="true" className="size-icon" />;
+const DRAFT_MARK = (
+  <BookmarkIcon aria-hidden="true" className="size-icon text-fg-accent" />
+);
+const SESSION_DOT = (
+  <span
+    aria-hidden="true"
+    className="flex size-icon items-center justify-center"
+  >
+    <span className="mn-history-dot" />
+  </span>
+);
 
 export { openRundownRestore } from "./history-rundown-dialog.tsx";
 
@@ -181,7 +191,7 @@ export function RundownVersionRows(props: {
               />
             }
           >
-            <span aria-hidden="true">⋯</span>
+            <EllipsisIcon aria-hidden="true" className="size-icon" />
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem
@@ -208,7 +218,7 @@ export function RundownVersionRows(props: {
       <div onKeyDownCapture={onKeyDownCapture}>
         <Row
           selected={selected === row.item.id}
-          leading={named ? STAR : undefined}
+          leading={named ? DRAFT_MARK : SESSION_DOT}
           meta={
             metaText === null ? undefined : (
               <span title={metaText}>{metaText}</span>
@@ -223,7 +233,9 @@ export function RundownVersionRows(props: {
           menu={menu}
           onActivate={() => props.onShow(row)}
         >
-          <span title={title}>{title}</span>
+          <span title={title} className={named ? "font-semibold" : "tnum"}>
+            {title}
+          </span>
         </Row>
         {isNaming ? (
           <NameField

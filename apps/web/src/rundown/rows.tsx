@@ -3,15 +3,24 @@ import type { CommandId, CommandState } from "@manent/commands";
 import type { RundownColumnId, RundownRowJSON } from "@manent/schema";
 import {
   Button,
+  CommandMenuIcon,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   PROMPTER_CONTROL_WORDS,
+  isDestructiveCommand,
 } from "@manent/ui";
 import type { EditableGridHandle, GridCellCoord } from "@manent/ui";
 import { EllipsisIcon } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type { ReactNode, RefObject } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { rundownActions } from "../state/rundown.store.ts";
@@ -164,33 +173,40 @@ export function RowMenu(props: RowMenuProps): ReactNode {
         align="end"
         className="min-w-menu-min max-w-menu-max"
       >
-        {entries.map((entry) => (
-          <DropdownMenuItem
-            key={entry.id}
-            data-tour={entry.id}
-            disabled={!entry.enabled}
-            title={entry.unavailableTitle}
-            aria-label={entry.unavailableTitle ?? entry.label}
-            className={
-              entry.enabled
-                ? "cursor-pointer hover:bg-subtle"
-                : "cursor-not-allowed text-fg-muted opacity-50"
-            }
-            onClick={() => {
-              onBeforeOpen(row.id);
-              if (
-                entry.id === "rundown.previousValue" &&
-                previousCol !== null
-              ) {
-                onOpenPrevious(row.id, previousCol);
-                return;
-              }
-              commands.run(entry.id, "menu");
-            }}
-          >
-            {entry.label}
-          </DropdownMenuItem>
-        ))}
+        {entries.map((entry, idx) => {
+          const destructive = isDestructiveCommand(entry.id);
+          return (
+            <Fragment key={entry.id}>
+              {destructive && idx > 0 ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                data-tour={entry.id}
+                variant={destructive ? "destructive" : "default"}
+                disabled={!entry.enabled}
+                title={entry.unavailableTitle}
+                aria-label={entry.unavailableTitle ?? entry.label}
+                className={
+                  entry.enabled
+                    ? "cursor-pointer"
+                    : "cursor-not-allowed text-fg-muted opacity-50"
+                }
+                onClick={() => {
+                  onBeforeOpen(row.id);
+                  if (
+                    entry.id === "rundown.previousValue" &&
+                    previousCol !== null
+                  ) {
+                    onOpenPrevious(row.id, previousCol);
+                    return;
+                  }
+                  commands.run(entry.id, "menu");
+                }}
+              >
+                <CommandMenuIcon id={entry.id} />
+                {entry.label}
+              </DropdownMenuItem>
+            </Fragment>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

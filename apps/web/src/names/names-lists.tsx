@@ -5,6 +5,7 @@ import type { ProjectNameKind } from "@manent/revisions";
 import {
   Button,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   Input,
   NAMES_WORDS,
   Row,
@@ -12,6 +13,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -159,9 +161,15 @@ function NameRow(props: {
       menu={
         <RowMenu title={entry.name}>
           <DropdownMenuItem onClick={() => setRenaming(true)}>
+            <PencilIcon aria-hidden="true" className="size-icon shrink-0" />
             {NAMES_WORDS.rename}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => map.delete(entry.id)}>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => map.delete(entry.id)}
+          >
+            <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
             {NAMES_WORDS.remove}
           </DropdownMenuItem>
         </RowMenu>

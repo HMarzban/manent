@@ -3,6 +3,7 @@
 import type { CommandId } from "@manent/commands";
 import {
   Button,
+  CommandMenuIcon,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -38,6 +39,7 @@ function Entry(props: {
   if (!state.visible) return null;
   const item = (
     <Item disabled={!state.enabled} onClick={() => service.run(id, "menu")}>
+      <CommandMenuIcon id={id} />
       {state.label}
     </Item>
   );

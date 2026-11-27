@@ -95,7 +95,7 @@ test("To review shows both wordings, named, with the three choices", async () =>
   ]);
 });
 
-test("the History tab is there while something is to review", async () => {
+test("History opens from the title bar while something is to review, and closes when resolved", async () => {
   const review = fakeReview(sceneEightDoc());
   const frame = await renderFrame({ review });
   await run(frame, "view.sidePanel");
@@ -103,7 +103,11 @@ test("the History tab is there while something is to review", async () => {
   act(() => review.entriesOf.set([overlap("item-1", DOC_ID, B1, [])]));
   await run(frame, "history.open");
   await drawnWhen(() => drawn(frame).length > 0);
-  const withOne = [tabs(frame), drawn(frame).slice(0, 2)];
+  const withOne = [
+    tabs(frame),
+    sidePanel(frame).querySelector("header h2")?.textContent ?? null,
+    drawn(frame).slice(0, 2),
+  ];
   await click(buttonNamed(sidePanel(frame), "Keep as merged"));
   await act(async () => {
     frame.clock.advance(16);
@@ -119,10 +123,11 @@ test("the History tab is there while something is to review", async () => {
   ]).toEqual([
     ["Comments", "Details"],
     [
-      ["Comments", "History", "Details"],
+      [],
+      "Version history",
       ["To review · 1", "Sc. 8 · changed here and elsewhere"],
     ],
-    // the panel closes with the tab it showed
+    // the panel closes with the standalone History panel it showed
     [],
     ["keep item-1"],
     "page",

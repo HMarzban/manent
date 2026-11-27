@@ -304,6 +304,7 @@ const NumberControl = (props: ControlProps): ReactNode => (
 function controlFor(
   key: SettingKey,
 ): ((props: ControlProps) => ReactNode) | null {
+  if (key === "appearance.projectPalettes") return null;
   const { kind, choices } = SETTINGS.get(key).type;
   if (kind === "boolean") return SwitchControl;
   if (kind === "text") return TextControl;

@@ -131,11 +131,14 @@ test("the platform is read only in the platform module", async () => {
   ]);
 });
 
-test("no view transition is started", async () => {
+test("view transitions are allowed only in the Preferences Appearance helper", async () => {
   expect(
     await check({
       "apps/web/src/shell/go.ts": lines(
         'const name = "startViewTransition";',
+        "document.startViewTransition(() => {});",
+      ),
+      "apps/web/src/screens/preferences/view-transition.ts": lines(
         "document.startViewTransition(() => {});",
       ),
     }),

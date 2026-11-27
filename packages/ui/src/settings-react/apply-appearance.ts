@@ -22,8 +22,11 @@ const ATTRIBUTE_SETTINGS: readonly AttributeSetting[] = Object.freeze(
   ),
 );
 
-// the colour transitions are held off for the one frame in which the theme changes
-const THEME_ATTRIBUTE = "data-theme";
+// the colour transitions are held off for the one frame in which the theme or palette changes
+const THEME_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "data-theme",
+  "data-palette",
+]);
 const SWITCHING_ATTRIBUTE = "data-switching";
 const THEME_COLOR_SELECTOR = 'meta[name="theme-color"]:not([media])';
 const TRANSPARENT_ZERO = /\(\s*0[\s,]+0[\s,]+0[\s,/]+0\s*\)$/;
@@ -64,6 +67,8 @@ export function syncThemeColorMeta(root: HTMLElement): void {
   }
   if (meta.content !== colour) meta.content = colour;
 }
+
+const DARK_MEDIA = "(prefers-color-scheme: dark)";
 
 function attributeValue(
   store: SettingsStore,
@@ -116,13 +121,14 @@ export function applyAppearance(options: {
     mark("ui.setting.apply", () => {
       const value = attributeValue(store, setting);
       if (
-        setting.name === THEME_ATTRIBUTE &&
-        root.getAttribute(THEME_ATTRIBUTE) !== value
+        THEME_ATTRIBUTES.has(setting.name) &&
+        root.getAttribute(setting.name) !== value &&
+        !root.hasAttribute(SWITCHING_ATTRIBUTE)
       )
         switchTheme();
       writeAttribute(root, setting.name, value);
+      if (THEME_ATTRIBUTES.has(setting.name)) syncThemeColorMeta(root);
     });
-    if (setting.name === THEME_ATTRIBUTE) syncThemeColorMeta(root);
     onBootWrites(bootWrites(store));
   };
 
@@ -131,16 +137,18 @@ export function applyAppearance(options: {
     return store.subscribe(setting.def.key, () => write(setting));
   });
   syncThemeColorMeta(root);
-  const win = root.ownerDocument?.defaultView;
-  const schemeQuery =
-    typeof win?.matchMedia === "function"
-      ? win.matchMedia("(prefers-color-scheme: dark)")
+  const view = root.ownerDocument?.defaultView ?? null;
+  const media =
+    view !== null && typeof view.matchMedia === "function"
+      ? view.matchMedia(DARK_MEDIA)
       : null;
-  const onSchemeChange = (): void => syncThemeColorMeta(root);
-  schemeQuery?.addEventListener("change", onSchemeChange);
+  const onSchemeChange = (): void => {
+    if (store.get("appearance.theme") === "system") syncThemeColorMeta(root);
+  };
+  media?.addEventListener("change", onSchemeChange);
   return () => {
     for (const unsubscribe of unsubscribers) unsubscribe();
-    schemeQuery?.removeEventListener("change", onSchemeChange);
+    media?.removeEventListener("change", onSchemeChange);
     cancelFrame?.();
   };
 }

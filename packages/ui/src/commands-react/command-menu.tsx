@@ -23,6 +23,11 @@ import {
   TooltipTrigger,
 } from "../components/stock/tooltip.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
+import {
+  CommandMenuIcon,
+  isDestructiveCommand,
+  submenuIconFor,
+} from "./command-icons.tsx";
 import { useCommands } from "./commands-context.tsx";
 import { keyLabel } from "./key-labels.ts";
 
@@ -55,7 +60,8 @@ function MenuItem(props: {
   const [chord] = item.keys;
   const content = (
     <>
-      {item.label}
+      <CommandMenuIcon id={item.id} />
+      <span className="truncate">{item.label}</span>
       {chord === undefined ? null : (
         <Kbd className="ml-auto">{keyLabel(chord, platform)}</Kbd>
       )}
@@ -65,6 +71,7 @@ function MenuItem(props: {
     item.checked === null ? (
       <DropdownMenuItem
         data-tour={item.id}
+        variant={isDestructiveCommand(item.id) ? "destructive" : "default"}
         disabled={!item.enabled}
         onClick={run}
       >
@@ -120,7 +127,16 @@ export function CommandMenu(props: {
                 ) : (
                   <DropdownMenuSub key={run.submenu}>
                     <DropdownMenuSubTrigger>
-                      {run.submenu}
+                      {(() => {
+                        const SubIcon = submenuIconFor(run.submenu);
+                        return SubIcon === null ? null : (
+                          <SubIcon
+                            aria-hidden="true"
+                            className="size-icon shrink-0"
+                          />
+                        );
+                      })()}
+                      <span className="truncate">{run.submenu}</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
                       {run.items.map(itemOf)}

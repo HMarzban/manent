@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    .bg { fill: #FDFCFA; stroke: #DAD5CC; }
+    .ink { fill: #1F1D1A; }
+    .acc { fill: #2450BE; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #1F1D1A; stroke: #36332F; }
+      .ink { fill: #EFECE6; }
+      .acc { fill: #8DAEFF; }
+    }
+  </style>
+  <rect class="bg" x="1" y="1" width="30" height="30" rx="7" stroke-width="1"/>
+  <path class="ink" d="M7.5 8.5H10.7C11 8.5 11.3 8.65 11.5 8.95L16.2 15.8L19.6 10.8C19.8 10.5 20.2 10.65 20.2 11V15.3C20.2 15.5 20.1 15.7 19.95 15.9L16.9 20.1C16.7 20.35 16.45 20.45 16.2 20.45C15.95 20.45 15.7 20.35 15.5 20.1L10.7 13.4V22.5C10.7 23.05 10.25 23.5 9.7 23.5H7.5C6.95 23.5 6.5 23.05 6.5 22.5V9.5C6.5 8.95 6.95 8.5 7.5 8.5Z"/>
+  <rect class="acc" x="21.9" y="8.5" width="3.6" height="15" rx="0.9"/>
+</svg>

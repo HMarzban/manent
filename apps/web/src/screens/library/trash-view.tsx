@@ -3,31 +3,23 @@ import type { TrashListItem } from "@manent/sync-protocol";
 import {
   Button,
   ConsequenceDialog,
-  DropdownMenuItem,
   LIBRARY_FILES_WORDS,
-  LIBRARY_WORDS,
   Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   dayNumber,
   formatDate,
   formatDayTime,
   joinNames,
   useCommandState,
-  useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { TriangleAlertIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   executeMoveToTrash,
-  requestMoveToTrash,
   restoreTrashedDocument,
 } from "../../handlers/library-files.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { readPerson, tabStorage } from "../../session.ts";
 import {
   trashActions,
   useTrashConfirm,
@@ -35,6 +27,8 @@ import {
 } from "../../state/trash.store.ts";
 import { LibraryViewSection } from "./view-section.tsx";
 import type { LibraryViewProps } from "./views.ts";
+
+export { MoveToTrashRowItem } from "./move-to-trash-item.tsx";
 
 const DAY_MS = 86_400_000;
 const WEEK_DAYS = 7;
@@ -307,84 +301,5 @@ export function TrashConfirmDialog(): ReactNode {
         })
       }
     />
-  );
-}
-
-/** Library document row menu item for Move to Trash; hidden on desktop and for people without delete permission. */
-export function MoveToTrashRowItem(props: {
-  readonly docId: string;
-  readonly workspaceId: string;
-}): ReactNode {
-  const { docId, workspaceId } = props;
-  const services = useServices();
-  const { where } = useEnvironment();
-  const navigate = useNavigate();
-  const online = useCommandState("library.restore").enabled;
-  const titleSource = useMemo(
-    () => services.library.documentTitle(docId),
-    [services.library, docId],
-  );
-  const title = useSubscribable(titleSource) ?? LIBRARY_WORDS.untitledScript;
-  const signedIn = (readPerson(tabStorage())?.token ?? null) !== null;
-  const [canDelete, setCanDelete] = useState<boolean>(
-    () => trashActions.get(docId).canDelete,
-  );
-
-  useEffect(() => {
-    if (where.shell === "desktop" || !signedIn || !online) return;
-    let active = true;
-    void services.trash.describe(docId).then((access) => {
-      if (!active || access === null) return;
-      trashActions.set(docId, { canDelete: access.canDelete });
-      setCanDelete(access.canDelete);
-    });
-    return () => {
-      active = false;
-    };
-  }, [where.shell, signedIn, online, docId, services.trash]);
-
-  if (where.shell === "desktop") return null;
-  if (signedIn && !canDelete) return null;
-
-  const reason = !signedIn
-    ? `${LIBRARY_FILES_WORDS.moveToTrash} — ${LIBRARY_FILES_WORDS.moveToTrashNeverSyncedReason}`
-    : !online
-      ? `${LIBRARY_FILES_WORDS.moveToTrash} ${LIBRARY_FILES_WORDS.moveToTrashOfflineReason}.`
-      : null;
-
-  if (reason !== null) {
-    return (
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuItem
-              disabled
-              className="cursor-not-allowed text-fg-muted"
-            >
-              {LIBRARY_FILES_WORDS.moveToTrash}
-            </DropdownMenuItem>
-          }
-        />
-        <TooltipContent>{reason}</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <DropdownMenuItem
-      className="cursor-pointer"
-      onClick={() =>
-        void requestMoveToTrash({
-          services,
-          navigate: (href) => void navigate({ href }),
-          docId,
-          title,
-          workspaceId,
-          navigateToLibrary: false,
-        })
-      }
-    >
-      {LIBRARY_FILES_WORDS.moveToTrash}
-    </DropdownMenuItem>
   );
 }

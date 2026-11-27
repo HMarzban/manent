@@ -5,8 +5,10 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   Input,
 } from "@manent/ui";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { BoardStoryline } from "../../board/model.ts";
@@ -52,9 +54,12 @@ export function StorylineHeader(props: StorylineHeaderProps): ReactNode {
   const menuItems = (
     <>
       <DropdownMenuItem onClick={startRename}>
+        <PencilIcon aria-hidden="true" className="size-icon shrink-0" />
         {BOARD_WORDS.rename}
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={onRemove}>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" onClick={onRemove}>
+        <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
         {BOARD_WORDS.remove}
       </DropdownMenuItem>
     </>

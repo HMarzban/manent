@@ -6,6 +6,7 @@ import { useId } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment } from "../../services/context.tsx";
 import { AccountPane } from "./account-pane.tsx";
+import { AppearancePane } from "./appearance-pane.tsx";
 import { DevicePane, FORCED_COLOURS, useMediaQuery } from "./device-pane.tsx";
 import { KeyboardPane } from "./keyboard-pane.tsx";
 import type { ShortcutChange } from "./keyboard-pane.tsx";
@@ -13,6 +14,7 @@ import type { ShortcutChange } from "./keyboard-pane.tsx";
 // the rows that carry the note while the system's contrast colours are in use
 const THEME_KEYS: ReadonlySet<SettingKey> = new Set([
   "appearance.theme",
+  "appearance.palette",
   "appearance.whitePage",
 ]);
 
@@ -94,13 +96,7 @@ export function Pane(props: {
         persisted={persisted}
       />
     ),
-    appearance: () => (
-      <SettingRows
-        keys={paneKeys("appearance")}
-        deviceName={deviceName}
-        persisted={persisted}
-      />
-    ),
+    appearance: () => <AppearancePane />,
     keyboard: () => (
       <KeyboardPane deviceName={deviceName} onShortcuts={props.onShortcuts} />
     ),

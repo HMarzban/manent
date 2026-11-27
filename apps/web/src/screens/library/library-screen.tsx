@@ -7,6 +7,7 @@ import {
   CommandButton,
   DEMO_WORDS,
   LIBRARY_WORDS,
+  ManentMark,
   Skeleton,
   createValue,
   useCommandState,
@@ -253,6 +254,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         region="title_bar"
         className="flex min-h-titlebar shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-2 py-1 sm:gap-2"
       >
+        <ManentMark className="size-icon-lg shrink-0 text-fg" decorative />
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
         ) : serverProblem ? null : (

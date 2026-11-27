@@ -11,12 +11,20 @@ import {
   DropdownMenuTrigger,
   HISTORY_WORDS,
   RUNDOWN_HISTORY_WORDS,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   createValue,
   formatPosition,
   historyMessage,
   useSubscribable,
 } from "@manent/ui";
-import { ChevronDownIcon, TriangleExclamationPointIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  TriangleExclamationPointIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import {
@@ -113,6 +121,7 @@ export function BaselineMenu(props: {
   readonly docId: string;
   readonly rows: readonly HistoryRow[];
   readonly offered: HistoryState["baseline"];
+  readonly hideCopyLink?: boolean;
 }): ReactNode {
   const { userId } = useServices();
   const lastOpened = readLastOpened(userId, props.docId);
@@ -163,7 +172,7 @@ export function BaselineMenu(props: {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {props.offered?.versionId != null ? (
+      {!props.hideCopyLink && props.offered?.versionId != null ? (
         <CommandButton id="history.copyLink" variant="outline" size="sm" />
       ) : null}
     </div>
@@ -311,24 +320,47 @@ export function HistoryChangeStepper(props: { count: number }): ReactNode {
   const { commands } = useServices();
   const step = useHistory("step") ?? 0;
   return (
-    <div className="flex items-center gap-1 text-ui">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => commands.run("history.previousChange", "control")}
+    <div className="inline-flex h-control-sm items-center rounded-control border border-line bg-raised p-0.5 text-meta">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-5 cursor-pointer text-fg-muted hover:text-fg"
+              onClick={() => commands.run("history.previousChange", "control")}
+            />
+          }
+        >
+          <ChevronLeftIcon aria-hidden="true" className="size-3.5" />
+          <span className="sr-only">{HISTORY_WORDS.previousChange}</span>
+        </TooltipTrigger>
+        <TooltipContent>{HISTORY_WORDS.previousChange}</TooltipContent>
+      </Tooltip>
+      <span
+        aria-label={HISTORY_WORDS.stepName(step, props.count)}
+        className="px-1.5 tnum text-fg-muted"
       >
-        {HISTORY_WORDS.previousChange}
-      </Button>
-      <span aria-label={HISTORY_WORDS.stepName(step, props.count)}>
         {formatPosition(step, props.count)}
       </span>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => commands.run("history.nextChange", "control")}
-      >
-        {HISTORY_WORDS.nextChange}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-5 cursor-pointer text-fg-muted hover:text-fg"
+              onClick={() => commands.run("history.nextChange", "control")}
+            />
+          }
+        >
+          <ChevronRightIcon aria-hidden="true" className="size-3.5" />
+          <span className="sr-only">{HISTORY_WORDS.nextChange}</span>
+        </TooltipTrigger>
+        <TooltipContent>{HISTORY_WORDS.nextChange}</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

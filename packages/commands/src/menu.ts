@@ -44,14 +44,17 @@ function ordered(placed: readonly Placed[]): readonly Placed[] {
   return slots.flat();
 }
 
+const TOGGLE_SUFFIX = /: turn (?:on|off)$/;
+
 function itemOf({ id, at, state }: Placed): MenuItemModel {
   const prefix = at.submenu === null ? null : `${at.submenu}: `;
+  const base =
+    prefix !== null && state.label.startsWith(prefix)
+      ? state.label.slice(prefix.length)
+      : state.label;
   return {
     id,
-    label:
-      prefix !== null && state.label.startsWith(prefix)
-        ? state.label.slice(prefix.length)
-        : state.label,
+    label: state.checked !== null ? base.replace(TOGGLE_SUFFIX, "") : base,
     enabled: state.enabled,
     checked: state.checked,
     keys: state.keys,

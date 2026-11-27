@@ -1,4 +1,4 @@
-# 0078. Installable PWA delivery, safe service-worker updates and landing-site freshness
+# 0080. Installable PWA delivery, safe service-worker updates and landing-site freshness
 
 - Date: 2026-11-27
 - Status: Accepted

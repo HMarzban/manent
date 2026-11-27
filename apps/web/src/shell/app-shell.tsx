@@ -51,6 +51,7 @@ import { useMenuChoiceFocus } from "./menu-focus.ts";
 import { ShellRegion } from "./regions.tsx";
 import { SHELL_SCREENS, isPageCovered } from "./shell-screens.ts";
 import type { ShellScreen } from "./shell-screens.ts";
+import { useProjectPalette } from "./use-project-palette.ts";
 
 const STAND_IN_ROUTE = "/__stand-in";
 const NO_DOC_KIND: Subscribable<DocKind | null> = createValue(null);
@@ -304,6 +305,14 @@ function usePublishShellState(
   );
 }
 
+function ProjectPaletteBridge(props: {
+  readonly docId: string | null;
+  readonly covered: boolean;
+}): null {
+  useProjectPalette(props);
+  return null;
+}
+
 /**
  * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `findbar`, `ruler`, `left`, `page`,
  * `side` and `statusbar`, inside the providers of the person's settings and commands and of the bridge's stores.
@@ -347,6 +356,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   const drop = useFileDrop();
   return (
     <SettingsProvider store={services.settings}>
+      <ProjectPaletteBridge docId={docId} covered={covered} />
       <CommandsProvider
         service={services.commands}
         resolved={services.resolved}

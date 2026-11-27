@@ -13,6 +13,7 @@ import {
 const site = join(import.meta.dir, "..", "..", "site");
 const index = await Bun.file(join(site, "index.html")).text();
 const compare = await Bun.file(join(site, "compare.html")).text();
+const designSystem = await Bun.file(join(site, "design-system.html")).text();
 const notFound = await Bun.file(join(site, "404.html")).text();
 const sprite = await Bun.file(join(site, "assets", "icons.svg")).text();
 
@@ -79,6 +80,7 @@ const page = await readPage(index);
 const PAGES: Record<string, PageParts> = {
   "index.html": page,
   "compare.html": await readPage(compare),
+  "design-system.html": await readPage(designSystem),
 };
 const ALL = [...Object.values(PAGES), await readPage(notFound)];
 const valuesIn = (read: PageParts, name: string): string[] =>
@@ -294,7 +296,11 @@ test("robots.txt and sitemap.xml exist and point to the canonical pages", async 
 
   const sitemap = await Bun.file(join(site, "sitemap.xml")).text();
   const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, u]) => u);
-  expect(locs).toEqual([SITE_ORIGIN, `${SITE_ORIGIN}compare.html`]);
+  expect(locs).toEqual([
+    SITE_ORIGIN,
+    `${SITE_ORIGIN}compare.html`,
+    `${SITE_ORIGIN}design-system.html`,
+  ]);
   expect(sitemap).not.toContain("404.html");
 });
 
@@ -307,7 +313,13 @@ test("every site page has valid titles, descriptions, canonical/robots directive
       PAGES["compare.html"]!,
       `${SITE_ORIGIN}compare.html`,
     ],
-    ["404.html", notFound, ALL[2]!, null],
+    [
+      "design-system.html",
+      designSystem,
+      PAGES["design-system.html"]!,
+      `${SITE_ORIGIN}design-system.html`,
+    ],
+    ["404.html", notFound, ALL[3]!, null],
   ];
 
   for (const [name, html, read, canonicalUrl] of files) {
@@ -446,6 +458,7 @@ test("no site page contains banned words or false .fdr import claims", () => {
   const htmlFiles: [string, string][] = [
     ["index.html", index],
     ["compare.html", compare],
+    ["design-system.html", designSystem],
     ["404.html", notFound],
   ];
   const violations: string[] = [];
@@ -464,7 +477,8 @@ test("every site page has one h1, one main landmark, a skip link, and valid head
   for (const [name, read] of [
     ["index.html", PAGES["index.html"]!],
     ["compare.html", PAGES["compare.html"]!],
-    ["404.html", ALL[2]!],
+    ["design-system.html", PAGES["design-system.html"]!],
+    ["404.html", ALL[3]!],
   ] as const) {
     const h1s = read.elements.filter(({ tag }) => tag === "h1");
     const mains = read.elements.filter(

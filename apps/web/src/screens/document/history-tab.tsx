@@ -31,6 +31,7 @@ function HistoryTab(props: { docId: string | null }): ReactNode {
 
 export const historyTab: PanelTab<"history"> = {
   id: "history",
+  standalone: true,
   useTab(docId) {
     // off a document the sections' hooks still run, so that the hooks of this tab keep their order
     const visible = useVisibleSections(docId ?? "");

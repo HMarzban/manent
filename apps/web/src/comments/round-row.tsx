@@ -1,6 +1,7 @@
 // A round filter row in the Comments tab, with Rename in its row menu for Can edit and owner.
 import type { CommentRound } from "@manent/crdt";
 import { COMMENTS_WORDS, DropdownMenuItem, Input } from "@manent/ui";
+import { PencilIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { RowMenu } from "../screens/library/row-place.tsx";
@@ -89,6 +90,7 @@ export function RoundRow(props: {
               setRenaming(true);
             }}
           >
+            <PencilIcon aria-hidden="true" className="size-icon shrink-0" />
             {COMMENTS_WORDS.rename}
           </DropdownMenuItem>
         </RowMenu>

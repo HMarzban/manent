@@ -91,8 +91,12 @@ function useOpenLink(
     const waiting = kind === "loading" || (kind === "offline" && !waitedOut);
     if (decided.current || (found.kind !== "open" && waiting)) return;
     decided.current = true;
-    const openScript = (): void => {
+    const openHistoryPage = (): void => {
       // never awaited: a blocker may stop it, and then it never settles
+      if (mounted.current)
+        void navigate({ href: `/s/${docId}/history`, replace: true });
+    };
+    const openScript = (): void => {
       if (mounted.current)
         void navigate({ href: `/s/${docId}`, replace: true });
     };
@@ -111,7 +115,7 @@ function useOpenLink(
           lifetime: "brief",
           ownWork: false,
         });
-      openScript();
+      openHistoryPage();
     } else if (kind !== "ready" && kind !== "empty") openScript();
     else
       void history

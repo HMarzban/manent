@@ -55,6 +55,10 @@ const SendScreen = lazyRouteComponent(
   loadScreen(() => import("../screens/send/send-screen.tsx")),
   "SendScreen",
 );
+const HistoryScreen = lazyRouteComponent(
+  loadScreen(() => import("../screens/history/history-screen.tsx")),
+  "HistoryScreen",
+);
 
 export function documentRoutes(root: AnyRoute): readonly AnyRoute[] {
   // the test build also answers its own form's address
@@ -92,5 +96,12 @@ export function documentRoutes(root: AnyRoute): readonly AnyRoute[] {
     errorComponent: ScreenProblem,
   });
 
-  return [documentRoute, sendRoute];
+  const historyRoute = createRoute({
+    getParentRoute: () => root,
+    path: "/s/$docId/history",
+    component: HistoryScreen,
+    errorComponent: ScreenProblem,
+  });
+
+  return [documentRoute, sendRoute, historyRoute];
 }

@@ -13,16 +13,13 @@ import {
   DropdownMenuTrigger,
   HISTORY_WORDS,
   PLACE_WORDS,
-  RadioGroup,
-  RadioGroupItem,
   useSubscribable,
 } from "@manent/ui";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, FilterIcon } from "lucide-react";
 import {
   Suspense,
   lazy,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useState,
@@ -40,6 +37,7 @@ import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
 import { peopleOf } from "./change-authors.ts";
 import type { Authors } from "./change-authors.ts";
+import { HistoryModeStrip, HistoryScopeToggle } from "./history-mode-bar.tsx";
 import {
   BaselineMenu,
   HistoryChangeStepper,
@@ -138,35 +136,22 @@ function useShownChanges(
 }
 
 function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
-  const id = useId();
   const mode = useHistory("mode");
   const baseline = useHistory("baseline");
+  const options = MODES.map((choice, index) => ({
+    value: choice,
+    label: HISTORY_WORDS.modes[index]!,
+  }));
   return (
-    <div className="flex flex-col gap-2 text-ui">
-      <span id={`${id}-label`}>{HISTORY_WORDS.show}</span>
-      <RadioGroup
-        aria-labelledby={`${id}-label`}
-        value={mode}
-        onValueChange={(chosen) => {
-          if (!isMode(chosen)) return;
-          historyActions.setMode(chosen);
-          if (baseline === null) historyActions.setBaseline(props.offered);
-        }}
-      >
-        {MODES.map((choice, index) => (
-          <label
-            key={choice}
-            className="flex cursor-pointer items-center gap-2"
-          >
-            <RadioGroupItem
-              value={choice}
-              aria-labelledby={`${id}-${choice}`}
-            />
-            <span id={`${id}-${choice}`}>{HISTORY_WORDS.modes[index]}</span>
-          </label>
-        ))}
-      </RadioGroup>
-    </div>
+    <HistoryModeStrip
+      value={mode}
+      options={options}
+      onChange={(chosen) => {
+        if (!isMode(chosen)) return;
+        historyActions.setMode(chosen);
+        if (baseline === null) historyActions.setBaseline(props.offered);
+      }}
+    />
   );
 }
 
@@ -198,7 +183,16 @@ function ChangesFilter(props: {
     historyActions.setFilter({ ...filter, authorUserIds });
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5"
+          />
+        }
+      >
+        <FilterIcon aria-hidden="true" className="size-3.5 text-fg-muted" />
         {HISTORY_WORDS.filter}
         {CHEVRON}
       </DropdownMenuTrigger>
@@ -239,13 +233,28 @@ interface HistoryChangesProps {
   all: Comparison | null;
   authors: Authors | null;
   blockIds: readonly string[] | null;
+  /** True when mounted on `/s/$docId/history`, where HistoryScriptCanvas renders diffs read-only. */
+  standalonePage?: boolean;
 }
 
 function ScriptHistoryChanges(props: HistoryChangesProps): ReactNode {
-  const { docId, rows, content, all } = props;
+  const { docId, rows, content, all, standalonePage = false } = props;
   const offered = useOfferedBaseline(docId, rows);
-  const draftsOnly = useHistory("draftsOnly");
-  const shown = useShownChanges(docId, content, all, props.blockIds);
+  const shown = useShownChanges(
+    docId,
+    standalonePage ? null : content,
+    all,
+    props.blockIds,
+  );
+  const { sceneIds } = useHistory("filter");
+  const filtered = useMemo(
+    () =>
+      all === null
+        ? null
+        : filterComparison(all, { sceneIds, blockIds: props.blockIds }),
+    [all, sceneIds, props.blockIds],
+  );
+  const activeShown = standalonePage ? filtered : shown;
   const note = content === null ? null : noteOf(content, docId);
   useLayoutEffect(() => {
     const id = offered?.versionId ?? null;
@@ -254,30 +263,29 @@ function ScriptHistoryChanges(props: HistoryChangesProps): ReactNode {
     );
   }, [offered, rows]);
   return (
-    <div className="flex flex-col gap-2 px-2 py-2">
-      <BaselineMenu docId={docId} rows={rows} offered={offered} />
-      {note === null ? null : <p className="text-meta text-fg-muted">{note}</p>}
+    <div className="flex shrink-0 flex-col gap-2.5 border-b border-line bg-chrome px-3 py-2.5">
+      <HistoryScopeToggle />
+      <BaselineMenu
+        docId={docId}
+        rows={rows}
+        offered={offered}
+        hideCopyLink={standalonePage}
+      />
+      {note === null || standalonePage ? null : (
+        <p className="text-meta text-fg-muted">{note}</p>
+      )}
       <ShowModes offered={offered} />
-      {all === null || shown === null ? null : changeCount(all) === 0 &&
+      {all === null || activeShown === null ? null : changeCount(all) === 0 &&
         offered !== null ? (
-        <p className="text-ui text-fg-muted">
+        <p className="text-meta text-fg-muted">
           {HISTORY_WORDS.noChangesSince(offered.title)}
         </p>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <ChangesFilter docId={docId} all={all} authors={props.authors} />
-          <HistoryChangeStepper count={changeCount(shown)} />
+          <HistoryChangeStepper count={changeCount(activeShown)} />
         </div>
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        aria-pressed={draftsOnly}
-        onClick={() => historyActions.setDraftsOnly(!draftsOnly)}
-        className="self-start"
-      >
-        {HISTORY_WORDS.draftsOnly}
-      </Button>
     </div>
   );
 }
@@ -300,6 +308,7 @@ export function HistoryChanges(props: HistoryChangesProps): ReactNode {
           docId={props.docId}
           rows={props.rows}
           content={props.content}
+          standalonePage={props.standalonePage}
         />
       </Suspense>
     );
