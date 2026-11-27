@@ -333,3 +333,54 @@ test("inside the air window the timing line is joined and marked for attention",
     attention: true,
   });
 });
+
+test("prompter_files stays visible when prompter_ready or prompter_held is also active", () => {
+  expect(
+    stateBarLines([
+      { kind: "prompter_ready" },
+      { kind: "prompter_files", path: "/Volumes/Prompter" },
+    ]).right,
+  ).toEqual({
+    sentence: "Writing prompter files to /Volumes/Prompter",
+    chip: null,
+    actions: [
+      { label: "Stop", commandId: "prompter.stopFiles" },
+      {
+        label: "Take control",
+        commandId: "prompter.takeControl",
+        tourTarget: "prompter:take_control",
+      },
+    ],
+    dismiss: null,
+    attention: false,
+  });
+
+  expect(
+    stateBarLines([
+      { kind: "prompter_held", name: "Ana", canTakeOver: true },
+      { kind: "prompter_files", path: "/Volumes/Prompter" },
+    ]).right,
+  ).toEqual({
+    sentence: "Writing prompter files to /Volumes/Prompter",
+    chip: null,
+    actions: [
+      { label: "Stop", commandId: "prompter.stopFiles" },
+      { label: "Take over", commandId: "prompter.takeOver" },
+    ],
+    dismiss: null,
+    attention: false,
+  });
+
+  expect(
+    stateBarLines([
+      { kind: "prompter_held", name: "Ana", canTakeOver: false },
+      { kind: "prompter_files", path: "/Volumes/Prompter" },
+    ]).right,
+  ).toEqual({
+    sentence: "Writing prompter files to /Volumes/Prompter",
+    chip: null,
+    actions: [{ label: "Stop", commandId: "prompter.stopFiles" }],
+    dismiss: null,
+    attention: false,
+  });
+});

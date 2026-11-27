@@ -1,6 +1,7 @@
 // "Can also" permission ticks mounted in Share and Project settings → People person rows via PERSON_ROW_SLOTS.
 import {
   Button,
+  Checkbox,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -10,7 +11,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -112,36 +113,14 @@ function CanAlsoForProject(props: {
                     : "cursor-not-allowed text-fg-muted opacity-60",
                 )}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   disabled={!canEdit}
-                  className="peer sr-only"
-                  onChange={(event) => {
-                    void controller.toggle(
-                      userId,
-                      tick,
-                      event.target.checked,
-                      fallbackTitle,
-                    );
+                  className="mt-0.5"
+                  onCheckedChange={(next) => {
+                    void controller.toggle(userId, tick, next, fallbackTitle);
                   }}
                 />
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-micro border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-1",
-                    checked
-                      ? "border-accent-solid bg-accent-solid text-fg-on-accent"
-                      : "border-line-strong bg-raised",
-                  )}
-                >
-                  {checked ? (
-                    <CheckIcon
-                      aria-hidden="true"
-                      className="size-3 stroke-[2.5]"
-                    />
-                  ) : null}
-                </span>
                 <span className="leading-snug">{tick.label}</span>
               </label>
             );
