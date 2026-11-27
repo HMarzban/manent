@@ -13,6 +13,7 @@ type PrompterCommandId =
   | "prompter.sendPrevious"
   | "view.presentOnPrompter"
   | "prompter.files"
+  | "prompter.reopenFiles"
   | "prompter.stopFiles"
   | "prompter.takeControl"
   | "prompter.takeOver"
@@ -43,6 +44,8 @@ export function prompterHandlers(
       });
     }),
     "prompter.files": onDoc((docId) => prompterFilesStore.open(docId)),
+    "prompter.reopenFiles": () =>
+      prompterFilesStore.reopen(deps.shellState().docId),
     "prompter.stopFiles": () => prompterFilesStore.stop(),
     "prompter.takeControl": onDoc((docId) =>
       prompterActions.takeControl(docId),

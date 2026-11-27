@@ -50,4 +50,10 @@ test("mainWindowUrl and scriptWindowUrl preserve query parameters alongside laun
   expect(scriptWindowUrl("http://127.0.0.1:41234", "/s/abc-123/v/v2")).toBe(
     "http://127.0.0.1:41234/s/abc-123/v/v2",
   );
+  expect(
+    scriptWindowUrl(
+      "http://127.0.0.1:41234",
+      "/s/abc-123?launch=stale-token&scene=4#top",
+    ),
+  ).toBe("http://127.0.0.1:41234/s/abc-123?scene=4#top");
 });

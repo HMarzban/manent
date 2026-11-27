@@ -253,15 +253,20 @@ test("the build emits a standalone benchmark report page outside the precache ma
   );
   expect(sw).not.toContain('"/benchmark-report.html"');
   const rendered = renderBenchmarkReportHtml(
-    "# Benchmark report\n\n## Budgets\n\n| Scenario | p95 |\n|---|---|\n| `typing-120` | 12.3 ms |\n\nSee [raw](runs/a.json) and <script>alert(1)</script>.\n",
+    "# Benchmark report\n\n## Budgets\n\n| Scenario | Details | Notes |\n|---|---|---|\n| `typing-120` | 12.3 ms<br>p99 18.1 ms | a \\| b |\n\nMeasured _locally_ with `keystroke_paint_ms` and snake_case_id. See [raw](runs/a.json), <title>x</title> and <script>alert(1)</script>.\n",
   );
   expect(rendered).toContain('<h2 id="budgets">Budgets</h2>');
   expect(rendered).toContain(
-    "<table><thead><tr><th>Scenario</th><th>p95</th></tr></thead>",
+    "<table><thead><tr><th>Scenario</th><th>Details</th><th>Notes</th></tr></thead>",
   );
   expect(rendered).toContain(
-    "<td><code>typing-120</code></td><td>12.3 ms</td>",
+    "<td><code>typing-120</code></td><td>12.3 ms<br />p99 18.1 ms</td><td>a | b</td>",
+  );
+  expect(rendered).toContain(
+    "Measured <em>locally</em> with <code>keystroke_paint_ms</code> and snake_case_id.",
   );
   expect(rendered).toContain('<a href="runs/a.json">raw</a>');
+  expect(rendered).toContain("&lt;title&gt;x&lt;/title&gt;");
   expect(rendered).not.toContain("<script>");
+  expect(rendered).not.toContain("&lt;br&gt;");
 }, 30_000);

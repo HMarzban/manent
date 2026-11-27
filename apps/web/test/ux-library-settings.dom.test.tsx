@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { ElementStyleRow } from "../src/project/style-editor.tsx";
+import { SIDE_PANEL_TABS } from "../src/screens/document/side-tabs.ts";
 import { FavouritesView } from "../src/screens/library/favourites-view.tsx";
 import { LibraryStatusBar } from "../src/screens/library/library-status-bar.tsx";
 import { PrivateView } from "../src/screens/library/private-view.tsx";
@@ -32,6 +33,8 @@ import {
 } from "../src/services/context.tsx";
 import type { PersonServices, ProjectItem } from "../src/services/ports.ts";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
+import { panelsActions } from "../src/state/panels.store.ts";
+import { SidePosition } from "../src/shell/side-position.tsx";
 import { testEnvironment, testServices } from "./services.fixtures.ts";
 
 withDom();
@@ -262,4 +265,40 @@ test("KeyboardPane hides desktop-only commands on web and AccountPane aligns act
     (b) => b.textContent === "Sign out" || b.textContent === "Sign in to sync",
   );
   expect(signOutBtn?.parentElement?.className).toContain("justify-between");
+});
+
+test("Library SidePosition omits orphan scrim for doc-only tabs on narrow viewports and draws a single scrim for Tour", async () => {
+  const prevWidth = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 375,
+  });
+  try {
+    const environment = testEnvironment();
+    const services = testServices({ userId: "sam", environment });
+    const tabs = SIDE_PANEL_TABS.map((entry) =>
+      entry.id === "tour"
+        ? {
+            ...entry,
+            useTab: () => ({ present: true, label: "Tour" }),
+            Tab: () => <p>Tour body</p>,
+          }
+        : entry,
+    );
+    panelsActions.open("side", "details");
+    await mountInRouter(services, environment, () => (
+      <SidePosition docId={null} tabs={tabs} />
+    ));
+    expect(host!.querySelectorAll(".bg-scrim").length).toBe(0);
+    expect(host!.querySelectorAll("[data-overlay]").length).toBe(0);
+
+    act(() => panelsActions.open("side", "tour"));
+    expect(host!.querySelectorAll(".bg-scrim").length).toBe(1);
+  } finally {
+    act(() => panelsActions.close("side"));
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: prevWidth,
+    });
+  }
 });

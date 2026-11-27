@@ -135,6 +135,11 @@ export const PROMPTER_COMMANDS = defineCommands([
     menus: [placed("title", "prompter", 10)],
     opens: { surface: "prompter_files", focus: "first" },
   }),
+  prompterCommand("prompter.reopenFiles", "Prompter files…", {
+    visible: (ctx) => ctx.shell === "desktop",
+    palette: { hidden: "the unwritable message's action" },
+    opens: { surface: "prompter_files", focus: "first" },
+  }),
   prompterCommand("prompter.stopFiles", "Stop", {
     visible: (ctx) => ctx.shell === "desktop" && ctx.docOpen,
     palette: { hidden: "the state bar's action" },

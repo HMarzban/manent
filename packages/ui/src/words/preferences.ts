@@ -87,6 +87,7 @@ export const PREFERENCES_WORDS = {
   about: "About",
   /** The app's own number; "Version" is a point in a script's history only. */
   version: (v: string): string => `Manent ${v}`,
+  unversioned: "Manent — demo",
   channelStable: "Stable",
   channelCanary: "Canary",
   layoutEngine: (n: number): string => `Layout engine ${n}`,

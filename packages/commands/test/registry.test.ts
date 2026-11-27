@@ -976,6 +976,7 @@ test("the handler table names every command but the generated ones", () => {
     "prompter.sendPrevious": noop,
     "view.presentOnPrompter": noop,
     "prompter.files": noop,
+    "prompter.reopenFiles": noop,
     "prompter.stopFiles": noop,
     "prompter.takeControl": noop,
     "prompter.takeOver": noop,
@@ -1086,4 +1087,42 @@ test("mutating board commands require edit permission on the board", () => {
     "needs edit access to this board",
     false,
   ]);
+});
+
+test("prompter.files stays rundown-only while prompter.reopenFiles runs on any desktop screen", () => {
+  const files = byId("prompter.files");
+  const reopen = byId("prompter.reopenFiles");
+  const desktopLibrary = ctx({
+    shell: "desktop",
+    screen: "library",
+    docOpen: false,
+    docKind: null,
+  });
+  const desktopScript = ctx({
+    shell: "desktop",
+    screen: "document",
+    docOpen: true,
+    docKind: "script",
+  });
+  const desktopRundown = ctx({
+    shell: "desktop",
+    screen: "document",
+    docOpen: true,
+    docKind: "rundown",
+  });
+  const webLibrary = ctx({
+    shell: "web",
+    screen: "library",
+    docOpen: false,
+    docKind: null,
+  });
+  expect([
+    files.visible?.(desktopLibrary),
+    files.visible?.(desktopScript),
+    files.visible?.(desktopRundown),
+    reopen.visible?.(desktopLibrary),
+    reopen.visible?.(desktopScript),
+    reopen.visible?.(webLibrary),
+    "hidden" in reopen.palette,
+  ]).toEqual([false, false, true, true, true, false, true]);
 });
