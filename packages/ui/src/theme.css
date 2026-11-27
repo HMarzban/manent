@@ -2675,6 +2675,9 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   border-block-start: 2px solid var(--fg-accent);
   height: 0;
 }
+.mn-demo-collapsed > .mn-demo-tag {
+  display: none;
+}
 .mn-demo-collapsed-tab {
   position: absolute;
   inset-inline-start: 50%;
