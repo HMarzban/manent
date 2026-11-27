@@ -3782,13 +3782,101 @@ html[data-gems="off"] .mn-gem-only {
    Motion transitions use only opacity, transform and colours with --dur-* tokens.
    -------------------------------------------------------------------------- */
 .mn-choose-stage {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
   background-color: var(--bg-desk);
+  background-image:
+    radial-gradient(
+      ellipse 64% 54% at 76% 24%,
+      color-mix(in srgb, var(--bg-accent) 13%, transparent) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 52% 44% at 16% 6%,
+      color-mix(in srgb, var(--bg-raised) 76%, transparent) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 48% 40% at 20% 88%,
+      color-mix(in srgb, var(--bg-accent) 6%, transparent) 0%,
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-raised) 22%, transparent) 0%,
+      transparent 24%,
+      transparent 78%,
+      color-mix(in srgb, var(--fg) 3.5%, transparent) 100%
+    );
   color: var(--fg);
+}
+/* Editorial drafting-mat dot matrix, vignetted gently into the studio desk */
+.mn-choose-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--fg) 11%, transparent) 1px,
+    transparent 1.15px
+  );
+  background-size: 24px 24px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(
+    ellipse 84% 78% at 52% 38%,
+    var(--fg) 20%,
+    color-mix(in srgb, var(--fg) 45%, transparent) 60%,
+    transparent 94%
+  );
+  mask-image: radial-gradient(
+    ellipse 84% 78% at 52% 38%,
+    var(--fg) 20%,
+    color-mix(in srgb, var(--fg) 45%, transparent) 60%,
+    transparent 94%
+  );
+}
+/* Quiet vertical proof-sheet margin hairlines on desktop widths */
+@media (min-width: 74rem) {
+  .mn-choose-stage::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(100% - 2rem, 71rem);
+    z-index: 0;
+    pointer-events: none;
+    border-inline: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--fg) 10%,
+      var(--fg) 88%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--fg) 10%,
+      var(--fg) 88%,
+      transparent 100%
+    );
+  }
 }
 .mn-choose-stage[data-compact] {
   background-color: var(--bg-chrome);
+  background-image: none;
+}
+.mn-choose-stage[data-compact]::before,
+.mn-choose-stage[data-compact]::after {
+  display: none;
 }
 .mn-choose-shell {
+  position: relative;
+  z-index: 1;
   container-type: inline-size;
 }
 .mn-choose-split {
@@ -4275,6 +4363,11 @@ html[data-gems="off"] .mn-gem-only {
 }
 
 @media (prefers-contrast: more) {
+  .mn-choose-stage {
+    background-image: none;
+  }
+  .mn-choose-stage::before,
+  .mn-choose-stage::after,
   .mn-choose-sheet-back-1,
   .mn-choose-sheet-back-2 {
     display: none;
@@ -4508,6 +4601,11 @@ html[data-gems="off"] .mn-gem-only {
     forced-color-adjust: none;
     background-color: Highlight;
   }
+  .mn-choose-stage {
+    background-image: none;
+  }
+  .mn-choose-stage::before,
+  .mn-choose-stage::after,
   .mn-choose-sheet-back-1,
   .mn-choose-sheet-back-2 {
     display: none;
