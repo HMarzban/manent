@@ -10,7 +10,15 @@ import {
   DropdownMenuTrigger,
   SEARCH_WORDS,
 } from "@manent/ui";
-import { ChevronDownIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  FileTextIcon,
+  FolderIcon,
+  FolderKanbanIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { folderPathNames } from "../services/sync/folders.ts";
@@ -94,6 +102,11 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
           />
         }
       >
+        <SlidersHorizontalIcon
+          aria-hidden="true"
+          data-icon="inline-start"
+          className="size-icon text-fg-muted"
+        />
         {SEARCH_WORDS.filterButton}
         <ChevronDownIcon
           aria-hidden="true"
@@ -126,6 +139,7 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
               className="cursor-pointer"
               onClick={() => chooseType(kind)}
             >
+              <FileTextIcon aria-hidden="true" className="size-icon shrink-0" />
               {SEARCH_WORDS.docKinds[kind]}
             </DropdownMenuCheckboxItem>
           ))}
@@ -139,6 +153,10 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
               className="cursor-pointer"
               onClick={() => chooseType(kind)}
             >
+              <FolderKanbanIcon
+                aria-hidden="true"
+                className="size-icon shrink-0"
+              />
               {SEARCH_WORDS.projectKinds[kind]}
             </DropdownMenuCheckboxItem>
           ))}
@@ -153,6 +171,7 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
             className="cursor-pointer"
             onClick={() => chooseAfter(null)}
           >
+            <ClockIcon aria-hidden="true" className="size-icon shrink-0" />
             {SEARCH_WORDS.changed.any}
           </DropdownMenuCheckboxItem>
           {presetDates.map((preset) => (
@@ -162,6 +181,7 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
               className="cursor-pointer"
               onClick={() => chooseAfter(preset.date)}
             >
+              <CalendarIcon aria-hidden="true" className="size-icon shrink-0" />
               {preset.label}
             </DropdownMenuCheckboxItem>
           ))}
@@ -176,6 +196,7 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
             className="cursor-pointer"
             onClick={() => chooseFolder(null)}
           >
+            <FolderIcon aria-hidden="true" className="size-icon shrink-0" />
             {SEARCH_WORDS.anyFolder}
           </DropdownMenuCheckboxItem>
           {folderOptions.map((folder) => (
@@ -189,6 +210,7 @@ export function SearchFilterMenu(props: SearchFilterMenuProps): ReactNode {
               className="cursor-pointer"
               onClick={() => chooseFolder(folder.name)}
             >
+              <FolderIcon aria-hidden="true" className="size-icon shrink-0" />
               {folder.label}
             </DropdownMenuCheckboxItem>
           ))}

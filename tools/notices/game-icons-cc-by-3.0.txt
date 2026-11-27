@@ -1,0 +1,15 @@
+Game-icons.net Hidden Gem Icons
+Source: https://game-icons.net/
+Licence: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+
+Authors attributed for the 24 studio theme emblems bundled with Manent:
+- Delapouite: fountain-pen, starfighter, film-projector, sheep, radio-tower,
+  satellite-communication, newspaper, elven-castle, theater-curtains,
+  old-microphone, audio-cassette, dice-twenty-faces-twenty
+- Lorc: light-sabers, maze, star-swirl, aerial-signal, open-book, compass,
+  scroll-quill, quill-ink, harp, radar-sweep, moon-orbit
+- Skoll: chess-queen
+
+Icons were adapted solely to use `currentColor` fill so they inherit Manent's
+semantic theme tokens cleanly.

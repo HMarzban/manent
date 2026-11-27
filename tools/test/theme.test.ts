@@ -12,7 +12,12 @@ import type { Rgba } from "../theme/contrast.ts";
 import { parseCss } from "../theme/parse.ts";
 import { PAIRS } from "../theme/pairs.ts";
 import type { ContrastPair } from "../theme/pairs.ts";
-import { readTheme, resolveToken, resolveValue } from "../theme/resolve.ts";
+import {
+  paletteTheme,
+  readTheme,
+  resolveToken,
+  resolveValue,
+} from "../theme/resolve.ts";
 import type { Scheme, ThemeFile, Variant } from "../theme/resolve.ts";
 
 const repoRoot = join(import.meta.dir, "..", "..");
@@ -86,9 +91,13 @@ const colourOf = (source: ThemeFile, ref: string, at: Variant): Rgba => {
 };
 
 /** The pair's ratio, its fill resting on the layers of `over`, nearest first. */
-const ratioOf = (pair: ContrastPair, variant: Variant): number => {
+const ratioOf = (
+  pair: ContrastPair,
+  variant: Variant,
+  base: ThemeFile = theme,
+): number => {
   const at = placed(pair, variant);
-  const source = pair.on === "demo" ? demoTheme : theme;
+  const source = pair.on === "demo" ? demoTheme : base;
   const [bottom = pair.bg, ...above] = pair.over.toReversed();
   const ground = above.reduce(
     (below, ref) => composite(colourOf(source, ref, at), below),
@@ -302,6 +311,7 @@ test("no tier-2 name starts with a Tailwind namespace, and the demo scope declar
       "--fg-disabled",
       "--fg-on-accent",
       "--fg-accent",
+      "--gem-accent-2",
       "--fg-ok",
       "--fg-attention",
       "--fg-danger",
@@ -431,4 +441,102 @@ test("schema-emitted inline marks (data-color, data-highlight, .caps, strong) ar
     }
   }
   expect(low).toEqual([]);
+});
+
+test("all 24 studio palettes pass contrast, surface elevation, dark polarity and print white-paper invariants", () => {
+  expect(theme.palettes.size).toBe(23);
+  const contrastFailures: string[] = [];
+  const elevationFailures: string[] = [];
+  const polarityFailures: string[] = [];
+  const standardVariants = VARIANTS.filter(
+    (variant) => variant.contrast === "standard",
+  );
+  for (const id of theme.palettes.keys()) {
+    const pal = paletteTheme(theme, id);
+    const tokenCache = new Map<string, Rgba>();
+    const cachedColourOf = (ref: string, at: Variant): Rgba => {
+      const k = `${at.scheme}|${at.contrast}|${at.paper}|${ref}`;
+      const hit = tokenCache.get(k);
+      if (hit !== undefined) return hit;
+      const val = colourOf(pal, ref, at);
+      tokenCache.set(k, val);
+      return val;
+    };
+    for (const pair of PAIRS) {
+      if (pair.on === "demo") continue;
+      for (const variant of standardVariants) {
+        const at = placed(pair, variant);
+        const [bottom = pair.bg, ...above] = pair.over.toReversed();
+        const ground = above.reduce(
+          (below, ref) => composite(cachedColourOf(ref, at), below),
+          cachedColourOf(bottom, at),
+        );
+        const ratio = contrastRatio(
+          cachedColourOf(pair.fg, at),
+          cachedColourOf(pair.bg, at),
+          ground,
+        );
+        const min = pair.min[variant.contrast];
+        if (ratio < min)
+          contrastFailures.push(
+            `${id}: ${pair.fg} on ${pair.bg} (${variant.scheme}/${variant.contrast}/${variant.paper}) = ${ratio.toFixed(2)} < ${min}`,
+          );
+      }
+    }
+    for (const scheme of ["light", "dark"] as const) {
+      const paperLum = luminance(resolveToken(pal, "--page-paper", v(scheme)));
+      const chrome = resolveToken(pal, "--bg-chrome", v(scheme));
+      for (const t of [
+        "--bg-desk",
+        "--bg-chrome",
+        "--bg-raised",
+        "--bg-subtle",
+      ]) {
+        const surfaceLum = luminance(
+          composite(resolveToken(pal, t, v(scheme)), chrome),
+        );
+        if (!(paperLum > surfaceLum))
+          elevationFailures.push(
+            `${id} (${scheme}): --page-paper (${paperLum.toFixed(4)}) <= ${t} (${surfaceLum.toFixed(4)})`,
+          );
+      }
+    }
+    const dark = v("dark");
+    const white = { ...v("dark"), paper: "white" } as const;
+    if (
+      !(
+        luminance(resolveToken(pal, "--page-paper", dark)) <
+        luminance(resolveToken(pal, "--page-ink", dark))
+      )
+    )
+      polarityFailures.push(`${id}: dark paper not darker than dark ink`);
+    if (
+      !(
+        luminance(resolveToken(pal, "--page-paper", white)) >
+        luminance(resolveToken(pal, "--page-ink", white))
+      )
+    )
+      polarityFailures.push(`${id}: white-page paper not lighter than ink`);
+  }
+  const printRule = theme.rules.find(
+    (r) =>
+      r.selector === ".mn-print" &&
+      r.atRules.some((at) => at.startsWith("@media print")),
+  );
+  const printProps = new Map(
+    (printRule?.declarations ?? []).map((d) => [d.property, d.value]),
+  );
+  expect({
+    contrastFailures,
+    elevationFailures,
+    polarityFailures,
+    printPaper: printProps.get("--page-paper"),
+    printInk: printProps.get("--page-ink"),
+  }).toEqual({
+    contrastFailures: [],
+    elevationFailures: [],
+    polarityFailures: [],
+    printPaper: "var(--p-warm-0)",
+    printInk: "var(--p-ink)",
+  });
 });

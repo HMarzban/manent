@@ -20,6 +20,7 @@ import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useRenaming } from "../../state/rename.store.ts";
+import { HistoryButton } from "./history-button.tsx";
 import { InlineRename } from "./inline-rename.tsx";
 import { MenuFace } from "./menu-face.tsx";
 import { People } from "./people.tsx";
@@ -137,7 +138,10 @@ export function TitleBar(props: {
       <StatusButton doc={doc} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <People docId={docId} people={doc.people} viewers={doc.viewers} />
-        <ShareButton canEdit={canEdit} />
+        <div className="flex items-center gap-1.5">
+          <HistoryButton docId={docId} />
+          <ShareButton canEdit={canEdit} />
+        </div>
       </div>
     </ShellRegion>
   );

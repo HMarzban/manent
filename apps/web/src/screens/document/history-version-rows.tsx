@@ -10,7 +10,7 @@ import {
   formatTime,
   useSubscribable,
 } from "@manent/ui";
-import { StarIcon } from "lucide-react";
+import { BookmarkIcon } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
@@ -40,8 +40,28 @@ export { useDraftNaming } from "./history-rundown-dialog.tsx";
 const MORE_WITHIN_ROWS = 50;
 // the person, in a setting's row, when they made the change
 const YOU = "you";
-// a named draft's mark, before its name
-const STAR = <StarIcon aria-hidden="true" className="size-icon" />;
+// a named draft's archival bookmark mark, before its name
+const DRAFT_MARK = (
+  <BookmarkIcon aria-hidden="true" className="size-icon text-fg-accent" />
+);
+// an auto-saved session's quiet timeline dot
+const SESSION_DOT = (
+  <span
+    aria-hidden="true"
+    className="flex size-icon items-center justify-center"
+  >
+    <span className="mn-history-dot" />
+  </span>
+);
+// Working's solid live accent dot
+const LIVE_DOT = (
+  <span
+    aria-hidden="true"
+    className="flex size-icon items-center justify-center"
+  >
+    <span className="mn-history-dot-live" />
+  </span>
+);
 
 function VersionRow(props: {
   docId: string;
@@ -82,7 +102,7 @@ function VersionRow(props: {
         <div onKeyDownCapture={onKeyDownCapture}>
           <Row
             selected={selected}
-            leading={named ? STAR : undefined}
+            leading={named ? DRAFT_MARK : SESSION_DOT}
             meta={meta ?? undefined}
             trailing={[
               ...(authors.length === 0
@@ -93,7 +113,9 @@ function VersionRow(props: {
             menu={handle ?? undefined}
             onActivate={props.onShow}
           >
-            <span title={title}>{title}</span>
+            <span title={title} className={named ? "font-semibold" : "tnum"}>
+              {title}
+            </span>
           </Row>
           {props.naming === null ? null : (
             <NameField
@@ -126,13 +148,22 @@ export function WorkingRow(props: {
   const canName = rundownView === null || rundownView.access === "edit";
   const { pending } = draft;
   return (
-    <>
+    <div className="shrink-0 border-b border-line py-1">
       <Row
         rowRef={draft.working}
+        leading={LIVE_DOT}
         selected={selected === null}
-        onActivate={() => historyActions.select(null)}
+        trailing={[
+          <span key="current" className="mn-tag">
+            {HISTORY_WORDS.currentVersion}
+          </span>,
+        ]}
+        onActivate={() => {
+          historyActions.select(null);
+          historyActions.setBaseline(null);
+        }}
       >
-        {HISTORY_WORDS.workingLabel}
+        <span className="font-semibold">{HISTORY_WORDS.workingLabel}</span>
       </Row>
       {canName && naming && draft.target === null && props.answered ? (
         <NameField
@@ -144,7 +175,7 @@ export function WorkingRow(props: {
       {pending === null ? null : (
         <div>
           <Row
-            leading={STAR}
+            leading={DRAFT_MARK}
             trailing={
               pending.failed
                 ? []
@@ -158,7 +189,7 @@ export function WorkingRow(props: {
             {pending.name}
           </Row>
           {pending.failed ? (
-            <div className="flex items-center gap-2 px-2 pb-1 text-meta">
+            <div className="flex items-center gap-2 px-3 pb-1 text-meta">
               <span>{HISTORY_WORDS.nameFailed}</span>
               <Button
                 variant="outline"
@@ -171,7 +202,7 @@ export function WorkingRow(props: {
           ) : null}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

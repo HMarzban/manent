@@ -12,7 +12,7 @@ tourScenario("history-version-link", async ({ windows, scenario, step }) => {
   const [dana, sam] = windows as [Page, Page];
   const [copiedMsg, viewingDraft, backToWorking] = scenario.evidence;
   await dana.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await dana.getByRole("tab", { name: DOCUMENT_WORDS.historyTab }).click();
+  await dana.getByRole("button", { name: DOCUMENT_WORDS.historyTab }).click();
   const historyList = await step(0);
   const row = historyList
     .getByRole("listitem")

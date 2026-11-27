@@ -2,6 +2,9 @@
 // handle of a row's menu, which goes before it.
 import {
   Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
   DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuContent,
@@ -113,8 +116,36 @@ export function RowMenu(props: {
         >
           <EllipsisIcon aria-hidden="true" className="size-3.5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent>{props.children}</DropdownMenuContent>
+        <DropdownMenuContent align="end">{props.children}</DropdownMenuContent>
       </DropdownMenu>
     </span>
+  );
+}
+
+/** Wraps a row with a right-click context menu showing the same entries as its `RowMenu` handle. */
+export function RowContextMenu(props: {
+  entries: ReactNode;
+  children: ReactNode;
+}): ReactNode {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>{props.children}</ContextMenuTrigger>
+      <ContextMenuContent>{props.entries}</ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+/** Renders `children(menu)` with both a `RowMenu` handle and a matching right-click `RowContextMenu` when `entries` is non-null. */
+export function WithRowMenu(props: {
+  title: string;
+  entries: ReactNode;
+  children(menu: ReactNode): ReactNode;
+}): ReactNode {
+  const { title, entries, children } = props;
+  if (entries === null) return children(undefined);
+  return (
+    <RowContextMenu entries={entries}>
+      {children(<RowMenu title={title}>{entries}</RowMenu>)}
+    </RowContextMenu>
   );
 }

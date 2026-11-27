@@ -16,7 +16,7 @@ Several people can be in one script at once. Each change reaches the others as i
 - **Undo is yours.** Undo takes back your own changes and leaves other people's in place.
 - **Merging after time apart.** Changes made without a connection are merged when they reach the server. See [Saving and syncing](saving-and-syncing.md#when-two-copies-changed).
 - **One person, many tabs.** Two tabs of the same person share one connection to the server. If the tab holding it closes, another takes over.
-- **Versions.** Who changed what, and restoring an earlier version, are in the History tab; see [Versions](saving-and-syncing.md#versions).
+- **Versions.** Who changed what, and restoring an earlier version, live on the dedicated read-only **Version history** page opened from the top-bar **History** button beside **Share**; see [Versions](saving-and-syncing.md#versions).
 
 ## Try it in the demo
 
@@ -46,7 +46,7 @@ These commands appear in the command palette, and on the desktop in the Producti
 Show and News rundowns update live for everyone with access:
 
 - **Live `Can view` access.** People with `Can view` or `Can comment` roles open the rundown in a live-updating read-only grid, including read-only **Details** and per-cell **Previous value** inspection.
-- **Rundown History.** Open the **History** tab on any rundown to compare against an earlier version **In the grid**, **Side by side** (on wider windows) or **As it was**. Non-colour badges mark every change (`Added`, `Removed`, moved arrows `↑ from …` / `↓ from …` and prior cell values), and **Next change** steps through edits with screen-reader announcements.
+- **Rundown History.** Click the top-bar **History** button beside **Share** on any rundown to open the dedicated read-only Version history page and compare against an earlier version **In the grid**, **Side by side** or **As it was**. Non-colour badges mark every change (`Added`, `Removed`, moved arrows `↑ from …` / `↓ from …` and prior cell values), the floating right-edge Minimap highlights changed rows for one-click jumps, and the change stepper announces each edit to screen readers.
 - **Whole and single-row restore.** Editors with rundown permission can restore the whole rundown or a single changed, moved or removed row from any version. Every restore saves the current rundown first as **'Before restore'**, and when the show is inside its air window the confirmation notes that prompter text stays unchanged until you send it.
 
 ## Live prompter and external MOS

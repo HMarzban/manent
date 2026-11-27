@@ -1,6 +1,19 @@
 // The side position: the present tabs of a side panel's list, at the width the person chose, with an edge to resize it.
 import type { SideTab } from "@manent/commands";
-import { DOCUMENT_WORDS, PanelTabs } from "@manent/ui";
+import {
+  Button,
+  CloseButton,
+  DOCUMENT_WORDS,
+  Kbd,
+  PanelTabs,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  keyLabel,
+  useCommandState,
+  useCommands,
+} from "@manent/ui";
+import { BookmarkPlusIcon, HistoryIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { panelsActions, usePanel } from "../state/panels.store.ts";
@@ -92,9 +105,71 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
   );
 }
 
+function StandaloneHeader(props: {
+  readonly id: SideTab;
+  readonly label: string;
+  readonly onClose: () => void;
+}): ReactNode {
+  const { id, label, onClose } = props;
+  const { service, platform } = useCommands();
+  const nameDraft = useCommandState("history.nameDraft");
+  const isHistory = id === "history";
+  const [chord] = nameDraft.keys;
+  return (
+    <header className="flex min-h-10 shrink-0 items-center justify-between gap-2 border-b border-line bg-chrome px-3 py-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        {isHistory ? (
+          <HistoryIcon
+            aria-hidden="true"
+            className="size-icon shrink-0 text-fg-muted"
+          />
+        ) : null}
+        <h2 className="truncate text-ui font-semibold text-fg">
+          {isHistory ? DOCUMENT_WORDS.versionHistory : label}
+        </h2>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {isHistory && nameDraft.visible ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={nameDraft.label}
+                  className="cursor-pointer text-fg-muted hover:text-fg"
+                  onClick={() => service.run("history.nameDraft", "control")}
+                />
+              }
+            >
+              <BookmarkPlusIcon aria-hidden="true" className="size-icon" />
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-1.5">
+              <span>{nameDraft.label}</span>
+              {chord === undefined ? null : (
+                <Kbd>{keyLabel(chord, platform)}</Kbd>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+        <CloseButton
+          label={
+            isHistory
+              ? DOCUMENT_WORDS.closeVersionHistory
+              : DOCUMENT_WORDS.closeSidePanel
+          }
+          onClick={onClose}
+        />
+      </div>
+    </header>
+  );
+}
+
 /**
  * Draws the present tabs of `tabs`, in list order, at the tab and width the panels store holds; nothing while the
- * panel is closed or its tab is not present. Throws a RangeError past three tabs, or four with the Tour.
+ * panel is closed or its tab is not present. Standalone panels (such as Version history) open in dedicated tab-free
+ * chrome and are omitted from the standard side tab strip. Throws a RangeError past three strip tabs, or four with Tour.
  */
 export function SidePosition(props: {
   docId: string | null;
@@ -119,10 +194,12 @@ export function SidePosition(props: {
   const present = tabs
     .map((entry) => ({ entry, ...entry.useTab(docId) }))
     .filter((t) => t.present);
-  assertWithinLimit(present.map((t) => t.entry));
+  const stripTabs = present.filter((t) => !t.entry.standalone);
+  assertWithinLimit(stripTabs.map((t) => t.entry));
   const current = present.find((t) => t.entry.id === tab);
   if (current === undefined) return null;
   const { Tab } = current.entry;
+  const isStandalone = current.entry.standalone === true;
   const narrowOverlay = narrowViewport && !overlayManaged && !outerOverlay;
   const panel = (
     <ShellRegion
@@ -135,17 +212,33 @@ export function SidePosition(props: {
       style={{ width: panelWidthCss(widthPx), maxWidth: "100vw" }}
     >
       {narrowOverlay ? null : <ResizeEdge widthPx={widthPx} />}
-      <div className="min-w-0 flex-1">
-        <PanelTabs
-          label={DOCUMENT_WORDS.sidePanel}
-          tabs={present.map((t) => ({ id: t.entry.id, label: t.label }))}
-          current={current.entry.id}
-          onChange={(id) => panelsActions.open("side", id)}
-          onClose={() => panelsActions.close("side")}
-          closeLabel={DOCUMENT_WORDS.closeSidePanel}
-        >
-          <Tab docId={docId} />
-        </PanelTabs>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {isStandalone ? (
+          <>
+            <StandaloneHeader
+              id={current.entry.id}
+              label={current.label}
+              onClose={() => panelsActions.close("side")}
+            />
+            <div
+              data-panel-body=""
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <Tab docId={docId} />
+            </div>
+          </>
+        ) : (
+          <PanelTabs
+            label={DOCUMENT_WORDS.sidePanel}
+            tabs={stripTabs.map((t) => ({ id: t.entry.id, label: t.label }))}
+            current={current.entry.id}
+            onChange={(id) => panelsActions.open("side", id)}
+            onClose={() => panelsActions.close("side")}
+            closeLabel={DOCUMENT_WORDS.closeSidePanel}
+          >
+            <Tab docId={docId} />
+          </PanelTabs>
+        )}
       </div>
     </ShellRegion>
   );

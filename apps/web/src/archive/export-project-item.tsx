@@ -1,5 +1,6 @@
 // Export… on a project's row menu in the Library; a row with no document to open Send on has none.
 import { DropdownMenuItem, useCommandState } from "@manent/ui";
+import { DownloadIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useServices } from "../services/context.tsx";
 import { exportTarget } from "./export-target.ts";
@@ -18,6 +19,7 @@ export function ExportProjectItem(props: {
         commands.run("library.exportProject", "menu");
       }}
     >
+      <DownloadIcon aria-hidden="true" className="size-icon shrink-0" />
       {label}
     </DropdownMenuItem>
   );

@@ -20,7 +20,7 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Benchmarks](development/benchmarks.md): the suite, its scenarios and how budgets apply.
 - [Desktop app](development/desktop.md): building it, running it against the demo, and what it does.
 - [Coding standards](development/standards.md): the rules a reviewer checks.
-- [Design system](development/design-system.md): tokens, surfaces, skeletons, empty states, motion, presence, dialogs and Present.
+- [Design system](development/design-system.md): brand mark and wordmark, 24 studio themes, eye-health standard, tokens, surfaces, skeletons, empty states, motion, presence, dialogs and Present.
 - [Contributing](../CONTRIBUTING.md): how to propose a change and how it is reviewed.
 
 ## Understand Manent

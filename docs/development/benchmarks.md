@@ -28,7 +28,7 @@ Each run prints its tier, slowdown and mode, and how many scenarios were measure
 | Folder                     | Scenarios                                                                                                                                                      |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bench/client/`            | `pagination-engine-120`, `-400`, `-2000`: laying out a script of that many pages; `typing-120`, `typing-2000` and `paste-50` in the real editor                |
-| `bench/client/history/`    | `history.compare.120`, `history.compare.2000`: comparing two versions 400 edits apart, as the History tab does                                                 |
+| `bench/client/history/`    | `history.compare.120`, `history.compare.2000`: comparing two versions 400 edits apart, as Version history does                                                 |
 | `bench/client/production/` | `production.lock`, `production.issue`: locking a 120-page script and issuing a revision; `production.marks`: revision marks per keystroke, twelve revisions in |
 | `bench/crdt/`              | `crdt.rebuild-size`, `crdt.rebuild-time`: an aged script's size against its text, and the time to rebuild it                                                   |
 | `bench/server/`            | `server.durability`, `fanout`, `join-storm`, `persistence`, `push-cost`, `rebuild-stall`, `room-memory`, `soak`                                                |

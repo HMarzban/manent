@@ -26,9 +26,15 @@ import type { HistorySource } from "./source.ts";
 // the live page's changes, which reach the editor, load with it
 const loadChanges = () => import("../editor-host/changes.ts");
 
-/** Opens the History tab, started afresh unless it already shows `shown`. */
-function openHistory(shown: string): void {
-  panelsActions.open("side", "history");
+/** Opens the dedicated Version history page for `shown` (or standalone side panel on the stand-in test route). */
+function openHistory(deps: HandlerDeps, shown: string): void {
+  const here = deps.router.here().routeId;
+  if (here !== "/__stand-in") {
+    if (here !== "/s/$docId/history")
+      deps.router.navigate(`/s/${shown}/history`);
+  } else {
+    panelsActions.open("side", "history");
+  }
   if (historyView.get()?.docId !== shown) historyActions.reset(shown);
 }
 
@@ -117,13 +123,13 @@ export function createHistoryCommands(
     "history.nameDraft"() {
       const shown = docId();
       if (shown === null) return;
-      openHistory(shown);
+      openHistory(deps, shown);
       historyActions.setNaming(true);
     },
     "history.changesSince"() {
       const shown = docId();
       if (shown === null) return;
-      openHistory(shown);
+      openHistory(deps, shown);
       frame(() =>
         document.querySelector<HTMLElement>("[data-changes-since]")?.focus(),
       );
@@ -135,7 +141,7 @@ export function createHistoryCommands(
       const shown = docId();
       const at = shown === null ? null : readLastOpened(userId, shown);
       if (shown === null || at === null) return;
-      openHistory(shown);
+      openHistory(deps, shown);
       historyActions.setBaseline(sinceOpenedBaseline(at));
       historyActions.setMode("page");
     },
@@ -170,7 +176,7 @@ export function createHistoryCommands(
     "history.restoreBefore"() {
       const shown = docId();
       if (shown === null) return;
-      openHistory(shown);
+      openHistory(deps, shown);
       // rows are newest first
       const before = history
         .rows(shown)
@@ -186,7 +192,7 @@ export function createHistoryCommands(
       const current = messages.current();
       const carried = current === null ? null : whatChanged(current.id);
       if (carried === null) return;
-      openHistory(carried.docId);
+      openHistory(deps, carried.docId);
       historyActions.setBaseline({
         versionId: carried.beforeVersionId,
         position: null,
@@ -198,7 +204,7 @@ export function createHistoryCommands(
     "history.openRecoveredBeside"() {
       const shown = docId();
       if (shown === null) return;
-      openHistory(shown);
+      openHistory(deps, shown);
       void newestRecovered(history, shown).then((row) => {
         if (row === null) return;
         selectRow(row);

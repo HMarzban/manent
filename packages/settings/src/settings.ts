@@ -30,7 +30,7 @@ export const SETTINGS = createRegistry(
 );
 
 /**
- * The nine preferences, in the order of the Preferences panes; the list is closed, so a tenth fails the tests
+ * The fourteen preferences, in the order of the Preferences panes; the list is closed, so another fails the tests
  * until it is added here. `keyboard.shortcuts` is the map of keys, not a registry entry.
  */
 export const PREFERENCE_LIST: readonly (SettingKey | "keyboard.shortcuts")[] =
@@ -41,7 +41,12 @@ export const PREFERENCE_LIST: readonly (SettingKey | "keyboard.shortcuts")[] =
     "writing.showCursors",
     "writing.announce",
     "appearance.theme",
+    "appearance.palette",
     "appearance.whitePage",
+    "appearance.gems",
+    "appearance.autoByFormat",
+    "appearance.formatPalettes",
+    "appearance.projectPalettes",
     "keyboard.shortcuts",
     "device.interfaceSize",
   ]);

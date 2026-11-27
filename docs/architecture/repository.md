@@ -67,15 +67,15 @@ apps/
 ├── web/             the browser app
 │   ├── build.ts         builds into apps/web/dist (not tracked); MANENT_FLAVOUR=test builds the test flavour
 │   └── src/
-│       ├── main.tsx, router.tsx    entry and routes: /choose, /, /s/<id>, /s/<id>/send/<form>, /preferences/<pane>
-│       ├── screens/                the chooser, the Library, the script, Send, Preferences
+│       ├── main.tsx, router.tsx    entry and routes: /choose, /, /s/<id>, /s/<id>/history, /s/<id>/send/<form>, /preferences/<pane>
+│       ├── screens/                the chooser, the Library, the script, dedicated read-only History, Send, Preferences
 │       ├── editor-host/            where the editor and the CRDT binding are mounted
 │       ├── handlers/               what each command does
 │       ├── services/               per-person services: sync, the Library list, preferences
 │       ├── state/                  the interface's stores
 │       ├── send/                   Export and Print
 │       ├── import/                 Import…, file drops and what an import kept
-│       ├── history/                the History tab's versions, compare and restore
+│       ├── history/                version history timeline, compare, restore and review state
 │       ├── production/             locking, the Pages tab, Issue and Recall
 │       ├── desktop/                the page's half of the desktop app
 │       ├── shell/                  regions, the announcer, Escape and focus

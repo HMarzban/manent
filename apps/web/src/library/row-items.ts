@@ -9,7 +9,18 @@ import {
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
-import { CheckIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  CheckIcon,
+  FolderIcon,
+  FolderInputIcon,
+  FolderOpenIcon,
+  FolderPlusIcon,
+  PencilIcon,
+  StarIcon,
+  StarOffIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Fragment,
   createElement,
@@ -48,6 +59,13 @@ function useResolvedWorkspaceId(): string {
   return addressWorkspace ?? active ?? userId;
 }
 
+function rowIcon(Icon: LucideIcon): ReactNode {
+  return createElement(Icon, {
+    "aria-hidden": "true",
+    className: "size-icon shrink-0",
+  });
+}
+
 function FolderRowMenuItems(props: { readonly id: string }): ReactNode {
   const services = useServices();
   const { now, randomId } = useEnvironment();
@@ -69,6 +87,7 @@ function FolderRowMenuItems(props: { readonly id: string }): ReactNode {
             newId: randomId,
           }),
       },
+      rowIcon(FolderPlusIcon),
       LIBRARY_FILES_WORDS.newFolder,
     ),
     createElement(
@@ -77,6 +96,7 @@ function FolderRowMenuItems(props: { readonly id: string }): ReactNode {
         disabled,
         onClick: () => startRenameFolder(props.id),
       },
+      rowIcon(PencilIcon),
       LIBRARY_FILES_WORDS.renameFolder,
     ),
   );
@@ -158,6 +178,7 @@ function ProjectMenuItems(props: { readonly id: string }): ReactNode {
           createElement(
             DropdownMenuSubTrigger,
             { disabled: !moveState.enabled },
+            rowIcon(FolderInputIcon),
             LIBRARY_FILES_WORDS.moveToFolder,
           ),
           createElement(
@@ -166,6 +187,7 @@ function ProjectMenuItems(props: { readonly id: string }): ReactNode {
             createElement(
               DropdownMenuItem,
               { onClick: () => moveTo(null) },
+              rowIcon(FolderOpenIcon),
               LIBRARY_FILES_WORDS.noFolder,
               checkIcon(currentFolderId === null),
             ),
@@ -173,6 +195,7 @@ function ProjectMenuItems(props: { readonly id: string }): ReactNode {
               createElement(
                 DropdownMenuItem,
                 { key: id, onClick: () => moveTo(id) },
+                rowIcon(FolderIcon),
                 label,
                 checkIcon(currentFolderId === id),
               ),
@@ -190,6 +213,7 @@ function ProjectMenuItems(props: { readonly id: string }): ReactNode {
             now: now(),
           }),
       },
+      rowIcon(isFav ? StarOffIcon : StarIcon),
       isFav
         ? LIBRARY_FILES_WORDS.removeFromFavourites
         : LIBRARY_FILES_WORDS.favourite,
@@ -231,6 +255,7 @@ export function DocumentLibraryRowItems(props: { docId: string }): ReactNode {
             now: now(),
           }),
       },
+      rowIcon(isFav ? StarOffIcon : StarIcon),
       isFav
         ? LIBRARY_FILES_WORDS.removeFromFavourites
         : LIBRARY_FILES_WORDS.favourite,

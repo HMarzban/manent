@@ -5,16 +5,10 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   PLACE_WORDS,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  READOUT_WORDS,
-  SERIES_WORDS,
   Textarea,
 } from "@manent/ui";
 import { CheckIcon } from "lucide-react";
@@ -24,8 +18,8 @@ import { requestEpisodeScenes } from "../../board/episode-scenes.ts";
 import type { EpisodeScene } from "../../board/episode-scenes.ts";
 import type { BoardCard, BoardStoryline } from "../../board/model.ts";
 import { useServices } from "../../services/context.tsx";
-import type { PersonServices } from "../../services/ports.ts";
 import { RowMenu } from "../library/row-place.tsx";
+import { CardMenuItems } from "./board-card-menu.tsx";
 
 export interface BoardCardProps {
   readonly card: BoardCard;
@@ -48,128 +42,6 @@ export interface BoardCardProps {
 }
 
 const stopEvent = (event: SyntheticEvent): void => event.stopPropagation();
-
-const episodeOptionLabel = (ep: EpisodeEntry): string =>
-  `${ep.number} · ${ep.title ?? SERIES_WORDS.untitledEpisode}`;
-
-function CardMenuItems(props: {
-  services: PersonServices;
-  card: BoardCard;
-  episode: EpisodeEntry;
-  storylines: readonly BoardStoryline[];
-  episodes: readonly EpisodeEntry[];
-  scenes: readonly EpisodeScene[];
-  onLinkScene(blockId: string | null): void;
-  onMoveToEpisode(episodeId: string): void;
-  onMoveToStoryline(storylineId: string): void;
-  onRemove(): void;
-}): ReactNode {
-  const {
-    services,
-    card,
-    episode,
-    storylines,
-    episodes,
-    scenes,
-    onLinkScene,
-    onMoveToEpisode,
-    onMoveToStoryline,
-    onRemove,
-  } = props;
-  const scriptId = episode.docIds.script;
-  const hasScript = scriptId !== null;
-  const loadScenes = (): void => {
-    if (scriptId !== null) requestEpisodeScenes(services, scriptId);
-  };
-  const needsScript = BOARD_WORDS.needsScript(episode.number);
-  return (
-    <>
-      {hasScript ? (
-        <DropdownMenuSub onOpenChange={(open) => open && loadScenes()}>
-          <DropdownMenuSubTrigger
-            data-tour="board.linkScene"
-            onPointerEnter={loadScenes}
-            onFocus={loadScenes}
-          >
-            {BOARD_WORDS.linkToScene}
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {scenes.map((scene) => (
-              <DropdownMenuItem
-                key={scene.blockId}
-                onClick={() => onLinkScene(scene.blockId)}
-              >
-                <span className="flex-1 truncate">
-                  {PLACE_WORDS.scene(scene.number, scene.heading)}
-                </span>
-                {card.link?.blockId === scene.blockId ? (
-                  <CheckIcon aria-hidden="true" className="text-fg-accent" />
-                ) : null}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      ) : (
-        <DropdownMenuItem
-          disabled
-          title={READOUT_WORDS.unavailable(
-            BOARD_WORDS.linkToScene,
-            needsScript,
-          )}
-        >
-          <span className="flex flex-col">
-            <span>{BOARD_WORDS.linkToScene}</span>
-            <span className="text-meta text-fg-muted">{needsScript}</span>
-          </span>
-        </DropdownMenuItem>
-      )}
-      {card.link !== null ? (
-        <DropdownMenuItem onClick={() => onLinkScene(null)}>
-          {BOARD_WORDS.removeLink}
-        </DropdownMenuItem>
-      ) : null}
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>
-          {BOARD_WORDS.moveToEpisode}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          {episodes.map((ep) => (
-            <DropdownMenuItem
-              key={ep.id}
-              onClick={() => onMoveToEpisode(ep.id)}
-            >
-              <span className="flex-1 truncate">{episodeOptionLabel(ep)}</span>
-              {ep.id === card.episodeId ? (
-                <CheckIcon aria-hidden="true" className="text-fg-accent" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>
-          {BOARD_WORDS.moveToStoryline}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          {storylines.map((row) => (
-            <DropdownMenuItem
-              key={row.id}
-              onClick={() => onMoveToStoryline(row.id)}
-            >
-              <span className="flex-1 truncate">{row.title}</span>
-              {row.id === card.storylineId ? (
-                <CheckIcon aria-hidden="true" className="text-fg-accent" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-      <DropdownMenuItem onClick={onRemove}>
-        {BOARD_WORDS.remove}
-      </DropdownMenuItem>
-    </>
-  );
-}
 
 export function BoardCardItem(props: BoardCardProps): ReactNode {
   const {

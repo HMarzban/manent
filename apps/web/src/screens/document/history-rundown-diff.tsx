@@ -140,6 +140,7 @@ function DiffTable(props: {
           <div
             key={rowDiff.id}
             role="row"
+            data-id={rowDiff.id}
             data-diff-row={rowAttr}
             data-change-current={
               isCurrentRow && currentChange.columnId === null ? "" : undefined
@@ -227,6 +228,7 @@ function DiffTable(props: {
 
 /** Full-area overlay portalled over `[data-rundown-page]` for `In the grid`, `Side by side`, and `As it was`. */
 export function RundownHistoryOverlay(props: {
+  readonly inline?: boolean;
   readonly docId: string;
   readonly baselineTitle: string;
   readonly versionId: string | null;
@@ -242,6 +244,7 @@ export function RundownHistoryOverlay(props: {
   readonly onBack: () => void;
 }): ReactNode {
   const {
+    inline = false,
     docId,
     baselineTitle,
     versionId,
@@ -260,8 +263,12 @@ export function RundownHistoryOverlay(props: {
     <div
       data-rundown-history-overlay=""
       data-rundown-history-mode={mode === "page" ? "grid" : mode}
-      className="z-20 flex min-h-0 flex-col overflow-hidden bg-chrome @container"
-      style={OVERLAY_AREA}
+      className={
+        inline
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-chrome @container"
+          : "z-20 flex min-h-0 flex-col overflow-hidden bg-chrome @container"
+      }
+      style={inline ? undefined : OVERLAY_AREA}
     >
       <div className="flex items-center justify-between gap-2 border-b border-line bg-chrome px-3 py-2 text-ui">
         <span className="truncate font-medium text-fg">{baselineTitle}</span>

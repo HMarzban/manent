@@ -208,3 +208,34 @@ test("a submenu choice drops the submenu's name in the menu and keeps it elsewhe
   ]);
   expect(s.state("test.zoom125").label).toBe("Zoom: 125 %");
 });
+
+test("a checked toggle drops its turn on/off suffix in the menu and keeps it in state", () => {
+  const FIXTURE = [
+    command("test.cursors", {
+      label: "Show other people's cursors: turn off",
+      checked: () => true,
+      menus: [place("view", "people", 10)],
+    }),
+    command("test.typewriter", {
+      label: "Typewriter scrolling: turn on",
+      checked: () => false,
+      menus: [place("view", "writing", 10)],
+    }),
+  ];
+  const s = serviceOf(FIXTURE);
+  expect(
+    menuModel("view", FIXTURE, s).groups.flatMap((group) =>
+      group.map((item) => [item.id, item.label, item.checked]),
+    ),
+  ).toEqual([
+    ["test.cursors", "Show other people's cursors", true],
+    ["test.typewriter", "Typewriter scrolling", false],
+  ]);
+  expect([
+    s.state("test.cursors").label,
+    s.state("test.typewriter").label,
+  ]).toEqual([
+    "Show other people's cursors: turn off",
+    "Typewriter scrolling: turn on",
+  ]);
+});

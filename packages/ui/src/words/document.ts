@@ -69,6 +69,8 @@ export const DOCUMENT_WORDS = {
   layoutEngineGroup: "Layout engine",
   paperFromRegion: "From the region, when this script was created.",
   historyTab: "History",
+  versionHistory: "Version history",
+  closeVersionHistory: "Close version history",
   omitted: "OMITTED",
   /** A Scenes row's accessible name when the row ends with " *". */
   revisedName: (name: string): string => `${name}, revised`,

@@ -4,6 +4,7 @@ import type { CommandId } from "@manent/commands";
 import type { VersionContent } from "@manent/sync-protocol";
 import {
   Button,
+  CommandMenuIcon,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -117,6 +118,7 @@ function Entry(props: {
   const { entry, Item } = props;
   const item = (
     <Item data-tour={entry.id} disabled={!entry.enabled} onClick={entry.act}>
+      <CommandMenuIcon id={entry.id} />
       {entry.label}
     </Item>
   );

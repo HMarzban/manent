@@ -27,7 +27,7 @@ import { libraryHref, useLibraryAddress } from "./library-address.ts";
 import { KindIcon } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
 import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
-import { RowMenu } from "./row-place.tsx";
+import { WithRowMenu } from "./row-place.tsx";
 import type { LibraryViewProps } from "./views.ts";
 
 const EMPTY_FOLDERS: Subscribable<readonly FolderEntry[]> = createValue([]);
@@ -67,35 +67,29 @@ function useWorkspaceFolders(
   return { folders, projectsByFolder, renaming };
 }
 
-const folderMenu = (folder: FolderEntry): ReactNode =>
-  FOLDER_ITEMS.length === 0 ? undefined : (
-    <RowMenu title={folder.name}>
-      {FOLDER_ITEMS.map(({ id, Item }) => (
+const folderEntries = (folder: FolderEntry): ReactNode =>
+  FOLDER_ITEMS.length === 0
+    ? null
+    : FOLDER_ITEMS.map(({ id, Item }) => (
         <Item key={id} target="folder" id={folder.id} firstDocId={null} />
-      ))}
-    </RowMenu>
-  );
+      ));
 
-const projectMenu = (project: ProjectItem): ReactNode => {
+const projectEntries = (project: ProjectItem): ReactNode => {
   const { firstDocId } = project;
   if (
     PROJECT_ITEMS.length === 0 ||
     firstDocId === null ||
     project.place.kind === "not_on_device"
   )
-    return undefined;
-  return (
-    <RowMenu title={project.title}>
-      {PROJECT_ITEMS.map(({ id, Item }) => (
-        <Item
-          key={id}
-          target="project"
-          id={project.projectId}
-          firstDocId={firstDocId}
-        />
-      ))}
-    </RowMenu>
-  );
+    return null;
+  return PROJECT_ITEMS.map(({ id, Item }) => (
+    <Item
+      key={id}
+      target="project"
+      id={project.projectId}
+      firstDocId={firstDocId}
+    />
+  ));
 };
 
 interface BranchContext {
@@ -143,23 +137,38 @@ function FolderBranch(props: {
   return (
     <div>
       <div style={indent(depth)}>
-        <Row
-          current={ctx.activeFolderId === folder.id}
-          onActivate={isRenaming ? undefined : () => ctx.openFolder(folder.id)}
-          menu={isRenaming ? undefined : folderMenu(folder)}
-          leading={
-            <span className="flex items-center gap-1">
-              {toggleButton}
-              <FolderIcon aria-hidden="true" className="size-icon shrink-0" />
-            </span>
-          }
+        <WithRowMenu
+          title={folder.name}
+          entries={isRenaming ? null : folderEntries(folder)}
         >
-          {isRenaming ? (
-            <InlineFolderName workspaceId={ctx.workspaceId} folder={folder} />
-          ) : (
-            folder.name
+          {(menu) => (
+            <Row
+              current={ctx.activeFolderId === folder.id}
+              onActivate={
+                isRenaming ? undefined : () => ctx.openFolder(folder.id)
+              }
+              menu={menu}
+              leading={
+                <span className="flex items-center gap-1">
+                  {toggleButton}
+                  <FolderIcon
+                    aria-hidden="true"
+                    className="size-icon shrink-0"
+                  />
+                </span>
+              }
+            >
+              {isRenaming ? (
+                <InlineFolderName
+                  workspaceId={ctx.workspaceId}
+                  folder={folder}
+                />
+              ) : (
+                folder.name
+              )}
+            </Row>
           )}
-        </Row>
+        </WithRowMenu>
       </div>
       {isOpen ? (
         <div>
@@ -176,15 +185,19 @@ function FolderBranch(props: {
               p.firstDocId !== null && p.place.kind !== "not_on_device";
             return (
               <div key={p.projectId} style={indent(depth + 1)}>
-                <Row
-                  leading={<KindIcon kind={p.kind} />}
-                  onActivate={
-                    opens ? () => ctx.openProject(p.firstDocId!) : undefined
-                  }
-                  menu={projectMenu(p)}
-                >
-                  {p.title}
-                </Row>
+                <WithRowMenu title={p.title} entries={projectEntries(p)}>
+                  {(menu) => (
+                    <Row
+                      leading={<KindIcon kind={p.kind} />}
+                      onActivate={
+                        opens ? () => ctx.openProject(p.firstDocId!) : undefined
+                      }
+                      menu={menu}
+                    >
+                      {p.title}
+                    </Row>
+                  )}
+                </WithRowMenu>
               </div>
             );
           })}
@@ -264,14 +277,21 @@ export function FolderTree(props: FolderTreeProps): ReactNode {
       {looseProjects.map((p) => {
         const opens = p.firstDocId !== null && p.place.kind !== "not_on_device";
         return (
-          <Row
+          <WithRowMenu
             key={p.projectId}
-            leading={<KindIcon kind={p.kind} />}
-            onActivate={opens ? () => open(p.firstDocId!) : undefined}
-            menu={projectMenu(p)}
+            title={p.title}
+            entries={projectEntries(p)}
           >
-            {p.title}
-          </Row>
+            {(menu) => (
+              <Row
+                leading={<KindIcon kind={p.kind} />}
+                onActivate={opens ? () => open(p.firstDocId!) : undefined}
+                menu={menu}
+              >
+                {p.title}
+              </Row>
+            )}
+          </WithRowMenu>
         );
       })}
       <div className="px-2 pt-2">
@@ -328,21 +348,36 @@ export function FolderView(props: LibraryViewProps): ReactNode {
             const projCount = (projectsByFolder.get(sub.id) ?? []).length;
             const isRenaming = renaming === sub.id;
             return (
-              <Row
+              <WithRowMenu
                 key={sub.id}
-                leading={
-                  <FolderIcon aria-hidden="true" className="size-icon" />
-                }
-                meta={LIBRARY_FILES_WORDS.folderSummary(subCount, projCount)}
-                onActivate={isRenaming ? undefined : () => openFolder(sub.id)}
-                menu={isRenaming ? undefined : folderMenu(sub)}
+                title={sub.name}
+                entries={isRenaming ? null : folderEntries(sub)}
               >
-                {isRenaming ? (
-                  <InlineFolderName workspaceId={workspaceId} folder={sub} />
-                ) : (
-                  <span className="font-semibold">{sub.name}</span>
+                {(menu) => (
+                  <Row
+                    leading={
+                      <FolderIcon aria-hidden="true" className="size-icon" />
+                    }
+                    meta={LIBRARY_FILES_WORDS.folderSummary(
+                      subCount,
+                      projCount,
+                    )}
+                    onActivate={
+                      isRenaming ? undefined : () => openFolder(sub.id)
+                    }
+                    menu={menu}
+                  >
+                    {isRenaming ? (
+                      <InlineFolderName
+                        workspaceId={workspaceId}
+                        folder={sub}
+                      />
+                    ) : (
+                      <span className="font-semibold">{sub.name}</span>
+                    )}
+                  </Row>
                 )}
-              </Row>
+              </WithRowMenu>
             );
           })}
         </div>

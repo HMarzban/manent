@@ -1,14 +1,20 @@
 // New project: one card per kind, in two rows of four; choosing one creates the project and opens its first document.
+import { DEFAULT_FORMAT_PALETTES } from "@manent/settings";
+import type { FormatPaletteKey, StudioPaletteId } from "@manent/settings";
 import {
+  APPEARANCE_STUDIO_WORDS,
   Button,
   CommandButton,
+  HiddenGemIcon,
   LIBRARY_WORDS,
   NEW_PROJECT_CARDS,
   Popover,
   PopoverContent,
   PopoverTrigger,
   RUNDOWN_WORDS,
+  STUDIO_PALETTES,
   useCommandState,
+  useSetting,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
@@ -21,14 +27,19 @@ import { dialogActions, useOpenDialog } from "../../state/dialog.store.ts";
 import { KindIcon } from "./project-kind.tsx";
 
 const SURFACE = "new_project";
-const COLUMNS = 4;
-// how far each arrow moves through the cards
-const STEPS: Readonly<Record<string, number>> = {
-  ArrowRight: 1,
-  ArrowLeft: -1,
-  ArrowDown: COLUMNS,
-  ArrowUp: -COLUMNS,
-};
+const DEFAULT_COLUMNS = 4;
+
+function gridColumnCount(grid: HTMLElement, fallback: number): number {
+  const view = grid.ownerDocument.defaultView;
+  if (view === null || typeof view.getComputedStyle !== "function")
+    return fallback;
+  const cols = view
+    .getComputedStyle(grid)
+    .gridTemplateColumns.trim()
+    .split(/\s+/)
+    .filter((token) => token !== "" && token !== "none").length;
+  return cols > 0 ? cols : fallback;
+}
 
 const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
   const cards = [...event.currentTarget.querySelectorAll("button")];
@@ -43,7 +54,12 @@ const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
     cards.at(-1)?.focus();
     return;
   }
-  const step = STEPS[event.key];
+  const columns = gridColumnCount(event.currentTarget, DEFAULT_COLUMNS);
+  let step: number | undefined;
+  if (event.key === "ArrowRight") step = 1;
+  else if (event.key === "ArrowLeft") step = -1;
+  else if (event.key === "ArrowDown") step = columns;
+  else if (event.key === "ArrowUp") step = -columns;
   if (step === undefined) return;
   const target = cards.find((card) => card === event.target);
   const next =
@@ -58,12 +74,33 @@ const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
  * it was opened. The cards are disabled while `workspaceId` is null, until the workspace shown is known. While the
  * command cannot run, the button is the command's own, which says why.
  */
+const KIND_TO_FORMAT_KEY: Readonly<Record<ProjectKind, FormatPaletteKey>> =
+  Object.freeze({
+    film: "screenplay",
+    series: "multicam",
+    stage_play: "stage",
+    book: "manuscript",
+    podcast: "variety",
+    game: "game",
+    show: "show",
+    news: "news",
+  });
+
+function paletteNameFor(id: StudioPaletteId): string {
+  return (
+    STUDIO_PALETTES.find((p) => p.id === id)?.name ?? STUDIO_PALETTES[0]!.name
+  );
+}
+
 export function NewProjectPopover(props: {
   workspaceId: string | null;
 }): ReactNode {
   const { workspaceId } = props;
   const { library, commands, messages } = useServices();
   const { dom, now } = useEnvironment();
+  const autoByFormat = useSetting("appearance.autoByFormat");
+  const formatPalettes = useSetting("appearance.formatPalettes");
+  const gems = useSetting("appearance.gems");
   const navigate = useNavigate();
   const id = useId();
   const open = useOpenDialog() === SURFACE;
@@ -149,6 +186,31 @@ export function NewProjectPopover(props: {
               >
                 {card.description}
               </span>
+              {autoByFormat ? (
+                <span className="mt-1 flex items-center gap-1 text-micro text-fg-accent">
+                  {gems ? (
+                    <HiddenGemIcon
+                      palette={
+                        (formatPalettes[KIND_TO_FORMAT_KEY[card.kind]] as
+                          StudioPaletteId | undefined) ??
+                        DEFAULT_FORMAT_PALETTES[KIND_TO_FORMAT_KEY[card.kind]]
+                      }
+                      className="size-icon shrink-0"
+                    />
+                  ) : null}
+                  <span className="truncate">
+                    {APPEARANCE_STUDIO_WORDS.newProjectThemeHint(
+                      paletteNameFor(
+                        (formatPalettes[KIND_TO_FORMAT_KEY[card.kind]] as
+                          StudioPaletteId | undefined) ??
+                          DEFAULT_FORMAT_PALETTES[
+                            KIND_TO_FORMAT_KEY[card.kind]
+                          ],
+                      ),
+                    )}
+                  </span>
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

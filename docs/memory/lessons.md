@@ -4,6 +4,66 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Dropdown checkbox clearance specificity and toggle suffixes in menuModel
+
+- Date: 2026-11-27
+
+### What happened
+
+In `packages/ui/src/theme.css`, the shared rule `[role^="menuitem"]:not(.mn-swatch-item)` (specificity `(0,2,0)`) set `padding-inline: 0.5rem`, which overrode the lower-specificity rule `:is([role="menuitemcheckbox"], [role="menuitemradio"])` (`(0,1,0)`) meant to reserve `2.25rem` of trailing space for checkmarks. Checked items with keyboard shortcuts (such as `Left panel ⌘⌥1`) or long labels collided directly with the trailing checkmark, and toggle commands emitted `: turn on` / `: turn off` suffixes beside an already-visible checkmark.
+
+### How it was caught
+
+By visual inspection of the `View ▾` dropdown menu in the running app after the unified menu redesign.
+
+### Rule
+
+Match or exceed the base menu-item selector specificity when reserving trailing indicator clearance (`[role^="menuitem"]:is([role="menuitemcheckbox"], [role="menuitemradio"]) { padding-inline-end: 2.25rem; }`). In `menuModel`, strip `: turn on` / `: turn off` suffixes when an item renders a checked state (`state.checked !== null`) while keeping full action phrasing in the Command Palette where no checkmark is shown.
+
+### Enforced by
+
+`packages/commands/test/menu.test.ts` (asserting stripped checkbox labels in `menuModel`) and `tools/test/theme.test.ts`.
+
+## Scale read-only PageView panes via scaffold.applyZoom, not --page-zoom alone
+
+- Date: 2026-11-27
+
+### What happened
+
+`mountHistoryPageView` initially wrote `--page-zoom` onto the scroll container to fit `816px` screenplay sheets inside narrower `Side by side` comparison panes. Setting `--page-zoom` alone only changed outer desk padding while `.mn-pages` stayed unscaled inside `.mn-zoom`, clipping the right edge of both screenplay sheets at `1280×800`.
+
+### How it was caught
+
+By opening `/s/$docId/history` in `Side by side` mode in the live browser and checking `scrollWidth > clientWidth` on each comparison pane.
+
+### Rule
+
+Whenever a read-only `PageView` must fit inside a variable-width pane, call `page.scaffold.applyZoom(percent)` (backed by a `ResizeObserver`) so `.mn-zoom` scales both visual width and layout height in lockstep with zero horizontal clipping.
+
+### Enforced by
+
+`apps/web/src/editor-host/history-page-view.ts` (`attachAutoFitZoom` calling `page.scaffold.applyZoom`) and live viewport verification in `Side by side` mode.
+
+## Wrap menu text beside icons in a span and keep floating minimaps weightless
+
+- Date: 2026-11-27
+
+### What happened
+
+Two small interface regressions appeared during the menu and History page work: (1) placing bare text beside a leading Lucide `<svg>` inside `workspace-switcher.tsx` menu items caused `rowWords` in `apps/web/test/library.dom.test.tsx` to skip the label; and (2) prototyping Version history with a permanent `280px` docked left minimap sidebar plus duplicated `Restore` / `Copy link` buttons ate horizontal room needed by screenplay sheets and introduced redundant chrome.
+
+### How it was caught
+
+`apps/web/test/library.dom.test.tsx` caught the unwrapped menu label immediately; visual review of `/s/$docId/history` caught the cramped docked sidebar and duplicate actions.
+
+### Rule
+
+Always wrap label text next to an icon inside a `<span>` inside menu items. Keep full-screen reading and review minimaps (`MiniMapToc`, `HistoryMinimapToc`) weightless on the floating right edge (`end-4`, closed at rest, expanding on hover/click with a `Pin` toggle) and keep primary actions (`Restore`, `Copy link`, `Name this draft…`) in a single bar without repeating them in side rails.
+
+### Enforced by
+
+`apps/web/test/library.dom.test.tsx`, `apps/web/test/history-minimap.test.ts` and [ADR 0079](../decisions/0079-dedicated-read-only-version-history-page.md).
+
 ## Running xvfb-run as PID 1 inside Docker deadlocks its Xvfb readiness signal
 
 - Date: 2026-11-26

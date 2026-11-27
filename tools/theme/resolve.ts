@@ -11,7 +11,7 @@ export interface Variant {
   paper: "sheet" | "white";
 }
 
-/** Every rule of the theme, and the custom properties of its three blocks; within a block a later declaration wins. */
+/** Every rule of the theme, and the custom properties of its blocks; within a block a later declaration wins. */
 export interface ThemeFile {
   rules: readonly CssRule[];
   /** `:root` outside any at-rule. */
@@ -20,6 +20,8 @@ export interface ThemeFile {
   contrast: ReadonlyMap<string, string>;
   /** The demo bar's scope. */
   demo: ReadonlyMap<string, string>;
+  /** Each `[data-palette="<id>"]` override block outside any at-rule. */
+  palettes: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** The `color-scheme` the sheet takes when White page is on; null when the theme sets none. */
   whitePageScheme: Scheme | null;
   /** The `color-scheme` of the demo bar's scope; null when the theme sets none. */
@@ -29,6 +31,7 @@ export interface ThemeFile {
 const CONTRAST_MEDIA = "@media (prefers-contrast: more)";
 const DEMO_SCOPE = '[data-surface="demo"]';
 const WHITE_PAGE = "html[data-white-page] .mn-pages";
+const PALETTE_SELECTOR = new RegExp('^\\[data-palette="([a-z0-9-]+)"\\]$');
 const VAR = /var\(\s*(--[\w-]+)\s*\)/g;
 const LIGHT_DARK = "light-dark(";
 
@@ -64,6 +67,25 @@ const colorScheme = (declarations: readonly Declaration[]): Scheme | null => {
   return value === "light" || value === "dark" ? value : null;
 };
 
+function readPalettes(
+  rules: readonly CssRule[],
+): Map<string, Map<string, string>> {
+  const byId = new Map<string, Declaration[]>();
+  for (const rule of rules) {
+    if (rule.atRules.length > 0 || rule.selector === null) continue;
+    for (const part of rule.selector.split(",")) {
+      const match = PALETTE_SELECTOR.exec(part.trim());
+      if (match?.[1] === undefined) continue;
+      const list = byId.get(match[1]) ?? [];
+      list.push(...rule.declarations);
+      byId.set(match[1], list);
+    }
+  }
+  return new Map(
+    [...byId.entries()].map(([id, decls]) => [id, customProperties(decls)]),
+  );
+}
+
 export function readTheme(css: string): ThemeFile {
   const rules = parseCss(css);
   const demo = declarationsOf(rules, DEMO_SCOPE);
@@ -74,8 +96,19 @@ export function readTheme(css: string): ThemeFile {
       declarationsOf(rules, ":root", [CONTRAST_MEDIA]),
     ),
     demo: customProperties(demo),
+    palettes: readPalettes(rules),
     whitePageScheme: colorScheme(declarationsOf(rules, WHITE_PAGE)),
     demoScheme: colorScheme(demo),
+  };
+}
+
+/** A view of `theme` with the `[data-palette="<id>"]` declarations overlaid on `:root` (High Contrast still wins). */
+export function paletteTheme(theme: ThemeFile, id: string): ThemeFile {
+  const overrides = theme.palettes.get(id);
+  if (overrides === undefined) return theme;
+  return {
+    ...theme,
+    root: new Map([...theme.root, ...overrides]),
   };
 }
 

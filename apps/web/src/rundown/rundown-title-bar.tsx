@@ -3,6 +3,7 @@ import { COMMANDS, menuModel } from "@manent/commands";
 import type { MenuItemModel } from "@manent/commands";
 import {
   Button,
+  CommandMenuIcon,
   DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -17,6 +18,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  isDestructiveCommand,
   keyLabel,
   useCommandState,
   useCommands,
@@ -24,6 +26,7 @@ import {
 import { useRouter } from "@tanstack/react-router";
 import { Fragment, useEffect, useId, useReducer } from "react";
 import type { ReactNode } from "react";
+import { HistoryButton } from "../screens/document/history-button.tsx";
 import { MenuFace } from "../screens/document/menu-face.tsx";
 import { People } from "../screens/document/people.tsx";
 import { StatusButton } from "../screens/document/status-button.tsx";
@@ -39,7 +42,8 @@ function TitleMenuEntry(props: { readonly item: MenuItemModel }): ReactNode {
   const [chord] = item.keys;
   const content = (
     <>
-      {item.label}
+      <CommandMenuIcon id={item.id} />
+      <span className="truncate">{item.label}</span>
       {chord === undefined ? null : (
         <Kbd className="ml-auto">{keyLabel(chord, platform)}</Kbd>
       )}
@@ -49,6 +53,7 @@ function TitleMenuEntry(props: { readonly item: MenuItemModel }): ReactNode {
     item.checked === null ? (
       <DropdownMenuItem
         data-tour={item.id}
+        variant={isDestructiveCommand(item.id) ? "destructive" : "default"}
         disabled={!item.enabled}
         className={item.enabled ? "cursor-pointer" : "cursor-not-allowed"}
         onClick={run}
@@ -179,7 +184,10 @@ export function RundownTitleBar(props: {
       <StatusButton doc={doc} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <People docId={docId} people={doc.people} viewers={doc.viewers} />
-        <RundownShareButton />
+        <div className="flex items-center gap-1.5">
+          <HistoryButton docId={docId} />
+          <RundownShareButton />
+        </div>
       </div>
     </ShellRegion>
   );

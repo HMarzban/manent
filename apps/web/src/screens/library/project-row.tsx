@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { ProjectItem } from "../../services/ports.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
-import { RowMenu, placeProps } from "./row-place.tsx";
+import { RowContextMenu, RowMenu, placeProps } from "./row-place.tsx";
 
 export const KIND_COLUMN = "hidden w-col-kind shrink-0 truncate @lg:block";
 export const EDITED_COLUMN = "hidden w-col-edited shrink-0 truncate @lg:block";
@@ -31,23 +31,22 @@ export function ProjectRow(props: {
   const { project, shell, now, open } = props;
   const { firstDocId } = project;
   const { trailing, ...place } = placeProps(project.place, shell);
+  const hasMenu = ROW_ITEMS.length > 0 && place.unavailable === undefined;
+  const entries = hasMenu
+    ? ROW_ITEMS.map(({ id, Item }) => (
+        <Item
+          key={id}
+          target="project"
+          id={project.projectId}
+          firstDocId={firstDocId}
+        />
+      ))
+    : null;
   // a row that cannot be opened has no menu
-  const menu =
-    ROW_ITEMS.length === 0 || place.unavailable !== undefined
-      ? []
-      : [
-          <RowMenu title={project.title}>
-            {ROW_ITEMS.map(({ id, Item }) => (
-              <Item
-                key={id}
-                target="project"
-                id={project.projectId}
-                firstDocId={firstDocId}
-              />
-            ))}
-          </RowMenu>,
-        ];
-  return (
+  const menu = hasMenu
+    ? [<RowMenu title={project.title}>{entries}</RowMenu>]
+    : [];
+  const row = (
     <Row
       leading={<KindIcon kind={project.kind} />}
       onActivate={firstDocId === null ? undefined : () => open(firstDocId)}
@@ -64,5 +63,10 @@ export function ProjectRow(props: {
         </span>
       </span>
     </Row>
+  );
+  return hasMenu ? (
+    <RowContextMenu entries={entries}>{row}</RowContextMenu>
+  ) : (
+    row
   );
 }

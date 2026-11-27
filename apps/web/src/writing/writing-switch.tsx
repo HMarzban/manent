@@ -11,27 +11,51 @@ import {
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
+import {
+  GlobeIcon,
+  LockIcon,
+  MessageSquareDiffIcon,
+  PenLineIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSyncExternalStore } from "react";
 import { useServices } from "../services/context.tsx";
 import { writingActions } from "../state/writing.store.ts";
 import type { WritingPosition } from "../state/writing.store.ts";
 
-const CHOICES: readonly { position: WritingPosition; commandId: CommandId }[] =
-  [
-    { position: "everyone", commandId: "writing.forEveryone" },
-    { position: "suggestions", commandId: "writing.asSuggestions" },
-    { position: "private", commandId: "writing.privately" },
-  ];
+const CHOICES: readonly {
+  position: WritingPosition;
+  commandId: CommandId;
+  icon: LucideIcon;
+}[] = [
+  {
+    position: "everyone",
+    commandId: "writing.forEveryone",
+    icon: GlobeIcon,
+  },
+  {
+    position: "suggestions",
+    commandId: "writing.asSuggestions",
+    icon: MessageSquareDiffIcon,
+  },
+  {
+    position: "private",
+    commandId: "writing.privately",
+    icon: LockIcon,
+  },
+];
 
 /** One choice, left out while its command is not offered here (As suggestions once page numbers are locked). */
 function Choice(props: {
   position: WritingPosition;
   commandId: CommandId;
+  icon: LucideIcon;
 }): ReactNode {
   const { commands } = useServices();
   const { visible, enabled, whyNot } = useCommandState(props.commandId);
   if (!visible) return null;
+  const Icon = props.icon;
   return (
     <DropdownMenuRadioItem
       value={props.position}
@@ -42,6 +66,7 @@ function Choice(props: {
         if (enabled) void commands.run(props.commandId, "control");
       }}
     >
+      <Icon aria-hidden="true" className="mt-0.5 size-icon shrink-0" />
       <span className="flex flex-col gap-0.5">
         <span className="font-medium">
           {WRITING_WORDS.positions[props.position]}
@@ -70,6 +95,7 @@ export function WritingSwitch(props: { docId: string }): ReactNode {
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger className="text-ui" data-tour="writing_switch">
+        <PenLineIcon aria-hidden="true" className="size-icon shrink-0" />
         {WRITING_WORDS.switchLabel(WRITING_WORDS.positions[position])}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">

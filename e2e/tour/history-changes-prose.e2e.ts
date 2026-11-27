@@ -3,7 +3,7 @@ import { expectEvidence, tourScenario } from "../support/tour.ts";
 
 tourScenario("history-changes-prose", async ({ page, scenario, step }) => {
   // Changes since heads the History tab
-  await page.getByRole("tab", { name: DOCUMENT_WORDS.historyTab }).click();
+  await page.getByRole("button", { name: DOCUMENT_WORDS.historyTab }).click();
   await (await step(0)).click();
   await page
     .getByRole("menuitem", { name: "First draft", exact: true })

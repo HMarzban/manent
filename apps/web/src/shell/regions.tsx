@@ -149,7 +149,8 @@ export function createShellDom(doc: Document): ShellDom {
     focusSidePanel(within) {
       const panel = regionElement("side_panel");
       if (panel === null) return;
-      const tab = panel.querySelector("[role='tabpanel']") ?? panel;
+      const tab =
+        panel.querySelector("[role='tabpanel'], [data-panel-body]") ?? panel;
       // the part, once it holds a control
       const drawnPart = (): Element | null => {
         const part = within === undefined ? tab : tab.querySelector(within);

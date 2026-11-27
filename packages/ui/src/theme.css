@@ -221,6 +221,7 @@ html[data-white-page] .mn-pages {
   --line-strong: light-dark(var(--p-warm-500), var(--p-warm-550));
   --focus: light-dark(var(--p-blue-600), var(--p-blue-300));
   --chip-line: transparent;
+  --gem-accent-2: var(--fg-accent);
   --elev-overlay:
     0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.4)),
     0 8px 24px light-dark(rgb(31 29 26 / 0.1), rgb(0 0 0 / 0.4));
@@ -422,6 +423,724 @@ html[data-white-page] .mn-pages {
 }
 
 /* --------------------------------------------------------------------------
+   24 STUDIO PALETTES (ADR 0078). Declared before HIGH CONTRAST, DEMO SCOPE
+   and FORCED COLOURS so accessibility overrides and the demo bar always win.
+   Zero layout or typography metrics are declared here (pagination invariant).
+   -------------------------------------------------------------------------- */
+[data-palette="hyperdrive"] {
+  --bg-desk: light-dark(#eae1d1, #0b0e18);
+  --bg-chrome: light-dark(#f6f1e6, #111626);
+  --bg-raised: light-dark(#fcf9f3, #171d32);
+  --bg-overlay: light-dark(#fefcf8, #222b45);
+  --bg-well: light-dark(#efe7d9, #0d111e);
+  --bg-selected: light-dark(#f5e8c4, #352e1c);
+  --bg-accent: light-dark(#734900, #f0c446);
+  --fg: light-dark(#1b1b22, #f0eee8);
+  --fg-muted: light-dark(#575248, #a4adc4);
+  --fg-on-accent: light-dark(#ffffff, #0b0e18);
+  --fg-accent: light-dark(#734900, #f0c446);
+  --fg-ok: light-dark(#186340, #6ad49e);
+  --fg-attention: light-dark(#7a4e00, #f0c446);
+  --fg-danger: light-dark(#972512, #ff9a83);
+  --line: light-dark(#d6cbb8, #2d3857);
+  --line-strong: light-dark(#857b6a, #6b799f);
+  --focus: light-dark(#734900, #f0c446);
+  --gem-accent-2: light-dark(#825300, #f0c446);
+}
+[data-palette="hyperdrive"],
+html:where([data-palette="hyperdrive"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf6, #1c2336);
+  --page-ink: light-dark(#17181f, #f0eee8);
+  --page-ink-muted: light-dark(#4a4740, #a4adc4);
+  --page-edge: light-dark(#d6cbb8, #2d3857);
+  --page-selection: light-dark(rgba(111,71,0,0.34), rgba(134,110,39,0.48));
+  --page-comment-line: light-dark(#265399, #7db8ff);
+  --page-comment-bg: light-dark(rgba(54,114,212,0.18), rgba(125,184,255,0.15));
+}
+
+[data-palette="starfleet"] {
+  --bg-desk: light-dark(#e2e4ee, #0b0c12);
+  --bg-chrome: light-dark(#f2f3f8, #12141e);
+  --bg-raised: light-dark(#f8f8fb, #191c2a);
+  --bg-overlay: light-dark(#fdfdff, #24283c);
+  --bg-well: light-dark(#e8eaf2, #0d0f17);
+  --bg-selected: light-dark(#e6e3f7, #2b284a);
+  --bg-accent: light-dark(#8c3c08, #f5a654);
+  --fg: light-dark(#161724, #ececf2);
+  --fg-muted: light-dark(#50536b, #a9add0);
+  --fg-on-accent: light-dark(#ffffff, #0b0c12);
+  --fg-accent: light-dark(#8c3c08, #f5a654);
+  --fg-ok: light-dark(#12664c, #66d4b2);
+  --fg-attention: light-dark(#7d4e00, #f5c65c);
+  --fg-danger: light-dark(#a81e36, #ff93a0);
+  --line: light-dark(#cdd0e0, #323652);
+  --line-strong: light-dark(#787ca0, #7c80b8);
+  --focus: light-dark(#8c3c08, #f5a654);
+  --gem-accent-2: light-dark(#6d66ce, #a9a4f7);
+}
+[data-palette="starfleet"],
+html:where([data-palette="starfleet"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafafd, #1e212f);
+  --page-ink: light-dark(#141520, #ececf2);
+  --page-ink-muted: light-dark(#43465b, #a9add0);
+  --page-edge: light-dark(#cdd0e0, #323652);
+  --page-selection: light-dark(rgba(81,75,152,0.42), rgba(132,111,92,0.54));
+  --page-comment-line: light-dark(#5249a3, #a9a4f7);
+  --page-comment-bg: light-dark(rgba(128,120,224,0.18), rgba(169,164,247,0.16));
+}
+
+[data-palette="celluloid"] {
+  --bg-desk: light-dark(#e6dfd3, #110f0d);
+  --bg-chrome: light-dark(#f4efe6, #191613);
+  --bg-raised: light-dark(#fbf8f3, #211d19);
+  --bg-overlay: light-dark(#fdfbf7, #2f2a24);
+  --bg-well: light-dark(#ece5d9, #12100e);
+  --bg-selected: light-dark(#f2e2cf, #3a2b1d);
+  --bg-accent: light-dark(#853910, #e8a454);
+  --fg: light-dark(#211c17, #efe8dd);
+  --fg-muted: light-dark(#5c5246, #bdb2a2);
+  --fg-on-accent: light-dark(#ffffff, #110f0d);
+  --fg-accent: light-dark(#853910, #e8a454);
+  --fg-ok: light-dark(#1c6139, #74cf9c);
+  --fg-attention: light-dark(#7a4d00, #e8be56);
+  --fg-danger: light-dark(#a6231c, #f99c92);
+  --line: light-dark(#d4cab9, #3e3831);
+  --line-strong: light-dark(#877a69, #80766a);
+  --focus: light-dark(#853910, #e8a454);
+  --gem-accent-2: light-dark(#964112, #e8a454);
+}
+[data-palette="celluloid"],
+html:where([data-palette="celluloid"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf7, #282420);
+  --page-ink: light-dark(#1b1713, #efe8dd);
+  --page-ink-muted: light-dark(#4e463d, #bdb2a2);
+  --page-edge: light-dark(#d4cab9, #3e3831);
+  --page-selection: light-dark(rgba(128,55,15,0.34), rgba(120,109,94,0.5));
+  --page-comment-line: light-dark(#7a4d00, #e3c05b);
+  --page-comment-bg: light-dark(rgba(196,134,18,0.24), rgba(227,192,91,0.14));
+}
+
+[data-palette="viridian"] {
+  --bg-desk: light-dark(#dfe6e4, #0d1316);
+  --bg-chrome: light-dark(#eff4f2, #131b1f);
+  --bg-raised: light-dark(#f8fbfa, #192328);
+  --bg-overlay: light-dark(#fbfdfd, #243239);
+  --bg-well: light-dark(#e5ecea, #0e1518);
+  --bg-selected: light-dark(#d4eae6, #19393c);
+  --bg-accent: light-dark(#0c5a56, #67d4c8);
+  --fg: light-dark(#162020, #e5efee);
+  --fg-muted: light-dark(#4a5b59, #a7bdbb);
+  --fg-on-accent: light-dark(#ffffff, #0d1316);
+  --fg-accent: light-dark(#0c5a56, #67d4c8);
+  --fg-ok: light-dark(#146444, #6ed4a4);
+  --fg-attention: light-dark(#755000, #e3be56);
+  --fg-danger: light-dark(#a62328, #f9a5a1);
+  --line: light-dark(#c7d3d0, #2f4047);
+  --line-strong: light-dark(#6e7f7c, #6b818a);
+  --focus: light-dark(#0c5a56, #67d4c8);
+  --gem-accent-2: light-dark(#0e6662, #67d4c8);
+}
+[data-palette="viridian"],
+html:where([data-palette="viridian"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fcfefd, #1f292e);
+  --page-ink: light-dark(#141d1d, #e5efee);
+  --page-ink-muted: light-dark(#3a4847, #a7bdbb);
+  --page-edge: light-dark(#c7d3d0, #2f4047);
+  --page-selection: light-dark(rgba(53,107,103,0.38), rgba(81,129,123,0.52));
+  --page-comment-line: light-dark(#755000, #e3be56);
+  --page-comment-bg: light-dark(rgba(210,152,0,0.24), rgba(227,190,86,0.14));
+}
+
+[data-palette="marquee"] {
+  --bg-desk: light-dark(#dfe4f0, #0b1021);
+  --bg-chrome: light-dark(#f0f3f9, #111830);
+  --bg-raised: light-dark(#f9fafd, #171e36);
+  --bg-overlay: light-dark(#fcfdff, #222a47);
+  --bg-well: light-dark(#e6eaf4, #0d1326);
+  --bg-selected: light-dark(#e2e7f7, #33203d);
+  --bg-accent: light-dark(#764308, #f5c162);
+  --fg: light-dark(#14192b, #eef1fa);
+  --fg-muted: light-dark(#4c536e, #a5b0d1);
+  --fg-on-accent: light-dark(#ffffff, #0b1021);
+  --fg-accent: light-dark(#764308, #f5c162);
+  --fg-ok: light-dark(#166440, #6ad6a4);
+  --fg-attention: light-dark(#7a4b00, #f5c162);
+  --fg-danger: light-dark(#a61f32, #ff98a4);
+  --line: light-dark(#c9d0e3, #2d3a66);
+  --line-strong: light-dark(#757fa0, #6675a8);
+  --focus: light-dark(#764308, #f5c162);
+  --gem-accent-2: light-dark(#7a2954, #a84274);
+}
+[data-palette="marquee"],
+html:where([data-palette="marquee"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafbfd, #20273c);
+  --page-ink: light-dark(#121626, #eef1fa);
+  --page-ink-muted: light-dark(#3f465d, #a5b0d1);
+  --page-edge: light-dark(#c9d0e3, #2d3a66);
+  --page-selection: light-dark(rgba(122,68,9,0.34), rgba(137,108,55,0.48));
+  --page-comment-line: light-dark(#7a2954, #e691bd);
+  --page-comment-bg: light-dark(rgba(148,52,104,0.16), rgba(230,145,189,0.15));
+}
+
+[data-palette="newsdesk"] {
+  --bg-desk: light-dark(#e2e4e7, #0c0d0f);
+  --bg-chrome: light-dark(#f2f3f5, #141619);
+  --bg-raised: light-dark(#f8f9fa, #1b1e23);
+  --bg-overlay: light-dark(#ffffff, #272b33);
+  --bg-well: light-dark(#e8eaed, #0e1013);
+  --bg-selected: light-dark(#fce6dc, #3a2518);
+  --bg-accent: light-dark(#902c06, #ff8c38);
+  --fg: light-dark(#141619, #eceef2);
+  --fg-muted: light-dark(#525760, #a7aeb8);
+  --fg-on-accent: light-dark(#ffffff, #0c0d0f);
+  --fg-accent: light-dark(#902c06, #ff8c38);
+  --fg-ok: light-dark(#12633c, #5cd69a);
+  --fg-attention: light-dark(#7a5100, #f0c44d);
+  --fg-danger: light-dark(#a6162b, #ff98a1);
+  --line: light-dark(#cfd3d9, #333842);
+  --line-strong: light-dark(#7c828c, #6d7482);
+  --focus: light-dark(#902c06, #ff8c38);
+  --gem-accent-2: light-dark(#ad3506, #ff8c38);
+}
+[data-palette="newsdesk"],
+html:where([data-palette="newsdesk"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafbfc, #22252b);
+  --page-ink: light-dark(#181b20, #eceef2);
+  --page-ink-muted: light-dark(#41464d, #a7aeb8);
+  --page-edge: light-dark(#cfd3d9, #333842);
+  --page-selection: light-dark(rgba(149,77,49,0.38), rgba(125,109,94,0.5));
+  --page-comment-line: light-dark(#7a5100, #e6c253);
+  --page-comment-bg: light-dark(rgba(214,150,0,0.24), rgba(230,194,83,0.14));
+}
+
+[data-palette="breakingdesk"] {
+  --bg-desk: light-dark(#dfe4ec, #0c111b);
+  --bg-chrome: light-dark(#eff3f8, #121926);
+  --bg-raised: light-dark(#f8fafd, #182132);
+  --bg-overlay: light-dark(#fcfdff, #232f45);
+  --bg-well: light-dark(#e6ebf2, #0e1420);
+  --bg-selected: light-dark(#dce9fa, #1b3454);
+  --bg-accent: light-dark(#1552a8, #66c0ff);
+  --fg: light-dark(#141923, #eceff4);
+  --fg-muted: light-dark(#4c5666, #a8b4c7);
+  --fg-on-accent: light-dark(#ffffff, #0c111b);
+  --fg-accent: light-dark(#1552a8, #66c0ff);
+  --fg-ok: light-dark(#126642, #64d6a4);
+  --fg-attention: light-dark(#7d4f00, #ebc458);
+  --fg-danger: light-dark(#9b1825, #ffa0a9);
+  --line: light-dark(#c9d2e0, #2e3d57);
+  --line-strong: light-dark(#758299, #667a9c);
+  --focus: light-dark(#1552a8, #66c0ff);
+  --gem-accent-2: light-dark(#1552a8, #66c0ff);
+}
+[data-palette="breakingdesk"],
+html:where([data-palette="breakingdesk"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafbfd, #202836);
+  --page-ink: light-dark(#161b24, #eceff4);
+  --page-ink-muted: light-dark(#3f4856, #a8b4c7);
+  --page-edge: light-dark(#c9d2e0, #2e3d57);
+  --page-selection: light-dark(rgba(42,89,154,0.32), rgba(101,120,131,0.52));
+  --page-comment-line: light-dark(#7d4f00, #ebc458);
+  --page-comment-bg: light-dark(rgba(214,152,16,0.24), rgba(235,196,88,0.14));
+}
+
+[data-palette="broadsheet"] {
+  --bg-desk: light-dark(#eedfd5, #121010);
+  --bg-chrome: light-dark(#f8eee7, #1a1717);
+  --bg-raised: light-dark(#fdf7f3, #221e1e);
+  --bg-overlay: light-dark(#fefaf7, #312b2b);
+  --bg-well: light-dark(#f3e6de, #141212);
+  --bg-selected: light-dark(#f5dfd6, #3f2723);
+  --bg-accent: light-dark(#963428, #f29b7e);
+  --fg: light-dark(#1f1917, #f2ece8);
+  --fg-muted: light-dark(#5e504b, #bfb2ad);
+  --fg-on-accent: light-dark(#ffffff, #121010);
+  --fg-accent: light-dark(#963428, #f29b7e);
+  --fg-ok: light-dark(#186342, #70d4a4);
+  --fg-attention: light-dark(#764a00, #e8c060);
+  --fg-danger: light-dark(#a81e24, #ff989d);
+  --line: light-dark(#dccbc0, #453c3c);
+  --line-strong: light-dark(#8f7a6e, #827272);
+  --focus: light-dark(#963428, #f29b7e);
+  --gem-accent-2: light-dark(#963428, #f29b7e);
+}
+[data-palette="broadsheet"],
+html:where([data-palette="broadsheet"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fef8f4, #2b2626);
+  --page-ink: light-dark(#1b1614, #f2ece8);
+  --page-ink-muted: light-dark(#524540, #bfb2ad);
+  --page-edge: light-dark(#dccbc0, #453c3c);
+  --page-selection: light-dark(rgba(131,60,52,0.36), rgba(132,116,111,0.52));
+  --page-comment-line: light-dark(#0f5d66, #6ecad4);
+  --page-comment-bg: light-dark(rgba(22,128,140,0.16), rgba(110,202,212,0.14));
+}
+
+[data-palette="telegraph"] {
+  --bg-desk: light-dark(#e0e6e1, #0c120f);
+  --bg-chrome: light-dark(#f1f5f1, #121a16);
+  --bg-raised: light-dark(#f8fbf8, #18231e);
+  --bg-overlay: light-dark(#fcfdfc, #23332b);
+  --bg-well: light-dark(#e8ede9, #0e1511);
+  --bg-selected: light-dark(#d8ede1, #193b2a);
+  --bg-accent: light-dark(#14633e, #5cd69a);
+  --fg: light-dark(#141d18, #eaf0ec);
+  --fg-muted: light-dark(#4a5950, #a5b8ad);
+  --fg-on-accent: light-dark(#ffffff, #0c120f);
+  --fg-accent: light-dark(#14633e, #5cd69a);
+  --fg-ok: light-dark(#14633e, #5cd69a);
+  --fg-attention: light-dark(#7a5100, #e6c25a);
+  --fg-danger: light-dark(#a62024, #ffa3a6);
+  --line: light-dark(#cad4cd, #2e4238);
+  --line-strong: light-dark(#73857a, #668072);
+  --focus: light-dark(#14633e, #5cd69a);
+  --gem-accent-2: light-dark(#14633e, #5cd69a);
+}
+[data-palette="telegraph"],
+html:where([data-palette="telegraph"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafcfa, #1e2723);
+  --page-ink: light-dark(#141c17, #eaf0ec);
+  --page-ink-muted: light-dark(#3a4740, #a5b8ad);
+  --page-edge: light-dark(#cad4cd, #2e4238);
+  --page-selection: light-dark(rgba(72,111,93,0.4), rgba(87,120,102,0.54));
+  --page-comment-line: light-dark(#7a5100, #e6c25a);
+  --page-comment-bg: light-dark(rgba(212,152,18,0.24), rgba(230,194,90,0.14));
+}
+
+[data-palette="sylvan"] {
+  --bg-desk: light-dark(#e6e2d5, #0d130f);
+  --bg-chrome: light-dark(#f4f1e7, #131b16);
+  --bg-raised: light-dark(#fbf9f3, #19241d);
+  --bg-overlay: light-dark(#fefcf7, #243329);
+  --bg-well: light-dark(#ece8dc, #0f1511);
+  --bg-selected: light-dark(#dcece1, #1d3b2b);
+  --bg-accent: light-dark(#185a39, #6dd49a);
+  --fg: light-dark(#19201a, #efece0);
+  --fg-muted: light-dark(#50594e, #aab6a6);
+  --fg-on-accent: light-dark(#ffffff, #0d130f);
+  --fg-accent: light-dark(#185a39, #6dd49a);
+  --fg-ok: light-dark(#1a603d, #6dd49a);
+  --fg-attention: light-dark(#71500e, #dfbe64);
+  --fg-danger: light-dark(#9e2824, #f7a8a1);
+  --line: light-dark(#d1ccbc, #2f4236);
+  --line-strong: light-dark(#857c62, #787a5e);
+  --focus: light-dark(#185a39, #6dd49a);
+  --gem-accent-2: light-dark(#9c7420, #dfbe64);
+}
+[data-palette="sylvan"],
+html:where([data-palette="sylvan"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf5, #1f2922);
+  --page-ink: light-dark(#171d18, #efece0);
+  --page-ink-muted: light-dark(#40473f, #aab6a6);
+  --page-edge: light-dark(#d1ccbc, #2f4236);
+  --page-selection: light-dark(rgba(62,107,84,0.38), rgba(77,119,95,0.5));
+  --page-comment-line: light-dark(#805a10, #dfbe64);
+  --page-comment-bg: light-dark(rgba(194,152,46,0.24), rgba(223,190,100,0.14));
+}
+
+[data-palette="clothbound"] {
+  --bg-desk: light-dark(#e8e3d9, #0f141c);
+  --bg-chrome: light-dark(#f6f3ec, #151b26);
+  --bg-raised: light-dark(#fcfaf5, #1c2330);
+  --bg-overlay: light-dark(#fefcf8, #273042);
+  --bg-well: light-dark(#eeeae1, #11161f);
+  --bg-selected: light-dark(#dee8f2, #24344c);
+  --bg-accent: light-dark(#1a4875, #d8ca9c);
+  --fg: light-dark(#1b1d21, #efede6);
+  --fg-muted: light-dark(#52565e, #adb5c4);
+  --fg-on-accent: light-dark(#ffffff, #0f141c);
+  --fg-accent: light-dark(#1a4875, #d8ca9c);
+  --fg-ok: light-dark(#186342, #70d4a4);
+  --fg-attention: light-dark(#734f0f, #e3c368);
+  --fg-danger: light-dark(#a32222, #f9a7a7);
+  --line: light-dark(#d4cec3, #344054);
+  --line-strong: light-dark(#7e8082, #6c7a94);
+  --focus: light-dark(#1a4875, #d8ca9c);
+  --gem-accent-2: light-dark(#7a5410, #d8ca9c);
+}
+[data-palette="clothbound"],
+html:where([data-palette="clothbound"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf6, #232a36);
+  --page-ink: light-dark(#191b1f, #efede6);
+  --page-ink-muted: light-dark(#44484f, #adb5c4);
+  --page-edge: light-dark(#d4cec3, #344054);
+  --page-selection: light-dark(rgba(45,80,115,0.32), rgba(121,113,87,0.48));
+  --page-comment-line: light-dark(#7a5410, #93bdf5);
+  --page-comment-bg: light-dark(rgba(202,152,42,0.22), rgba(147,189,245,0.15));
+}
+
+[data-palette="ambercourt"] {
+  --bg-desk: light-dark(#ece4dc, #140d0f);
+  --bg-chrome: light-dark(#f7f2ec, #1c1316);
+  --bg-raised: light-dark(#fcfaf6, #25191d);
+  --bg-overlay: light-dark(#fefcf9, #342429);
+  --bg-well: light-dark(#f1eae3, #160f11);
+  --bg-selected: light-dark(#f5e2d4, #422526);
+  --bg-accent: light-dark(#93380d, #ebb854);
+  --fg: light-dark(#221817, #f2ebe8);
+  --fg-muted: light-dark(#5f4f4c, #bfaead);
+  --fg-on-accent: light-dark(#ffffff, #140d0f);
+  --fg-accent: light-dark(#93380d, #ebb854);
+  --fg-ok: light-dark(#1a6140, #76d19f);
+  --fg-attention: light-dark(#7a4d00, #ebb854);
+  --fg-danger: light-dark(#a61d2b, #ff9188);
+  --line: light-dark(#d9cdc4, #473339);
+  --line-strong: light-dark(#8c7a70, #8c6f78);
+  --focus: light-dark(#93380d, #ebb854);
+  --gem-accent-2: light-dark(#9c3c0e, #ebb854);
+}
+[data-palette="ambercourt"],
+html:where([data-palette="ambercourt"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf7, #2c2124);
+  --page-ink: light-dark(#1e1514, #f2ebe8);
+  --page-ink-muted: light-dark(#524340, #bfaead);
+  --page-edge: light-dark(#d9cdc4, #473339);
+  --page-selection: light-dark(rgba(133,51,12,0.34), rgba(134,115,79,0.53));
+  --page-comment-line: light-dark(#7a2338, #eb96a8);
+  --page-comment-bg: light-dark(rgba(164,52,78,0.16), rgba(235,150,168,0.15));
+}
+
+[data-palette="seaandink"] {
+  --bg-desk: light-dark(#e3e5e2, #0e1419);
+  --bg-chrome: light-dark(#f2f4f2, #141d24);
+  --bg-raised: light-dark(#f9faf9, #1b252e);
+  --bg-overlay: light-dark(#fcfdfc, #263440);
+  --bg-well: light-dark(#eaedea, #10171c);
+  --bg-selected: light-dark(#dde9f0, #233642);
+  --bg-accent: light-dark(#235270, #e0ba60);
+  --fg: light-dark(#171f24, #ebeef0);
+  --fg-muted: light-dark(#4c5961, #a9b7c2);
+  --fg-on-accent: light-dark(#ffffff, #0e1419);
+  --fg-accent: light-dark(#235270, #e0ba60);
+  --fg-ok: light-dark(#18634a, #6ad4ad);
+  --fg-attention: light-dark(#76510f, #e0ba60);
+  --fg-danger: light-dark(#a62426, #f9adac);
+  --line: light-dark(#cdd4d4, #324352);
+  --line-strong: light-dark(#75838a, #6a7f91);
+  --focus: light-dark(#235270, #e0ba60);
+  --gem-accent-2: light-dark(#7d5610, #e0ba60);
+}
+[data-palette="seaandink"],
+html:where([data-palette="seaandink"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fbfcfa, #222c34);
+  --page-ink: light-dark(#151d21, #ebeef0);
+  --page-ink-muted: light-dark(#3c474f, #a9b7c2);
+  --page-edge: light-dark(#cdd4d4, #324352);
+  --page-selection: light-dark(rgba(53,89,111,0.32), rgba(131,116,84,0.53));
+  --page-comment-line: light-dark(#7d5610, #80c4e8);
+  --page-comment-bg: light-dark(rgba(202,156,44,0.22), rgba(128,196,232,0.15));
+}
+
+[data-palette="copperplate"] {
+  --bg-desk: light-dark(#e6dfd4, #12100e);
+  --bg-chrome: light-dark(#f4efe6, #1a1714);
+  --bg-raised: light-dark(#fbf8f2, #221e1a);
+  --bg-overlay: light-dark(#fdfbf7, #302a24);
+  --bg-well: light-dark(#ece6dc, #141210);
+  --bg-selected: light-dark(#daeae6, #1e3633);
+  --bg-accent: light-dark(#155e59, #6bc9be);
+  --fg: light-dark(#1f1c18, #efeae2);
+  --fg-muted: light-dark(#595349, #bab2a6);
+  --fg-on-accent: light-dark(#ffffff, #12100e);
+  --fg-accent: light-dark(#155e59, #6bc9be);
+  --fg-ok: light-dark(#186342, #6fd1a2);
+  --fg-attention: light-dark(#764a11, #e0bc62);
+  --fg-danger: light-dark(#a3231d, #f8a099);
+  --line: light-dark(#d4ccbe, #423a32);
+  --line-strong: light-dark(#82786a, #857a6d);
+  --focus: light-dark(#155e59, #6bc9be);
+  --gem-accent-2: light-dark(#7d4f12, #e0bc62);
+}
+[data-palette="copperplate"],
+html:where([data-palette="copperplate"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fcf9f3, #2a2622);
+  --page-ink: light-dark(#1c1915, #efeae2);
+  --page-ink-muted: light-dark(#4c473e, #bab2a6);
+  --page-edge: light-dark(#d4ccbe, #423a32);
+  --page-selection: light-dark(rgba(42,98,94,0.32), rgba(96,116,112,0.52));
+  --page-comment-line: light-dark(#7d4f12, #e0bc62);
+  --page-comment-bg: light-dark(rgba(196,140,44,0.22), rgba(224,188,98,0.14));
+}
+
+[data-palette="proscenium"] {
+  --bg-desk: light-dark(#ebe3d8, #120e0d);
+  --bg-chrome: light-dark(#f7f2ea, #1b1514);
+  --bg-raised: light-dark(#fdfaf5, #241c1a);
+  --bg-overlay: light-dark(#fffdf9, #342926);
+  --bg-well: light-dark(#f0e9df, #14100f);
+  --bg-selected: light-dark(#f5e2e4, #422328);
+  --bg-accent: light-dark(#8c1d31, #f095a4);
+  --fg: light-dark(#221918, #f2ebe2);
+  --fg-muted: light-dark(#61524e, #bdaea2);
+  --fg-on-accent: light-dark(#ffffff, #120e0d);
+  --fg-accent: light-dark(#8c1d31, #f095a4);
+  --fg-ok: light-dark(#18613d, #78d19f);
+  --fg-attention: light-dark(#7a5000, #e6be5c);
+  --fg-danger: light-dark(#a82018, #ff9c8a);
+  --line: light-dark(#d9cec2, #473935);
+  --line-strong: light-dark(#8c7d72, #857069);
+  --focus: light-dark(#8c1d31, #f095a4);
+  --gem-accent-2: light-dark(#a07324, #e6be5c);
+}
+[data-palette="proscenium"],
+html:where([data-palette="proscenium"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fefcf7, #2b2321);
+  --page-ink: light-dark(#1c1514, #f2ebe2);
+  --page-ink-muted: light-dark(#524542, #bdaea2);
+  --page-edge: light-dark(#d9cec2, #473935);
+  --page-selection: light-dark(rgba(133,48,63,0.32), rgba(121,106,109,0.5));
+  --page-comment-line: light-dark(#7a5000, #e6be5c);
+  --page-comment-bg: light-dark(rgba(210,148,12,0.24), rgba(230,190,92,0.14));
+}
+
+[data-palette="globetimber"] {
+  --bg-desk: light-dark(#e6dccb, #130f0b);
+  --bg-chrome: light-dark(#f5efe3, #1b1611);
+  --bg-raised: light-dark(#fbf8f0, #231c16);
+  --bg-overlay: light-dark(#fdfbf5, #322820);
+  --bg-well: light-dark(#ede5d6, #15110d);
+  --bg-selected: light-dark(#f0e3ca, #3d2f1c);
+  --bg-accent: light-dark(#734813, #dfb05c);
+  --fg: light-dark(#211a13, #f0e8dc);
+  --fg-muted: light-dark(#5c5042, #bdb09e);
+  --fg-on-accent: light-dark(#ffffff, #130f0b);
+  --fg-accent: light-dark(#734813, #dfb05c);
+  --fg-ok: light-dark(#1d613c, #78cf9c);
+  --fg-attention: light-dark(#734813, #dfb05c);
+  --fg-danger: light-dark(#9e241c, #f59a8e);
+  --line: light-dark(#d4c8b4, #45382c);
+  --line-strong: light-dark(#857560, #8a7762);
+  --focus: light-dark(#734813, #dfb05c);
+  --gem-accent-2: light-dark(#7a4d14, #dfb05c);
+}
+[data-palette="globetimber"],
+html:where([data-palette="globetimber"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fcf9f2, #2a231d);
+  --page-ink: light-dark(#1d1711, #f0e8dc);
+  --page-ink-muted: light-dark(#4f4438, #bdb09e);
+  --page-edge: light-dark(#d4c8b4, #45382c);
+  --page-selection: light-dark(rgba(104,65,17,0.34), rgba(116,106,87,0.52));
+  --page-comment-line: light-dark(#6b3a24, #e3c368);
+  --page-comment-bg: light-dark(rgba(176,118,48,0.22), rgba(227,195,104,0.14));
+}
+
+[data-palette="velvetbox"] {
+  --bg-desk: light-dark(#eae2de, #140d14);
+  --bg-chrome: light-dark(#f7f2ef, #1c131c);
+  --bg-raised: light-dark(#fcf9f7, #251a25);
+  --bg-overlay: light-dark(#fefcfb, #342534);
+  --bg-well: light-dark(#f0e9e5, #160f16);
+  --bg-selected: light-dark(#f2e1ec, #42283c);
+  --bg-accent: light-dark(#732258, #e8c266);
+  --fg: light-dark(#21171d, #f2ecf0);
+  --fg-muted: light-dark(#5e4e58, #bfaebe);
+  --fg-on-accent: light-dark(#ffffff, #140d14);
+  --fg-accent: light-dark(#732258, #e8c266);
+  --fg-ok: light-dark(#186342, #76d4a2);
+  --fg-attention: light-dark(#714e08, #e8c266);
+  --fg-danger: light-dark(#a62028, #ff94a0);
+  --line: light-dark(#d9ced5, #473447);
+  --line-strong: light-dark(#8c7a85, #8c718c);
+  --focus: light-dark(#732258, #e8c266);
+  --gem-accent-2: light-dark(#732258, #e8c266);
+}
+[data-palette="velvetbox"],
+html:where([data-palette="velvetbox"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf8, #2c212c);
+  --page-ink: light-dark(#1d1419, #f2ecf0);
+  --page-ink-muted: light-dark(#52434c, #bfaebe);
+  --page-edge: light-dark(#d9ced5, #473447);
+  --page-selection: light-dark(rgba(114,52,93,0.32), rgba(130,109,57,0.48));
+  --page-comment-line: light-dark(#805808, #e89ec7);
+  --page-comment-bg: light-dark(rgba(206,158,36,0.22), rgba(232,158,199,0.15));
+}
+
+[data-palette="soundbooth"] {
+  --bg-desk: light-dark(#e4e0da, #120f0d);
+  --bg-chrome: light-dark(#f3f0ec, #1a1613);
+  --bg-raised: light-dark(#faf8f5, #221d19);
+  --bg-overlay: light-dark(#fdfcfb, #312924);
+  --bg-well: light-dark(#ebe7e1, #14110f);
+  --bg-selected: light-dark(#f5e4d8, #3c281c);
+  --bg-accent: light-dark(#823715, #ed9655);
+  --fg: light-dark(#1e1a17, #f0ebe4);
+  --fg-muted: light-dark(#5b534c, #b8aea4);
+  --fg-on-accent: light-dark(#ffffff, #120f0d);
+  --fg-accent: light-dark(#823715, #ed9655);
+  --fg-ok: light-dark(#11633e, #58d698);
+  --fg-attention: light-dark(#764a00, #edc05c);
+  --fg-danger: light-dark(#a81e24, #ff9793);
+  --line: light-dark(#d4cdc5, #423831);
+  --line-strong: light-dark(#857b72, #85776c);
+  --focus: light-dark(#823715, #ed9655);
+  --gem-accent-2: light-dark(#126942, #58d698);
+}
+[data-palette="soundbooth"],
+html:where([data-palette="soundbooth"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfcf9, #28231f);
+  --page-ink: light-dark(#1a1714, #f0ebe4);
+  --page-ink-muted: light-dark(#49433d, #b8aea4);
+  --page-edge: light-dark(#d4cdc5, #423831);
+  --page-selection: light-dark(rgba(133,57,20,0.34), rgba(121,107,94,0.5));
+  --page-comment-line: light-dark(#146642, #58d698);
+  --page-comment-bg: light-dark(rgba(28,148,92,0.16), rgba(88,214,152,0.14));
+}
+
+[data-palette="reeltoreel"] {
+  --bg-desk: light-dark(#dfe0e2, #101113);
+  --bg-chrome: light-dark(#f2f0ec, #17191c);
+  --bg-raised: light-dark(#faf9f6, #1e2125);
+  --bg-overlay: light-dark(#fdfcfa, #2b2e33);
+  --bg-well: light-dark(#e7e6e2, #121316);
+  --bg-selected: light-dark(#f2e4d8, #3a2b1e);
+  --bg-accent: light-dark(#8b3b13, #eb9b52);
+  --fg: light-dark(#1b1a19, #edeae4);
+  --fg-muted: light-dark(#575551, #b5b2ac);
+  --fg-on-accent: light-dark(#ffffff, #101113);
+  --fg-accent: light-dark(#8b3b13, #eb9b52);
+  --fg-ok: light-dark(#155e3d, #66d49e);
+  --fg-attention: light-dark(#734a00, #e6be5a);
+  --fg-danger: light-dark(#a6201f, #faa59f);
+  --line: light-dark(#cfcdc8, #3b3f46);
+  --line-strong: light-dark(#7f7c77, #747982);
+  --focus: light-dark(#8b3b13, #eb9b52);
+  --gem-accent-2: light-dark(#943f14, #eb9b52);
+}
+[data-palette="reeltoreel"],
+html:where([data-palette="reeltoreel"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fcfbf8, #24262a);
+  --page-ink: light-dark(#191817, #edeae4);
+  --page-ink-muted: light-dark(#474542, #b5b2ac);
+  --page-edge: light-dark(#cfcdc8, #3b3f46);
+  --page-selection: light-dark(rgba(126,54,17,0.34), rgba(121,107,94,0.5));
+  --page-comment-line: light-dark(#7a4f00, #e6be5a);
+  --page-comment-bg: light-dark(rgba(208,148,22,0.22), rgba(230,190,90,0.14));
+}
+
+[data-palette="nightfreq"] {
+  --bg-desk: light-dark(#e2e0ea, #0f0e1a);
+  --bg-chrome: light-dark(#f2f1f7, #151424);
+  --bg-raised: light-dark(#f9f9fc, #1c1a2e);
+  --bg-overlay: light-dark(#fcfcfe, #282540);
+  --bg-well: light-dark(#eae8f1, #11101d);
+  --bg-selected: light-dark(#d6ede9, #193836);
+  --bg-accent: light-dark(#0b5a51, #64d9ba);
+  --fg: light-dark(#1a1826, #eceaf2);
+  --fg-muted: light-dark(#545066, #b2aec7);
+  --fg-on-accent: light-dark(#ffffff, #0f0e1a);
+  --fg-accent: light-dark(#0b5a51, #64d9ba);
+  --fg-ok: light-dark(#0c6056, #64d9ba);
+  --fg-attention: light-dark(#734c00, #e8c25e);
+  --fg-danger: light-dark(#a6223e, #ff94a6);
+  --line: light-dark(#cfccd9, #373354);
+  --line-strong: light-dark(#7b768f, #736d94);
+  --focus: light-dark(#0b5a51, #64d9ba);
+  --gem-accent-2: light-dark(#0d665c, #64d9ba);
+}
+[data-palette="nightfreq"],
+html:where([data-palette="nightfreq"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fafafe, #242234);
+  --page-ink: light-dark(#181724, #eceaf2);
+  --page-ink-muted: light-dark(#464256, #b2aec7);
+  --page-edge: light-dark(#cfccd9, #373354);
+  --page-selection: light-dark(rgba(53,107,100,0.38), rgba(74,121,108,0.5));
+  --page-comment-line: light-dark(#624096, #c4a6ff);
+  --page-comment-bg: light-dark(rgba(126,92,184,0.16), rgba(196,166,255,0.15));
+}
+
+[data-palette="chiaroscuro"] {
+  --bg-desk: light-dark(#e7e1d6, #0d0c0a);
+  --bg-chrome: light-dark(#f5f1e8, #151310);
+  --bg-raised: light-dark(#fcfaf5, #1c1915);
+  --bg-overlay: light-dark(#fefcf8, #2a251e);
+  --bg-well: light-dark(#ede8dd, #0f0e0c);
+  --bg-selected: light-dark(#f2e7ca, #342b1a);
+  --bg-accent: light-dark(#684b0f, #d9b566);
+  --fg: light-dark(#1c1915, #f0eadc);
+  --fg-muted: light-dark(#5a5244, #b5ab98);
+  --fg-on-accent: light-dark(#ffffff, #0d0c0a);
+  --fg-accent: light-dark(#684b0f, #d9b566);
+  --fg-ok: light-dark(#1a613b, #78cf9c);
+  --fg-attention: light-dark(#7d4d00, #e5be5c);
+  --fg-danger: light-dark(#9e2420, #f59a92);
+  --line: light-dark(#d5ccba, #3b3429);
+  --line-strong: light-dark(#877c67, #80745e);
+  --focus: light-dark(#684b0f, #d9b566);
+  --gem-accent-2: light-dark(#7d5a12, #d9b566);
+}
+[data-palette="chiaroscuro"],
+html:where([data-palette="chiaroscuro"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fdfbf6, #23201b);
+  --page-ink: light-dark(#191612, #f0eadc);
+  --page-ink-muted: light-dark(#4c4539, #b5ab98);
+  --page-edge: light-dark(#d5ccba, #3b3429);
+  --page-selection: light-dark(rgba(106,77,15,0.34), rgba(121,110,89,0.54));
+  --page-comment-line: light-dark(#824906, #e3b549);
+  --page-comment-bg: light-dark(rgba(186,134,24,0.24), rgba(227,181,73,0.14));
+}
+
+[data-palette="nocturne"] {
+  --bg-desk: light-dark(#e4dfe8, #0f0d17);
+  --bg-chrome: light-dark(#f3f0f5, #161322);
+  --bg-raised: light-dark(#faf8fb, #1e1a2e);
+  --bg-overlay: light-dark(#fdfbfd, #2b2540);
+  --bg-well: light-dark(#ebe6ef, #110f1b);
+  --bg-selected: light-dark(#e6def5, #312652);
+  --bg-accent: light-dark(#5b3896, #b69cff);
+  --fg: light-dark(#1d1826, #ede9f5);
+  --fg-muted: light-dark(#574f66, #b1a8c7);
+  --fg-on-accent: light-dark(#ffffff, #0f0d17);
+  --fg-accent: light-dark(#5b3896, #b69cff);
+  --fg-ok: light-dark(#0d605e, #5ad6c8);
+  --fg-attention: light-dark(#734d00, #e8be5a);
+  --fg-danger: light-dark(#a3223b, #ff96a8);
+  --line: light-dark(#d1cad9, #3b3354);
+  --line-strong: light-dark(#80768f, #7d729c);
+  --focus: light-dark(#5b3896, #b69cff);
+  --gem-accent-2: light-dark(#5b3896, #b69cff);
+}
+[data-palette="nocturne"],
+html:where([data-palette="nocturne"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fcfaf6, #252136);
+  --page-ink: light-dark(#1b1722, #ede9f5);
+  --page-ink-muted: light-dark(#4c4459, #b1a8c7);
+  --page-edge: light-dark(#d1cad9, #3b3354);
+  --page-selection: light-dark(rgba(95,69,141,0.32), rgba(111,107,121,0.5));
+  --page-comment-line: light-dark(#7a5200, #e8be5a);
+  --page-comment-bg: light-dark(rgba(218,162,32,0.24), rgba(232,190,90,0.14));
+}
+
+[data-palette="nightwire"] {
+  --bg-desk: light-dark(#dce3e8, #0b0e12);
+  --bg-chrome: light-dark(#eef3f6, #11161d);
+  --bg-raised: light-dark(#f7fafc, #171e27);
+  --bg-overlay: light-dark(#fbfdfe, #222c38);
+  --bg-well: light-dark(#e3eaef, #0d1117);
+  --bg-selected: light-dark(#d4edf5, #143242);
+  --bg-accent: light-dark(#005971, #3fd4ec);
+  --fg: light-dark(#121920, #e6ecee);
+  --fg-muted: light-dark(#485966, #a3b5c4);
+  --fg-on-accent: light-dark(#ffffff, #0b0e12);
+  --fg-accent: light-dark(#005971, #3fd4ec);
+  --fg-ok: light-dark(#0e6046, #5cd6a8);
+  --fg-attention: light-dark(#784800, #e3a84f);
+  --fg-danger: light-dark(#991c2f, #ff93a3);
+  --line: light-dark(#c5d0d8, #2c3847);
+  --line-strong: light-dark(#718290, #687a8e);
+  --focus: light-dark(#005971, #3fd4ec);
+  --gem-accent-2: light-dark(#006580, #3fd4ec);
+}
+[data-palette="nightwire"],
+html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
+  --page-paper: light-dark(#fbfdfe, #1d242e);
+  --page-ink: light-dark(#161e26, #e6ecee);
+  --page-ink-muted: light-dark(#384751, #a3b5c4);
+  --page-edge: light-dark(#c5d0d8, #2c3847);
+  --page-selection: light-dark(rgba(45,106,122,0.38), rgba(79,119,124,0.54));
+  --page-comment-line: light-dark(#804d00, #e3a84f);
+  --page-comment-bg: light-dark(rgba(218,146,20,0.24), rgba(227,168,79,0.14));
+}
+
+/* --------------------------------------------------------------------------
    HIGH CONTRAST. Follows the system (prefers-contrast: more). Text 7:1,
    boundaries and marks 4.5:1. Fills of marks go and their lines stay; the
    selection inverts; a revision is its band and its name, never a tint.
@@ -443,6 +1162,7 @@ html[data-white-page] .mn-pages {
     --fg-disabled: light-dark(var(--p-warm-600), var(--p-warm-500));
     --fg-on-accent: light-dark(var(--p-warm-0), var(--p-black));
     --fg-accent: light-dark(var(--p-blue-800), var(--p-blue-200));
+    --gem-accent-2: var(--fg-accent);
     --fg-ok: light-dark(var(--p-green-800), var(--p-green-200));
     --fg-attention: light-dark(var(--p-amber-800), var(--p-amber-200));
     --fg-danger: light-dark(var(--p-red-800), var(--p-red-200));
@@ -516,6 +1236,7 @@ html[data-white-page] .mn-pages {
   --fg-disabled: var(--p-demo-600);
   --fg-on-accent: var(--p-demo-900);
   --fg-accent: var(--p-demo-200);
+  --gem-accent-2: var(--p-demo-200);
   --fg-ok: var(--p-green-300);
   --fg-attention: var(--p-amber-300);
   --fg-danger: var(--p-red-300);
@@ -915,8 +1636,8 @@ html[data-white-page] .mn-pages {
     font-size: var(--type-ui);
     line-height: var(--lh-ui);
   }
-  /* colour is inherited as a computed value, so a nested scheme must restate it */
-  :where([data-theme], [data-surface]) {
+  /* colour is inherited as a computed value, so a nested scheme or palette must restate it */
+  :where([data-theme], [data-surface], [data-palette]) {
     color: var(--fg);
   }
   svg.lucide {
@@ -1153,9 +1874,9 @@ html[data-white-page] .mn-pages {
   transform: scaleX(1);
 }
 
-/* 12. One menu surface: its edge is a hairline, it is as wide as its longest
-       item between two limits, and an item stays on one line. A caller that
-       sets its own width or padding keeps it. */
+/* 12. One menu surface: crisp archival overlay, hairline border, uniform
+       32px item geometry, leading icon rail, clear separators, and clean
+       shortcut clearance. A caller that sets its own width or padding keeps it. */
 :is(
   [data-slot$="menu-content"],
   [data-slot$="menu-sub-content"],
@@ -1163,6 +1884,15 @@ html[data-white-page] .mn-pages {
   [data-slot="popover-content"]
 ) {
   --tw-ring-color: var(--line);
+}
+:is([data-slot$="menu-content"], [data-slot$="menu-sub-content"]) {
+  background-color: var(--bg-overlay);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 0.625rem;
+  padding: 0.3125rem;
+  box-shadow: var(--elev-overlay);
+  --tw-ring-color: transparent;
 }
 :is(
   [data-slot$="menu-content"],
@@ -1182,8 +1912,111 @@ html[data-white-page] .mn-pages {
 :is([role^="menuitem"], [data-slot="select-item"]) {
   white-space: nowrap;
 }
+[role^="menuitem"]:not(.mn-swatch-item) {
+  min-height: 2rem;
+  padding-inline: 0.5625rem;
+  padding-block: 0.3125rem;
+  gap: 0.5625rem;
+  border-radius: var(--shape-surface);
+  font-size: var(--type-ui);
+  line-height: var(--lh-ui);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+[role^="menuitem"]:is([role="menuitemcheckbox"], [role="menuitemradio"]) {
+  padding-inline-end: 2.25rem;
+}
+[role^="menuitem"]:not(.mn-swatch-item) > svg:first-child {
+  width: var(--icon);
+  height: var(--icon);
+  flex-shrink: 0;
+  color: var(--fg-muted);
+  opacity: 0.85;
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+[role^="menuitem"]:not(.mn-swatch-item):not([data-disabled]):is(
+    :hover,
+    :focus-visible,
+    [data-highlighted],
+    [data-popup-open]
+  )
+  > svg:first-child {
+  color: var(--fg);
+  opacity: 1;
+}
+[role^="menuitem"][data-variant="destructive"]:not(.mn-swatch-item)
+  > svg:first-child,
+[role^="menuitem"][data-variant="destructive"]:not(.mn-swatch-item):is(
+    :hover,
+    :focus-visible,
+    [data-highlighted]
+  )
+  > svg:first-child {
+  color: var(--fg-danger);
+  opacity: 1;
+}
+[data-slot$="menu-sub-trigger"] > svg:last-child {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--fg-muted);
+  opacity: 0.72;
+}
+:is([data-slot$="checkbox-item-indicator"], [data-slot$="radio-item-indicator"])
+  svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--fg-accent);
+}
+[data-slot$="menu-separator"] {
+  background-color: var(--line);
+  margin-block: 0.25rem;
+  margin-inline: 0.25rem;
+  opacity: 0.72;
+}
+@media (prefers-contrast: more) {
+  [data-slot$="menu-separator"] {
+    opacity: 1;
+  }
+}
+[data-slot$="menu-label"] {
+  padding: 0.375rem 0.5625rem 0.25rem;
+}
+[role^="menuitem"] [data-slot="kbd"] {
+  margin-inline-start: auto;
+  opacity: 0.78;
+  transition: opacity var(--dur-fast) var(--curve-enter);
+}
+:is([role="menuitemcheckbox"], [role="menuitemradio"]) [data-slot="kbd"] {
+  margin-inline-end: 0.25rem;
+}
+[role^="menuitem"]:not([data-disabled]):is(
+    :hover,
+    :focus-visible,
+    [data-highlighted]
+  )
+  [data-slot="kbd"] {
+  opacity: 1;
+}
 [data-slot="popover-content"][class~="p-2.5"] {
   padding: 1rem;
+}
+@media (prefers-contrast: more) {
+  :is([data-slot$="menu-content"], [data-slot$="menu-sub-content"]) {
+    border-color: var(--line-strong);
+  }
+  [role^="menuitem"]:not(.mn-swatch-item) > svg:first-child {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [role^="menuitem"]:not(.mn-swatch-item),
+  [role^="menuitem"]:not(.mn-swatch-item) > svg:first-child,
+  [role^="menuitem"] [data-slot="kbd"] {
+    transition: none;
+  }
 }
 
 /* 13. A tooltip is small and close: 4/8 padding, 12/500. */
@@ -1465,6 +2298,51 @@ button:not(:disabled, [aria-disabled="true"]):active
 /* A group's label: the type is correction 6's; this is its place in a list. */
 .mn-group-label {
   padding: 1rem 0.75rem 0.25rem;
+}
+
+/* Dedicated Version history editorial timeline dots & mode controls. */
+.mn-history-dot-live {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--bg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg-accent) 20%, transparent);
+}
+.mn-history-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  background-color: var(--bg-chrome);
+  border: 1.5px solid var(--line-strong);
+}
+.mn-row[aria-current="true"] .mn-history-dot {
+  background-color: var(--bg-accent);
+  border-color: var(--bg-accent);
+}
+@media (prefers-contrast: more) {
+  .mn-history-mode-btn[aria-checked="true"] {
+    outline: 1px solid var(--line-strong);
+  }
+}
+@media (forced-colors: active) {
+  .mn-history-dot-live {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    box-shadow: none;
+  }
+  .mn-history-dot {
+    forced-color-adjust: none;
+    background-color: Canvas;
+    border-color: CanvasText;
+  }
+  .mn-row[aria-current="true"] .mn-history-dot {
+    background-color: HighlightText;
+    border-color: HighlightText;
+  }
+  .mn-history-mode-btn[aria-checked="true"] {
+    background-color: Highlight;
+    color: HighlightText;
+  }
 }
 
 /* A table on chrome, drawn on a row list: a raised card with a head row and a
@@ -2378,6 +3256,20 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 .mn-minimap-tick[data-active="true"] {
   background-color: var(--bg-accent);
 }
+.mn-minimap-tick[data-changed="true"] {
+  background-color: var(--fg-ok);
+}
+.mn-minimap-tick[data-changed="true"][data-active="true"] {
+  background-color: var(--bg-accent);
+}
+.mn-history-banner {
+  background-color: color-mix(
+    in srgb,
+    var(--bg-selected) 55%,
+    var(--bg-chrome)
+  );
+  border-inline-start: 2px solid var(--bg-accent);
+}
 
 /* Selection bubble menu: text colour and highlight swatches. */
 .mn-swatch {
@@ -2554,6 +3446,211 @@ html[data-switching] *::after {
 }
 
 /* --------------------------------------------------------------------------
+   BRAND WORDMARK, APPEARANCE STUDIO & VIEW TRANSITION LAYER (ADR 0078).
+   Every transition uses Manent motion tokens only.
+   -------------------------------------------------------------------------- */
+.mn-wordmark-m {
+  height: 0.72em;
+  width: auto;
+  display: inline-block;
+  margin-inline-end: 0.055em;
+  transform: translateY(0.01em);
+}
+html[data-gems="off"] .mn-gem-only {
+  display: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+.mn-scheme-squircle {
+  width: min(12.75rem, calc(50vw - 2rem));
+  height: 9rem;
+  border-radius: 1.125rem;
+  padding: 1rem 0 0 1rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background-color: var(--bg-desk);
+  transition:
+    transform var(--dur-base) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+.mn-scheme-squircle:hover {
+  border-color: var(--line-strong);
+}
+.mn-scheme-squircle:active {
+  transform: scale(0.98);
+}
+.mn-scheme-squircle[aria-checked="true"] {
+  border-color: var(--bg-accent);
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 2px;
+}
+.mn-scheme-squircle[data-morphing="true"] {
+  transform: scale(1.02);
+}
+.mn-mini-win {
+  width: 100%;
+  height: 100%;
+  border-top-left-radius: 0.5rem;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  display: flex;
+  overflow: hidden;
+  background-color: var(--bg-desk);
+  transition: transform var(--dur-base) var(--curve-enter);
+}
+.mn-scheme-squircle:hover .mn-mini-win {
+  transform: translate(-2px, -2px);
+}
+.mn-mini-side {
+  width: 31%;
+  height: 100%;
+  background-color: var(--bg-chrome);
+  border-right: 1px solid var(--line);
+  padding: 0.5rem 0.4375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+.mn-mini-main {
+  flex: 1;
+  padding: 0.5625rem 0 0 0.5625rem;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-desk);
+}
+.mn-mini-paper {
+  flex: 1;
+  border-top-left-radius: 0.25rem;
+  border-top: 1px solid var(--page-edge);
+  border-left: 1px solid var(--page-edge);
+  background-color: var(--page-paper);
+  padding: 0.5rem 0.5rem 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  transition: transform var(--dur-base) var(--curve-enter);
+}
+.mn-mini-line {
+  height: 0.375rem;
+  width: 3.5rem;
+  border-radius: 999px;
+  background-color: var(--page-ink);
+  opacity: 0.75;
+}
+.mn-mini-line-muted {
+  height: 0.25rem;
+  border-radius: 999px;
+  background-color: var(--page-ink-muted);
+  opacity: 0.45;
+}
+.mn-mini-line-sel {
+  margin-top: 0.125rem;
+  height: 0.375rem;
+  width: 75%;
+  border-radius: 999px;
+  background-color: var(--page-selection);
+}
+.mn-proof-sheet {
+  border-radius: var(--shape-control);
+  border: 1px solid var(--page-edge);
+  background-color: var(--page-paper);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--face-page);
+  font-size: var(--type-meta);
+  line-height: var(--lh-meta);
+  color: var(--page-ink);
+}
+.mn-proof-sel {
+  border-radius: var(--shape-micro);
+  background-color: var(--page-selection);
+  color: var(--page-selection-fg);
+  padding-inline: 0.25rem;
+}
+.mn-proof-comment {
+  border-radius: var(--shape-micro);
+  border-bottom: 1px solid var(--page-comment-line);
+  background-color: var(--page-comment-bg);
+  padding-inline: 0.25rem;
+}
+.mn-proof-added {
+  border-radius: var(--shape-micro);
+  background-color: var(--page-added-bg);
+  color: var(--page-added-line);
+  padding-inline: 0.25rem;
+}
+.mn-proof-removed {
+  border-radius: var(--shape-micro);
+  background-color: var(--page-removed-bg);
+  color: var(--page-removed-line);
+  padding-inline: 0.25rem;
+  text-decoration: line-through;
+}
+.mn-palette-card {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  text-align: start;
+  transition:
+    border-color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter);
+}
+.mn-palette-card:hover {
+  border-color: var(--line-strong);
+}
+.mn-palette-card:hover .mn-mini-paper {
+  transform: translate(-1px, -1px);
+}
+.mn-palette-card:active {
+  transform: scale(0.99);
+}
+.mn-palette-card[aria-checked="true"] {
+  border-color: var(--bg-accent);
+  outline: 1px solid var(--bg-accent);
+}
+.mn-card-gem {
+  color: var(--fg-muted);
+  opacity: 0.36;
+  transition:
+    opacity var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-base) var(--curve-enter);
+}
+.mn-palette-card:hover .mn-card-gem,
+.mn-palette-card[aria-checked="true"] .mn-card-gem {
+  color: var(--fg-accent);
+  opacity: 0.86;
+  transform: scale(1.06);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-scheme-squircle,
+  .mn-mini-win,
+  .mn-mini-paper,
+  .mn-palette-card,
+  .mn-card-gem {
+    transition: none;
+  }
+  .mn-scheme-squircle:active,
+  .mn-scheme-squircle[data-morphing="true"],
+  .mn-scheme-squircle:hover .mn-mini-win,
+  .mn-palette-card:hover .mn-mini-paper,
+  .mn-palette-card:active,
+  .mn-palette-card:hover .mn-card-gem,
+  .mn-palette-card[aria-checked="true"] .mn-card-gem {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
    FORCED COLOURS (Windows contrast themes). The system's colours win. Box
    shadows and background colours are not drawn in this mode, so every state
    here is an outline, a border or a system highlight.
@@ -2640,9 +3737,14 @@ html[data-switching] *::after {
     background-color: CanvasText;
   }
   .mn-minimap-tick[data-active="true"],
+  .mn-minimap-tick[data-changed="true"],
   .mn-minimap-spine-fill {
     forced-color-adjust: none;
     background-color: Highlight;
+  }
+  .mn-history-banner {
+    background-color: Canvas;
+    border-inline-start: 2px solid Highlight;
   }
   .mn-swatch[data-swatch] {
     forced-color-adjust: none;
@@ -2687,15 +3789,26 @@ html[data-switching] *::after {
   [data-diff-row="removed"] {
     border-inline-start: 2px solid CanvasText;
   }
+  .mn-scheme-squircle[aria-checked="true"],
+  .mn-palette-card[aria-checked="true"] {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
 }
 
 /* --------------------------------------------------------------------------
-   PRINT. The print DOM is white paper whatever the theme, and
-   keeps its bands, tints and the writer's highlights.
+   PRINT. The print DOM is archival white paper whatever the theme or palette,
+   and keeps its bands, tints and the writer's highlights.
    -------------------------------------------------------------------------- */
 @media print {
   .mn-print {
     color-scheme: light;
+    --page-paper: var(--p-warm-0);
+    --page-ink: var(--p-ink);
+    --page-ink-muted: var(--p-warm-700);
+    --page-edge: var(--p-warm-300);
+    --page-comment-line: var(--p-amber-700);
+    --page-comment-bg: rgb(214 150 0 / 0.28);
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

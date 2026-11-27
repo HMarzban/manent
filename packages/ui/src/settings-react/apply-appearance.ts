@@ -22,9 +22,31 @@ const ATTRIBUTE_SETTINGS: readonly AttributeSetting[] = Object.freeze(
   ),
 );
 
-// the colour transitions are held off for the one frame in which the theme changes
-const THEME_ATTRIBUTE = "data-theme";
+// the colour transitions are held off for the one frame in which the theme or palette changes
+const THEME_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "data-theme",
+  "data-palette",
+]);
 const SWITCHING_ATTRIBUTE = "data-switching";
+
+const DARK_MEDIA = "(prefers-color-scheme: dark)";
+
+function syncThemeColorMeta(root: HTMLElement): void {
+  const doc = root.ownerDocument;
+  const meta = doc.querySelector('meta[name="theme-color"]');
+  if (meta === null) return;
+  const view = doc.defaultView;
+  if (view === null || typeof view.getComputedStyle !== "function") return;
+  const target = doc.body ?? root;
+  const bg = view.getComputedStyle(target).backgroundColor.trim();
+  if (
+    bg !== "" &&
+    bg !== "transparent" &&
+    !/,\s*0\s*\)$/.test(bg) &&
+    !bg.includes("light-dark(")
+  )
+    meta.setAttribute("content", bg);
+}
 
 function attributeValue(
   store: SettingsStore,
@@ -77,11 +99,13 @@ export function applyAppearance(options: {
     mark("ui.setting.apply", () => {
       const value = attributeValue(store, setting);
       if (
-        setting.name === THEME_ATTRIBUTE &&
-        root.getAttribute(THEME_ATTRIBUTE) !== value
+        THEME_ATTRIBUTES.has(setting.name) &&
+        root.getAttribute(setting.name) !== value &&
+        !root.hasAttribute(SWITCHING_ATTRIBUTE)
       )
         switchTheme();
       writeAttribute(root, setting.name, value);
+      if (THEME_ATTRIBUTES.has(setting.name)) syncThemeColorMeta(root);
     });
     onBootWrites(bootWrites(store));
   };
@@ -90,8 +114,18 @@ export function applyAppearance(options: {
     write(setting);
     return store.subscribe(setting.def.key, () => write(setting));
   });
+  const view = root.ownerDocument.defaultView;
+  const media =
+    view !== null && typeof view.matchMedia === "function"
+      ? view.matchMedia(DARK_MEDIA)
+      : null;
+  const onSchemeChange = (): void => {
+    if (store.get("appearance.theme") === "system") syncThemeColorMeta(root);
+  };
+  media?.addEventListener("change", onSchemeChange);
   return () => {
     for (const unsubscribe of unsubscribers) unsubscribe();
+    media?.removeEventListener("change", onSchemeChange);
     cancelFrame?.();
   };
 }

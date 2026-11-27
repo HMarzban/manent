@@ -49,6 +49,8 @@ const STORAGE_MODULES: readonly string[] = [
   "apps/web/src/import/reopen.ts",
 ];
 const PLATFORM_MODULE = "apps/web/src/platform.ts";
+const VIEW_TRANSITION_MODULE =
+  "apps/web/src/screens/preferences/view-transition.ts";
 const EDITOR_HOST_DIR = "apps/web/src/editor-host/";
 const WORD_PLACES = [
   "packages/ui/src/words/",
@@ -171,7 +173,9 @@ const platformDirect = (source: Source): Finding[] =>
     : matches(source, PLATFORM, (read) => `${read} outside ${PLATFORM_MODULE}`);
 
 const noViewTransition = (source: Source): Finding[] =>
-  matches(source, VIEW_TRANSITION, (name) => `${name} is called`);
+  source.file === VIEW_TRANSITION_MODULE
+    ? []
+    : matches(source, VIEW_TRANSITION, (name) => `${name} is called`);
 
 // JSX is compiled to calls of FACTORY, whose string arguments are the literal text
 

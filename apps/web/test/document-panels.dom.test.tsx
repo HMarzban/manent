@@ -284,7 +284,7 @@ test("the left tab and its empty state follow the format", async () => {
   ]);
 });
 
-test("History is present only while a section has something, and shows its sections in order", async () => {
+test("History opens from the title bar in its own dedicated panel, never inside the side tab strip", async () => {
   const toReview = createValue(false);
   const versions = createValue(false);
   const fake = (
@@ -304,25 +304,34 @@ test("History is present only while a section has something, and shows its secti
   }));
   const frame = await renderFrame();
   await run(frame, "view.sidePanel");
+  const titleBar = region(frame.container, "title_bar");
   const before = tabs(sidePanel(frame));
+  const buttonBefore = titleBar.querySelector("[data-tour='tab:history']");
   act(() => versions.set(true));
   const present = tabs(sidePanel(frame));
+  const buttonAfter = titleBar.querySelector("[data-tour='tab:history']");
   await run(frame, "history.open");
   const panel = sidePanel(frame);
   expect([
     before,
+    buttonBefore !== null,
     present,
-    nameOf(panel.querySelector("[role='tab'][aria-selected='true']") ?? panel),
+    buttonAfter?.getAttribute("aria-label") ?? null,
+    tabs(panel),
+    panel.querySelector("header h2")?.textContent ?? null,
     [
       ...(panel
-        .querySelector("[role='tabpanel']")
+        .querySelector("[data-panel-body]")
         ?.querySelectorAll("button") ?? []),
     ].map(nameOf),
     nameOf(document.activeElement ?? document.body),
   ]).toEqual([
     ["Comments", "Details"],
-    ["Comments", "History", "Details"],
+    false,
+    ["Comments", "Details"],
     "History",
+    [],
+    "Version history",
     ["Versions fake"],
     "Versions fake",
   ]);

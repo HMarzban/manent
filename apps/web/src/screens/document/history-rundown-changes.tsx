@@ -5,13 +5,15 @@ import {
   Button,
   HISTORY_WORDS,
   RUNDOWN_HISTORY_WORDS,
-  RadioGroup,
-  RadioGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   formatPosition,
   useSubscribable,
   versionRef,
 } from "@manent/ui";
-import { useEffect, useId, useLayoutEffect, useMemo, useState } from "react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { HistoryRow } from "../../history/history-rows.ts";
@@ -23,6 +25,7 @@ import { useEnvironment, useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode } from "../../state/history.store.ts";
+import { HistoryModeStrip, HistoryScopeToggle } from "./history-mode-bar.tsx";
 import { BaselineMenu, useOfferedBaseline } from "./history-rundown-dialog.tsx";
 import { RundownHistoryOverlay } from "./history-rundown-diff.tsx";
 import { buildRundownNavChanges } from "./history-rundown-nav.tsx";
@@ -58,15 +61,14 @@ export function HistoryRundownChanges(props: {
   readonly docId: string;
   readonly rows: readonly HistoryRow[];
   readonly content: VersionContent | null;
+  readonly standalonePage?: boolean;
 }): ReactNode {
-  const { docId, rows, content } = props;
+  const { docId, rows, content, standalonePage = false } = props;
   const { commands, library } = useServices();
   const { dom } = useEnvironment();
-  const radioId = useId();
   const offered = useOfferedBaseline(docId, rows);
   const rawMode = useHistory("mode");
   const baseline = useHistory("baseline");
-  const draftsOnly = useHistory("draftsOnly");
   const view = useRundownView(docId);
   const projectKindSource = useMemo(
     () => library.documentKind(docId),
@@ -136,7 +138,7 @@ export function HistoryRundownChanges(props: {
   const portalTarget = pageEl?.parentElement ?? pageEl;
 
   const overlay =
-    baseline === null || baselineRundown === null ? null : (
+    standalonePage || baseline === null || baselineRundown === null ? null : (
       <RundownHistoryOverlay
         docId={docId}
         baselineTitle={baseline.title}
@@ -154,89 +156,85 @@ export function HistoryRundownChanges(props: {
       />
     );
 
+  const modeOptions = RUNDOWN_MODES.map((choice, index) => ({
+    value: choice,
+    label: RUNDOWN_HISTORY_WORDS.modes[index]!,
+    disabled: choice === "side" && !canSplit,
+    note:
+      choice === "side" && !canSplit
+        ? RUNDOWN_HISTORY_WORDS.sideBySideTooNarrow
+        : null,
+  }));
+
   return (
     <>
-      <div className="flex flex-col gap-2 px-2 py-2">
-        <BaselineMenu docId={docId} rows={rows} offered={offered} />
-        <div className="flex flex-col gap-2 text-ui">
-          <span id={`${radioId}-label`}>{HISTORY_WORDS.show}</span>
-          <RadioGroup
-            aria-labelledby={`${radioId}-label`}
-            value={effectiveMode}
-            onValueChange={(chosen) => {
-              if (!isRundownMode(chosen)) return;
-              if (chosen === "side" && !canSplit) return;
-              historyActions.setMode(chosen as ChangesMode);
-              if (baseline === null) historyActions.setBaseline(offered);
-            }}
-          >
-            {RUNDOWN_MODES.map((choice, index) => {
-              const disabled = choice === "side" && !canSplit;
-              return (
-                <div key={choice} className="flex flex-col gap-0.5">
-                  <label
-                    className={
-                      disabled
-                        ? "flex cursor-not-allowed items-center gap-2 text-fg-muted"
-                        : "flex cursor-pointer items-center gap-2"
-                    }
-                  >
-                    <RadioGroupItem
-                      value={choice}
-                      disabled={disabled}
-                      aria-labelledby={`${radioId}-${choice}`}
-                    />
-                    <span id={`${radioId}-${choice}`}>
-                      {RUNDOWN_HISTORY_WORDS.modes[index]}
-                    </span>
-                  </label>
-                  {disabled ? (
-                    <span className="ps-6 text-meta text-fg-muted">
-                      {RUNDOWN_HISTORY_WORDS.sideBySideTooNarrow}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
-          </RadioGroup>
-        </div>
+      <div className="flex shrink-0 flex-col gap-2.5 border-b border-line bg-chrome px-3 py-2.5">
+        <HistoryScopeToggle />
+        <BaselineMenu
+          docId={docId}
+          rows={rows}
+          offered={offered}
+          hideCopyLink={standalonePage}
+        />
+        <HistoryModeStrip
+          value={effectiveMode}
+          options={modeOptions}
+          onChange={(chosen) => {
+            if (!isRundownMode(chosen)) return;
+            if (chosen === "side" && !canSplit) return;
+            historyActions.setMode(chosen as ChangesMode);
+            if (baseline === null) historyActions.setBaseline(offered);
+          }}
+        />
         {comparison === null ? null : navChanges.length === 0 &&
           offered !== null ? (
-          <p className="text-ui text-fg-muted">
+          <p className="text-meta text-fg-muted">
             {HISTORY_WORDS.noChangesSince(offered.title)}
           </p>
         ) : (
-          <div className="flex items-center gap-1 text-ui">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => stepBy(-1)}
+          <div className="inline-flex h-control-sm self-start items-center rounded-control border border-line bg-raised p-0.5 text-meta">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-5 cursor-pointer text-fg-muted hover:text-fg"
+                    onClick={() => stepBy(-1)}
+                  />
+                }
+              >
+                <ChevronLeftIcon aria-hidden="true" className="size-3.5" />
+                <span className="sr-only">{HISTORY_WORDS.previousChange}</span>
+              </TooltipTrigger>
+              <TooltipContent>{HISTORY_WORDS.previousChange}</TooltipContent>
+            </Tooltip>
+            <span
+              aria-label={HISTORY_WORDS.stepName(step, navChanges.length)}
+              className="px-1.5 tnum text-fg-muted"
             >
-              {HISTORY_WORDS.previousChange}
-            </Button>
-            <span aria-label={HISTORY_WORDS.stepName(step, navChanges.length)}>
               {formatPosition(step, navChanges.length)}
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => stepBy(1)}
-            >
-              {HISTORY_WORDS.nextChange}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-5 cursor-pointer text-fg-muted hover:text-fg"
+                    onClick={() => stepBy(1)}
+                  />
+                }
+              >
+                <ChevronRightIcon aria-hidden="true" className="size-3.5" />
+                <span className="sr-only">{HISTORY_WORDS.nextChange}</span>
+              </TooltipTrigger>
+              <TooltipContent>{HISTORY_WORDS.nextChange}</TooltipContent>
+            </Tooltip>
           </div>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          aria-pressed={draftsOnly}
-          onClick={() => historyActions.setDraftsOnly(!draftsOnly)}
-          className="self-start"
-        >
-          {HISTORY_WORDS.draftsOnly}
-        </Button>
       </div>
       {overlay === null
         ? null

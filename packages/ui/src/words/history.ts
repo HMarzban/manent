@@ -100,6 +100,25 @@ export const HISTORY_WORDS = {
   /** The accessible name of the stepper's position, which `formatPosition` writes. */
   stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
+  allVersions: "All",
+  currentVersion: "Now",
+  versionFilter: "Filter versions",
+  backToScript: "‹ Back to script",
+  backToRundown: "‹ Back to rundown",
+  readOnlyReview: "Read-only",
+  workingPreview: "Working — read-only",
+  minimapLabel: "History outline",
+  minimapHeading: "Outline",
+  allItems: "All",
+  changedOnly: "Changed",
+  changedScenesCount: (changed: number, total: number): string =>
+    `${formatCount(changed)} of ${formatCount(total)} changed`,
+  sceneChangesLabel: (changes: number): string =>
+    plural(changes, "change", "changes"),
+  noChangedScenes: "No changed scenes.",
+  noChangedRows: "No changed rows.",
+  viewingVersion: (ref: string): string => `Viewing ${ref}`,
+  showingChangesSince: (ref: string): string => `Showing changes since ${ref}`,
   /** `ref` is `versionRef`'s. */
   restoreTitle: (ref: string): string => `Restore ${ref}?`,
   restoreBody: "The script as it is now is kept as 'Before restore'.",
