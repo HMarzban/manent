@@ -164,11 +164,25 @@ test("appearance is attributes on the root and nothing else", () => {
   expect(root.getAttribute("style")).toBeNull();
   expect(writes.at(-1)).toEqual([
     ["a", "data-theme", "dark"],
+    ["a", "data-palette", null],
     ["a", "data-white-page", ""],
+    ["a", "data-gems", null],
     ["a", "data-ui-size", "200"],
   ]);
+  store.set("appearance.palette", "hyperdrive");
+  store.set("appearance.gems", false);
+  expect([
+    root.getAttribute("data-palette"),
+    root.getAttribute("data-gems"),
+  ]).toEqual(["hyperdrive", "off"]);
   store.set("appearance.theme", "system");
-  expect(root.hasAttribute("data-theme")).toBe(false);
+  store.set("appearance.palette", "studio");
+  store.set("appearance.gems", true);
+  expect([
+    root.hasAttribute("data-theme"),
+    root.hasAttribute("data-palette"),
+    root.hasAttribute("data-gems"),
+  ]).toEqual([false, false, false]);
 });
 
 test("a theme change holds transitions off until the next frame, and stopping it leaves the root alone", () => {

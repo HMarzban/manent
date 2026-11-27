@@ -1,10 +1,13 @@
 // About: the version, the layout engine, no usage data and the AI pledge.
 import { ENGINE_VERSION } from "@manent/pagination";
 import {
+  APPEARANCE_STUDIO_WORDS,
   BusyButton,
   Button,
   DESKTOP_WORDS,
+  HiddenGemIcon,
   PREFERENCES_WORDS,
+  STUDIO_PALETTES,
 } from "@manent/ui";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
@@ -44,7 +47,9 @@ function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
 /** On the web the version is the build's; in the desktop app it is the app's, with its channel and update check. */
 export function About(props: { desktop: DesktopDevice | null }): ReactNode {
   const [pledgeOpen, setPledgeOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const pledgeId = useId();
+  const creditsId = useId();
   const version =
     typeof MANENT_VERSION === "undefined" ? UNVERSIONED : MANENT_VERSION;
   const versionLine =
@@ -62,6 +67,9 @@ export function About(props: { desktop: DesktopDevice | null }): ReactNode {
         {PREFERENCES_WORDS.layoutEngine(ENGINE_VERSION)}
       </p>
       <p className="text-ui">{PREFERENCES_WORDS.noUsageData}</p>
+      <p className="text-meta text-fg-muted">
+        {APPEARANCE_STUDIO_WORDS.paginationGuarantee}
+      </p>
       <div className="flex flex-col gap-1">
         <p className="text-ui">{PREFERENCES_WORDS.aiPledge}</p>
         <div>
@@ -78,6 +86,48 @@ export function About(props: { desktop: DesktopDevice | null }): ReactNode {
         <div id={pledgeId}>
           {pledgeOpen ? (
             <p className="text-ui">{PREFERENCES_WORDS.aiPledgeFull}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-ui">{APPEARANCE_STUDIO_WORDS.iconCreditsLead}</p>
+        <div>
+          <Button
+            variant="link"
+            className="h-auto p-0"
+            aria-expanded={creditsOpen}
+            aria-controls={creditsId}
+            onClick={() => setCreditsOpen((open) => !open)}
+          >
+            {APPEARANCE_STUDIO_WORDS.iconCreditsToggle}
+          </Button>
+        </div>
+        <div id={creditsId}>
+          {creditsOpen ? (
+            <ul className="mt-1 divide-y divide-line rounded-surface border border-line bg-raised">
+              {STUDIO_PALETTES.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between gap-2 px-3 py-1.5 text-meta"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <HiddenGemIcon
+                      palette={entry.id}
+                      className="size-icon shrink-0 text-fg-accent"
+                    />
+                    <span className="truncate font-medium text-fg">
+                      {entry.name}
+                    </span>
+                    <span className="truncate text-fg-muted">
+                      {entry.iconName}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-fg-muted">
+                    {entry.iconAuthor}
+                  </span>
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
       </div>

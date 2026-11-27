@@ -35,8 +35,21 @@ export function showChanges(
   );
 }
 
-/** The comparison the live page shows, kept current as the script changes; null while none is shown. */
+const historyComparisons = new Map<string, Comparison>();
+
+/** Registers the active read-only comparison on `/s/$docId/history` so change stepping commands see it. */
+export function setHistoryComparison(
+  docId: string,
+  comparison: Comparison | null,
+): void {
+  if (comparison === null) historyComparisons.delete(docId);
+  else historyComparisons.set(docId, comparison);
+}
+
+/** The comparison the live page or dedicated History page shows; null while none is shown. */
 export function shownComparison(docId: string): Comparison | null {
+  const fromHistory = historyComparisons.get(docId);
+  if (fromHistory !== undefined) return fromHistory;
   const view = liveEditor(docId)?.view;
   return view === undefined
     ? null
@@ -83,10 +96,24 @@ export function caretSceneId(docId: string): string | null {
   return heading;
 }
 
-/** Scrolls the live page so that the block `blockId` sits one third of the way down. */
+/** Scrolls the active History read-only canvas or live page so that `blockId` sits one third of the way down. */
 export function scrollToChange(docId: string, blockId: string): void {
+  const selector = `[data-id=${JSON.stringify(blockId)}]`;
+  const historyScroller = document.querySelector<HTMLElement>(
+    `[data-history-canvas=${JSON.stringify(docId)}]`,
+  );
+  if (historyScroller !== null) {
+    const target = historyScroller.querySelector<HTMLElement>(selector);
+    if (target !== null) {
+      historyScroller.scrollTop +=
+        target.getBoundingClientRect().top -
+        historyScroller.getBoundingClientRect().top -
+        historyScroller.clientHeight / 3;
+      return;
+    }
+  }
   const view = liveEditor(docId)?.view;
-  const block = view?.dom.querySelector(`[data-id=${JSON.stringify(blockId)}]`);
+  const block = view?.dom.querySelector(selector);
   const scroller = block?.closest("[data-region='page']");
   if (block == null || scroller == null) return;
   scroller.scrollTop +=

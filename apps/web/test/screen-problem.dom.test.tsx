@@ -103,6 +103,7 @@ test("every screen whose code loads on first visit has the same problem in its o
       "/choose",
       "/s/$docId",
       "/s/$docId/send/$form",
+      "/s/$docId/history",
       "/preferences/$pane",
       "/s/$docId/present",
       "/s/$docId/prompter",

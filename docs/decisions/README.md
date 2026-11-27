@@ -123,3 +123,5 @@ The evidence or event that would reopen this.
 - [0075. Reusable Show and News templates live in the workspace and project indexes](0075-reusable-show-templates.md)
 - [0076. Rundown viewers receive server-projected views and rundowns carry full version history](0076-rundown-viewer-and-full-history.md)
 - [0077. Parallel gate and CI job fan-out](0077-parallel-gate-and-ci-fan-out.md)
+- [0078. Brand identity, 24 studio themes and eye-health standard](0078-brand-identity-and-studio-themes.md)
+- [0079. Dedicated read-only Version history page with floating Change-Aware Minimap TOC](0079-dedicated-read-only-version-history-page.md)

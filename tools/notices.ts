@@ -31,6 +31,10 @@ export const EXTRA_NOTICES: readonly { title: string; path: string }[] = [
     title: "Unicode Character Database 15.0.0",
     path: "tools/notices/unicode-license-v3.txt",
   },
+  {
+    title: "Game-icons.net Hidden Gem Icons (CC BY 3.0)",
+    path: "tools/notices/game-icons-cc-by-3.0.txt",
+  },
 ];
 
 /** The toolkit's own notices, which the desktop build adds when they are present. */

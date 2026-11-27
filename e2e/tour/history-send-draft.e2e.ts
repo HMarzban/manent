@@ -44,7 +44,7 @@ tourScenario("history-send-draft", async ({ page, scenario, step }) => {
   await sendButton.click();
   await expect(page).toHaveURL((at) => !at.pathname.includes("/send"));
   await expectEvidence([page], { ...scenario, evidence: [sentMsg!] });
-  await page.getByRole("tab", { name: DOCUMENT_WORDS.historyTab }).click();
+  await page.getByRole("button", { name: DOCUMENT_WORDS.historyTab }).click();
   const historyList = await step(3);
   await expect(historyList).toContainText(historyRow!);
   await expectEvidence([page], { ...scenario, evidence: [historyRow!] });

@@ -13,7 +13,15 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import {
+  Building2Icon,
+  CheckIcon,
+  ChevronDownIcon,
+  LaptopIcon,
+  LogInIcon,
+  SettingsIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 
@@ -36,20 +44,26 @@ function WorkspaceItem(props: {
   name: string;
   line: string;
   current: boolean;
+  icon: LucideIcon;
   onChoose(): void;
 }): ReactNode {
-  const { name, line, current, onChoose } = props;
+  const { name, line, current, icon: Icon, onChoose } = props;
   return (
     <DropdownMenuItem
       aria-current={current ? "true" : undefined}
+      className="items-start"
       onClick={onChoose}
     >
+      <Icon aria-hidden="true" className="mt-0.5 size-icon shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium">{name}</span>
         <span className="truncate text-meta text-fg-muted">{line}</span>
       </span>
       {current ? (
-        <CheckIcon aria-hidden="true" className="text-fg-accent" />
+        <CheckIcon
+          aria-hidden="true"
+          className="mt-0.5 size-icon shrink-0 text-fg-accent"
+        />
       ) : null}
     </DropdownMenuItem>
   );
@@ -66,6 +80,7 @@ function SeededWorkspace(props: {
       name={workspace.name}
       line={useWorkspaceLine(workspace)}
       current={current}
+      icon={Building2Icon}
       onChoose={onChoose}
     />
   );
@@ -107,13 +122,15 @@ export function WorkspaceSwitcher(props: {
               name={LIBRARY_WORDS.yourDesk}
               line={LIBRARY_WORDS.neverSynced(where.shell === "desktop")}
               current
+              icon={LaptopIcon}
               onChoose={choose(current)}
             />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => commands.run("app.signInToSync", "menu")}
             >
-              {LIBRARY_WORDS.signIn}
+              <LogInIcon aria-hidden="true" className="size-icon shrink-0" />
+              <span>{LIBRARY_WORDS.signIn}</span>
             </DropdownMenuItem>
           </>
         ) : (
@@ -135,7 +152,8 @@ export function WorkspaceSwitcher(props: {
                 })
               }
             >
-              {WORKSPACE_WORDS.title}
+              <SettingsIcon aria-hidden="true" className="size-icon shrink-0" />
+              <span>{WORKSPACE_WORDS.title}</span>
             </DropdownMenuItem>
           </>
         )}

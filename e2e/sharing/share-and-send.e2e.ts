@@ -10,7 +10,7 @@ import {
 } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import { EDITABLE } from "../editor/support.ts";
-import { labelOf, pressKeyOf } from "../support/interface.ts";
+import { labelOf } from "../support/interface.ts";
 import { reseedDemo, signedInAs } from "../support/tour.ts";
 
 const TIMEOUT_MS = 180_000;
@@ -128,12 +128,13 @@ test("Dana shares 205 with the Room group and sends 204 to Network with asterisk
     .poll(() => page.evaluate(() => location.pathname))
     .not.toContain("/send");
 
-  // Open History and verify the sent draft row
-  const historyTab = page.getByRole("tab", { name: DOCUMENT_WORDS.historyTab });
-  if (!(await historyTab.isVisible())) await pressKeyOf(page, "history.open");
-  await expect(historyTab).toBeVisible();
-  if ((await historyTab.getAttribute("aria-selected")) !== "true")
-    await historyTab.click();
+  // Open History from the title bar and verify the sent draft row
+  const historyButton = page.getByRole("button", {
+    name: DOCUMENT_WORDS.historyTab,
+  });
+  await expect(historyButton).toBeVisible();
+  if ((await historyButton.getAttribute("aria-pressed")) !== "true")
+    await historyButton.click();
   const historyList = page.locator("[data-tour='history_list']");
   await expect(historyList).toContainText(
     "Sent to Network (4) · opened by 0 of 4",

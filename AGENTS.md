@@ -29,16 +29,17 @@ The gate does not check these yet; review does:
 - One concept has one name. Identifiers use American spelling (`normalizeDoc`); prose is British.
 - A pattern holding a quote, a backtick or `/*` is built with `new RegExp("…")`; the boundary scanner cannot read such a literal.
 - Text shown to a person (interface, terminal, README) never uses the words "generation", "rebuild", "conflict", "error" or "failed".
+- Brand and 24 studio themes follow [ADR 0078](docs/decisions/0078-brand-identity-and-studio-themes.md) and [the design system](docs/development/design-system.md): colours stay in `theme.css`, pagination and print paper stay invariant.
 - A commit is `<type>(<scope>): <summary>`: type `feat`, `fix` or `chore`, the workspace as scope, present tense.
 
 ## Records
 
 Keep these with every change:
 
-- [CHANGELOG.md](CHANGELOG.md): every merged change adds one entry under Unreleased, newest first, for a reader who did not see the work.
-- [Decision records](docs/decisions/README.md): a decision that constrains later work gets a record before the code that depends on it merges.
-- [Lessons](docs/memory/lessons.md): a review finding or incident that reveals a class of mistake adds a lesson with the rule that now prevents it. Read the lessons that touch your change first.
-- A change to what works updates the README's status table and [the architecture overview](docs/architecture/overview.md) in the same commit.
+- [CHANGELOG.md](CHANGELOG.md): every merged change adds one entry under Unreleased, newest first.
+- [Decision records](docs/decisions/README.md): any decision that constrains later work gets a record before its code merges.
+- [Lessons](docs/memory/lessons.md): a finding revealing a class of mistake adds a lesson with its rule; read relevant lessons first.
+- A change to what works updates the README's status table and [the architecture overview](docs/architecture/overview.md) together.
 
 For all of them:
 

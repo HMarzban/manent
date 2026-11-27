@@ -18,7 +18,7 @@ import type { DocumentEntry } from "../../services/sync/index-entries.ts";
 import { DOCUMENT_ROW_ITEMS } from "./document-row-items.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
-import { RowMenu } from "./row-place.tsx";
+import { RowContextMenu, RowMenu } from "./row-place.tsx";
 import type { LibraryViewProps } from "./views.ts";
 
 const EMPTY_FAVS: Subscribable<readonly FavouriteEntry[]> = createValue([]);
@@ -145,25 +145,35 @@ export function FavouritesView(props: LibraryViewProps): ReactNode {
             {LIBRARY_FILES_WORDS.favouritesScripts}
           </h3>
           <div className="mn-table">
-            {favDocs.map((doc) => (
-              <Row
-                key={doc.docId}
-                leading={<KindIcon kind={doc.kind} />}
-                meta={doc.meta}
-                onActivate={() => open(doc.docId)}
-                menu={
-                  DOCUMENT_ROW_ITEMS.length === 0 ? undefined : (
-                    <RowMenu title={doc.title}>
-                      {DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
-                        <Item key={id} docId={doc.docId} />
-                      ))}
-                    </RowMenu>
-                  )
-                }
-              >
-                <span className="font-semibold">{doc.title}</span>
-              </Row>
-            ))}
+            {favDocs.map((doc) => {
+              const entries =
+                DOCUMENT_ROW_ITEMS.length === 0
+                  ? null
+                  : DOCUMENT_ROW_ITEMS.map(({ id, Item }) => (
+                      <Item key={id} docId={doc.docId} />
+                    ));
+              const row = (
+                <Row
+                  leading={<KindIcon kind={doc.kind} />}
+                  meta={doc.meta}
+                  onActivate={() => open(doc.docId)}
+                  menu={
+                    entries === null ? undefined : (
+                      <RowMenu title={doc.title}>{entries}</RowMenu>
+                    )
+                  }
+                >
+                  <span className="font-semibold">{doc.title}</span>
+                </Row>
+              );
+              return entries === null ? (
+                <div key={doc.docId}>{row}</div>
+              ) : (
+                <RowContextMenu key={doc.docId} entries={entries}>
+                  {row}
+                </RowContextMenu>
+              );
+            })}
           </div>
         </div>
       ) : null}

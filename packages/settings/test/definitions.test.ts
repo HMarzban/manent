@@ -71,7 +71,7 @@ const STAGE_1_SETTING_KEYS: readonly string[] = [
 const stage1 = <T extends { key: string }>(list: readonly T[]): T[] =>
   list.filter((d) => STAGE_1_SETTING_KEYS.includes(d.key));
 
-test("the list of preferences is closed at nine", () => {
+test("the list of preferences is closed at fourteen", () => {
   expect(PREFERENCE_LIST).toEqual([
     "writing.enterAfterDialogue",
     "writing.typewriterScrolling",
@@ -79,7 +79,12 @@ test("the list of preferences is closed at nine", () => {
     "writing.showCursors",
     "writing.announce",
     "appearance.theme",
+    "appearance.palette",
     "appearance.whitePage",
+    "appearance.gems",
+    "appearance.autoByFormat",
+    "appearance.formatPalettes",
+    "appearance.projectPalettes",
     "keyboard.shortcuts",
     "device.interfaceSize",
   ]);
@@ -451,13 +456,20 @@ test("each setting's help, values, places and effect are fixed", () => {
   expect(RETIRED_KEYS).toEqual([]);
 });
 
-test("only appearance writes attributes, and they are the four the root element takes", () => {
+test("only appearance writes attributes, and they are the six the root element takes", () => {
   expect(
     SETTINGS.all
       .filter((d) => d.apply.how === "attribute")
       .map((d) => (d.apply as { name: string }).name)
       .toSorted(),
-  ).toEqual(["data-cursors", "data-theme", "data-ui-size", "data-white-page"]);
+  ).toEqual([
+    "data-cursors",
+    "data-gems",
+    "data-palette",
+    "data-theme",
+    "data-ui-size",
+    "data-white-page",
+  ]);
 });
 
 test("no preference reaches the layout, and every layout script setting is guarded", () => {

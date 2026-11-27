@@ -1,5 +1,6 @@
 import {
   Avatar,
+  ManentMark,
   Skeleton,
   SurfaceState,
   TimingProvider,
@@ -238,7 +239,10 @@ export function ChooseScreen(props: {
 
   return (
     <div className="mx-auto flex w-full max-w-content-wide flex-col px-6 py-12">
-      {person && <Back next={next} />}
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <ManentMark className="size-8 text-fg" decorative />
+        {person && <Back next={next} />}
+      </div>
       <h1 tabIndex={-1} className="text-display outline-none">
         {TEXT.chooseTitle}
       </h1>

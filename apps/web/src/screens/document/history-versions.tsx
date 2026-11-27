@@ -25,6 +25,7 @@ import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { authoredBlocks, useAuthors } from "./change-authors.ts";
 import { HistoryChanges, useWorkingComparison } from "./history-changes.tsx";
+import { HistorySelectionFooter } from "./history-mode-bar.tsx";
 import {
   VersionRows,
   WorkingRow,
@@ -166,15 +167,28 @@ function useShowRow(comparison: Comparison | null): (row: HistoryRow) => void {
   };
 }
 
-export function HistoryVersions(props: { docId: string }): ReactNode {
-  const { docId } = props;
-  const { history } = useServices();
+export function HistoryVersions(props: {
+  docId: string;
+  standalonePage?: boolean;
+}): ReactNode {
+  const { docId, standalonePage = false } = props;
+  const { history, library } = useServices();
   const listed = useSubscribable(
     useMemo(() => history.rows(docId), [history, docId]),
   );
+  const docKindSource = useMemo(
+    () => library.docKindOf(docId),
+    [library, docId],
+  );
+  const isRundown = useSubscribable(docKindSource) === "rundown";
   const editable = useCanEdit(docId);
+  const selectedId = useHistory("selected");
   const baseline = useHistory("baseline");
   const mode = useHistory("mode");
+  const selectedRow =
+    selectedId === null
+      ? null
+      : (listed.rows.find((row) => row.item.id === selectedId) ?? null);
   const content = useBaselineContent(docId);
   const comparison = useWorkingComparison(docId, content);
   const authors = useAuthors(docId, comparison);
@@ -212,7 +226,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
       />
     );
   const pane =
-    baseline === null
+    standalonePage || baseline === null
       ? null
       : mode === "as_it_was"
         ? "page"
@@ -223,7 +237,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
     <section
       aria-label={DOCUMENT_WORDS.historyTab}
       data-tour="history_list"
-      className="flex h-full min-h-0 flex-1 flex-col px-1"
+      className="flex h-full min-h-0 flex-1 flex-col"
     >
       <HistoryChanges
         docId={docId}
@@ -232,6 +246,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
         all={comparison}
         authors={authors}
         blockIds={blockIds}
+        standalonePage={standalonePage}
       />
       {draftsOnly ? null : working}
       <SurfaceState
@@ -245,7 +260,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           loading: () => <Placeholders />,
           problem: () => (
             <>
-              <p className="px-2 py-2 text-ui text-fg-muted">
+              <p className="px-3 py-2 text-ui text-fg-muted">
                 {HISTORY_WORDS.problem}
               </p>
               {rows()}
@@ -255,6 +270,14 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
         }}
       />
       {draftsOnly ? working : null}
+      {standalonePage ? null : (
+        <HistorySelectionFooter
+          docId={docId}
+          row={selectedRow}
+          isRundown={isRundown}
+          canEdit={editable}
+        />
+      )}
       <RestoreDialog />
       {pane === null ? null : (
         <VersionPane

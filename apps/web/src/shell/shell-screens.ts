@@ -20,6 +20,12 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
   { routeId: "/", screen: "library", page: "covered", covered: true },
   { routeId: "/s/$docId", screen: "document", page: "shown", covered: false },
   {
+    routeId: "/s/$docId/history",
+    screen: "document",
+    page: "covered",
+    covered: true,
+  },
+  {
     routeId: "/s/$docId/send/$form",
     screen: "send",
     page: "covered",

@@ -287,7 +287,14 @@ test("every preference has one control named by its label, and its scope line", 
     appearance: {
       heading: "Appearance",
       scope: YOURS,
-      controls: ["Theme", "White page in dark theme"],
+      controls: [
+        "Theme",
+        "Follow system",
+        "White page in dark theme",
+        "Theme hidden gems",
+        "App theme",
+        "Match each project's format",
+      ],
     },
     keyboard: {
       heading: "Keyboard",

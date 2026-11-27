@@ -33,7 +33,17 @@ export function documentHandlers(
   return {
     "view.leftPanel": toggle("left", "scenes", DOCUMENT_WORDS.leftPanel),
     "view.sidePanel": toggle("side", "details", DOCUMENT_WORDS.sidePanel),
-    "history.open": openSide("history"),
+    "history.open"() {
+      const { docId } = shellState();
+      const here = deps.router.here().routeId;
+      if (docId !== null && here !== "/__stand-in") {
+        if (here !== "/s/$docId/history")
+          deps.router.navigate(`/s/${docId}/history`);
+        frame(() => dom.focusSidePanel());
+        return;
+      }
+      openSide("history")();
+    },
     "doc.scriptSettings"() {
       requestScriptSettingsOpen();
       openSide("details", `[${SCRIPT_SETTINGS_PART}]`)();

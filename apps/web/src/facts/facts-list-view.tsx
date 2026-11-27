@@ -5,6 +5,7 @@ import type { AnchorResolution } from "@manent/revisions";
 import type { DocHandle } from "@manent/sync-client";
 import { DropdownMenuItem, FACTS_WORDS, Row, Skeleton } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { Trash2Icon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -155,7 +156,8 @@ function FactRow(props: {
   const place = FACTS_WORDS.place(episodeNumber, fact.sceneLabel);
   const menu = editable ? (
     <RowMenu title={fact.anchor.quote}>
-      <DropdownMenuItem onClick={() => onRemove(fact.id)}>
+      <DropdownMenuItem variant="destructive" onClick={() => onRemove(fact.id)}>
+        <Trash2Icon aria-hidden="true" className="size-icon shrink-0" />
         {FACTS_WORDS.remove}
       </DropdownMenuItem>
     </RowMenu>

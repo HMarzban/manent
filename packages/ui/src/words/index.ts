@@ -1,3 +1,4 @@
+export * from "./appearance.ts";
 export * from "./demo.ts";
 export * from "./desktop.ts";
 export * from "./dialog.ts";
