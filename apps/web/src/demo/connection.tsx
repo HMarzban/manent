@@ -53,7 +53,11 @@ export function ConnectionChoice(props: {
   return (
     <div
       data-tour={tour ? "demo:connection" : undefined}
-      className={fullWidth ? "flex w-full" : "flex shrink-0 items-center"}
+      className={
+        fullWidth
+          ? "mn-demo-segmented-full flex w-full"
+          : "flex shrink-0 items-center"
+      }
     >
       <Segmented
         label={DEMO_WORDS.connection}

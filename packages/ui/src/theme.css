@@ -3071,6 +3071,12 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   flex-direction: column;
   gap: 0.625rem;
 }
+.mn-demo-segmented-full [data-slot="toggle-group"] {
+  width: 100%;
+}
+.mn-demo-segmented-full [data-slot="toggle-group-item"] {
+  flex: 1 1 0%;
+}
 .mn-demo-scope-card {
   display: flex;
   flex-direction: column;
@@ -3131,6 +3137,19 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
 }
 .mn-demo-ring-fill {
   stroke: var(--fg-accent);
+}
+@container mn-bar (width < 84rem) {
+  .mn-bar .mn-demo-quick-secondary .mn-demo-quick-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mn-bar .mn-demo-quick-secondary {
+    padding-inline: 0.4375rem;
+  }
 }
 @container mn-bar (width < 60rem) {
   .mn-bar .mn-demo-quick-label {

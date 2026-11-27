@@ -333,7 +333,6 @@ function ShellControls(props: {
           unreachable={unreachable}
           connection={connection}
           control={control}
-          keystrokeP50={keystrokeP50}
           serverStopped={serverStopped}
           companionName={ctx.companion.name}
           blockedWindowUrl={blockedWindowUrl}

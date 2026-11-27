@@ -274,17 +274,19 @@ function ScriptWriters(props: {
         </div>
       </div>
 
-      <Segmented
-        label={DEMO_WORDS.writersWhereLabel}
-        size="sm"
-        value={placement}
-        options={PLACEMENT_OPTIONS}
-        onChange={(value) => {
-          if (!isPlacement(value)) return;
-          setPreferredPlacement(value);
-          if (active) ask(stepCount, value);
-        }}
-      />
+      <div className="mn-demo-segmented-full flex w-full">
+        <Segmented
+          label={DEMO_WORDS.writersWhereLabel}
+          size="sm"
+          value={placement}
+          options={PLACEMENT_OPTIONS}
+          onChange={(value) => {
+            if (!isPlacement(value)) return;
+            setPreferredPlacement(value);
+            if (active) ask(stepCount, value);
+          }}
+        />
+      </div>
 
       {running !== null && running.names.length > 0 ? (
         <p className="line-clamp-2 text-micro text-fg-muted">

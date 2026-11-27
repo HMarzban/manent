@@ -36,8 +36,6 @@ import { WritersControl } from "./writers-control.tsx";
 
 export type StageSheetTab = "controls" | "tours";
 
-const FRAME_BUDGET_MS = 16.6;
-
 const TRACK_ICON: Readonly<
   Record<TourTrackId, ComponentType<{ className?: string }>>
 > = Object.freeze({
@@ -61,7 +59,6 @@ export function StageSheet(props: {
   readonly unreachable: string | null;
   readonly connection: ConnectionControl | null;
   readonly control: DemoControl | null;
-  readonly keystrokeP50: number | null;
   readonly serverStopped: boolean;
   readonly companionName: string;
   readonly blockedWindowUrl: string | null;
@@ -86,7 +83,6 @@ export function StageSheet(props: {
     unreachable,
     connection,
     control,
-    keystrokeP50,
     serverStopped,
     companionName,
     blockedWindowUrl,
@@ -110,8 +106,6 @@ export function StageSheet(props: {
     progress.highlightsDone < progress.highlightsTotal
       ? `${progress.highlightsDone}/${progress.highlightsTotal}`
       : `${progress.doneCount}/${progress.totalCount}`;
-  const speedRatio =
-    keystrokeP50 === null ? 0 : Math.min(1, keystrokeP50 / FRAME_BUDGET_MS);
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -214,24 +208,6 @@ export function StageSheet(props: {
                     <span>{DEMO_WORDS.openInNewTab}</span>
                   </a>
                 ) : null}
-                <div className="flex flex-col gap-1 border-t border-line pt-2">
-                  <div className="flex items-baseline justify-between text-meta tabular-nums">
-                    <span className="text-fg-muted">
-                      {DEMO_WORDS.timingRows[0]}
-                    </span>
-                    <span className="font-medium text-fg">
-                      {keystrokeP50 === null
-                        ? DEMO_WORDS.nothingMeasured
-                        : DEMO_WORDS.msShort(keystrokeP50)}
-                    </span>
-                  </div>
-                  <div aria-hidden="true" className="mn-demo-meter-track">
-                    <div
-                      className="mn-demo-meter-fill"
-                      style={{ transform: `scaleX(${speedRatio})` }}
-                    />
-                  </div>
-                </div>
               </div>
 
               <div className="mn-demo-scope-card">
@@ -257,17 +233,20 @@ export function StageSheet(props: {
                       {DEMO_WORDS.openScriptPrompt}
                     </Button>
                   </div>
-                ) : null}
-                <WritersControl
-                  docId={docId}
-                  signedIn={signedIn}
-                  unreachable={unreachable}
-                />
-                <ReorganiseControl
-                  docId={docId}
-                  signedIn={signedIn}
-                  unreachable={unreachable}
-                />
+                ) : (
+                  <>
+                    <WritersControl
+                      docId={docId}
+                      signedIn={signedIn}
+                      unreachable={unreachable}
+                    />
+                    <ReorganiseControl
+                      docId={docId}
+                      signedIn={signedIn}
+                      unreachable={unreachable}
+                    />
+                  </>
+                )}
               </div>
 
               <div

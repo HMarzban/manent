@@ -201,16 +201,22 @@ function QuickActionChip(props: {
   readonly label: string;
   readonly icon: ComponentType<{ className?: string }>;
   readonly active?: boolean;
+  readonly secondary?: boolean;
   readonly onClick: () => void;
 }): ReactNode {
-  const { label, icon: Icon, active, onClick } = props;
+  const { label, icon: Icon, active, secondary, onClick } = props;
   return (
     <button
       type="button"
       aria-label={label}
+      title={label}
       data-tone={active ? "active" : "raised"}
       onClick={onClick}
-      className="mn-demo-pill mn-demo-quick cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus"
+      className={
+        secondary
+          ? "mn-demo-pill mn-demo-quick mn-demo-quick-secondary cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus"
+          : "mn-demo-pill mn-demo-quick cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-focus"
+      }
     >
       <Icon aria-hidden="true" className="size-3.5 shrink-0 text-fg-accent" />
       <span className="mn-demo-quick-label">{label}</span>
@@ -260,6 +266,7 @@ export function ContextualQuickActions(props: {
         <QuickActionChip
           label={DEMO_WORDS.quickSecondWindow}
           icon={Columns2Icon}
+          secondary
           onClick={onOpenSecondWindow}
         />
       </div>
@@ -276,6 +283,7 @@ export function ContextualQuickActions(props: {
         <QuickActionChip
           label={DEMO_WORDS.quickSecondWindow}
           icon={Columns2Icon}
+          secondary
           onClick={onOpenSecondWindow}
         />
       </div>
@@ -287,6 +295,7 @@ export function ContextualQuickActions(props: {
         <QuickActionChip
           label={DEMO_WORDS.quickSecondWindow}
           icon={Columns2Icon}
+          secondary
           onClick={onOpenSecondWindow}
         />
       </div>
