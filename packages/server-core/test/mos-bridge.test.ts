@@ -640,3 +640,66 @@ test("MOS bridge serializes overlapping feed batches per workspace in FIFO order
     await mock.close();
   }
 });
+
+test("MOS bridge clears queued batches on stop and delivers fresh waves after idle drain", async () => {
+  const fc = fakeClock(400_000);
+  const world = createMosWorld(fc);
+  await seedWorld(world, fc, { insideAirWindow: true });
+  const mock = await createMockMosPrompter({
+    dialect: "autoscript_winplus_ip",
+  });
+
+  try {
+    const saved = await callMos(
+      world.mos,
+      ANA,
+      "PUT",
+      `/api/workspaces/${WORKSPACE}/mos`,
+      {
+        enabled: true,
+        dialect: "autoscript_winplus_ip",
+        host: mock.host,
+        lowerPort: mock.port,
+        upperPort: mock.port,
+      },
+    );
+    expect(saved.status).toBe(200);
+
+    const optIn = await callMos(
+      world.mos,
+      ANA,
+      "PUT",
+      `/api/prompter/${RUNDOWN_LIVE}/mos`,
+      { workspaceId: WORKSPACE, enabled: true, roSlug: "Six O'Clock News" },
+    );
+    expect(optIn.status).toBe(200);
+    await mock.waitFor((msgs) => msgs.some((m) => m.kind === "roCreate"));
+
+    // Allow the settled queue tail to prune while idle, then send a new batch.
+    await flushAll(fc);
+    const sent = world.prompter.send(ANA.userId, {
+      docId: RUNDOWN_LIVE,
+      rowId: ROW_1,
+      key: keyOf(11),
+    });
+    await flushAll(fc);
+    expect((await sent).ok).toBe(true);
+    await mock.waitFor((msgs) => msgs.some((m) => m.kind === "roStorySend"));
+
+    // Stopping clears any queued state and drops subsequent feed updates cleanly.
+    const countBeforeStop = mock.received.length;
+    await world.mos.stop();
+    const afterStop = world.prompter.send(ANA.userId, {
+      docId: RUNDOWN_LIVE,
+      rowId: ROW_1,
+      key: keyOf(12),
+    });
+    await flushAll(fc);
+    expect((await afterStop).ok).toBe(true);
+    expect(mock.received.length).toBe(countBeforeStop);
+  } finally {
+    await world.mos.stop();
+    world.prompter.stop();
+    await mock.close();
+  }
+});

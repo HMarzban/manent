@@ -70,7 +70,6 @@ export function createReseed(options: {
 
   async function perform(seedId: string): Promise<void> {
     if (records.seedId() === seedId) return;
-    const current = records.current();
     const { directory } = storage;
     const docIds: string[] = [];
     for (const home of directory.homes())
@@ -83,6 +82,7 @@ export function createReseed(options: {
     for (const docId of docIds) records.removeDoc(docId);
     sessions.invalidate();
     records.setSeedId(seedId);
+    const current = records.current();
     const person = current === null ? null : records.person(current.userId);
     if (person !== null) sessions.chosen(person);
     options.onWiped();

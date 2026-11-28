@@ -239,3 +239,27 @@ test("relaying a block deletion onto a replica that already holds unseen text ke
     { blockId: ID_A, nearBlockId: ID_K, text: " unseen" },
   ]);
 });
+
+test("resolving pre-existing pending structs with a custom origin emits all newly integrated structs in report.update", () => {
+  const { a } = replicas();
+  const relay = loadDoc(a.encodeState(), { clientId: 3 });
+  const follower = loadDoc(a.encodeState(), { clientId: 4 });
+  const first = capture(a, (w) => w.insertText(ID_A, 9, " one"));
+  const second = capture(a, (w) => w.insertText(ID_A, 13, " two"));
+
+  // Apply second before first so relay holds pending structs.
+  relay.applyUpdate(second, "relay");
+  expect(relay.hasPendingStructs()).toBe(true);
+
+  const emitted: Uint8Array[] = [];
+  const stop = observeScript(relay, (report) => emitted.push(report.update));
+  relay.applyUpdate(first, "relay");
+  stop();
+
+  expect(relay.hasPendingStructs()).toBe(false);
+  expect(emitted).toHaveLength(1);
+  follower.applyUpdate(emitted[0]!);
+  expect(scriptBody(follower).materialize()).toEqual(
+    scriptBody(relay).materialize(),
+  );
+});

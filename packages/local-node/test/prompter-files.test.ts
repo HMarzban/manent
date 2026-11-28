@@ -410,6 +410,15 @@ test("feedFromPrompterHandle pauses while lost and routes authenticate, reject b
       body: { rundownId: "not-a-uuid", folder, encoding: "utf-8" },
     }),
   ).toEqual([400, { error: "bad_request" }]);
+  // Relative folder paths refused.
+  for (const relative of ["prompter", "./prompter", "../outside"]) {
+    expect(
+      await call("POST", {
+        token,
+        body: { rundownId: RUNDOWN_A, folder: relative, encoding: "utf-8" },
+      }),
+    ).toEqual([400, { error: "bad_request" }]);
+  }
   // No sync client -> 503 unreachable.
   expect(
     await call("POST", {
@@ -474,4 +483,153 @@ test("feedFromPrompterHandle pauses while lost and routes authenticate, reject b
   for (const fn of closeCallbacks) fn();
   expect(handleClosed).toBe(2);
   expect(await call("GET", { token })).toEqual([200, null]);
+});
+
+function makePrompterHandle() {
+  let closed = 0;
+  const handle: PrompterHandle = {
+    runOrder: createSubscribable<readonly PrompterRow[]>([]),
+    stories: createSubscribable<ReadonlyMap<string, readonly BlockJSON[]>>(
+      new Map(),
+    ),
+    status: createSubscribable<PrompterStatus>({
+      feed: "lost",
+      lastReceivedAt: null,
+    }),
+    close: () => {
+      closed += 1;
+    },
+  };
+  return { handle, closed: () => closed };
+}
+
+test("prompter-files active state is scoped per signed-in person so another user cannot see or stop a run", async () => {
+  const samFolder = await trees.tree({});
+  const danaFolder = await trees.tree({});
+  const records = createMemoryRecords();
+  const sessions = createSignedSessionStore({
+    secret: records.secret(),
+    now: () => 1_000,
+  });
+  records.savePerson({
+    userId: "sam",
+    name: "Sam Okafor",
+    wantsCloud: true,
+    cloudToken: null,
+    chosenAt: 1,
+  });
+  records.savePerson({
+    userId: "dana",
+    name: "Dana Reyes",
+    wantsCloud: true,
+    cloudToken: null,
+    chosenAt: 2,
+  });
+  const samToken = sessions.issue("sam");
+  const danaToken = sessions.issue("dana");
+  const fakeClock = createFakeClock(0);
+  const shell = createShellChannel({
+    clock: fakeClock.clock,
+    heartbeatMs: 30_000,
+  });
+  const sent: ShellMessage[] = [];
+  const origSend = shell.shell.send;
+  shell.shell.send = (message) => {
+    sent.push(message);
+    origSend(message);
+  };
+
+  const samHandle = makePrompterHandle();
+  const danaHandle = makePrompterHandle();
+  const closeCallbacks: (() => void)[] = [];
+  const routes = localRoutes({
+    records,
+    shell,
+    sessions,
+    signInToSync: async () => ({ ok: true }),
+    onFocus: () => {},
+    storeUsage: () => ({ scripts: 0, bytes: 0 }),
+    setConnection: () => {},
+    clientOf: (userId) =>
+      ({
+        prompter: () =>
+          userId === "sam" ? samHandle.handle : danaHandle.handle,
+      }) as unknown as SyncClient,
+    clock: fakeClock.clock,
+    onClose: (fn) => closeCallbacks.push(fn),
+  });
+
+  const call = async (
+    method: "GET" | "POST" | "DELETE",
+    token: string,
+    body?: unknown,
+  ): Promise<[number, unknown]> => {
+    const answer = await routes(
+      new Request(
+        `${BASE}/api/local/prompter-files`,
+        body === undefined
+          ? { method, headers: { authorization: `Bearer ${token}` } }
+          : {
+              method,
+              headers: { authorization: `Bearer ${token}` },
+              body: JSON.stringify(body),
+            },
+      ),
+    );
+    if (answer === null) return [0, null];
+    const text = await answer.text();
+    return [answer.status, text === "" ? null : JSON.parse(text)];
+  };
+
+  // Sam starts writing.
+  expect(
+    await call("POST", samToken, {
+      rundownId: RUNDOWN_A,
+      folder: samFolder,
+      encoding: "utf-8",
+    }),
+  ).toEqual([204, null]);
+
+  // Dana cannot see Sam's run and DELETE from Dana does not stop Sam's run or broadcast null.
+  expect(await call("GET", danaToken)).toEqual([200, null]);
+  const sentBeforeDanaDelete = sent.length;
+  expect(await call("DELETE", danaToken)).toEqual([204, null]);
+  expect(samHandle.closed()).toBe(0);
+  expect(sent.length).toBe(sentBeforeDanaDelete);
+  expect(await call("GET", samToken)).toEqual([
+    200,
+    {
+      rundownId: RUNDOWN_A,
+      path: samFolder,
+      encoding: "utf-8",
+      replaced: 0,
+      failure: null,
+    },
+  ]);
+
+  // Dana can start her own rundown without colliding with Sam's run.
+  expect(
+    await call("POST", danaToken, {
+      rundownId: RUNDOWN_B,
+      folder: danaFolder,
+      encoding: "utf-8",
+    }),
+  ).toEqual([204, null]);
+  expect(await call("GET", danaToken)).toEqual([
+    200,
+    {
+      rundownId: RUNDOWN_B,
+      path: danaFolder,
+      encoding: "utf-8",
+      replaced: 0,
+      failure: null,
+    },
+  ]);
+
+  // onClose stops every person's active run.
+  for (const fn of closeCallbacks) fn();
+  expect(samHandle.closed()).toBe(1);
+  expect(danaHandle.closed()).toBe(1);
+  expect(await call("GET", samToken)).toEqual([200, null]);
+  expect(await call("GET", danaToken)).toEqual([200, null]);
 });

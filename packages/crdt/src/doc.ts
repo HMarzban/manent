@@ -89,11 +89,16 @@ class YjsDoc implements CrdtDoc {
     this.applying = true;
     try {
       withWholeUpdate(update, () => {
-        if (origin !== ORIGIN_LOAD && origin !== ORIGIN_REMOTE)
+        if (
+          origin !== ORIGIN_LOAD &&
+          origin !== ORIGIN_REMOTE &&
+          !this.hasPendingStructs()
+        )
           appliedDiffs.set(
             this.ydoc,
             Y.diffUpdate(update, Y.encodeStateVector(this.ydoc)),
           );
+        else appliedDiffs.delete(this.ydoc);
         Y.applyUpdate(this.ydoc, update, origin);
       });
     } catch (error) {

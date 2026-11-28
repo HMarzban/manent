@@ -182,7 +182,10 @@ export function createMosBridgeService(options: {
         }
       }
     };
-    const next = prev.then(run, run);
+    const next = prev.then(run, run).finally(() => {
+      if (workspaceQueues.get(workspaceId) === next)
+        workspaceQueues.delete(workspaceId);
+    });
     workspaceQueues.set(workspaceId, next);
   }
 
@@ -387,6 +390,7 @@ export function createMosBridgeService(options: {
       activeRundowns.clear();
       for (const wsId of Array.from(runtimes.keys()))
         closeWorkspaceClient(wsId);
+      workspaceQueues.clear();
       return Promise.resolve();
     },
   };

@@ -2,13 +2,17 @@
 import { jsonMap, scriptBody } from "@manent/crdt";
 import type { InkProblem } from "@manent/formats";
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import { indexDocId } from "@manent/sync-protocol";
+import { commentsDocId, indexDocId } from "@manent/sync-protocol";
 import { GAME_EXPORTS_WORDS, INK_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import { archiveSource } from "../archive/archive-source.ts";
 import { liveEditor } from "../editor-host/live-editor.ts";
 import type { LiveEditor } from "../editor-host/live-editor.ts";
-import { summariesOfServices } from "../services/api-cache.ts";
+import {
+  storageOfServices,
+  summariesOfServices,
+} from "../services/api-cache.ts";
 import type { PersonServices } from "../services/ports.ts";
+import { createDeviceMemory } from "../services/sync/device-memory.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 import { fileName } from "./script-file.ts";
 import type { WrittenFile } from "./script-file.ts";
@@ -67,6 +71,14 @@ async function blocksOfDocument(docId: string): Promise<readonly BlockJSON[]> {
   throw new Error(`no open editor holds ${docId}`);
 }
 
+const WORKSPACE_INDEX_PREFIX = "index:workspace:";
+const UUID_V8 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function isIndexCandidateId(id: string): boolean {
+  return UUID_V8.test(id) || id.startsWith(WORKSPACE_INDEX_PREFIX);
+}
+
 /** The project holding `docId`, with all its non-trashed Ink documents in workspace-index order. */
 async function inkProjectOf(
   services: PersonServices,
@@ -74,15 +86,30 @@ async function inkProjectOf(
 ): Promise<ListedInkProject | null> {
   const me = await services.api.me();
   const listed = me.ok ? me.me.workspaces.map((w) => w.id) : [];
+  const remembered = me.ok
+    ? []
+    : (createDeviceMemory({
+        local: storageOfServices(services),
+        session: null,
+      })
+        .workspaces(services.userId)
+        ?.map((w) => w.id) ?? []);
   const candidateIndexIds = new Set<string>(
-    [...listed, services.userId].map((id) => indexDocId("workspace", id)),
+    [...listed, ...remembered, services.userId].map((id) =>
+      indexDocId("workspace", id),
+    ),
   );
   if (!me.ok) {
     const userIndex = indexDocId("user", services.userId);
+    const docComments = commentsDocId(docId);
     const summaries = await summariesOfServices(services);
     for (const summary of summaries ?? []) {
-      if (summary.docId !== docId && summary.docId !== userIndex)
-        candidateIndexIds.add(summary.docId);
+      const id = summary.docId;
+      if (id === docId || id === userIndex || id === docComments) continue;
+      const knownKind = services.library?.docKindOf(id).get() ?? null;
+      if (knownKind !== null && knownKind !== "index") continue;
+      if (knownKind === "index" || isIndexCandidateId(id))
+        candidateIndexIds.add(id);
     }
   }
   for (const indexId of candidateIndexIds) {

@@ -47,8 +47,9 @@ import {
   createMessageIds,
 } from "@manent/sync-protocol";
 import type { FrameDecoder, Message } from "@manent/sync-protocol";
-import { createNodeCore } from "../src/index.ts";
+import { createMirror, createNodeCore } from "../src/index.ts";
 import type { NodeCore } from "../src/index.ts";
+import { createReseed } from "../src/node/reseed.ts";
 import { createFakeCloud, createMemoryRecords } from "../src/testing/index.ts";
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
@@ -725,4 +726,105 @@ test("a local-only person has no upstream client while a cloud person gets one",
   expect(h.core.relay.clientOf("sam")).toBe(client);
   expect(h.core.relay.people()).toEqual(["sam"]);
   await h.close();
+});
+
+test("createMirror.ensure discards pre-reseed describe metadata when seedId changes during describe", async () => {
+  const clock = createFakeClock(START_AT);
+  const storage = createMemoryStorage({ now: clock.clock.now });
+  const records = createMemoryRecords();
+  records.setSeedId("seed-1");
+
+  const describeGate = Promise.withResolvers<void>();
+  let waitCalls = 0;
+  const mirror = createMirror({
+    storage,
+    records,
+    cloud: {
+      signIn: async () => ({ ok: false, code: "unknown_user" }),
+      demo: async () => ({ seedId: "seed-2" }),
+      async describe() {
+        await describeGate.promise;
+        return {
+          ok: true,
+          body: {
+            docId: DOC,
+            kind: "script",
+            home: HOME,
+            generation: 1,
+            role: "edit",
+            capabilities: [],
+          },
+        };
+      },
+      adopt: async () => ({ ok: false, code: "forbidden" }),
+      forward: async () => new Response(null, { status: 503 }),
+    },
+    tokenOf: () => "tok-1",
+    async waitReseed() {
+      waitCalls += 1;
+      if (waitCalls === 2) records.setSeedId("seed-2");
+    },
+  });
+
+  const ensuring = mirror.ensure("sam", DOC);
+  describeGate.resolve();
+  expect(await ensuring).toEqual({ ok: false, code: "unreachable" });
+  expect(storage.directory.placeOf(DOC)).toBeNull();
+  expect(records.docState(DOC)).toBeNull();
+});
+
+test("reseed.perform re-reads records.current() after wipe so a mid-wipe user switch triggers sessions.chosen for the new person", async () => {
+  const clock = createFakeClock(START_AT);
+  const storage = createMemoryStorage({ now: clock.clock.now });
+  const records = createMemoryRecords();
+  records.setSeedId("seed-1");
+  records.savePerson({
+    userId: "sam",
+    name: "Sam Okafor",
+    wantsCloud: true,
+    cloudToken: "sam-old",
+    chosenAt: 1,
+  });
+  records.savePerson({
+    userId: "dana",
+    name: "Dana Reyes",
+    wantsCloud: true,
+    cloudToken: "dana-old",
+    chosenAt: 2,
+  });
+  records.setCurrent("sam", "node-sam");
+
+  const wipeGate = Promise.withResolvers<void>();
+  const wipeStarted = Promise.withResolvers<void>();
+  const chosen: string[] = [];
+  const reseed = createReseed({
+    storage,
+    records,
+    cloud: { demo: async () => ({ seedId: "seed-2" }) },
+    relay: { close: async () => {} },
+    service: { removed: () => {} },
+    sessions: {
+      chosen: (person) => void chosen.push(person.userId),
+      reauthenticate: async () => null,
+      invalidate: () => {
+        for (const p of records.people())
+          records.savePerson({ ...p, cloudToken: null });
+      },
+    },
+    async wipe() {
+      wipeStarted.resolve();
+      await wipeGate.promise;
+    },
+    onWiped: () => {},
+  });
+
+  const running = reseed.run("seed-2");
+  await wipeStarted.promise;
+  // User switches from Sam to Dana while wipe() is in flight.
+  records.setCurrent("dana", "node-dana");
+  wipeGate.resolve();
+  await running;
+
+  expect(records.seedId()).toBe("seed-2");
+  expect(chosen).toEqual(["dana"]);
 });

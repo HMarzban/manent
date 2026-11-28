@@ -1,6 +1,7 @@
 // 50 editors of one script on the real server, each editing its own line and dropping off and back
-// on, for MANENT_SOAK_MINUTES (default 2): the server's resident memory at the end against after
-// the first minute, and whether every editor ends with the same text.
+// on, for MANENT_SOAK_MINUTES (defaults by mode: 1 in quick, 10 in standard, 480 in full): the
+// server's resident memory at the end against after the first minute, and whether every editor ends
+// with the same text.
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

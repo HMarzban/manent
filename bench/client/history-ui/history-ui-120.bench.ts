@@ -211,7 +211,12 @@ async function measureRestoreMs(page: Page): Promise<number> {
   const confirm = page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Restore", exact: true });
-  if (await confirm.isVisible({ timeout: 500 }).catch(() => false))
+  if (
+    await confirm.waitFor({ state: "visible", timeout: 500 }).then(
+      () => true,
+      () => false,
+    )
+  )
     await confirm.click();
   try {
     await restoredResponse;

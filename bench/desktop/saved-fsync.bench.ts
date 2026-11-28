@@ -255,10 +255,12 @@ function awaitSavedAfter(
 
 async function measure(mode: Mode): Promise<Measurement[]> {
   const dataDir = await mkdtemp(join(tmpdir(), "manent-desktop-fsync-"));
-  const { child, node } = await spawnHeadless(dataDir);
+  let child: Subprocess | null = null;
   let client: SyncClient | null = null;
   try {
-    client = await openNodeClient(node);
+    const spawned = await spawnHeadless(dataDir);
+    child = spawned.child;
+    client = await openNodeClient(spawned.node);
     const handle = await client.create({
       kind: "script",
       home: `project:${crypto.randomUUID()}`,
@@ -294,7 +296,7 @@ async function measure(mode: Mode): Promise<Measurement[]> {
     return [measurement("keystroke_saved", "ms", samples), inputBlocks(blocks)];
   } finally {
     if (client !== null) await client.close();
-    await stopHeadless(child);
+    if (child !== null) await stopHeadless(child);
     await rm(dataDir, { recursive: true, force: true });
   }
 }

@@ -73,6 +73,7 @@ export function createMirror(options: {
   return {
     async ensure(userId, docId) {
       if (options.waitReseed !== undefined) await options.waitReseed();
+      let seedBefore = records.seedId();
       const token = options.tokenOf(userId);
       if (token === null) return { ok: false, code: "unreachable" };
       let described = await describe(token, docId);
@@ -83,6 +84,7 @@ export function createMirror(options: {
       ) {
         const fresh = await options.reauthenticate(userId);
         if (fresh === null) return { ok: false, code: "unreachable" };
+        seedBefore = records.seedId();
         described = await describe(fresh, docId);
       }
       if (!described.ok) {
@@ -93,6 +95,8 @@ export function createMirror(options: {
         return { ok: false, code };
       }
       if (options.waitReseed !== undefined) await options.waitReseed();
+      if (seedBefore !== null && records.seedId() !== seedBefore)
+        return { ok: false, code: "unreachable" };
       const { kind, home, generation, role, capabilities } = described.body;
       const placed = parseHome(home);
       if (placed === null) return { ok: false, code: "forbidden" };

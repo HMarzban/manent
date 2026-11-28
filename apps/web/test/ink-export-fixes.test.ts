@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { createDoc, jsonMap, scriptBody } from "@manent/crdt";
 import { readInk } from "@manent/formats";
 import type { SyncClient } from "@manent/sync-client";
-import { indexDocId } from "@manent/sync-protocol";
+import { docIdV7, indexDocId } from "@manent/sync-protocol";
 import { archiveSource } from "../src/archive/archive-source.ts";
 import { registerLiveEditor } from "../src/editor-host/live-editor.ts";
 import type { LiveEditor } from "../src/editor-host/live-editor.ts";
@@ -82,14 +82,18 @@ test("inkProjectOf discovers cached local workspace index from sync.documents() 
     editedByUserId: null,
   });
 
+  const opened: string[] = [];
+  const scriptV7 = docIdV7(1_700_000_000_000, new Uint8Array(10).fill(5));
   const offlineServices = {
     api: {
       ...fakeApi(),
       me: async () => ({ ok: false as const, reason: "unreachable" as const }),
     },
     userId: USER,
-    openHandle: async (docId: string) =>
-      fakeHandle(docId, docId === teamIndexId ? teamIndex : createDoc()),
+    openHandle: async (docId: string) => {
+      opened.push(docId);
+      return fakeHandle(docId, docId === teamIndexId ? teamIndex : createDoc());
+    },
     documentBlocks: async (docId: string) =>
       docId === "ink-b" ? actTwoBlocks : null,
   } as unknown as PersonServices;
@@ -98,6 +102,20 @@ test("inkProjectOf discovers cached local workspace index from sync.documents() 
     storage: null,
     client: Promise.resolve({
       documents: async () => [
+        {
+          docId: scriptV7,
+          neverSynced: false,
+          waiting: 0,
+          parked: null,
+          recovered: 0,
+        },
+        {
+          docId: "ink-b",
+          neverSynced: false,
+          waiting: 0,
+          parked: null,
+          recovered: 0,
+        },
         {
           docId: teamIndexId,
           neverSynced: false,
@@ -132,6 +150,8 @@ test("inkProjectOf discovers cached local workspace index from sync.documents() 
   const joined = new TextDecoder().decode(file.bytes);
   expect(joined).toContain("// Act One");
   expect(joined).toContain("// Act Two");
+  expect(opened).not.toContain(scriptV7);
+  expect(opened).not.toContain("ink-b");
 });
 
 test("inkJsonFileType.leftOut reports compile problems before export and returns null when clean", async () => {

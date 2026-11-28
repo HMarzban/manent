@@ -23,6 +23,7 @@ import {
 } from "../people.ts";
 import {
   caretAt,
+  editorHook,
   openScript,
   scriptBlocks,
   settled,
@@ -129,12 +130,14 @@ function docLines(doc: Parameters<typeof scriptBody>[0]): string[] {
 }
 
 async function pageLines(page: Page): Promise<string[]> {
-  const found: unknown = await page.evaluate(() =>
-    [...document.querySelectorAll("[data-editor-host] [data-id]")].map(
-      (node) => node.textContent ?? "",
-    ),
-  );
-  return Array.isArray(found) ? found.map(String) : [];
+  const found = await editorHook(page, ["blocks"]);
+  if (!Array.isArray(found)) throw new TypeError("the blocks are not a list");
+  return found.map((block: unknown) => {
+    const text: unknown = Reflect.get(Object(block), "text");
+    if (typeof text !== "string")
+      throw new TypeError("a block needs string text");
+    return text;
+  });
 }
 
 /** Offline merge scenario for screenplay or manuscript documents of `pages` pages. */

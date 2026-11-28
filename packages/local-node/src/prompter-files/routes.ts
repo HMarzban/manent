@@ -1,4 +1,5 @@
 // Local-node HTTP routes for starting, inspecting, and stopping prompter file writing.
+import { isAbsolute } from "node:path";
 import type {
   ErrorResponse,
   HttpErrorCode,
@@ -39,7 +40,8 @@ function readStartRequest(body: unknown): StartRequest | null {
     typeof folder !== "string" ||
     folder.trim() === "" ||
     folder.length > MAX_FOLDER_LENGTH ||
-    folder.includes("\0")
+    folder.includes("\0") ||
+    !isAbsolute(folder)
   )
     return null;
   if (encoding !== "utf-8" && encoding !== "windows-1252") return null;
@@ -50,35 +52,40 @@ function readStartRequest(body: unknown): StartRequest | null {
 export function prompterFilesRoutes(
   context: LocalRouteContext,
 ): Record<string, LocalRoute> {
-  let active: ActiveRun | null = null;
+  const activeByUser = new Map<string, ActiveRun>();
 
   const sendStatus = (status: PrompterFilesStatus | null): void => {
     context.shell.shell.send({ v: 1, t: "prompter_files", status });
   };
 
-  const stopActive = (emitNull: boolean): void => {
-    if (active === null) {
-      if (emitNull) sendStatus(null);
+  const stopFor = (userId: string, emitNull: boolean): void => {
+    const current = activeByUser.get(userId);
+    if (current === undefined) {
+      if (emitNull && activeByUser.size === 0) sendStatus(null);
       return;
     }
-    const current = active;
-    active = null;
+    activeByUser.delete(userId);
     current.stop(emitNull);
   };
 
-  context.onClose(() => stopActive(false));
+  const stopAll = (emitNull: boolean): void => {
+    for (const userId of Array.from(activeByUser.keys()))
+      stopFor(userId, emitNull);
+  };
+
+  context.onClose(() => stopAll(false));
 
   return {
     "GET /api/local/prompter-files"(request) {
       const person = readPerson(request, context);
       if (person === null) return failure("unauthenticated", 401);
-      return Response.json(active?.status ?? null);
+      return Response.json(activeByUser.get(person.userId)?.status ?? null);
     },
 
     "DELETE /api/local/prompter-files"(request) {
       const person = readPerson(request, context);
       if (person === null) return failure("unauthenticated", 401);
-      stopActive(true);
+      stopFor(person.userId, true);
       return noContent();
     },
 
@@ -88,13 +95,14 @@ export function prompterFilesRoutes(
       const parsed = readStartRequest(await request.json().catch(() => null));
       if (parsed === null) return failure("bad_request", 400);
 
-      if (active !== null && active.rundownId !== parsed.rundownId) {
+      const existing = activeByUser.get(person.userId);
+      if (existing !== undefined && existing.rundownId !== parsed.rundownId) {
         return failure("busy", 409);
       }
       const client = context.clientOf(person.userId);
       if (client === null) return failure("unreachable", 503);
 
-      if (active !== null) stopActive(false);
+      if (existing !== undefined) stopFor(person.userId, false);
 
       const handle = client.prompter(parsed.rundownId);
       let closed = false;
@@ -118,11 +126,12 @@ export function prompterFilesRoutes(
           handle.close();
         },
       };
-      active = run;
+      activeByUser.set(person.userId, run);
 
       const offRefused = handle.status.subscribe((feedStatus) => {
         if (feedStatus.feed !== "refused") return;
-        if (active === run) active = null;
+        if (activeByUser.get(person.userId) === run)
+          activeByUser.delete(person.userId);
         run.stop(true);
       });
 
@@ -134,22 +143,24 @@ export function prompterFilesRoutes(
         clock: context.clock,
         onStatus(status) {
           if (status === null) {
-            if (active === run) active = null;
+            if (activeByUser.get(person.userId) === run)
+              activeByUser.delete(person.userId);
             if (!closed) {
               closed = true;
               offRefused();
               handle.close();
             }
-            if (emitOnClose) sendStatus(null);
+            if (emitOnClose && activeByUser.size === 0) sendStatus(null);
             return;
           }
-          if (active === run) run.status = status;
+          if (activeByUser.get(person.userId) === run) run.status = status;
           sendStatus(status);
         },
       });
 
       if (!closed && handle.status.get().feed === "refused") {
-        if (active === run) active = null;
+        if (activeByUser.get(person.userId) === run)
+          activeByUser.delete(person.userId);
         run.stop(true);
       }
 

@@ -601,7 +601,7 @@ test("smoke results are read field by field and a broken one is refused", async 
     "desktop-smoke-linux.json": JSON.stringify(smoke),
   });
   const path = join(dir, "desktop-smoke-linux.json");
-  expect(readSmokeResults(dir)).rejects.toThrow(
+  await expect(readSmokeResults(dir)).rejects.toThrow(
     `${path}: saved must be true or false, not undefined`,
   );
   expect(await readSmokeResults(join(dir, "absent"))).toEqual([]);
