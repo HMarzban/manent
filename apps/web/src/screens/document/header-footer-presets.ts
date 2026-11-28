@@ -38,6 +38,11 @@ export const HEADER_PRESET_SLOTS: Readonly<
     center: NONE,
     right: { kind: "page_number" },
   },
+  book_and_chapter: {
+    left: { kind: "verso_title_recto_chapter" },
+    center: NONE,
+    right: { kind: "page_number" },
+  },
   none: { left: NONE, center: NONE, right: NONE },
 });
 

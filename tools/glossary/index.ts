@@ -74,6 +74,8 @@ export const NAMES: readonly string[] = Object.freeze([
   "Source Serif 4",
   "Final Draft",
   "Word",
+  "ISBN",
+  "Markdown",
   "Safari",
   "GitHub",
   "Mac",
@@ -82,11 +84,11 @@ export const NAMES: readonly string[] = Object.freeze([
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
-  access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
-  collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere, epub,
+  access, acknowledgements, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
+  collated, cont'd, contents, continued, continueds, copyright, cover, dark, dedication, desk, desktop, docx, driving, editors, elsewhere, epub,
   exported, exporting, fdx, font, footnote, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
-  margin, mores, multi-camera, paper, pdf, picker, probe, reconnect, redo, rename, same-speaker, screenplay, setup,
-  size, spelling, stable, strikethrough, syncing, tabs, underline, undo, variety
+  margin, markdown, md, mores, multi-camera, paper, pdf, picker, probe, reconnect, redo, rename, same-speaker, screenplay, setup,
+  size, spelling, spread, stable, strikethrough, subtitle, syncing, tabs, underline, undo, variety
 `);
 
 export const ENGINEERING_WORDS: readonly string[] = Object.freeze([

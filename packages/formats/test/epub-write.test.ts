@@ -129,7 +129,9 @@ test("writeEpub produces valid EPUB 3 archive with uncompressed mimetype first, 
   expect(nav).toContain("1. High Water");
   expect(nav).toContain("2. The Bar");
   expect(ch1).toContain('<blockquote class="epigraph">');
-  expect(ch1).toContain('<h2 class="subheading">Morning on the Quay</h2>');
+  expect(ch1).toContain(
+    '<h2 class="subheading" id="sub-001">Morning on the Quay</h2>',
+  );
   expect(ch1).toContain('class="body drop-cap"');
   expect(ch1).toContain('<span class="initial">E</span>');
   expect(ch1).toContain('epub:type="noteref"');

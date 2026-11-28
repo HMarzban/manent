@@ -31,6 +31,7 @@ export const IMPORTABLE_EXTENSIONS: readonly string[] = Object.freeze([
   ".docx",
   ".txt",
   ".ink",
+  ".md",
 ]);
 
 /** .fdx → readFdx with parseXml; .fountain → readFountain after decodeText; .fdr is answered with how to bring it in as an .fdx; .pdf, .docx and .txt load lazily through @manent/formats. */
@@ -75,5 +76,13 @@ export function importReaders(parseXml: XmlParser): readonly ImportReader[] {
       },
     },
     { extension: ".ink", from: "ink", read: readInkFile },
+    {
+      extension: ".md",
+      from: "markdown",
+      async read(bytes, ids) {
+        const formats = await import("@manent/formats");
+        return formats.readMarkdown(formats.decodeText(bytes), { ids });
+      },
+    },
   ];
 }

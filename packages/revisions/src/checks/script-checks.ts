@@ -1,7 +1,15 @@
 // Pure pre-send Checks over a script, its last sent draft, the project's names, its page count and its target length.
 import { textAnchorAt } from "@manent/schema";
-import type { BlockJSON, DocJSON, TextAnchor } from "@manent/schema";
+import type { BlockJSON, DocJSON, FormatId, TextAnchor } from "@manent/schema";
 import { findNearMatches } from "../names/near-match.ts";
+import { findBookChecks } from "./book-checks.ts";
+import type {
+  BookCheck,
+  ChapterUnderTargetCheck,
+  EmptyFootnoteCheck,
+  FigureMissingAltCheck,
+  UnbalancedQuotesCheck,
+} from "./book-checks.ts";
 import {
   LETTERS_WORD,
   POSSESSIVE,
@@ -17,7 +25,16 @@ import type {
   OverusedWordCheck,
 } from "./text-checks.ts";
 
-export type { NewProperNounCheck, OverusedWordCheck };
+export type {
+  BookCheck,
+  ChapterUnderTargetCheck,
+  EmptyFootnoteCheck,
+  FigureMissingAltCheck,
+  NewProperNounCheck,
+  OverusedWordCheck,
+  UnbalancedQuotesCheck,
+};
+export { findBookChecks };
 
 export const SCRIPT_CHECK_KINDS = [
   "new_name",
@@ -25,6 +42,10 @@ export const SCRIPT_CHECK_KINDS = [
   "overused_word",
   "pages_over_target",
   "new_proper_noun",
+  "empty_footnote",
+  "figure_missing_alt",
+  "chapter_under_target",
+  "unbalanced_quotes",
 ] as const;
 
 export type ScriptCheckKind = (typeof SCRIPT_CHECK_KINDS)[number];
@@ -59,7 +80,8 @@ export type ScriptCheck =
   | NearMatchCheck
   | OverusedWordCheck
   | PagesOverTargetCheck
-  | NewProperNounCheck;
+  | NewProperNounCheck
+  | BookCheck;
 
 export interface ScriptChecksInput {
   readonly doc: DocJSON;
@@ -71,6 +93,8 @@ export interface ScriptChecksInput {
   readonly pageCount: number;
   /** Project target page count (`project.targetPages`), or null when unset. */
   readonly targetPages: number | null;
+  /** Document format; when `"manuscript"`, Book-only editorial Checks are included. */
+  readonly format?: FormatId;
 }
 
 const LETTER = /\p{L}/u;
@@ -275,11 +299,15 @@ export function findScriptChecks(input: ScriptChecksInput): ScriptCheck[] {
     anchorOf,
   );
 
+  const bookChecks: BookCheck[] =
+    input.format === "manuscript" ? findBookChecks(doc) : [];
+
   return [
     ...newNames,
     ...nearMatches,
     ...overused,
     ...overTarget,
     ...properNouns,
+    ...bookChecks,
   ];
 }

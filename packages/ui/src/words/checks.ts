@@ -29,6 +29,13 @@ export const CHECKS_WORDS = Object.freeze({
   /** A proper noun absent from the last sent draft named `draftName`. */
   newProperNounSince: (word: string, draftName: string): string =>
     `"${word}" is new since '${draftName}'`,
+  emptyFootnote: (ordinal: number): string =>
+    `Footnote ${formatCount(ordinal)} has no text`,
+  figureMissingAlt: (label: string): string => `"${label}" has no description`,
+  chapterUnderTarget: (title: string, words: number, target: number): string =>
+    `"${title}" is at ${formatCount(words)} of ${formatCount(target)} words`,
+  unbalancedQuotes: (snippet: string): string =>
+    `Open quote without a closing mark in "${snippet}"`,
   flag: "Flag",
   flagHeading: "Flag for someone",
   flagEmpty: "No one else can comment on this script.",

@@ -25,6 +25,7 @@ export function pageLabels(
   let lower: string | null = null;
   let run = 0;
   pages.forEach((page, k) => {
+    if ("blank" in page && page.blank === true) return;
     const lock = lockedAt(flow, page.block, page.line);
     if (lock === null) return;
     give(lower, lock, k - run);

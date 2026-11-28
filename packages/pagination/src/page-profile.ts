@@ -124,6 +124,8 @@ export interface PageProfile {
   readonly furniture: FurnitureSettings;
   /** Optional book typography (Engine 3 manuscript only; omitted on v1/v2). */
   readonly typography?: BookTypography;
+  /** Optional Engine 3 manuscript flag: start chapters on odd (recto) pages by inserting blank verso pages. */
+  readonly rectoChapters?: boolean;
   /** Equal keys if and only if equal layout. */
   readonly key: string;
 }

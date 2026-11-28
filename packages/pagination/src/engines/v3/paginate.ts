@@ -2,7 +2,7 @@
 import type { LayoutBlock } from "../../layout-block.ts";
 import { NO_LOCKS } from "../../lock-table.ts";
 import type { LockTable } from "../../lock-table.ts";
-import { cellPtOf } from "../../page-profile.ts";
+import { cellPtOf, isVersoPage } from "../../page-profile.ts";
 import type { ElementSpec, PageProfile } from "../../page-profile.ts";
 import type { BlockMetrics, ChangeHint, Pagination } from "../../pages.ts";
 import type {
@@ -13,9 +13,10 @@ import type {
 import { STYLE } from "../../units.ts";
 import { upperCase } from "../v1/cells.ts";
 import { fillPage, firstStart, measureAt } from "../v1/fill.ts";
-import type { FilledPage } from "../v1/fill.ts";
+import type { FilledPage, PageStart } from "../v1/fill.ts";
 import { graphicBoxLines } from "../v1/graphics.ts";
 import { createFlow, keyAt } from "../v1/keep.ts";
+import type { Flow } from "../v1/keep.ts";
 import { layoutPage as layoutPageV1 } from "../v1/layout.ts";
 import { forcedOffsets, lockedLines, planLocks } from "../v1/locks.ts";
 import { resolveSpec } from "../v1/measure.ts";
@@ -104,6 +105,46 @@ export function measureBlockV3(
   return Object.freeze({ lines, starts, spec });
 }
 
+function blankVersoPage(at: PageStart): FilledPage {
+  return {
+    block: at.block,
+    line: 0,
+    offset: 0,
+    right: null,
+    more: false,
+    contd: null,
+    contdRight: null,
+    sceneContinued: false,
+    locked: false,
+    forced: true,
+    topUnits: 0,
+    usedUnits: 0,
+    readAhead: at.block,
+    blank: true,
+  };
+}
+
+function fillPagesV3(flow: Flow): FilledPage[] {
+  const rectoChapters = flow.profile.rectoChapters === true;
+  const filled: FilledPage[] = [];
+  for (let at = firstStart(flow); ;) {
+    if (
+      rectoChapters &&
+      filled.length > 0 &&
+      isVersoPage(filled.length) &&
+      at.line === 0 &&
+      flow.blocks[at.block]?.type === "chapter"
+    ) {
+      filled.push(blankVersoPage(at));
+    }
+    const { page, next } = fillPage(flow, at);
+    filled.push(page);
+    if (next === null) break;
+    at = next;
+  }
+  return filled;
+}
+
 /** Full pagination using proportional Source Serif 4 metrics on Engine 3 manuscripts. */
 export function paginateV3(
   blocks: readonly LayoutBlock[],
@@ -124,13 +165,7 @@ export function paginateV3(
     metrics,
     lockedLines(plan.starts, metrics),
   );
-  const filled: FilledPage[] = [];
-  for (let at = firstStart(flow); ;) {
-    const { page, next } = fillPage(flow, at);
-    filled.push(page);
-    if (next === null) break;
-    at = next;
-  }
+  const filled = fillPagesV3(flow);
   const labels = pageLabels(flow, filled, plan.taken);
   return Object.freeze({
     engineVersion: profile.engineVersion,
@@ -179,13 +214,7 @@ export function repaginateV3(
     metrics,
     lockedLines(plan.starts, metrics),
   );
-  const filled: FilledPage[] = [];
-  for (let at = firstStart(flow); ;) {
-    const { page, next } = fillPage(flow, at);
-    filled.push(page);
-    if (next === null) break;
-    at = next;
-  }
+  const filled = fillPagesV3(flow);
   const labels = pageLabels(flow, filled, plan.taken);
   return Object.freeze({
     engineVersion: profile.engineVersion,
@@ -273,6 +302,8 @@ export function layoutPageV3(p: Pagination, index: number): LaidOutPage {
   const page = p.pages[index];
   if (page === undefined)
     throw new RangeError(`page ${index} is outside 0..${p.pages.length - 1}`);
+  if (page.blank === true)
+    return { index, label: page.label, lines: [], graphics: [] };
   const cellPt = typo.cellPt;
   const lines: PositionedLine[] = [];
   const base = layoutPageV1(p, index);

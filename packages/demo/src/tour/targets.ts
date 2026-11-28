@@ -79,6 +79,7 @@ export const TOUR_TARGETS = [
   "mos:save",
   "rundown:mos_toggle",
   "details:graphic",
+  "details:footnotes",
   "rundown:new_menu",
 ] as const;
 

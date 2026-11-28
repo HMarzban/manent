@@ -36,6 +36,8 @@ export interface SendWhatOption {
   readonly fileTypes?: readonly string[];
   /** Offered only while page numbers are locked; absent is false. */
   readonly lockedOnly?: boolean;
+  /** Offered only when a Book project holds two or more manuscript parts; absent is false. */
+  readonly multiPartBookOnly?: boolean;
   /** Extra controls drawn inside the What row while this option is chosen (for example, scene pickers). */
   readonly Controls?: ComponentType<SendWhatControlsProps>;
 }
@@ -47,6 +49,14 @@ export const SEND_WHAT_OPTIONS: readonly SendWhatOption[] = [
     label: EDITOR_WORDS.send.wholeScript,
     appliesTo: ["export", "print", "send_draft"],
     transform: null,
+  },
+  {
+    id: "whole_book",
+    label: EDITOR_WORDS.send.wholeBook,
+    appliesTo: ["export"],
+    transform: null,
+    fileTypes: ["pdf", "docx", "epub", "markdown"],
+    multiPartBookOnly: true,
   },
   {
     id: "with_alternates",
@@ -81,12 +91,14 @@ export function whatOffered(
   form: SendFormId,
   fileTypeId: string | null,
   locked: boolean,
+  multiPartBook = false,
 ): SendWhatOption[] {
   return SEND_WHAT_OPTIONS.filter(
     (option) =>
       option.appliesTo.includes(form) &&
       (option.fileTypes === undefined ||
         (fileTypeId !== null && option.fileTypes.includes(fileTypeId))) &&
-      (option.lockedOnly !== true || locked),
+      (option.lockedOnly !== true || locked) &&
+      (option.multiPartBookOnly !== true || multiPartBook),
   );
 }

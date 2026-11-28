@@ -1,7 +1,12 @@
 // Five foreground Writers' room showcase projects covering Book (Manuscript), Stage Play,
 // Multi-camera Series (with Board and recoverable Trash), Animation Series (with Record draft
 // for Pickup lines CSV and inline storyboard graphic), and Podcast (read-rate & bracket timing).
-import { scriptBody } from "@manent/crdt";
+import {
+  ORIGIN_TITLE_PAGE,
+  bookMatter,
+  scriptBody,
+  titlePage,
+} from "@manent/crdt";
 import { blockText, blocksOf, textAnchorAt } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { parseSeedText } from "../../content/markup.ts";
@@ -61,25 +66,97 @@ async function seedSaltAlmanac(context: SeedContext): Promise<void> {
   const ch2 = allBlocks.findIndex(
     (b) => b.element === "chapter" && b.text.startsWith("2."),
   );
+  const ch1First = toBlockJSON(allBlocks[0]!, ids());
+  const ch1WithTarget: BlockJSON = {
+    ...ch1First,
+    attrs: { ...ch1First.attrs, targetWords: 500 },
+  };
   const part1 = await writeInitial(context, {
     userId: "dana",
     docKey,
     at: "D−18 10:30",
-    blocks: allBlocks.slice(0, ch2),
+    blocks: allBlocks.slice(1, ch2),
+    prepend: [ch1WithTarget],
   });
   const part2Blocks = allBlocks.slice(ch2);
   const part2Ids = part2Blocks.map(() => ids());
+  const ch2FirstBody = part2Blocks.findIndex((b) => b.element === "body");
+  const ch2KerrBody = part2Blocks.findIndex((b) =>
+    b.text.includes("Captain Mara Kerr"),
+  );
   await driver.setTime(time.at("D−15 14:20"));
   const samSession = await driver.open("sam", docId);
   try {
-    await samSession.change((doc) =>
+    await samSession.change((doc) => {
+      titlePage(doc).set("title", "The Salt Almanac", ORIGIN_TITLE_PAGE);
+      titlePage(doc).set(
+        "authors",
+        "Dana Reyes & Sam Okafor",
+        ORIGIN_TITLE_PAGE,
+      );
+      const matter = bookMatter(doc);
+      matter.set(
+        "subtitle",
+        "Notes on Tides, Lamps and Winter Crossings",
+        ORIGIN_TITLE_PAGE,
+      );
+      matter.set(
+        "copyright",
+        "Copyright © 2026 Writers' Room Press. All rights reserved.",
+        ORIGIN_TITLE_PAGE,
+      );
+      matter.set("isbn", "978-0-900123-45-6", ORIGIN_TITLE_PAGE);
+      matter.set(
+        "dedication",
+        "For every watchman who read the steps before the clock.",
+        ORIGIN_TITLE_PAGE,
+      );
+      matter.set(
+        "acknowledgments",
+        "Thanks to the Lannick Harbour Archive and the boatyard at Ardle Quay.",
+        ORIGIN_TITLE_PAGE,
+      );
+      matter.set(
+        "aboutAuthor",
+        "Dana Reyes and Sam Okafor write coastal non-fiction in Lannick.",
+        ORIGIN_TITLE_PAGE,
+      );
       scriptBody(doc).write((w) => {
         w.insertBlocks(
           part1.ids.at(-1)!,
-          part2Blocks.map((b, i) => toBlockJSON(b, part2Ids[i]!)),
+          part2Blocks.map((b, i) => {
+            const json = toBlockJSON(b, part2Ids[i]!);
+            if (i === ch2FirstBody) {
+              return {
+                ...json,
+                attrs: { ...json.attrs, firstLine: "drop_cap" as const },
+              };
+            }
+            if (i === ch2KerrBody) {
+              return {
+                ...json,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: b.text,
+                    marks: [
+                      {
+                        type: "footnote" as const,
+                        attrs: {
+                          id: "fn-salt-kerr",
+                          text: "Harbour Pilots' Ledger, Vol. IV, Ardle Quay.",
+                        },
+                      },
+                    ],
+                  },
+                ],
+              };
+            }
+            return json;
+          }),
         );
-      }),
-    );
+      });
+    });
   } finally {
     await samSession.close();
   }

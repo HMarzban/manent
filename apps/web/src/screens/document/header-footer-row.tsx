@@ -129,6 +129,9 @@ function HeaderFooterRowBody(props: {
   const def = SETTINGS.get(settingKey);
   const isHeader =
     settingKey === "script.header" || settingKey === "project.header";
+  const isManuscriptHeader =
+    settingKey === "script.header" &&
+    store.get("script.format") === "manuscript";
 
   const detectedPreset = detectPreset(slots, isHeader);
   const activePreset: PresetId =
@@ -167,6 +170,9 @@ function HeaderFooterRowBody(props: {
       ...triple,
       firstPage: slots.firstPage,
       rule: slots.rule,
+      ...(slots.suppressChapterOpenings !== undefined
+        ? { suppressChapterOpenings: slots.suppressChapterOpenings }
+        : {}),
     };
     setCustomOpen(false);
     if (writeHeaderSlots(store, settingKey, updated)) {
@@ -223,8 +229,23 @@ function HeaderFooterRowBody(props: {
     }
   };
 
+  const handleChapterOpenings = (checked: boolean): void => {
+    const before = slots;
+    const updated: HeaderSlots = {
+      ...slots,
+      suppressChapterOpenings: !checked,
+    };
+    if (writeHeaderSlots(store, settingKey, updated)) {
+      announce(
+        checked ? DOCUMENT_WORDS.switchOn : DOCUMENT_WORDS.switchOff,
+        () => writeHeaderSlots(store, settingKey, before),
+      );
+    }
+  };
+
   const labelId = `${id}-label`;
   const firstPageId = `${id}-first-page`;
+  const chapterOpenId = `${id}-chapter-open`;
   const ruleId = `${id}-rule`;
   const ruleHelpId = `${id}-rule-help`;
 
@@ -314,6 +335,19 @@ function HeaderFooterRowBody(props: {
           onCheckedChange={handleFirstPage}
         />
       </div>
+      {isManuscriptHeader ? (
+        <div className="flex min-h-row items-center justify-between gap-4 pl-3">
+          <span id={chapterOpenId} className="text-ui text-fg-muted">
+            {HEADER_FOOTER_WORDS.chapterOpeningPages}
+          </span>
+          <Switch
+            checked={slots.suppressChapterOpenings === false}
+            aria-labelledby={chapterOpenId}
+            disabled={!writable}
+            onCheckedChange={handleChapterOpenings}
+          />
+        </div>
+      ) : null}
       <div className="flex min-h-row-2 items-center justify-between gap-4 pl-3">
         <div className="flex min-w-0 flex-col">
           <span id={ruleId} className="text-ui text-fg-muted">

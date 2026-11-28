@@ -86,6 +86,14 @@ export function BookPageLayoutPopover(props: {
     useMemo(() => sub("script.mirrorMargins"), [sub]),
     () => scriptStore.get("script.mirrorMargins"),
   );
+  const rectoChapters = useSyncExternalStore(
+    useMemo(() => sub("script.rectoChapters"), [sub]),
+    () => scriptStore.get("script.rectoChapters"),
+  );
+  const includeToc = useSyncExternalStore(
+    useMemo(() => sub("script.includeToc"), [sub]),
+    () => scriptStore.get("script.includeToc"),
+  );
   const whitePage = useSyncExternalStore(
     useCallback(
       (notify: () => void) =>
@@ -190,9 +198,13 @@ export function BookPageLayoutPopover(props: {
             isBookPublishing={isBookPublishing}
             paperValue={paperValue}
             mirrorMargins={mirrorMargins}
+            rectoChapters={rectoChapters}
             onPaper={(next) => scriptStore.set("script.paper", next)}
             onMirror={(checked) =>
               scriptStore.set("script.mirrorMargins", checked)
+            }
+            onRectoChapters={(checked) =>
+              scriptStore.set("script.rectoChapters", checked)
             }
           />
 
@@ -264,6 +276,17 @@ export function BookPageLayoutPopover(props: {
             header={header}
             onHeader={(next) => scriptStore.set("script.header", next)}
           />
+
+          <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
+            <span className="text-fg">{W.includeToc}</span>
+            <Switch
+              aria-label={W.includeToc}
+              checked={includeToc}
+              onCheckedChange={(checked) =>
+                scriptStore.set("script.includeToc", checked)
+              }
+            />
+          </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <span className="text-fg">{W.whitePage}</span>

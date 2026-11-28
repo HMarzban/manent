@@ -20,7 +20,7 @@ import type {
 import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
-import type { FixedKey } from "../services/ports.ts";
+import type { FixedKey, PersonServices } from "../services/ports.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import { connectEditor } from "./connect-editor.ts";
@@ -119,7 +119,13 @@ const shownOnly = (binding: EditorBinding) => ({
 function bindingFor(
   session: EditorSession,
   document: BoundDocument,
-  options: { timers: Timers; edit: boolean; bare: boolean },
+  options: {
+    timers: Timers;
+    edit: boolean;
+    bare: boolean;
+    docId: string;
+    services: Pick<PersonServices, "userId" | "messages" | "library">;
+  },
 ): {
   binding: EditorBinding;
   editable: boolean;
@@ -140,7 +146,10 @@ function bindingFor(
   return {
     binding: options.bare ? { ...bound.binding, presence } : bound.binding,
     editable: !options.bare && options.edit,
-    titlePage: titlePageSource(document.doc()),
+    titlePage: titlePageSource(document.doc(), {
+      docId: options.docId,
+      services: options.services,
+    }),
     destroy: bound.destroy,
   };
 }
@@ -163,6 +172,8 @@ function buildEditor(
     timers: options.timers,
     edit: open.shown.edit,
     bare: open.shown.bare,
+    docId,
+    services: options.services(),
   });
   const counted =
     options.observe === undefined ? null : countSteps(bound.binding.history);

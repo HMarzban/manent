@@ -24,6 +24,8 @@ export interface FrontPage {
   /** Each field's text as `text` lines with no block, and the page number. */
   readonly lines: readonly PositionedLine[];
   readonly fields: readonly FrontField[];
+  /** True on blank verso parity-pad front pages before Arabic Page 1. */
+  readonly blank?: true;
 }
 
 /**

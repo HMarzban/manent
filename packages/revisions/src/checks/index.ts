@@ -1,5 +1,13 @@
-export { SCRIPT_CHECK_KINDS, findScriptChecks } from "./script-checks.ts";
+export {
+  SCRIPT_CHECK_KINDS,
+  findBookChecks,
+  findScriptChecks,
+} from "./script-checks.ts";
 export type {
+  BookCheck,
+  ChapterUnderTargetCheck,
+  EmptyFootnoteCheck,
+  FigureMissingAltCheck,
   NearMatchCheck,
   NewNameCheck,
   NewProperNounCheck,
@@ -8,4 +16,5 @@ export type {
   ScriptCheck,
   ScriptCheckKind,
   ScriptChecksInput,
+  UnbalancedQuotesCheck,
 } from "./script-checks.ts";

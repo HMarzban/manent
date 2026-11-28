@@ -108,6 +108,7 @@ test("the import group's fixed words read as people see them", () => {
     pdf: "PDF",
     docx: "Word",
     ink: "Ink",
+    markdown: "Markdown",
   });
 });
 

@@ -47,35 +47,28 @@ const HEADER_OPTIONS = Object.freeze([
     "title_and_page_number",
     HEADER_FOOTER_WORDS.headerPresets.title_and_page_number,
   ],
-  ["chapter_and_page", W.headerChapterAndPage],
+  ["book_and_chapter", W.headerBookAndChapter],
 ] as const);
 
-const CHAPTER_HEADER_SLOTS: HeaderSlots = Object.freeze({
-  left: Object.freeze({ kind: "section" as const }),
-  center: Object.freeze({ kind: "none" as const }),
-  right: Object.freeze({ kind: "page_number" as const }),
-  firstPage: false,
-  rule: false,
-});
-
-function isChapterHeader(header: HeaderSlots): boolean {
-  return (
-    header.left.kind === "section" &&
-    header.center.kind === "none" &&
-    header.right.kind === "page_number"
-  );
-}
-
-/** Paper size selector (Letter/A4 on v1/v2; 5 trims + inner/outer margins on Engine 3). */
+/** Paper size selector (Letter/A4 on v1/v2; 5 trims + left/right margins + recto chapters on Engine 3). */
 export function BookPaperSection(props: {
   readonly isBookPublishing: boolean;
   readonly paperValue: Paper;
   readonly mirrorMargins: boolean;
+  readonly rectoChapters: boolean;
   readonly onPaper: (next: Paper) => void;
   readonly onMirror: (checked: boolean) => void;
+  readonly onRectoChapters: (checked: boolean) => void;
 }): ReactNode {
-  const { isBookPublishing, paperValue, mirrorMargins, onPaper, onMirror } =
-    props;
+  const {
+    isBookPublishing,
+    paperValue,
+    mirrorMargins,
+    rectoChapters,
+    onPaper,
+    onMirror,
+    onRectoChapters,
+  } = props;
   if (!isBookPublishing) {
     return (
       <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
@@ -117,6 +110,16 @@ export function BookPaperSection(props: {
           onCheckedChange={onMirror}
         />
       </div>
+      {mirrorMargins ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-fg">{W.rectoChapters}</span>
+          <Switch
+            aria-label={W.rectoChapters}
+            checked={rectoChapters}
+            onCheckedChange={onRectoChapters}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -127,15 +130,17 @@ export function BookHeaderPresetSection(props: {
   readonly onHeader: (next: HeaderSlots) => void;
 }): ReactNode {
   const { header, onHeader } = props;
-  const activePreset = isChapterHeader(header)
-    ? "chapter_and_page"
-    : detectPreset(header, true);
+  const activePreset = detectPreset(header, true);
   const apply = (id: (typeof HEADER_OPTIONS)[number][0]): void => {
-    const triple =
-      id === "chapter_and_page"
-        ? CHAPTER_HEADER_SLOTS
-        : HEADER_PRESET_SLOTS[id];
-    onHeader({ ...triple, firstPage: header.firstPage, rule: header.rule });
+    const triple = HEADER_PRESET_SLOTS[id];
+    onHeader({
+      ...triple,
+      firstPage: header.firstPage,
+      rule: header.rule,
+      ...(header.suppressChapterOpenings !== undefined
+        ? { suppressChapterOpenings: header.suppressChapterOpenings }
+        : {}),
+    });
   };
   return (
     <div className="flex flex-col gap-1.5 border-t border-line pt-2.5">

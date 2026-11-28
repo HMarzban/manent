@@ -17,7 +17,8 @@ export type PdfHeaderSlotKind =
   | "title"
   | "section"
   | "duration"
-  | "revision_label";
+  | "revision_label"
+  | "verso_title_recto_chapter";
 
 export type PdfHeaderSlot =
   | { readonly kind: PdfHeaderSlotKind }
@@ -29,6 +30,7 @@ export interface PdfHeaderSlots {
   readonly right: PdfHeaderSlot;
   readonly firstPage: boolean;
   readonly rule: boolean;
+  readonly suppressChapterOpenings?: boolean;
 }
 
 export type PdfDateFormat = "day_month_year" | "month_day_year" | "iso";
@@ -51,6 +53,8 @@ export interface PdfFurnitureInput {
   readonly revisionLabel: string | null;
   readonly day: string | null;
   readonly durationMs: number | null;
+  readonly isChapterOpening?: boolean;
+  readonly isBlank?: boolean;
 }
 
 /** A line placed as the engine places its lines: cells from the text edge, units from the top of the text area. */

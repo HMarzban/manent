@@ -59,12 +59,13 @@ export function useWhatRow(
   fileTypeId: string | null,
   locked: boolean,
   docId?: string,
+  multiPartBook = false,
 ): { option: SendWhatOption; row: SendRow; revision: number } | null {
   const asked = useSearchChoice("what");
   const [chosenId, choose] = useState(asked);
   const [revision, setRevision] = useState(0);
   const notify = useCallback(() => setRevision((count) => count + 1), []);
-  const offered = whatOffered(form, fileTypeId, locked);
+  const offered = whatOffered(form, fileTypeId, locked, multiPartBook);
   const option =
     offered.find((entry) => entry.id === chosenId) ?? offered[0] ?? null;
   if (option === null) return null;

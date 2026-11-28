@@ -8,6 +8,7 @@ import {
   SCENE_PROGRESS_MAP,
   TITLE_PAGE_MAP,
   applyRemote,
+  bookMatter,
   createDoc,
   deletionsOf,
   findTyped,
@@ -21,8 +22,13 @@ import {
   withoutRemovedUnseen,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
-import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
-import type { DocJSON, TitlePageField } from "@manent/schema";
+import {
+  BOOK_MATTER_FIELDS,
+  TITLE_PAGE_FIELDS,
+  blockText,
+  blocksOf,
+} from "@manent/schema";
+import type { BookMatterField, DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
 import { isDocKind } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
@@ -213,6 +219,19 @@ function changedTitlePage(
   });
 }
 
+/** Mine's additive book matter fields that differ from base's, in `BOOK_MATTER_FIELDS` order; "" empties one. */
+function changedBookMatter(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+): [BookMatterField, string][] {
+  const before = bookMatter(base);
+  const after = bookMatter(mine);
+  return BOOK_MATTER_FIELDS.flatMap((field): [BookMatterField, string][] => {
+    const value = after.get(field);
+    return value === before.get(field) ? [] : [[field, value]];
+  });
+}
+
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete, without the
@@ -246,6 +265,7 @@ export function replayBase(
       typed: Map<string, TypedText>;
       overrides: [string, string | null][];
       titlePage: [TitlePageField, string][];
+      bookMatter: [BookMatterField, string][];
       maps: ReplayMapChanges;
     }
   | { ok: false; code: "incomplete" | "invalid" } {
@@ -287,6 +307,7 @@ export function replayBase(
       typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
       titlePage: changedTitlePage(base, mine),
+      bookMatter: changedBookMatter(base, mine),
       maps: mapChanges,
     };
   } finally {

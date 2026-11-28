@@ -110,4 +110,52 @@ section.footnotes {
 section.footnotes aside {
   margin: 0.4em 0;
 }
+section.cover {
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+section.cover img {
+  max-width: 100%;
+  max-height: 98vh;
+  height: auto;
+}
+section.title-page {
+  text-align: center;
+  margin-top: 22%;
+}
+section.title-page h1.book-title {
+  font-size: 1.9em;
+  margin: 0 0 0.4em;
+}
+section.title-page p.book-subtitle {
+  font-style: italic;
+  font-size: 1.15em;
+  margin: 0 0 2em;
+}
+section.title-page p.book-author {
+  font-size: 1.05em;
+  margin-top: 2.5em;
+}
+section.copyright {
+  margin-top: 35%;
+  font-size: 0.88em;
+}
+section.copyright p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+section.dedication {
+  margin-top: 28%;
+  text-align: center;
+  font-style: italic;
+}
+section.dedication p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+section.back-matter p {
+  text-indent: 0;
+  margin: 0.65em 0;
+}
 `;

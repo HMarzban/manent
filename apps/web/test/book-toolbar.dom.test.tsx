@@ -273,7 +273,7 @@ test("Book settings and exports exclude screenplay-only noise and include Word (
     format: "manuscript",
     locked: false,
   }).map((t) => t.id);
-  expect(bookExports).toEqual(["pdf", "docx", "epub", "archive"]);
+  expect(bookExports).toEqual(["pdf", "docx", "epub", "markdown", "archive"]);
 
   const screenplayExports = typesOffered("export", {
     docKind: "script",

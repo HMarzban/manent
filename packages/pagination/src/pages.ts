@@ -44,6 +44,8 @@ export interface Page {
   readonly usedUnits: number;
   /** The highest block index examined while this page was filled. */
   readonly readAhead: number;
+  /** True on Engine 3 blind-folio blank verso pages inserted before a recto chapter start. */
+  readonly blank?: true;
 }
 
 export interface Pagination {

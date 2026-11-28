@@ -1,11 +1,23 @@
 // Pure OOXML Word (.docx) writer for manuscripts and scripts via fflate, preserving chapters, subheadings, epigraphs,
 // quotes, inline marks, links, footnotes, trim sizes and mirrored margins.
+import type { BookTocEntry } from "@manent/pagination";
 import type { BlockJSON, MarkJSON, TextJSON } from "@manent/schema";
 import { strToU8, zipSync } from "fflate";
+import type { BookBackMatter, BookFrontMatter } from "../book/matter.ts";
 import { extractFootnotes } from "../script/footnotes.ts";
 import type { ExtractedFootnote } from "../script/footnotes.ts";
 import type { ScriptForExport } from "../script/model.ts";
+import {
+  bookBackMatterXml,
+  bookFrontMatterXml,
+  docxPageLayout,
+  oddChapterBreakParagraphXml,
+  sectionPropsXml,
+} from "./book-matter.ts";
+import type { DocxPaper } from "./book-matter.ts";
 import { HIGHLIGHT_FILL_HEX, TEXT_COLOUR_HEX } from "./colours.ts";
+
+export type { DocxPaper };
 import {
   R_NS,
   W_NS,
@@ -18,19 +30,6 @@ import {
   stylesXml,
 } from "./parts.ts";
 import type { LinkEntry } from "./parts.ts";
-
-export type DocxPaper =
-  "letter" | "a4" | "trade_5x8" | "trade_5_5x8_5" | "trade_6x9";
-
-const PAPER_TWIPS: Readonly<
-  Record<DocxPaper, { readonly w: number; readonly h: number }>
-> = Object.freeze({
-  letter: { w: 12240, h: 15840 },
-  a4: { w: 11906, h: 16838 },
-  trade_5x8: { w: 7200, h: 11520 },
-  trade_5_5x8_5: { w: 7920, h: 12240 },
-  trade_6x9: { w: 8640, h: 12960 },
-});
 
 function findMark(
   marks: readonly MarkJSON[] | undefined,
@@ -203,6 +202,7 @@ function paragraphXml(
   links: LinkEntry[],
   endingAt: ReadonlyMap<string, readonly ExtractedFootnote[]>,
   lineTwips: number,
+  rectoChapters: boolean,
 ): { xml: string; isChapter: boolean } {
   const attrs = block.attrs ?? {};
   const type = typeof attrs.type === "string" ? attrs.type : "body";
@@ -220,7 +220,8 @@ function paragraphXml(
   if (type === "chapter") {
     isChapter = true;
     pPr.push('<w:pStyle w:val="Heading1"/>');
-    if (seenChapter && index > 0) pPr.push("<w:pageBreakBefore/>");
+    if (seenChapter && index > 0 && !rectoChapters)
+      pPr.push("<w:pageBreakBefore/>");
     defaultAlign = "center";
   } else if (type === "subheading") {
     pPr.push('<w:pStyle w:val="Heading2"/>');
@@ -294,35 +295,41 @@ export interface DocxWriteOptions {
   };
   readonly bookFont?: string;
   readonly fontSizePt?: number;
+  readonly frontMatter?: BookFrontMatter;
+  readonly backMatter?: BookBackMatter;
+  readonly includeToc?: boolean;
+  readonly tocEntries?: readonly BookTocEntry[];
+  readonly rectoChapters?: boolean;
 }
 
-const toTwips = (pt: number): number => Math.round(pt * 20);
-
-/** Writes `script` as a valid Word (.docx) archive with chapters, subheadings, epigraphs, inline marks, links, footnotes and optional mirrored margins. */
+/** Writes `script` as a valid Word (.docx) archive with front/back matter, TOC, chapters, subheadings, epigraphs, inline marks, links, footnotes and mirrored margins. */
 export function writeDocx(
   script: ScriptForExport,
   options?: DocxWriteOptions,
 ): Uint8Array<ArrayBuffer> {
-  const paper = PAPER_TWIPS[options?.paper ?? "letter"];
   const lineTwips = options?.lineSpacing === 1 ? 240 : 480;
   const mirrorMargins = options?.mirrorMargins === true;
-  const leftTwips =
-    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.inner);
-  const rightTwips =
-    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.outer);
-  const topTwips =
-    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.top);
-  const bottomTwips =
-    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.bottom);
+  const rectoChapters = options?.rectoChapters === true;
+  const layout = docxPageLayout(options?.paper, options?.marginsPt);
   const fontName = options?.bookFont ?? "Georgia";
   const fontHalfPt = Math.round((options?.fontSizePt ?? 12) * 2);
 
   const footnotes = extractFootnotes(script.blocks);
   const hasFootnotes = footnotes.notes.length > 0;
-  const hasSettings = mirrorMargins;
+  const hasToc =
+    options?.includeToc === true && (options.tocEntries?.length ?? 0) > 0;
+  const hasSettings = mirrorMargins || hasToc;
   const links: LinkEntry[] = [];
   let seenChapter = false;
   const paragraphs: string[] = [];
+
+  const frontXml = bookFrontMatterXml({
+    front: options?.frontMatter,
+    includeToc: options?.includeToc,
+    tocEntries: options?.tocEntries,
+    rectoChapters,
+    layout,
+  });
 
   for (let i = 0; i < script.blocks.length; i++) {
     const { xml, isChapter } = paragraphXml(
@@ -332,18 +339,30 @@ export function writeDocx(
       links,
       footnotes.endingAt,
       lineTwips,
+      rectoChapters,
     );
+    if (isChapter && seenChapter && rectoChapters) {
+      paragraphs.push(oddChapterBreakParagraphXml(layout, true));
+    }
     if (xml !== "") paragraphs.push(xml);
     if (isChapter) seenChapter = true;
   }
 
+  const backXml = bookBackMatterXml(options?.backMatter);
+  const finalSectPr = sectionPropsXml(layout, {
+    numFmt: frontXml !== "" ? "decimal" : undefined,
+    numStart: frontXml !== "" ? 1 : undefined,
+    titlePg: rectoChapters,
+  });
+
   const documentXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     `<w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>` +
+    frontXml +
     paragraphs.join("") +
-    `<w:sectPr><w:pgSz w:w="${paper.w}" w:h="${paper.h}"/>` +
-    `<w:pgMar w:top="${topTwips}" w:right="${rightTwips}" w:bottom="${bottomTwips}" w:left="${leftTwips}" w:header="720" w:footer="720" w:gutter="0"/>` +
-    "</w:sectPr></w:body></w:document>";
+    backXml +
+    finalSectPr +
+    "</w:body></w:document>";
 
   const files: Record<string, Uint8Array> = {
     "[Content_Types].xml": strToU8(
@@ -359,7 +378,13 @@ export function writeDocx(
   if (hasFootnotes)
     files["word/footnotes.xml"] = strToU8(footnotesXml(footnotes.notes));
   if (hasSettings)
-    files["word/settings.xml"] = strToU8(settingsXml(mirrorMargins));
+    files["word/settings.xml"] = strToU8(
+      settingsXml({
+        mirrorMargins,
+        evenAndOddHeaders: mirrorMargins,
+        updateFields: hasToc,
+      }),
+    );
 
   return new Uint8Array(zipSync(files));
 }

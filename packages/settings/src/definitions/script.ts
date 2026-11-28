@@ -190,13 +190,20 @@ const SCREENPLAY_ONLY_SETTINGS: ReadonlySet<string> = new Set([
   "script.colourOrder",
 ]);
 
-/** Whether a script setting does something in `format`: Ink has only its format, Manuscript hides screenplay-only settings, and line spacing / mirrored margins are manuscript-only. */
+const MANUSCRIPT_ONLY_SETTINGS: ReadonlySet<string> = new Set([
+  "script.lineSpacing",
+  "script.mirrorMargins",
+  "script.rectoChapters",
+  "script.includeToc",
+  "script.tocSubheadings",
+]);
+
+/** Whether a script setting does something in `format`: Ink has only its format, Manuscript hides screenplay-only settings, and book layout/contents settings are manuscript-only. */
 export function appliesToFormat(
   key: string,
   format: SettingValue<"script.format">,
 ): boolean {
-  if (key === "script.lineSpacing" || key === "script.mirrorMargins")
-    return format === "manuscript";
+  if (MANUSCRIPT_ONLY_SETTINGS.has(key)) return format === "manuscript";
   if (format === "ink") return key === "script.format";
   if (format === "manuscript") return !SCREENPLAY_ONLY_SETTINGS.has(key);
   return true;

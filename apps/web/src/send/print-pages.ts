@@ -9,6 +9,7 @@ import {
   engineFor,
   isVersoPage,
   pageMarginLeftPt,
+  pageRunningContext,
   timeScript,
   unitPtOf,
 } from "@manent/pagination";
@@ -136,11 +137,13 @@ export function drawSheet(
   furniture?: PageFurnitureOptions,
 ): HTMLElement {
   const laid = engine.layoutPage(p, index);
+  const running = pageRunningContext(p)[index];
   const sheet = sheetOf(
     p.profile,
     laid.lines.filter((line) => !PRINT_REPLACED_KINDS.has(line.kind)),
     index,
   );
+  if (running?.isBlank === true) sheet.dataset["blank"] = "1";
   const resolvedDuration =
     furniture?.durationMs !== undefined
       ? furniture.durationMs
@@ -163,6 +166,8 @@ export function drawSheet(
     revisionLabel: furniture?.revisionLabel ?? null,
     day: furniture?.day ?? null,
     durationMs: resolvedDuration,
+    isChapterOpening: running?.isChapterOpening ?? false,
+    isBlank: running?.isBlank ?? false,
   });
   return sheet;
 }
@@ -190,8 +195,11 @@ export function printPages(
     root.id = PRINT_ID;
     // the theme's rule for this class prints it on light paper with its colours exact
     root.className = PRINT_ID;
-    for (const page of options.front ?? [])
-      root.append(sheetOf(p.profile, page.lines, 0));
+    const front = options.front ?? [];
+    for (let i = 0; i < front.length; i++) {
+      const page = front[i]!;
+      root.append(sheetOf(p.profile, page.blank ? [] : page.lines, i));
+    }
     document.body.append(root);
     let cancelFrame = NO_FRAME;
     let next = 0;

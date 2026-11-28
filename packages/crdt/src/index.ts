@@ -33,6 +33,7 @@ export * from "./revised-overrides.ts";
 export * from "./script-maps.ts";
 export * from "./set-aside.ts";
 export * from "./settings.ts";
+export * from "./book-matter.ts";
 export * from "./title-page.ts";
 export * from "./undo-scope.ts";
 export * from "./vectors.ts";

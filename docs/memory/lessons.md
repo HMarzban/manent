@@ -4,6 +4,46 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep Book front matter additive on `titlePage`, gate blank-page keys and theme CSS, and settle DOM selections in Firefox/WebKit E2E
+
+- Date: 2026-11-28
+
+### What happened
+
+During Book Phase 3 (cover/front/back matter, Engine 3 recto chapters, Markdown, Book checks and multi-part compile), four subtle cross-layer issues surfaced: (1) appending `:${side}` unconditionally to every `BreakSpec` key broke `pagination-decorations.test.ts` on standard non-blank breaks, whereas only blank verso breaks (`side === -2`) need a `:blank` key suffix; (2) adding `rgb(...)` shadow/border values inside `packages/editor/src/front-pages/front-css.ts` violated `tools/test/colours.test.ts` (`colour-outside-theme`); (3) adding `"On chapter opening pages too"` unconditionally to `HeaderFooterRow` leaked a manuscript-only control into Screenplay `Script settings` (`document-panels.dom.test.tsx`); and (4) running `e2e/interface/book-format-bar.e2e.ts` sequentially across `chromium`, `firefox`, `webkit` and `tour` against one shared live demo server revealed that Firefox/WebKit need two animation frames after programmatic `Selection` updates for ProseMirror's DOM observer to publish updated toolbar facts, and shared-document E2E tests must guard toggle state rather than assuming untouched initial defaults.
+
+### How it was caught
+
+Items (1)–(3) were caught by `bun run verify` (`pagination-decorations.test.ts`, `colours.test.ts`, `document-panels.dom.test.tsx`), and item (4) was caught by running `book-format-bar.e2e.ts` and `write-book-publishing.e2e.ts` sequentially across `--project=chromium --project=firefox --project=webkit --project=tour`.
+
+### Rule
+
+Keep new book-specific document metadata additive on existing CRDT maps (`TITLE_PAGE_MAP` via `bookMatter(doc)`) whenever a schema bump is unnecessary, suffix `BreakSpec` keys only for new special cases (`side === -2` → `:blank`), use strictly theme CSS custom properties (`var(--elev-page)`, `var(--page-edge)`) in editor stylesheets, gate manuscript-only setting rows on `store.get("script.format") === "manuscript"`, and in multi-browser Playwright specs wait two animation frames after programmatic DOM selection changes while making toggle/annotation assertions idempotent across shared demo runs.
+
+### Enforced by
+
+`packages/crdt/test/book-matter.test.ts`, `packages/editor/test/pagination-decorations.test.ts`, `tools/test/colours.test.ts`, `apps/web/test/document-panels.dom.test.tsx`, `e2e/interface/book-format-bar.e2e.ts`, and `e2e/tour/write-book-publishing.e2e.ts`.
+
+## Lock the app viewport to `100%` and make every scroll container `relative` with `overscroll-contain` so `.sr-only` labels never scroll the shell
+
+- Date: 2026-11-28
+
+### What happened
+
+On tall settings screens such as Project settings (`Format and style`) and Preferences, fast trackpad or wheel scrolling scrolled the entire app shell upward off the top of the viewport, lifting the bottom status bar (`Commands ⌘K`) into the middle of the screen over an empty dark area. Two factors combined: (1) `SettingRow` and `TitlePageRow` render `position: absolute` `.sr-only` elements inside scrollable containers (`SettingsShell`'s `<main>`, `ScreenArea`) whose ancestors all had `position: static`, so those elements took the initial containing block (`<html>`) as their containing block and inflated `document.documentElement.scrollHeight` past `2,000 px` even though `AppShell` was `h-dvh`; and (2) `AppShell` only clipped horizontally (`overflow-x-clip`), `html` and `body` had `overflow: visible` and `overscroll-behavior: auto`, and inner scroll regions lacked `overscroll-contain`, so fast scroll momentum chained out of `<main>` straight into `window.scrollY` and macOS elastic overscroll.
+
+### How it was caught
+
+By live user report with a screenshot of Project settings (`section=format_style`), reproduced directly in Chromium where `document.documentElement.scrollHeight` measured `2,052 px` against an `800 px` viewport and a fast wheel gesture moved `window.scrollY` to `1,252 px` and pushed `[data-region="status_bar"]` to `top: -480 px`.
+
+### Rule
+
+Keep `html`, `body` and `#root` locked to the viewport (`height: 100%; width: 100%; overflow: hidden; overscroll-behavior: none`) in `packages/ui/src/theme.css`, restoring `height: auto; width: auto; overflow: visible` inside `@media print`. Keep `AppShell` and `RootLayout`'s non-shell frame at `relative h-dvh w-full overflow-hidden overscroll-none`, and give every scrollable pane (`ScreenArea`, `ShellPage`, `SettingsShell`, `PanelTabs`, `VirtualRows`, `EditableGrid`, `SendLayout`, `History`, `ReaderPage`) and every component hosting `.sr-only` controls (`SettingRow`) explicit `relative` positioning and `overscroll-contain` so absolutely positioned screen-reader labels stay inside their scroll container and wheel momentum never scrolls the outer shell.
+
+### Enforced by
+
+`packages/ui/src/theme.css`, `apps/web/src/shell/app-shell.tsx`, `apps/web/src/root-layout.tsx`, `apps/web/src/settings-shell/settings-shell.tsx`, `packages/ui/src/settings-react/setting-row.tsx`, `apps/web/test/shell-narrow.test.ts`, `apps/web/test/settings-unify.dom.test.tsx`, and `e2e/interface/preferences.e2e.ts`.
+
 ## Keep editor-only helpers off the command-context entry path, send canonical user homes on desktop adopt, and guard Windows tar/hotkeys in CI
 
 - Date: 2026-11-28

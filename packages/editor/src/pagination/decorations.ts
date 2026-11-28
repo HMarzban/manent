@@ -18,6 +18,7 @@ import type { BlockIndex } from "./block-index.ts";
 import type { BlockRange } from "./block-ranges.ts";
 import { toBreakSpecsIn, toRuleSpecs } from "./break-specs.ts";
 import type { BreakSpec } from "./break-specs.ts";
+import { isDrawnAsBefore, isPlacedAsBefore, sameAtEnd } from "./page-diff.ts";
 import type { PaginationState } from "./plugin.ts";
 import { renderBreak, renderCast, renderOmitted } from "./widgets.ts";
 
@@ -180,79 +181,6 @@ function changeMapping(
   const oldEnd = blockPos(before, change.oldEnd);
   const newEnd = blockPos(after, change.newEnd);
   return new Mapping([new StepMap([start, oldEnd - start, newEnd - start])]);
-}
-
-// Page `a` of `p` lies as page `b` of `old` did, its blocks `shift` later: the same starts, room, top and (MORE),
-// after a page above it as full.
-function isPlacedAsBefore(
-  p: Pagination,
-  a: number,
-  old: Pagination,
-  b: number,
-  shift: number,
-): boolean {
-  const x = p.pages[a]!;
-  const y = old.pages[b]!;
-  const above = p.pages[a - 1];
-  const wasAbove = old.pages[b - 1];
-  const sameRight =
-    x.right === null
-      ? y.right === null
-      : y.right !== null &&
-        x.right.block === y.right.block + shift &&
-        x.right.line === y.right.line &&
-        x.right.offset === y.right.offset;
-  return (
-    sameRight &&
-    x.block === y.block + shift &&
-    x.line === y.line &&
-    x.offset === y.offset &&
-    x.more === y.more &&
-    x.topUnits === y.topUnits &&
-    x.usedUnits === y.usedUnits &&
-    (above === undefined
-      ? wasAbove === undefined
-      : wasAbove !== undefined &&
-        above.usedUnits === wasAbove.usedUnits &&
-        above.more === wasAbove.more)
-  );
-}
-
-// Page `a` of `p` draws its break and its blocks as page `b` of `old` did, its blocks `shift` later.
-function isDrawnAsBefore(
-  p: Pagination,
-  a: number,
-  old: Pagination,
-  b: number,
-  shift: number,
-): boolean {
-  const x = p.pages[a]!;
-  const y = old.pages[b]!;
-  return (
-    isPlacedAsBefore(p, a, old, b, shift) &&
-    x.label === y.label &&
-    x.contd === y.contd &&
-    x.contdRight === y.contdRight &&
-    x.sceneContinued === y.sceneContinued
-  );
-}
-
-// How many pages at the end of `p` are each as `isSame` finds the page as many from the end of `old`.
-function sameAtEnd(
-  old: Pagination,
-  p: Pagination,
-  shift: number,
-  isSame: typeof isDrawnAsBefore,
-): number {
-  const pages = p.pages.length;
-  const oldPages = old.pages.length;
-  let tail = 0;
-  while (
-    tail < Math.min(pages, oldPages) &&
-    isSame(p, pages - 1 - tail, old, oldPages - 1 - tail, shift)
-  )
-    tail++;
-  return tail;
 }
 
 /**

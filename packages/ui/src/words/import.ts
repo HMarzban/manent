@@ -121,6 +121,7 @@ export const IMPORT_WORDS = {
     pdf: "PDF",
     docx: "Word",
     ink: "Ink",
+    markdown: "Markdown",
   },
   groupTitle: "Import",
   /** `day` as `formatDate` writes it. */
@@ -152,6 +153,7 @@ export const IMPORT_WORDS = {
   asFountain: "Fountain",
   asDocx: "Word (.docx)",
   asEpub: "EPUB (.epub)",
+  asMarkdown: "Markdown (.md)",
   leftOut: (names: string, format: string): string =>
     `! ${names} can't be written in ${format} and are left out of the file`,
   leftOutOne: (name: string, format: string): string =>

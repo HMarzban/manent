@@ -55,7 +55,7 @@ export const INK_WORDS = Object.freeze({
   needsCaretInScene: "needs the caret in a scene",
   emptyGameScriptTitle: "Nothing to play yet",
   emptyGameScriptDetail:
-    "Write a scene, dialogue or branching choices on the page to play them here.",
+    "Write a scene, dialogue or choices on the page to play them here.",
   cueEmote: "Emote",
   cueCamera: "Camera",
   cueEngine: "Engine",

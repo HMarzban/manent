@@ -14,6 +14,8 @@ export interface ExportWork {
   readonly title: string;
   readonly pages: Pagination | null;
   readonly now: () => number;
+  /** Chosen What option id (e.g. `"whole_book"` for multi-part book compile). */
+  readonly whatId?: string;
 }
 
 /** A file as it is saved: its bytes and its name, with its extension. */

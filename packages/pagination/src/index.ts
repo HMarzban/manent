@@ -8,4 +8,6 @@ export * from "./positioned-lines.ts";
 export * from "./script-layout.ts";
 export * from "./engines/index.ts";
 export * from "./front-pages.ts";
+export * from "./running-header.ts";
+export * from "./book-toc.ts";
 export * from "./timing/index.ts";

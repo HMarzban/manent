@@ -20,3 +20,5 @@ export {
   repaginateV3,
 } from "./paginate.ts";
 export { wrapSerif } from "./wrap.ts";
+export { layoutBookFrontPages } from "./front-pages.ts";
+export type { BookFrontPagesInput } from "./front-pages.ts";

@@ -84,6 +84,8 @@ export const LIBRARY_WORDS = {
   yourDesk: "Your desk",
   newScript: "New script",
   newProject: "New project",
+  addPart: "Add part",
+  bookPart: (n: number): string => `Part ${formatCount(n)}`,
   untitledScript: "Untitled script",
   /** A new project's name: the kind's, then `n` from the second one in a workspace on. */
   untitledProject: (kind: Kind, n = 1): string =>

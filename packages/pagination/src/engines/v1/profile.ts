@@ -39,6 +39,8 @@ export interface ProfileOptions {
   readonly manuscriptLineSpacing?: 1 | 2;
   /** Read by Engine 3 manuscript format only; default true (recto/verso inner/outer gutters). */
   readonly mirrorMargins?: boolean;
+  /** Read by Engine 3 manuscript format only; default false (start chapters on odd/recto pages). */
+  readonly rectoChapters?: boolean;
   /** A project's style, applied last. */
   readonly elements?: ElementChanges;
 }

@@ -17,6 +17,7 @@ export const SOURCE_FORMATS = [
   "pdf",
   "docx",
   "ink",
+  "markdown",
 ] as const;
 export type SourceFormat = (typeof SOURCE_FORMATS)[number];
 

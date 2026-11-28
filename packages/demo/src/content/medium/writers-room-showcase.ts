@@ -8,6 +8,7 @@ import type { SeedProjectName } from "../../seed/capabilities/series.ts";
 
 export const SALT_ALMANAC_FIRST_DRAFT = `
 chapter 1. High Water at Gull Point
+epigraph "The moon keeps an older ledger than the railway." — Ardle Quay Harbour Book, 1898
 body Every harbour keeps two clocks: the brass one on the exchange roof that belongs to the railway, and the wet black line along the granite steps that belongs to the moon.
 body Anyone who has waited on Ardle Quay with a cold flask knows which clock tells the truth. The timetables print neat quarter-hours, yet the wind off the north channel adds twelve minutes whenever it pleases.
 break * * *
@@ -15,6 +16,7 @@ quote "Spring tide, 14 October: three inches above the iron ring at the lower st
 body We began measuring the steps in late September with a folding rule, a pencil stub, and a tin of chalk borrowed from the boatyard.
 
 chapter 2. The Bar and the Buoy
+subheading The Outer Breakwater
 body Beyond the outer breakwater the river forgets it ever ran between brick warehouses. Silt gathers in a long pale shelf that shifts after every equinoctial gale.
 body The harbour pilots speak of the bar as though it were a sleeping dog that changes corners in the kitchen overnight. Cross it at half-flood with a slack helm and you hear nothing but hull water; cut the turn five yards early and the keel remembers.
 break * * *

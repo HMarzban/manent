@@ -39,6 +39,7 @@ test("the Write group lists its scenarios, each waiting one with the feature it 
     ["write-numbers", null],
     ["write-layout-engine", null],
     ["write-inline-graphics", null],
+    ["write-book-publishing", null],
   ]);
   expect(
     validateTour(

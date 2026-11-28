@@ -82,6 +82,24 @@ export function stylesXml(
     '<w:name w:val="footnote reference"/>' +
     '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr>' +
     "</w:style>" +
+    '<w:style w:type="paragraph" w:styleId="Title">' +
+    '<w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>' +
+    '<w:pPr><w:spacing w:before="2880" w:after="240" w:line="280" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="center"/></w:pPr>' +
+    '<w:rPr><w:b/><w:sz w:val="44"/><w:szCs w:val="44"/></w:rPr>' +
+    "</w:style>" +
+    '<w:style w:type="paragraph" w:styleId="Subtitle">' +
+    '<w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>' +
+    '<w:pPr><w:spacing w:before="0" w:after="360" w:line="260" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="center"/></w:pPr>' +
+    '<w:rPr><w:i/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr>' +
+    "</w:style>" +
+    '<w:style w:type="paragraph" w:styleId="TOC1">' +
+    '<w:name w:val="toc 1"/><w:basedOn w:val="Normal"/>' +
+    '<w:pPr><w:spacing w:before="60" w:after="60" w:line="260" w:lineRule="auto"/><w:ind w:firstLine="0"/></w:pPr>' +
+    "</w:style>" +
+    '<w:style w:type="paragraph" w:styleId="TOC2">' +
+    '<w:name w:val="toc 2"/><w:basedOn w:val="Normal"/>' +
+    '<w:pPr><w:spacing w:before="20" w:after="40" w:line="240" w:lineRule="auto"/><w:ind w:left="360" w:firstLine="0"/></w:pPr>' +
+    "</w:style>" +
     '<w:style w:type="paragraph" w:styleId="FootnoteText">' +
     '<w:name w:val="footnote text"/><w:basedOn w:val="Normal"/>' +
     '<w:pPr><w:spacing w:line="240" w:lineRule="auto" w:after="60"/><w:ind w:firstLine="0"/></w:pPr>' +
@@ -109,10 +127,21 @@ export function footnotesXml(notes: readonly ExtractedFootnote[]): string {
   );
 }
 
-export function settingsXml(mirrorMargins: boolean): string {
+export interface DocxSettingsOptions {
+  readonly mirrorMargins: boolean;
+  readonly updateFields?: boolean;
+  readonly evenAndOddHeaders?: boolean;
+}
+
+export function settingsXml(options: DocxSettingsOptions): string {
+  const tags = [
+    options.mirrorMargins ? "<w:mirrorMargins/>" : "",
+    options.evenAndOddHeaders === true ? "<w:evenAndOddHeaders/>" : "",
+    options.updateFields === true ? '<w:updateFields w:val="true"/>' : "",
+  ].join("");
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<w:settings xmlns:w="${W_NS}">${mirrorMargins ? "<w:mirrorMargins/>" : ""}</w:settings>`
+    `<w:settings xmlns:w="${W_NS}">${tags}</w:settings>`
   );
 }
 

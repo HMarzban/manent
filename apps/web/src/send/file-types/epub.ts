@@ -1,6 +1,9 @@
 // Offline EPUB 3 (.epub) export file type offered strictly for Book (manuscript) documents.
 import { IMPORT_WORDS } from "@manent/ui";
-import { loadPdfAssetsForDoc } from "../pdf-assets.ts";
+import { archiveSource } from "../../archive/archive-source.ts";
+import { compileBookProject } from "../book-compile.ts";
+import { readBookExportMeta } from "../book-export-meta.ts";
+import { loadEpubCoverAsset, loadPdfAssetsForDoc } from "../pdf-assets.ts";
 import { fileName } from "../script-file.ts";
 import type {
   ExportFileType,
@@ -11,21 +14,36 @@ import type {
 const EPUB_MIME = "application/epub+zip";
 
 async function writeEpubFile(work: ExportWork): Promise<WrittenFile> {
-  const [{ scriptForExport }, { writeEpub }, assets] = await Promise.all([
-    import("../../editor-host/export-source.ts"),
-    import("@manent/formats"),
-    work.pages === null
-      ? Promise.resolve(undefined)
-      : loadPdfAssetsForDoc(work.docId, work.pages),
-  ]);
-  const script = await scriptForExport(work.docId, work.title);
+  const services = archiveSource.get();
+  const compiled =
+    work.whatId === "whole_book" && services !== null
+      ? await compileBookProject(services, work.docId, work.title)
+      : null;
+  const title = compiled?.title ?? work.title;
+  const bookMeta = readBookExportMeta(work.docId, title);
+  const [{ scriptForExport }, { writeEpub }, assets, cover] = await Promise.all(
+    [
+      import("../../editor-host/export-source.ts"),
+      import("@manent/formats"),
+      work.pages === null
+        ? Promise.resolve(undefined)
+        : loadPdfAssetsForDoc(work.docId, work.pages),
+      loadEpubCoverAsset(work.docId, bookMeta.coverAssetId),
+    ],
+  );
+  const script = compiled?.script ?? (await scriptForExport(work.docId, title));
   if (script === null) throw new Error(`no open editor holds ${work.docId}`);
   return {
     bytes: writeEpub(script, {
       modifiedAt: work.now(),
       assets,
+      cover,
+      frontMatter: bookMeta.frontMatter,
+      backMatter: bookMeta.backMatter,
+      includeTocInSpine: bookMeta.includeToc,
+      includeSubheadingsInToc: bookMeta.tocSubheadings,
     }),
-    name: fileName(work.title, ".epub"),
+    name: fileName(title, ".epub"),
   };
 }
 

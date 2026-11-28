@@ -5,6 +5,7 @@ import { GraphicDetailsSection } from "../../graphics/graphic-details-section.ts
 import { ImportSection } from "../../import/import-section.tsx";
 import { ProductionGroup } from "../../production/production-group.tsx";
 import { ChecksSection } from "./checks-section.tsx";
+import { FootnotesSection } from "./footnotes-section.tsx";
 import { LayoutGroup } from "./layout-group.tsx";
 import { SceneSection } from "./scene-section.tsx";
 import { WhoWrote } from "./who-wrote.tsx";
@@ -29,6 +30,7 @@ export const DETAILS_SECTIONS: readonly DetailsSection[] = [
   { id: "scene", scope: "scene", Section: SceneSection },
   { id: "writer", scope: "scene", Section: WriterSection },
   { id: "production", scope: "script", Section: ProductionGroup },
+  { id: "footnotes", scope: "script", Section: FootnotesSection },
   { id: "checks", scope: "script", Section: ChecksSection },
   { id: "timing", scope: "selection", Section: SelectionTime },
   { id: "rundown", scope: "rundown", Section: RundownDetails },

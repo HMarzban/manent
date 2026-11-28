@@ -227,7 +227,7 @@ export function layoutPage(p: Pagination, pageIndex: number): LaidOutPage {
     () => {},
   );
   walkPage(walk);
-  addFurniture(walk, lines);
+  if (walk.page.blank !== true) addFurniture(walk, lines);
   return {
     index: walk.page.index,
     label: walk.page.label,

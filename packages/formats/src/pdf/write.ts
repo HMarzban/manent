@@ -7,6 +7,7 @@ import {
   engineFor,
   linePtOf,
   pageMarginLeftPt,
+  pageRunningContext,
   unitPtOf,
 } from "@manent/pagination";
 import type {
@@ -15,6 +16,9 @@ import type {
   PageProfile,
   Pagination,
 } from "@manent/pagination";
+import type { BookBackMatter } from "../book/matter.ts";
+import { drawTrailingBookPages } from "./back-matter.ts";
+import { drawCoverPage } from "./cover.ts";
 import {
   bookFontScale,
   drawGlyphRun,
@@ -22,7 +26,6 @@ import {
   fontScale,
   startPdf,
 } from "./draw.ts";
-import { drawEndnotesPages } from "./endnotes.ts";
 import type { PdfEndnote } from "./endnotes.ts";
 import type { ScriptFontFiles } from "./fonts.ts";
 import { drawPageGraphics } from "./graphics.ts";
@@ -67,6 +70,12 @@ export interface PdfOptions {
   readonly footnotes?: readonly PdfEndnote[];
   /** Optional Source Serif 4 faces used when a part uses Layout Engine 3 book serif typography. */
   readonly bookFonts?: ScriptFontFiles;
+  /** Optional full-page cover image drawn before front matter. */
+  readonly cover?: PdfAsset | null;
+  /** Optional back matter (Acknowledgements, About the author) appended after the body and any endnotes. */
+  readonly backMatter?: BookBackMatter | null;
+  /** Numbers pages continuously across compiled parts instead of restarting each part at 1. */
+  readonly continuousPageNumbers?: boolean;
 }
 
 const SCRIPT_SCALE = fontScale(12, CELL_PT);
@@ -171,7 +180,12 @@ interface PartPage {
 /** The engine's lines, but those an entry draws in its place, with every furniture entry's paper under them and its lines over them. */
 function drawPage(
   { pen, p, pageIndex, section }: PartPage,
-  at: { documentIndex: number; pageCount: number; durationMs: number | null },
+  at: {
+    documentIndex: number;
+    pageCount: number;
+    durationMs: number | null;
+    continuousLabel: string | null;
+  },
   options: PdfOptions,
 ): void {
   const { doc, engine } = pen;
@@ -179,11 +193,18 @@ function drawPage(
   const { geometry } = profile;
   const revision = options.decor?.(at.documentIndex) ?? null;
   const laid = engine.layoutPage(p, pageIndex);
+  const running = pageRunningContext(p)[pageIndex];
+  const pageLabel =
+    at.continuousLabel !== null
+      ? running?.isBlank === true
+        ? ""
+        : at.continuousLabel
+      : laid.label;
   const drawings = PDF_FURNITURE.map((entry) =>
     entry.draw({
       pageIndex: at.documentIndex,
       pageCount: at.pageCount,
-      pageLabel: laid.label,
+      pageLabel,
       profile,
       title: options.title ?? null,
       revision,
@@ -196,6 +217,8 @@ function drawPage(
       revisionLabel: options.revisionLabel ?? null,
       day: options.day ?? null,
       durationMs: at.durationMs,
+      isChapterOpening: running?.isChapterOpening ?? false,
+      isBlank: running?.isBlank ?? false,
     }),
   );
   const replaced = new Set(PDF_FURNITURE.flatMap((entry) => entry.replaces));
@@ -300,15 +323,31 @@ export async function writePdfParts(
       section: sections[pageIndex] ?? null,
     }));
   });
-  for (const page of options.front ?? []) {
+  if (options.cover !== undefined && options.cover !== null) {
+    drawCoverPage(doc, geometry, options.cover);
+  }
+  const front = options.front ?? [];
+  for (let frontIndex = 0; frontIndex < front.length; frontIndex++) {
+    const page = front[frontIndex]!;
     doc.addPage();
+    if (page.blank === true) continue;
     drawLines(
       { doc, engine: engines[0]!, hasBookFonts },
       page.lines,
       first.profile,
-      0,
+      frontIndex,
     );
   }
+  const continuousLabels: string[] | null =
+    options.continuousPageNumbers === true
+      ? (() => {
+          let n = 0;
+          return pages.map(({ p, pageIndex }) => {
+            n += 1;
+            return p.pages[pageIndex]?.blank === true ? "" : String(n);
+          });
+        })()
+      : null;
   for (const documentIndex of options.pages ?? pages.map((_, k) => k)) {
     const page = pages[documentIndex];
     if (page === undefined)
@@ -321,21 +360,21 @@ export async function writePdfParts(
         documentIndex,
         pageCount: pages.length,
         durationMs: computedDuration,
+        continuousLabel: continuousLabels?.[documentIndex] ?? null,
       },
       options,
     );
   }
-  if (options.footnotes !== undefined && options.footnotes.length > 0) {
-    drawEndnotesPages({
-      doc,
-      engine: engines[0]!,
-      profile: first.profile,
-      footnotes: options.footnotes,
-      useBookSerif:
-        hasBookFonts && first.profile.typography?.kind === "book_serif",
-      startPageIndex: pages.length,
-    });
-  }
+  drawTrailingBookPages({
+    doc,
+    engine: engines[0]!,
+    profile: first.profile,
+    useBookSerif:
+      hasBookFonts && first.profile.typography?.kind === "book_serif",
+    startPageIndex: pages.length,
+    footnotes: options.footnotes,
+    backMatter: options.backMatter,
+  });
   return await finish();
 }
 

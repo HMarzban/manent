@@ -4,6 +4,8 @@ import type { EditorState, Plugin, Transaction } from "prosemirror-state";
 import type {
   Alignment,
   BlockJSON,
+  BookMatterField,
+  BookMatterFields,
   FirstLine,
   FormatId,
   TitlePageField,
@@ -194,10 +196,36 @@ export interface TitlePagePort {
   subscribe(listener: () => void): () => void;
 }
 
+/** Book front/back matter and optional cover image, read and written on the shared titlePage map. */
+export interface BookMatterPort {
+  get(): BookMatterFields;
+  set(field: BookMatterField, value: string): void;
+  subscribe(listener: () => void): () => void;
+  pickCover?(): Promise<string | null>;
+  resolveCoverUrl?(assetId: string): Promise<string | null>;
+}
+
+export interface BookMatterWords {
+  readonly subtitle: string;
+  readonly isbn: string;
+  readonly copyright: string;
+  readonly dedication: string;
+  readonly acknowledgments: string;
+  readonly aboutAuthor: string;
+  readonly addCover: string;
+  readonly replaceCover: string;
+  readonly removeCover: string;
+  addMatter(label: string): string;
+}
+
 /** Where the title page is kept, and each field's name: its box's accessible name and its placeholder. */
 export interface TitlePageSource {
   readonly port: TitlePagePort;
   readonly words: Readonly<Record<TitlePageField, string>>;
+  readonly bookMatter?: {
+    readonly port: BookMatterPort;
+    readonly words: BookMatterWords;
+  };
 }
 
 /** The clipboard's reader of text from outside Manent. */

@@ -29,6 +29,8 @@ export interface PageFurnitureInput {
   readonly revisionLabel: string | null;
   readonly day: string | null;
   readonly durationMs: number | null;
+  readonly isChapterOpening?: boolean;
+  readonly isBlank?: boolean;
 }
 
 export interface PageFurnitureOptions {
@@ -39,6 +41,8 @@ export interface PageFurnitureOptions {
   readonly dateFormat?: DateFormat | null;
   readonly section?: string | null;
   readonly sections?: readonly (string | null)[];
+  readonly chapterOpenings?: readonly boolean[];
+  readonly blankPages?: readonly boolean[];
   readonly revisionLabel?: string | null;
   readonly day?: string | null;
   readonly durationMs?: number | null;
@@ -76,6 +80,7 @@ const isSameSlots = (a: HeaderSlots | null, b: HeaderSlots | null): boolean =>
     b !== null &&
     a.firstPage === b.firstPage &&
     a.rule === b.rule &&
+    a.suppressChapterOpenings === b.suppressChapterOpenings &&
     isSameSlot(a.left, b.left) &&
     isSameSlot(a.center, b.center) &&
     isSameSlot(a.right, b.right));
@@ -98,6 +103,8 @@ export const isSameFurniture = (
   a.revisionLabel === b.revisionLabel &&
   a.day === b.day &&
   a.durationMs === b.durationMs &&
+  (a.isChapterOpening === true) === (b.isChapterOpening === true) &&
+  (a.isBlank === true) === (b.isBlank === true) &&
   isSameRevision(a.revision, b.revision);
 
 /** Marks `pages` so every engine furniture kind named in `entries`'s `replaces` is hidden without moving any body line. */

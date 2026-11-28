@@ -1,36 +1,17 @@
-// Header and footer furniture on a sheet: left, centre and right slots plus an optional hairline rule.
+// Header and footer furniture on a sheet: delegates slot & suppression rules to @manent/pagination for zero-drift screen/PDF parity.
 import {
   cellPtOf,
-  isVersoPage,
   linePtOf,
   pageMarginLeftPt,
+  resolveBarSlots,
 } from "@manent/pagination";
 import type { BookTypography } from "@manent/pagination";
 import type { HeaderSlot, HeaderSlots } from "@manent/settings";
 import { linePxOf, screenPagePx } from "../profile-css.ts";
-import type {
-  DateFormat,
-  PageFurniture,
-  PageFurnitureInput,
-} from "./page-furniture.ts";
+import type { PageFurniture, PageFurnitureInput } from "./page-furniture.ts";
 
 const PX_PER_PT = 4 / 3;
 const RULE_GAP_PT = 2;
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const NONE: HeaderSlot = Object.freeze({ kind: "none" });
 const DEFAULT_HEADER: HeaderSlots = Object.freeze({
   left: NONE,
@@ -46,66 +27,6 @@ const DEFAULT_FOOTER: HeaderSlots = Object.freeze({
   firstPage: false,
   rule: false,
 });
-
-function formatDay(day: string | null, dateFormat: DateFormat | null): string {
-  if (day === null || day === "") return "";
-  const match = ISO_DAY.exec(day);
-  if (match === null) return day;
-  const [, year, monthText, dayText] = match;
-  const month = MONTHS[Number(monthText) - 1];
-  if (month === undefined) return day;
-  const numDay = Number(dayText);
-  switch (dateFormat ?? "day_month_year") {
-    case "iso":
-      return `${year}-${monthText}-${dayText}`;
-    case "month_day_year":
-      return `${month} ${numDay}, ${year}`;
-    case "day_month_year":
-      return `${numDay} ${month} ${year}`;
-  }
-}
-
-function padTwo(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000 + 0.5));
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const seconds = totalSec % 60;
-  return hours > 0
-    ? `${hours}:${padTwo(minutes)}:${padTwo(seconds)}`
-    : `${minutes}:${padTwo(seconds)}`;
-}
-
-function resolveSlot(
-  slot: HeaderSlot,
-  input: PageFurnitureInput,
-  hasRevisionHeader: boolean,
-): string {
-  const label = input.pageLabel ?? String(input.pageIndex + 1);
-  switch (slot.kind) {
-    case "none":
-      return "";
-    case "page_number":
-      return `${label}.`;
-    case "page_of_total":
-      return `${label} of ${input.pageCount}`;
-    case "date":
-      return formatDay(input.day, input.dateFormat);
-    case "title":
-      return input.title ?? "";
-    case "section":
-      return input.section ?? "";
-    case "duration":
-      return input.durationMs === null ? "" : formatDuration(input.durationMs);
-    case "revision_label":
-      return hasRevisionHeader ? "" : (input.revisionLabel ?? "");
-    case "custom":
-      return slot.text;
-  }
-}
 
 function createBand(
   doc: Document,
@@ -190,16 +111,17 @@ function drawBar(
   kind: "header" | "footer",
   hasRevisionHeader: boolean,
 ): void {
-  if (!slots.firstPage && input.pageIndex === 0) return;
-  const rawLeft = resolveSlot(slots.left, input, hasRevisionHeader);
-  const center = resolveSlot(slots.center, input, hasRevisionHeader);
-  const rawRight = resolveSlot(slots.right, input, hasRevisionHeader);
-  if (rawLeft === "" && center === "" && rawRight === "" && !slots.rule) return;
+  const resolved = resolveBarSlots(
+    slots,
+    {
+      ...input,
+      revisionLabel: hasRevisionHeader ? null : input.revisionLabel,
+    },
+    kind,
+  );
+  if (resolved === null) return;
   const { profile } = input;
   const { geometry } = profile;
-  const mirrorSwap = geometry.mirrored === true && isVersoPage(input.pageIndex);
-  const left = mirrorSwap ? rawRight : rawLeft;
-  const right = mirrorSwap ? rawLeft : rawRight;
   const marginLeftPt = pageMarginLeftPt(geometry, input.pageIndex);
   const linePt = linePtOf(profile);
   const linePx = linePxOf(profile);
@@ -226,12 +148,12 @@ function drawBar(
     profile.typography,
     bandVertical,
   );
-  appendSlot(band, left, "left");
-  appendSlot(band, center, "center");
-  appendSlot(band, right, "right");
+  appendSlot(band, resolved.left, "left");
+  appendSlot(band, resolved.center, "center");
+  appendSlot(band, resolved.right, "right");
   if (kind === "header") sheet.prepend(band);
   else sheet.append(band);
-  if (slots.rule) {
+  if (resolved.rule) {
     const gapPx = RULE_GAP_PT * PX_PER_PT;
     const ruleVertical =
       kind === "header"

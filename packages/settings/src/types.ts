@@ -47,30 +47,10 @@ export interface ElementStyle {
 /** Keyed by element name; an element not listed keeps the format's own look. */
 export type ElementStyles = Readonly<Record<string, ElementStyle>>;
 
-const HEADER_SLOT_KINDS = [
-  "none",
-  "page_number",
-  "page_of_total",
-  "date",
-  "title",
-  "section",
-  "duration",
-  "revision_label",
-] as const;
+import { headerSlotsType } from "./header-slots.ts";
+import type { HeaderSlot, HeaderSlots } from "./header-slots.ts";
 
-/** What one place of a header or footer shows: a value of the script, or text typed for it. */
-export type HeaderSlot =
-  | { kind: (typeof HEADER_SLOT_KINDS)[number] }
-  | { kind: "custom"; text: string };
-
-/** A header or footer: its three places, whether it is on the first page too, and whether a rule sets it apart. */
-export interface HeaderSlots {
-  left: HeaderSlot;
-  center: HeaderSlot;
-  right: HeaderSlot;
-  firstPage: boolean;
-  rule: boolean;
-}
+export type { HeaderSlot, HeaderSlots };
 
 interface NumberRange {
   min: number;
@@ -275,43 +255,6 @@ function parseStyles(input: unknown): ParseResult<ElementStyles> {
 const elementStyleType: SettingType<ElementStyles> = Object.freeze({
   kind: "element_style",
   parse: parseStyles,
-  equals: sameJson,
-  choices: null,
-});
-
-const isSlotKind = (
-  input: unknown,
-): input is (typeof HEADER_SLOT_KINDS)[number] =>
-  HEADER_SLOT_KINDS.some((kind) => kind === input);
-
-function parseSlot(input: unknown): HeaderSlot | null {
-  if (!isRecord(input)) return null;
-  const { kind, text: typed } = input;
-  const size = Object.keys(input).length;
-  if (kind === "custom")
-    return size === 2 && isText(typed)
-      ? Object.freeze({ kind, text: typed })
-      : null;
-  return size === 1 && isSlotKind(kind) ? Object.freeze({ kind }) : null;
-}
-
-function parseSlots(input: unknown): ParseResult<HeaderSlots> {
-  if (!isRecord(input) || Object.keys(input).length !== 5)
-    return refused("not_header_slots");
-  const left = parseSlot(input.left);
-  const center = parseSlot(input.center);
-  const right = parseSlot(input.right);
-  const { firstPage, rule } = input;
-  if (left === null || center === null || right === null)
-    return refused("not_header_slots");
-  if (typeof firstPage !== "boolean" || typeof rule !== "boolean")
-    return refused("not_header_slots");
-  return accepted(Object.freeze({ left, center, right, firstPage, rule }));
-}
-
-const headerSlotsType: SettingType<HeaderSlots> = Object.freeze({
-  kind: "header_slots",
-  parse: parseSlots,
   equals: sameJson,
   choices: null,
 });

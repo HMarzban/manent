@@ -31,7 +31,7 @@ export interface BreakSpec {
   readonly head: string | null;
   readonly continued: string | null;
   readonly contd: string | null;
-  readonly side: -1 | 1;
+  readonly side: -2 | -1 | 1;
 }
 
 type SpecFields = Omit<BreakSpec, "key" | "side">;
@@ -54,11 +54,12 @@ function engineOf(p: Pagination): Engine {
 
 const flag = (text: string | null) => (text === null ? 0 : 1);
 
-function createSpec(fields: SpecFields, side: -1 | 1 = -1): BreakSpec {
+function createSpec(fields: SpecFields, side: -2 | -1 | 1 = -1): BreakSpec {
   const { kind, label, fillUnits, more, foot, continued, contd } = fields;
+  const suffix = side === -2 ? ":blank" : "";
   return {
     ...fields,
-    key: `pb:${kind}:${label}:${fillUnits}:${flag(more)}:${flag(foot)}:${flag(continued)}:${contd ?? ""}`,
+    key: `pb:${kind}:${label}:${fillUnits}:${flag(more)}:${flag(foot)}:${flag(continued)}:${contd ?? ""}${suffix}`,
     side,
   };
 }
@@ -93,15 +94,19 @@ function breaksBefore(
     continued: page.sceneContinued ? furniture.continuedTopText : null,
   };
   const inside = page.line > 0 && style === "inline";
+  const side: -2 | -1 = page.blank === true ? -2 : -1;
   const specs = [
-    createSpec({
-      ...shared,
-      kind: inside ? "mid" : "page",
-      pos: inside
-        ? textPos(index, page.block, page.offset)
-        : blockPos(index, page.block),
-      contd: contdOf(page.contd),
-    }),
+    createSpec(
+      {
+        ...shared,
+        kind: inside ? "mid" : "page",
+        pos: inside
+          ? textPos(index, page.block, page.offset)
+          : blockPos(index, page.block),
+        contd: contdOf(page.contd),
+      },
+      side,
+    ),
   ];
   const { right } = page;
   if (right !== null)
@@ -170,18 +175,20 @@ export function toBreakSpecsIn(
         1,
       ),
     );
-  return specs.toSorted((a, b) => a.pos - b.pos);
+  return specs.toSorted((a, b) => a.pos - b.pos || a.side - b.side);
 }
 
 /** Reflow view's breaks: a rule labelled with each page's label before the block the page starts in, page 1 included. */
 export function toRuleSpecs(index: BlockIndex, p: Pagination): BreakSpec[] {
-  return p.pages.map((page) =>
-    createSpec({
-      ...NO_TEXT,
-      kind: "rule",
-      pos: blockPos(index, page.block),
-      label: page.label,
-      fillUnits: 0,
-    }),
-  );
+  return p.pages
+    .filter((page) => page.blank !== true)
+    .map((page) =>
+      createSpec({
+        ...NO_TEXT,
+        kind: "rule",
+        pos: blockPos(index, page.block),
+        label: page.label,
+        fillUnits: 0,
+      }),
+    );
 }

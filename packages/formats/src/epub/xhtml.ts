@@ -138,6 +138,7 @@ export function renderChapterXhtml(options: {
   const { title, language, items, endingAt, images } = options;
   const chapterNotes: ExtractedFootnote[] = [];
   const bodyParts: string[] = [];
+  let subheadingIndex = 0;
 
   for (const { block, blockIndex } of items) {
     const attrs = block.attrs ?? {};
@@ -183,8 +184,12 @@ export function renderChapterXhtml(options: {
       const inner = renderRuns(block.content, blockIndex, endingAt, false);
       bodyParts.push(`<h1 class="chapter${align}">${inner}</h1>`);
     } else if (type === "subheading") {
+      subheadingIndex += 1;
+      const subId = `sub-${String(subheadingIndex).padStart(3, "0")}`;
       const inner = renderRuns(block.content, blockIndex, endingAt, false);
-      bodyParts.push(`<h2 class="subheading${align}">${inner}</h2>`);
+      bodyParts.push(
+        `<h2 class="subheading${align}" id="${subId}">${inner}</h2>`,
+      );
     } else if (type === "epigraph") {
       const inner = renderRuns(block.content, blockIndex, endingAt, false);
       bodyParts.push(

@@ -12,6 +12,7 @@ import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { Environment } from "../services/ports.ts";
 import { useOfferedTo, useSearchChoice, useWhatRow } from "./export-form.tsx";
+import { listBookProjectParts } from "./book-compile.ts";
 import { typesOffered } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { save } from "./script-file.ts";
@@ -111,11 +112,12 @@ async function exportScript(work: {
   docId: string;
   title: string;
   pages: Pagination | null;
+  whatId?: string;
   now: Environment["now"];
   frame: Environment["frame"];
   signal: AbortSignal;
 }): Promise<void> {
-  const { file, docId, title, pages, now, frame, signal } = work;
+  const { file, docId, title, pages, whatId, now, frame, signal } = work;
   await new Promise<void>((resolve, reject) => {
     const cancel = frame(resolve);
     signal.addEventListener(
@@ -127,7 +129,7 @@ async function exportScript(work: {
       { once: true },
     );
   });
-  const written = await file.write({ docId, title, pages, now });
+  const written = await file.write({ docId, title, pages, now, whatId });
   signal.throwIfAborted();
   save(written.bytes, written.name, file.mime);
 }
@@ -146,7 +148,11 @@ function exportedMessage(title: string): Message {
 interface ExportAction {
   busy: boolean;
   problem: string | null;
-  run: (file: ExportFileType, pages: Pagination | null) => Promise<void>;
+  run: (
+    file: ExportFileType,
+    pages: Pagination | null,
+    whatId?: string,
+  ) => Promise<void>;
 }
 
 function useExportAction(
@@ -169,12 +175,22 @@ function useExportAction(
   const run = async (
     file: ExportFileType,
     pages: Pagination | null,
+    whatId?: string,
   ): Promise<void> => {
     const { signal } = left.current;
     setBusy(true);
     setProblem(null);
     try {
-      await exportScript({ file, docId, title, pages, now, frame, signal });
+      await exportScript({
+        file,
+        docId,
+        title,
+        pages,
+        whatId,
+        now,
+        frame,
+        signal,
+      });
     } catch {
       // a form that has left ends quietly; otherwise the person is told the file was not written and may try again
       if (signal.aborted) return;
@@ -221,13 +237,39 @@ function asRow(
  */
 export function LiveExport(props: SendFormProps): ReactNode {
   const { docId } = props;
+  const services = useServices();
   const to = useOfferedTo(docId);
   const isInk = to.docKind === "ink" || to.format === "ink";
+  const [multiPartBook, setMultiPartBook] = useState(false);
+  useEffect(() => {
+    if (to.format !== "manuscript") {
+      setMultiPartBook(false);
+      return;
+    }
+    let alive = true;
+    void listBookProjectParts(services, docId).then(
+      (project) => {
+        if (alive) setMultiPartBook((project?.parts.length ?? 0) >= 2);
+      },
+      () => {
+        if (alive) setMultiPartBook(false);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [services, docId, to.format]);
   const types = typesOffered("export", to);
   const askedType = useSearchChoice("as");
   const [chosenId, choose] = useState(askedType);
   const type = types.find((entry) => entry.id === chosenId) ?? types[0] ?? null;
-  const what = useWhatRow("export", type?.id ?? null, to.locked, docId);
+  const what = useWhatRow(
+    "export",
+    type?.id ?? null,
+    to.locked,
+    docId,
+    multiPartBook,
+  );
   const whatId = what?.option.id ?? null;
   useEffect(() => {
     if (type?.id === "sides" && whatId !== null && whatId !== "sides_scenes")
@@ -268,7 +310,7 @@ export function LiveExport(props: SendFormProps): ReactNode {
         cancel: null,
         disabledReason: null,
         problem,
-        run: canRun ? () => void run(type, pages) : null,
+        run: canRun ? () => void run(type, pages, whatId ?? undefined) : null,
       }}
     />
   );

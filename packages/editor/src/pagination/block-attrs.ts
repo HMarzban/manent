@@ -24,6 +24,7 @@ export function columnOf(
 export function firstsOnPages(p: Pagination): Set<number> {
   const firsts = new Set<number>();
   for (const page of p.pages) {
+    if (page.blank === true) continue;
     if (page.line === 0) firsts.add(page.block);
     if (page.right !== null && page.right.line === 0)
       firsts.add(page.right.block);

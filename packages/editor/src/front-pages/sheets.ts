@@ -5,6 +5,7 @@ import {
   LINE_PX,
   UNITS_PER_LINE,
   UNIT_PX,
+  layoutBookFrontPages,
   layoutFrontPages,
 } from "@manent/pagination";
 import type { FrontField, FrontPage, PageProfile } from "@manent/pagination";
@@ -14,6 +15,8 @@ import type { LayoutView } from "../page/config.ts";
 import { screenPagePx } from "../page/profile-css.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { TitlePageSource } from "../script-editor/ports.ts";
+import { createBookFrontSheet } from "./book-sheet.ts";
+import type { BookFrontSheetController } from "./book-sheet.ts";
 import { createFieldBox } from "./fields.ts";
 import type { FieldBox, FieldKeys } from "./fields.ts";
 import { FRONT_CSS } from "./front-css.ts";
@@ -93,6 +96,7 @@ interface Drawn {
   readonly options: FrontPagesOptions;
   readonly sheets: HTMLElement[];
   readonly boxes: Map<TitlePageField, FieldBox>;
+  bookSheet: BookFrontSheetController | null;
   profile: PageProfile;
   editable: boolean;
   labels: string[];
@@ -128,8 +132,27 @@ function sheetAt(drawn: Drawn, k: number): HTMLElement {
 // Sheets and boxes are kept and only moved when they must be, so the box being typed in keeps its focus and caret;
 // returns the height they take.
 function layOut(drawn: Drawn): number {
-  const { titlePage, view } = drawn.options;
+  const { titlePage, view, scaffold, keys } = drawn.options;
   const { profile } = drawn;
+  if (profile.format === "manuscript" && titlePage.bookMatter !== undefined) {
+    for (const sheet of drawn.sheets.splice(0)) sheet.remove();
+    for (const box of drawn.boxes.values()) box.element.remove();
+    if (drawn.bookSheet === null) {
+      drawn.bookSheet = createBookFrontSheet({
+        host: scaffold.front,
+        titlePage,
+        keys,
+        onChange: () => draw(drawn),
+      });
+    }
+    const height = drawn.bookSheet.render(profile, drawn.editable, view);
+    drawn.labels = ["Title"];
+    return view === "page" ? height + PAGE_GAP_PX : 0;
+  }
+  if (drawn.bookSheet !== null) {
+    drawn.bookSheet.destroy();
+    drawn.bookSheet = null;
+  }
   const fields = titlePage.port.get();
   const pages = layoutFrontPages(fields, profile, { printed: false });
   const placed = new Set<TitlePageField>();
@@ -195,6 +218,7 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     options,
     sheets: [],
     boxes: new Map(),
+    bookSheet: null,
     profile: options.profile,
     editable: options.editable,
     labels: [],
@@ -212,16 +236,40 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     setEditable(next) {
       drawn.editable = next;
       for (const box of drawn.boxes.values()) box.setEditable(next);
+      if (drawn.bookSheet !== null) draw(drawn);
     },
     show() {
+      if (drawn.bookSheet !== null) {
+        drawn.bookSheet.focusTitle();
+        return;
+      }
       drawn.sheets[0]?.scrollIntoView({ block: "start" });
       drawn.boxes.get("title")?.focus();
     },
-    printed: () =>
-      layoutFrontPages(titlePage.port.get(), drawn.profile, { printed: true }),
+    printed: () => {
+      if (
+        drawn.profile.format === "manuscript" &&
+        titlePage.bookMatter !== undefined
+      ) {
+        const tp = titlePage.port.get();
+        const bm = titlePage.bookMatter.port.get();
+        return layoutBookFrontPages({
+          titlePage: tp,
+          matter: bm,
+          profile: drawn.profile,
+          toc: [],
+          includeToc: false,
+        });
+      }
+      return layoutFrontPages(titlePage.port.get(), drawn.profile, {
+        printed: true,
+      });
+    },
     labelAt: (top) => labelAt(drawn, top),
     destroy() {
       unsubscribe();
+      drawn.bookSheet?.destroy();
+      drawn.bookSheet = null;
       scaffold.front.replaceChildren();
       scaffold.setFrontHeight(0);
     },

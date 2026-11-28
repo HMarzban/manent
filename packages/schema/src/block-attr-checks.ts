@@ -58,7 +58,7 @@ const isGraphicDimension = (value: unknown): boolean =>
   value >= 1 &&
   value <= GRAPHIC_MAX_DIMENSION_PX;
 
-const isAssetId = (value: unknown): boolean =>
+export const isAssetId = (value: unknown): value is string =>
   isString(value) && ASSET_ID.test(value);
 
 /** Strictly flat seven-primitive graphic attributes and nothing else. */

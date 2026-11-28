@@ -1,6 +1,10 @@
 // Word (.docx) export file type for books and scripts.
-import { parsePaper } from "@manent/pagination";
+import { buildBookToc, engineFor, parsePaper } from "@manent/pagination";
+import { blocksOf, sectionize } from "@manent/schema";
 import { IMPORT_WORDS } from "@manent/ui";
+import { archiveSource } from "../../archive/archive-source.ts";
+import { compileBookProject } from "../book-compile.ts";
+import { readBookExportMeta } from "../book-export-meta.ts";
 import { PAGED_FORMATS, fileName } from "../script-file.ts";
 import type {
   ExportFileType,
@@ -16,12 +20,40 @@ async function writeDocxFile(work: ExportWork): Promise<WrittenFile> {
     import("../../editor-host/export-source.ts"),
     import("@manent/formats"),
   ]);
-  const script = await scriptForExport(work.docId, work.title);
-  if (script === null) throw new Error(`no open editor holds ${work.docId}`);
   const profile = work.pages?.profile;
+  const isManuscript = profile?.format === "manuscript";
+  const services = archiveSource.get();
+  const compiled =
+    work.whatId === "whole_book" && isManuscript && services !== null
+      ? await compileBookProject(services, work.docId, work.title)
+      : null;
+  const title = compiled?.title ?? work.title;
+  const script = compiled?.script ?? (await scriptForExport(work.docId, title));
+  if (script === null) throw new Error(`no open editor holds ${work.docId}`);
   const paper = parsePaper(profile?.paper, work.pages?.engineVersion ?? 1);
   const lineSpacing = profile?.elements.body.lineSpacing === 1 ? 1 : 2;
   const geometry = profile?.geometry;
+  const bookMeta = isManuscript ? readBookExportMeta(work.docId, title) : null;
+  const tocPages =
+    compiled !== null && work.pages !== null
+      ? (() => {
+          const eng = engineFor(work.pages.engineVersion);
+          return eng === null
+            ? work.pages
+            : eng.paginate(
+                eng.toLayoutBlocks(
+                  blocksOf(sectionize(compiled.script.blocks)),
+                ),
+                work.pages.profile,
+              );
+        })()
+      : work.pages;
+  const tocEntries =
+    isManuscript && bookMeta?.includeToc && tocPages !== null
+      ? buildBookToc(tocPages, {
+          includeSubheadings: bookMeta.tocSubheadings,
+        })
+      : undefined;
   return {
     bytes: writeDocx(script, {
       paper,
@@ -38,8 +70,13 @@ async function writeDocxFile(work: ExportWork): Promise<WrittenFile> {
           : undefined,
       bookFont: profile?.typography?.family,
       fontSizePt: profile?.typography?.fontSizePt,
+      frontMatter: bookMeta?.frontMatter,
+      backMatter: bookMeta?.backMatter,
+      includeToc: bookMeta?.includeToc,
+      tocEntries,
+      rectoChapters: bookMeta?.rectoChapters,
     }),
-    name: fileName(work.title, ".docx"),
+    name: fileName(title, ".docx"),
   };
 }
 

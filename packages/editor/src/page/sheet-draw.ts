@@ -59,6 +59,9 @@ function drawSheet(
   const height = at.height === undefined ? "" : `${at.height}px`;
   if (sheet.style.height !== height) sheet.style.height = height;
   const { furniture, labels } = frame;
+  const isBlank = furniture.blankPages?.[at.index] === true;
+  if (isBlank) sheet.dataset["blank"] = "1";
+  else delete sheet.dataset["blank"];
   const input: PageFurnitureInput = {
     pageIndex: at.index,
     pageCount: frame.count,
@@ -74,11 +77,14 @@ function drawSheet(
     revisionLabel: furniture.revisionLabel ?? null,
     day: furniture.day ?? null,
     durationMs: furniture.durationMs ?? null,
+    isChapterOpening: furniture.chapterOpenings?.[at.index] === true,
+    isBlank,
   };
   if (isSameFurniture(drawn.get(sheet), input)) return;
   drawn.set(sheet, input);
   for (const key of Object.keys(sheet.dataset))
-    if (key !== "page" && key !== "side") delete sheet.dataset[key];
+    if (key !== "page" && key !== "side" && key !== "blank")
+      delete sheet.dataset[key];
   sheet.replaceChildren();
   for (const entry of frame.entries) entry.draw(sheet, input);
 }

@@ -287,5 +287,6 @@ export function profileFor(
       breakMark: "* * *",
     }),
     typography: BOOK_SERIF_TYPOGRAPHY,
+    ...(options.rectoChapters === true ? { rectoChapters: true } : {}),
   });
 }

@@ -1,5 +1,10 @@
 // Synchronizes a script editor's page furniture context (headers, footers, date format, per-page sections, timing).
-import { DEFAULT_READ_RATE, durationMs, timeScript } from "@manent/pagination";
+import {
+  DEFAULT_READ_RATE,
+  durationMs,
+  pageRunningContext,
+  timeScript,
+} from "@manent/pagination";
 import type { Pagination, TimedBlock } from "@manent/pagination";
 import type { FormatId } from "@manent/schema";
 import type { HeaderSlot, HeaderSlots } from "@manent/settings";
@@ -25,6 +30,7 @@ const SLOT_KINDS: ReadonlySet<string> = new Set([
   "section",
   "duration",
   "revision_label",
+  "verso_title_recto_chapter",
 ]);
 
 function isRecord(input: unknown): input is Readonly<Record<string, unknown>> {
@@ -47,6 +53,7 @@ function parseSlots(input: unknown): HeaderSlots | null {
   const right = parseSlot(input["right"]);
   const firstPage = input["firstPage"];
   const rule = input["rule"];
+  const suppress = input["suppressChapterOpenings"];
   if (
     left === null ||
     center === null ||
@@ -55,7 +62,16 @@ function parseSlots(input: unknown): HeaderSlots | null {
     typeof rule !== "boolean"
   )
     return null;
-  return { left, center, right, firstPage, rule };
+  return typeof suppress === "boolean"
+    ? {
+        left,
+        center,
+        right,
+        firstPage,
+        rule,
+        suppressChapterOpenings: suppress,
+      }
+    : { left, center, right, firstPage, rule };
 }
 
 function parseDateFormat(input: unknown): DateFormat | null {
@@ -78,25 +94,7 @@ function isoDay(at: number): string {
 
 /** Nearest Chapter, Act or Section heading above each page's first line. */
 export function sectionsOf(p: Pagination): readonly (string | null)[] {
-  const result: (string | null)[] = [];
-  let current: string | null = null;
-  let blockIdx = 0;
-  for (const page of p.pages) {
-    while (blockIdx <= page.block && blockIdx < p.blocks.length) {
-      const block = p.blocks[blockIdx]!;
-      if (
-        block.type === "chapter" ||
-        block.type === "group" ||
-        (block.type === "act_break" && block.kind !== "end_of_act")
-      ) {
-        const text = block.text.trim();
-        if (text !== "") current = text;
-      }
-      blockIdx++;
-    }
-    result.push(current);
-  }
-  return result;
+  return pageRunningContext(p).map((entry) => entry.section);
 }
 
 function durationOfDoc(doc: Node, format: FormatId): number | null {
@@ -142,10 +140,16 @@ function usesSection(
   header: HeaderSlots | null,
   footer: HeaderSlots | null,
 ): boolean {
-  return hasSlotKind(header, "section") || hasSlotKind(footer, "section");
+  return (
+    hasSlotKind(header, "section") ||
+    hasSlotKind(footer, "section") ||
+    hasSlotKind(header, "verso_title_recto_chapter") ||
+    hasSlotKind(footer, "verso_title_recto_chapter")
+  );
 }
 
 const NO_SECTIONS: readonly (string | null)[] = Object.freeze([]);
+const NO_FLAGS: readonly boolean[] = Object.freeze([]);
 const DURATION_DEBOUNCE_MS = 250;
 
 /** Reads Variety total duration from timingPlugin's incremental state when enabled; null otherwise. */
@@ -167,15 +171,16 @@ function isSameSlots(a: HeaderSlots | null, b: HeaderSlots | null): boolean {
       b !== null &&
       a.firstPage === b.firstPage &&
       a.rule === b.rule &&
+      a.suppressChapterOpenings === b.suppressChapterOpenings &&
       isSameSlot(a.left, b.left) &&
       isSameSlot(a.center, b.center) &&
       isSameSlot(a.right, b.right))
   );
 }
 
-function isSameSections(
-  a: readonly (string | null)[] | undefined,
-  b: readonly (string | null)[] | undefined,
+function isSameArray<T>(
+  a: readonly T[] | undefined,
+  b: readonly T[] | undefined,
 ): boolean {
   if (a === b) return true;
   if (a === undefined || b === undefined || a.length !== b.length) return false;
@@ -196,7 +201,9 @@ function isSameFurnitureOptions(
     a.durationMs === b.durationMs &&
     isSameSlots(a.header ?? null, b.header ?? null) &&
     isSameSlots(a.footer ?? null, b.footer ?? null) &&
-    isSameSections(a.sections, b.sections)
+    isSameArray(a.sections, b.sections) &&
+    isSameArray(a.chapterOpenings, b.chapterOpenings) &&
+    isSameArray(a.blankPages, b.blankPages)
   );
 }
 
@@ -214,7 +221,9 @@ export function createFurnitureSync(options: {
   scaffold: () => PageScaffold | null;
 }): FurnitureSync {
   let lastPagination: Pagination | undefined;
-  let lastSections: readonly (string | null)[] = [];
+  let lastSections: readonly (string | null)[] = NO_SECTIONS;
+  let lastChapterOpenings: readonly boolean[] = NO_FLAGS;
+  let lastBlankPages: readonly boolean[] = NO_FLAGS;
   let lastDoc: Node | null = null;
   let lastFormat: FormatId | null = null;
   let lastDuration: number | null = null;
@@ -270,13 +279,25 @@ export function createFurnitureSync(options: {
     needSections: boolean,
   ): PageFurnitureOptions => {
     let sections: readonly (string | null)[] = NO_SECTIONS;
-    if (needSections) {
-      const pagination = paginationKey.getState(state)?.pagination;
-      if (pagination !== undefined && pagination !== lastPagination) {
+    let chapterOpenings: readonly boolean[] = NO_FLAGS;
+    let blankPages: readonly boolean[] = NO_FLAGS;
+    const pagination = paginationKey.getState(state)?.pagination;
+    const needContext =
+      needSections ||
+      header?.suppressChapterOpenings === true ||
+      pagination?.profile.typography?.kind === "book_serif" ||
+      pagination?.profile.rectoChapters === true;
+    if (needContext && pagination !== undefined) {
+      if (pagination !== lastPagination) {
         lastPagination = pagination;
-        lastSections = sectionsOf(pagination);
+        const ctx = pageRunningContext(pagination);
+        lastSections = ctx.map((c) => c.section);
+        lastChapterOpenings = ctx.map((c) => c.isChapterOpening);
+        lastBlankPages = ctx.map((c) => c.isBlank);
       }
       sections = lastSections;
+      chapterOpenings = lastChapterOpenings;
+      blankPages = lastBlankPages;
     }
     return {
       title: options.title.get(),
@@ -284,6 +305,8 @@ export function createFurnitureSync(options: {
       footer,
       dateFormat: parseDateFormat(options.script.get("script.dateFormat")),
       sections,
+      chapterOpenings,
+      blankPages,
       revisionLabel: productionOf(state)?.view.active.name ?? null,
       day: isoDay(options.timers.now()),
       durationMs: durationMsValue,

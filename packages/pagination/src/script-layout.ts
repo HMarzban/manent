@@ -38,6 +38,8 @@ export interface ScriptLayoutSettings {
   readonly lineSpacing?: 1 | 2;
   /** Layout Engine 3 manuscript mirrored recto/verso margins; defaults to true when omitted. */
   readonly mirrorMargins?: boolean;
+  /** Layout Engine 3 manuscript recto chapter starts (inserts blank verso pages); defaults to false. */
+  readonly rectoChapters?: boolean;
 }
 
 /** The script settings the page profile is made from. */
@@ -52,6 +54,7 @@ export const LAYOUT_SETTING_KEYS: readonly string[] = Object.freeze([
   "script.sceneNumbers",
   "script.lineSpacing",
   "script.mirrorMargins",
+  "script.rectoChapters",
 ]);
 
 /** The defaults of the `script.*` layout settings, and scenes not numbered. */
@@ -221,6 +224,8 @@ export function readLayoutSettings(
         : undefined;
   const rawMirror = read("script.mirrorMargins");
   const mirrorMargins = typeof rawMirror === "boolean" ? rawMirror : undefined;
+  const rawRecto = read("script.rectoChapters");
+  const rectoChapters = typeof rawRecto === "boolean" ? rawRecto : undefined;
   return {
     format: stringOr(read("script.format"), d.format),
     paper: stringOr(read("script.paper"), d.paper),
@@ -236,6 +241,7 @@ export function readLayoutSettings(
     ...(elements === undefined ? {} : { elements }),
     ...(lineSpacing === undefined ? {} : { lineSpacing }),
     ...(mirrorMargins === undefined ? {} : { mirrorMargins }),
+    ...(rectoChapters === undefined ? {} : { rectoChapters }),
   };
 }
 
@@ -265,5 +271,6 @@ export function profileFromSettings(
     ...(s.mirrorMargins === undefined
       ? {}
       : { mirrorMargins: s.mirrorMargins }),
+    ...(s.rectoChapters === true ? { rectoChapters: true } : {}),
   });
 }

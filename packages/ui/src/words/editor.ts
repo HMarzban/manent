@@ -87,6 +87,18 @@ export const EDITOR_WORDS = {
     setting: "Setting",
     summary: "Summary",
   },
+  bookMatter: {
+    subtitle: "Subtitle",
+    isbn: "ISBN",
+    copyright: "Copyright",
+    dedication: "Dedication",
+    acknowledgments: "Acknowledgements",
+    aboutAuthor: "About the author",
+    addCover: "Add cover image",
+    replaceCover: "Replace cover",
+    removeCover: "Remove cover",
+    addMatter: (label: string) => `+ ${label}`,
+  },
   // Element ▾'s accessible name
   elementButton: (label: string) => `Element: ${label}`,
   reasons: {
@@ -133,6 +145,10 @@ export const EDITOR_WORDS = {
         ? "Preparing 1 page…"
         : `Preparing ${formatCount(pages)} pages…`,
     wholeScript: "Whole script",
+    wholeBook: "Whole book",
+    viewSingle: "Single",
+    viewSpread: "Spread",
+    pagesView: "Pages view",
     cleanPdf: "Clean PDF",
     morePages: (n: number) => `… ${formatCount(n)} more`,
     // the characters joined as names are

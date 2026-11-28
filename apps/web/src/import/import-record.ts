@@ -38,6 +38,7 @@ const CLAUSES: Readonly<Record<ImportRecord["from"], readonly string[]>> =
     pdf: [IMPORT_WORDS.pdfClause],
     docx: [],
     ink: [],
+    markdown: [],
   });
 
 /** The summary of what came in, with the clauses of the file's format; the same in the message and in Details. */

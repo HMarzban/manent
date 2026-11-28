@@ -50,6 +50,13 @@ async function selectPhrase(
     },
     { sel: selector, text: phrase },
   );
+  // Allow ProseMirror's DOM observer (notably in Firefox/WebKit) to commit the selection and publish toolbar facts.
+  await page.evaluate(
+    () =>
+      new Promise<void>((r) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => r())),
+      ),
+  );
 }
 
 /** Asserts every rendered `.el-chapter` keeps `pg-first` and sits cleanly inside its mounted `.mn-sheet` bounds. */
@@ -92,7 +99,7 @@ async function expectChaptersAlignedToSheets(page: Page): Promise<void> {
 
 test("Book format bar preserves caret/selection and sheet alignment across inline, colour, opening, alignment, and layout actions", async ({
   browser,
-}) => {
+}, testInfo) => {
   test.setTimeout(90_000);
   const context = await browser.newContext({ colorScheme: "dark" });
   try {
@@ -183,13 +190,20 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
     await page.getByRole("menuitem", { name: "Centre" }).click();
     await expectChaptersAlignedToSheets(page);
 
-    // 5. Drop cap + Raised cap + Flush left on first body paragraph render data-first-line without losing focus.
+    // 5. Drop cap on first body paragraph renders data-first-line without losing focus.
+    const firstBody = page.locator("p.el.el-body").first();
     await selectPhrase(page, "p.el.el-body", "harbour");
-    await toolbar.getByRole("button", { name: "Drop cap" }).click();
-    await expect(page.locator("p.el.el-body").first()).toHaveAttribute(
-      "data-first-line",
-      "drop_cap",
-    );
+    const dropBtn = toolbar.getByRole("button", { name: "Drop cap" });
+    await expect(dropBtn).toBeEnabled();
+    if ((await firstBody.getAttribute("data-first-line")) === "drop_cap") {
+      await dropBtn.click();
+      await expect(firstBody).not.toHaveAttribute(
+        "data-first-line",
+        "drop_cap",
+      );
+    }
+    await dropBtn.click();
+    await expect(firstBody).toHaveAttribute("data-first-line", "drop_cap");
     expect(
       await page.evaluate(
         () =>
@@ -206,15 +220,27 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
     await expectChaptersAlignedToSheets(page);
 
     // 7. Phase 2 craft: Footnote mark + superscript callout + Subheading/Epigraph element options.
-    await selectPhrase(page, "p.el.el-body", "clocks");
+    // Pick a distinct word per browser project so sequential runs against the shared demo server each add a fresh note.
+    const fnWord =
+      testInfo.project.name === "firefox"
+        ? "municipal"
+        : testInfo.project.name === "webkit"
+          ? "timetable"
+          : "clocks";
+    const beforeNotes = await page
+      .locator("p.el.el-body span.mn-footnote")
+      .count();
+    await selectPhrase(page, "p.el.el-body", fnWord);
     await toolbar.getByRole("button", { name: "More text styles" }).click();
     await page.getByRole("button", { name: "Footnote" }).click();
     await page
       .getByPlaceholder("Add a note for readers…")
       .fill("Harbour tide log, 1911.");
     await page.getByRole("button", { name: "Save footnote" }).click();
-    await expect(page.locator("p.el.el-body span.mn-footnote")).toHaveCount(1);
-    await expect(page.locator(".mn-fn-ref")).toHaveCount(1);
+    await expect(page.locator("p.el.el-body span.mn-footnote")).toHaveCount(
+      beforeNotes + 1,
+    );
+    await expect(page.locator(".mn-fn-ref")).toHaveCount(beforeNotes + 1);
     await expectChaptersAlignedToSheets(page);
 
     await toolbar.getByRole("button", { name: "Element" }).click();
@@ -226,9 +252,12 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // 8. Phase 2 Engine 3 Book Layout: opt-in Source Serif 4, 6×9″ trim, and mirrored margins (on by default).
+    // 8. Phase 2 + Phase 3 Engine 3 Book Layout: Source Serif 4, 6×9″ trim, left/right margins, right-hand chapters, Book & chapter header, TOC.
     await toolbar.getByRole("button", { name: "Page layout" }).click();
-    await page.getByRole("switch", { name: "Book layout" }).click();
+    const bookLayoutSwitch = page.getByRole("switch", { name: "Book layout" });
+    if ((await bookLayoutSwitch.getAttribute("aria-checked")) !== "true") {
+      await bookLayoutSwitch.click();
+    }
     await expect(
       page.locator('.mn-pages[data-typography="book_serif"]'),
     ).toBeVisible();
@@ -237,6 +266,17 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
       name: "Left and right margins",
     });
     await expect(mirrorSwitch).toHaveAttribute("aria-checked", "true");
+    const rectoSwitch = page.getByRole("switch", {
+      name: "Start chapters on right pages",
+    });
+    if ((await rectoSwitch.getAttribute("aria-checked")) !== "true") {
+      await rectoSwitch.click();
+    }
+    await page.getByRole("button", { name: "Book and chapter" }).click();
+    const tocSwitch = page.getByRole("switch", { name: "Table of contents" });
+    if ((await tocSwitch.getAttribute("aria-checked")) !== "true") {
+      await tocSwitch.click();
+    }
     await page.keyboard.press("Escape");
     await expect(
       page.locator('.mn-sheet[data-side="recto"]').first(),
@@ -246,7 +286,7 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
     ).toBeVisible();
     await expectChaptersAlignedToSheets(page);
 
-    // 9. WCAG 2.2 AA check on Engine 3 Book Layout + Footnotes.
+    // 9. WCAG 2.2 AA check on Engine 3 Book Layout + Footnotes + Phase 3 publishing controls.
     expect(await violationsOf(page)).toEqual([]);
   } finally {
     await context.close();

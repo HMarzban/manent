@@ -1,12 +1,13 @@
-// Header and footer furniture in a PDF: left, centre and right slots plus an optional hairline rule.
+// Header and footer furniture in a PDF: delegates slot & suppression rules to @manent/pagination for zero-drift screen/PDF parity.
 import {
   DEFAULT_READ_RATE,
   cellPtOf,
   durationMs,
   engineFor,
-  isVersoPage,
   linePtOf,
   measureSerifPt,
+  pageRunningContext,
+  resolveBarSlots,
   timeScript,
   unitPtOf,
 } from "@manent/pagination";
@@ -14,7 +15,6 @@ import type { Engine, Pagination } from "@manent/pagination";
 import type {
   FurnitureLine,
   FurnitureRule,
-  PdfDateFormat,
   PdfFurniture,
   PdfFurnitureDrawing,
   PdfFurnitureInput,
@@ -23,21 +23,6 @@ import type {
 } from "./pdf-furniture.ts";
 
 const RULE_GAP_PT = 2;
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const NONE: PdfHeaderSlot = Object.freeze({ kind: "none" });
 const DEFAULT_HEADER: PdfHeaderSlots = Object.freeze({
   left: NONE,
@@ -54,68 +39,6 @@ const DEFAULT_FOOTER: PdfHeaderSlots = Object.freeze({
   rule: false,
 });
 
-function formatDay(
-  day: string | null,
-  dateFormat: PdfDateFormat | null,
-): string {
-  if (day === null || day === "") return "";
-  const match = ISO_DAY.exec(day);
-  if (match === null) return day;
-  const [, year, monthText, dayText] = match;
-  const month = MONTHS[Number(monthText) - 1];
-  if (month === undefined) return day;
-  const numDay = Number(dayText);
-  switch (dateFormat ?? "day_month_year") {
-    case "iso":
-      return `${year}-${monthText}-${dayText}`;
-    case "month_day_year":
-      return `${month} ${numDay}, ${year}`;
-    case "day_month_year":
-      return `${numDay} ${month} ${year}`;
-  }
-}
-
-function padTwo(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000 + 0.5));
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const seconds = totalSec % 60;
-  return hours > 0
-    ? `${hours}:${padTwo(minutes)}:${padTwo(seconds)}`
-    : `${minutes}:${padTwo(seconds)}`;
-}
-
-function resolveSlot(
-  slot: PdfHeaderSlot,
-  input: PdfFurnitureInput,
-  hasRevisionHeader: boolean,
-): string {
-  switch (slot.kind) {
-    case "none":
-      return "";
-    case "page_number":
-      return `${input.pageLabel}.`;
-    case "page_of_total":
-      return `${input.pageLabel} of ${input.pageCount}`;
-    case "date":
-      return formatDay(input.day, input.dateFormat);
-    case "title":
-      return input.title ?? "";
-    case "section":
-      return input.section ?? "";
-    case "duration":
-      return input.durationMs === null ? "" : formatDuration(input.durationMs);
-    case "revision_label":
-      return hasRevisionHeader ? "" : (input.revisionLabel ?? "");
-    case "custom":
-      return slot.text;
-  }
-}
-
 function addBar(
   engine: Engine,
   input: PdfFurnitureInput,
@@ -125,27 +48,34 @@ function addBar(
   lines: FurnitureLine[],
   rules: FurnitureRule[],
 ): void {
-  if (!slots.firstPage && input.pageIndex === 0) return;
-  const { geometry, columnCells, linesPerPage, typography } = input.profile;
-  const linePt = linePtOf(input.profile);
-  const unitPt = unitPtOf(input.profile);
-  const cellPt = cellPtOf(input.profile);
+  const resolved = resolveBarSlots(
+    slots,
+    {
+      ...input,
+      revisionLabel: hasRevisionHeader ? null : input.revisionLabel,
+    },
+    kind,
+  );
+  if (resolved === null) return;
+  const { profile } = input;
+  const { geometry, linesPerPage, columnCells, typography } = profile;
+  const linePt = linePtOf(profile);
+  const unitPt = unitPtOf(profile);
+  const cellPt = cellPtOf(profile);
   const topPt =
     kind === "header"
       ? geometry.pageNumberTopPt
       : Math.max(
-          geometry.marginTopPt + linesPerPage * linePt + linePt,
+          geometry.marginTopPt + (linesPerPage + 1) * linePt,
           geometry.heightPt - geometry.pageNumberTopPt - linePt,
         );
   const y = (topPt - geometry.marginTopPt) / unitPt;
-  const swap = geometry.mirrored === true && isVersoPage(input.pageIndex);
-  const placements: readonly [PdfHeaderSlot, "left" | "center" | "right"][] = [
-    [swap ? slots.right : slots.left, "left"],
-    [slots.center, "center"],
-    [swap ? slots.left : slots.right, "right"],
+  const placements: readonly [string, "left" | "center" | "right"][] = [
+    [resolved.left, "left"],
+    [resolved.center, "center"],
+    [resolved.right, "right"],
   ];
-  for (const [slot, align] of placements) {
-    const text = resolveSlot(slot, input, hasRevisionHeader);
+  for (const [text, align] of placements) {
     if (text === "") continue;
     const widthCells =
       typography !== undefined
@@ -159,7 +89,7 @@ function addBar(
           : (columnCells - widthCells) / 2;
     lines.push({ x, y, runs: [{ text, style: 0 }] });
   }
-  if (slots.rule) {
+  if (resolved.rule) {
     const ruleTopPt =
       kind === "header" ? topPt + linePt + RULE_GAP_PT : topPt - RULE_GAP_PT;
     rules.push({
@@ -206,25 +136,7 @@ export const headerFooter: PdfFurniture = {
 };
 
 export function sectionsOfPagination(p: Pagination): (string | null)[] {
-  const result: (string | null)[] = [];
-  let current: string | null = null;
-  let blockIdx = 0;
-  for (const page of p.pages) {
-    while (blockIdx <= page.block && blockIdx < p.blocks.length) {
-      const block = p.blocks[blockIdx]!;
-      if (
-        block.type === "chapter" ||
-        block.type === "group" ||
-        (block.type === "act_break" && block.kind !== "end_of_act")
-      ) {
-        const text = block.text.trim();
-        if (text !== "") current = text;
-      }
-      blockIdx++;
-    }
-    result.push(current);
-  }
-  return result;
+  return pageRunningContext(p).map((entry) => entry.section);
 }
 
 export function durationOfParts(parts: readonly Pagination[]): number | null {

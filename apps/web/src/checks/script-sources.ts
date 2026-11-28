@@ -1,6 +1,7 @@
 // Stage 2 Check sources: new names, near-matches, overused words, pages over target, and new proper nouns.
 import { findScriptChecks } from "@manent/revisions";
 import type { ScriptCheck, ScriptCheckKind } from "@manent/revisions";
+import { FORMATS } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import { CHECKS_WORDS } from "@manent/ui";
 import { liveEditor, livePagination } from "../editor-host/live-editor.ts";
@@ -48,7 +49,10 @@ function runScriptChecks(docId: string): {
 } {
   const read = readDocJson(docId);
   if (read === null) return { checks: [], lastSentName: null };
-  const pageCount = livePagination(docId)?.pages.length ?? 0;
+  const pagination = livePagination(docId);
+  const pageCount = pagination?.pages.length ?? 0;
+  const rawFormat = pagination?.profile.format;
+  const format = FORMATS.find((id) => id === rawFormat);
   const ctx = snapshotChecksContext(docId);
   const cached = lastRunByDoc.get(docId);
   if (
@@ -66,6 +70,7 @@ function runScriptChecks(docId: string): {
     names: ctx.names,
     pageCount,
     targetPages: ctx.targetPages,
+    format,
   });
   for (const check of checks) {
     recordCheckDetail(docId, check.key, {
@@ -102,6 +107,18 @@ function sentenceOf(check: ScriptCheck, lastSentName: string | null): string {
       return lastSentName === null
         ? CHECKS_WORDS.newName(check.text)
         : CHECKS_WORDS.newProperNounSince(check.text, lastSentName);
+    case "empty_footnote":
+      return CHECKS_WORDS.emptyFootnote(check.ordinal);
+    case "figure_missing_alt":
+      return CHECKS_WORDS.figureMissingAlt(check.text);
+    case "chapter_under_target":
+      return CHECKS_WORDS.chapterUnderTarget(
+        check.text,
+        check.words,
+        check.target,
+      );
+    case "unbalanced_quotes":
+      return CHECKS_WORDS.unbalancedQuotes(check.text);
   }
 }
 
@@ -128,4 +145,8 @@ export const STAGE_2_CHECK_SOURCES: readonly Stage2CheckSource[] =
     sourceFor("overused_word"),
     sourceFor("pages_over_target"),
     sourceFor("new_proper_noun"),
+    sourceFor("empty_footnote"),
+    sourceFor("figure_missing_alt"),
+    sourceFor("chapter_under_target"),
+    sourceFor("unbalanced_quotes"),
   ]);

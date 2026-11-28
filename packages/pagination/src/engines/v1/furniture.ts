@@ -13,7 +13,7 @@ export function castList(p: Pagination, block: number): string | null {
   return castListOf(p.blocks, p.profile, block);
 }
 
-/** The page's number as printed, its label and a period ("13."); null on the first page. */
+/** The page's number as printed, its label and a period ("13."); null on the first page or blank verso pages. */
 export function pageNumberText(page: Page): string | null {
-  return page.index === 0 ? null : `${page.label}.`;
+  return page.index === 0 || page.blank === true ? null : `${page.label}.`;
 }

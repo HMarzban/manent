@@ -37,7 +37,7 @@ export type {
   GraphicAttrs,
   GraphicKind,
 } from "./attrs.ts";
-export { isGraphicAttrs } from "./block-attr-checks.ts";
+export { isAssetId, isGraphicAttrs } from "./block-attr-checks.ts";
 export {
   HIGHLIGHT_NAMES,
   MARK_NAMES,
@@ -86,8 +86,14 @@ export { ANCHOR_CONTEXT_UNITS, isTextAnchor, textAnchorAt } from "./anchors.ts";
 export type { TextAnchor } from "./anchors.ts";
 export { isScriptNote } from "./notes.ts";
 export type { ScriptNote } from "./notes.ts";
-export { TITLE_PAGE_FIELDS } from "./title-page.ts";
-export type { TitlePageField, TitlePageFields } from "./title-page.ts";
+export { BOOK_MATTER_FIELDS, TITLE_PAGE_FIELDS } from "./title-page.ts";
+export type {
+  BookMatterField,
+  BookMatterFields,
+  TitlePageField,
+  TitlePageFields,
+  TitlePageMapKey,
+} from "./title-page.ts";
 export { formatPrompterStory, prompterBlocks } from "./prompter.ts";
 export {
   NEWS_COLUMNS,
