@@ -146,7 +146,7 @@ export function PlayerReadyCard(props: {
 export function StoryFaultAlert(props: {
   readonly fault: InkFault;
   readonly alertRef: RefObject<HTMLDivElement | null>;
-  readonly onJumpLine: (line: number) => void;
+  readonly onJumpLine?: ((line: number) => void) | null;
 }): ReactNode {
   const { fault, alertRef, onJumpLine } = props;
   return (
@@ -163,6 +163,10 @@ export function StoryFaultAlert(props: {
         />
         {fault.line === null ? (
           <span>{INK_WORDS.stoppedWithoutLine}</span>
+        ) : onJumpLine == null ? (
+          <span>
+            {INK_WORDS.stoppedAtPrefix} {INK_WORDS.lineLink(fault.line)}.
+          </span>
         ) : (
           <span>
             {INK_WORDS.stoppedAtPrefix}{" "}
@@ -184,7 +188,7 @@ export function StoryFaultAlert(props: {
 
 export function TranscriptEntry(props: {
   readonly item: TranscriptItem;
-  readonly onJumpLine: (line: number) => void;
+  readonly onJumpLine?: ((line: number) => void) | null;
 }): ReactNode {
   const { item, onJumpLine } = props;
   if (item.kind === "choice") {
@@ -194,8 +198,12 @@ export function TranscriptEntry(props: {
       </p>
     );
   }
-  if (item.line === null) {
-    return <p className="px-1.5 py-0.5 text-ui text-fg">{item.text}</p>;
+  if (item.line === null || onJumpLine == null) {
+    return (
+      <p className="px-1.5 py-0.5 text-ui leading-relaxed text-fg">
+        {item.text}
+      </p>
+    );
   }
   const line = item.line;
   const description = INK_WORDS.lineDescription(line);

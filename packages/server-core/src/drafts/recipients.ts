@@ -60,7 +60,8 @@ export function authorizeScriptEditor(
   const place = storage.directory.placeOf(docId);
   if (place === null) return refused("not_found");
   if (storage.directory.tombstoneOf(docId) !== null) return refused("deleted");
-  if (place.kind !== "script") return refused("unsupported_kind");
+  if (place.kind !== "script" && place.kind !== "ink")
+    return refused("unsupported_kind");
   const role = storage.directory.roleOf(docId, userId)?.role;
   if (role !== "owner" && role !== "edit") return refused("forbidden");
   return { ok: true, home: place.home, file: storage.open(place.home) };

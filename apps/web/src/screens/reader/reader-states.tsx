@@ -1,19 +1,28 @@
 // Scrollable refusal and accessible loading states for the external reader frame (`/r/$token`).
+import type { DraftOpenResponse } from "@manent/sync-protocol";
 import {
   Button,
   DIALOG_WORDS,
   DOCUMENT_WORDS,
   LINKS_WORDS,
+  READER_WORDS,
   Skeleton,
+  stateBarLines,
 } from "@manent/ui";
-import type { StateLine } from "@manent/ui";
+import type { StateFact, StateLine } from "@manent/ui";
 import { Link2OffIcon, LockIcon, WifiOffIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import type { ReaderCommentsState } from "../../reader/reader-comments.ts";
-import { readerRefusalText } from "../../reader/use-reader-draft.ts";
-import type { ReaderRefusal } from "../../reader/use-reader-draft.ts";
+import {
+  formatReaderDayDate,
+  readerRefusalText,
+} from "../../reader/use-reader-draft.ts";
+import type {
+  ActiveReaderComparison,
+  ReaderRefusal,
+} from "../../reader/use-reader-draft.ts";
 
 /** Maps each block with an open public comment thread to its newest open thread id. */
 export function openThreadsByBlock(
@@ -43,6 +52,53 @@ export const readerInfoLine = (sentence: string): StateLine => ({
   dismiss: null,
   attention: false,
 });
+
+/** Computes left and right StateBar lines for a ready reader draft (Ink or screenplay). */
+export function readerBarLines(options: {
+  readonly draft: DraftOpenResponse;
+  readonly isInk: boolean;
+  readonly offlineOpenedAt: number | null;
+  readonly signedIn: boolean;
+  readonly comparison: ActiveReaderComparison | null;
+  readonly readAloudFacts: readonly StateFact[];
+}): { readonly left: StateLine | null; readonly right: StateLine | null } {
+  const {
+    draft,
+    isInk,
+    offlineOpenedAt,
+    signedIn,
+    comparison,
+    readAloudFacts,
+  } = options;
+  const date = formatReaderDayDate(draft.sentAt);
+  const bar = isInk
+    ? {
+        left: readerInfoLine(READER_WORDS.inkDraft(draft.name, date)),
+        right: null,
+      }
+    : stateBarLines([
+        { kind: "reader_draft", name: draft.name, date },
+        ...(comparison !== null && comparison.baselineName !== ""
+          ? [
+              {
+                kind: "showing_changes" as const,
+                name: comparison.baselineName,
+                date: null,
+              },
+            ]
+          : []),
+        ...readAloudFacts,
+      ]);
+  let right: StateLine | null = bar.right;
+  if (right === null && offlineOpenedAt !== null) {
+    right = readerInfoLine(
+      READER_WORDS.offlineCopy(formatReaderDayDate(offlineOpenedAt)),
+    );
+  } else if (right === null && !isInk && signedIn && draft.canComment) {
+    right = readerInfoLine(READER_WORDS.canComment);
+  }
+  return { left: bar.left, right };
+}
 
 export function ReaderRefusalView(props: {
   readonly reason: ReaderRefusal;

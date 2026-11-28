@@ -25,4 +25,14 @@ export const READER_WORDS = Object.freeze({
   chooseToComment: (title: string): string =>
     `Choose who you are to comment on '${title}'.`,
   addAnotherComment: "New comment",
+  inkDraft: (name: string, date: string): string => `${name}, ${date}`,
+  inkProblemsTitle: (count: number): string =>
+    count === 1
+      ? "This draft has 1 problem"
+      : `This draft has ${formatCount(count)} problems`,
+  inkCompileProblemDetail:
+    "This draft holds problems and can't play yet. Ask the sender for a new draft.",
+  inkEmptyDetail:
+    "This draft has no story lines yet. Ask the sender for a new draft.",
+  inkWatermark: (name: string): string => `Watermarked for ${name}`,
 });

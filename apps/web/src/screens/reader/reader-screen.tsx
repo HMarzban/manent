@@ -4,13 +4,11 @@ import type { SideTab } from "@manent/commands";
 import { textAnchorAt } from "@manent/schema";
 import {
   MessageSlot,
-  READER_WORDS,
   StateBar,
   createMessageQueue,
-  stateBarLines,
   useSubscribable,
 } from "@manent/ui";
-import type { MessageQueue, StateLine } from "@manent/ui";
+import type { MessageQueue } from "@manent/ui";
 import {
   useCallback,
   useEffect,
@@ -34,15 +32,13 @@ import type {
   ReaderCommentsState,
 } from "../../reader/reader-comments.ts";
 import { blockTextOf } from "../../reader/reader-compare.ts";
+import { isInkDraft } from "../../reader/reader-ink.ts";
 import {
   clearPendingTap,
   readPendingTap,
   writePendingTap,
 } from "../../reader/reader-storage.ts";
-import {
-  formatReaderDayDate,
-  useReaderDraft,
-} from "../../reader/use-reader-draft.ts";
+import { useReaderDraft } from "../../reader/use-reader-draft.ts";
 import { useEnvironment } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { SidePosition } from "../../shell/side-position.tsx";
@@ -51,13 +47,14 @@ import { TEXT, pageTitle } from "../../text.ts";
 import { ReaderChooser } from "./reader-chooser.tsx";
 import { ReaderCommentPopover } from "./reader-comment-popover.tsx";
 import type { ReaderPopoverMode } from "./reader-comment-popover.tsx";
+import { ReaderInkPlayer } from "./reader-ink-player.tsx";
 import { ReaderPage } from "./reader-page.tsx";
 import type { TappedLine } from "./reader-page.tsx";
 import {
   ReaderLoadingView,
   ReaderRefusalView,
   openThreadsByBlock,
-  readerInfoLine,
+  readerBarLines,
 } from "./reader-states.tsx";
 
 const READER_SIDE_TABS: readonly PanelTab<SideTab>[] = [tourTab];
@@ -138,11 +135,15 @@ export function ReaderScreen(props: {
   }, [token, userId, bearerToken, signedIn]);
 
   const readyDraft = state.kind === "ready" ? state.draft : null;
-  const readAloudFacts = useReaderReadAloudFacts(readyDraft?.docId ?? null);
+  const readyIsInk = readyDraft !== null && isInkDraft(readyDraft);
+  const readAloudFacts = useReaderReadAloudFacts(
+    readyIsInk ? null : (readyDraft?.docId ?? null),
+  );
   const offline = state.kind === "ready" && state.offlineOpenedAt !== null;
   const commentsSession = useMemo<ReaderCommentsSession | null>(() => {
     if (
       readyDraft === null ||
+      readyIsInk ||
       offline ||
       !signedIn ||
       !readyDraft.canComment ||
@@ -156,7 +157,7 @@ export function ReaderScreen(props: {
       canComment: true,
       now: environment.now,
     });
-  }, [readyDraft, offline, signedIn, services, environment.now]);
+  }, [readyDraft, readyIsInk, offline, signedIn, services, environment.now]);
 
   useEffect(() => {
     return () => {
@@ -297,35 +298,17 @@ export function ReaderScreen(props: {
   }
 
   const { draft, offlineOpenedAt } = state;
-  const bar = stateBarLines([
-    {
-      kind: "reader_draft",
-      name: draft.name,
-      date: formatReaderDayDate(draft.sentAt),
-    },
-    ...(comparison !== null && comparison.baselineName !== ""
-      ? [
-          {
-            kind: "showing_changes" as const,
-            name: comparison.baselineName,
-            date: null,
-          },
-        ]
-      : []),
-    ...readAloudFacts,
-  ]);
-  const leftLine = bar.left;
+  const { left: leftLine, right: rightLine } = readerBarLines({
+    draft,
+    isInk: readyIsInk,
+    offlineOpenedAt,
+    signedIn,
+    comparison,
+    readAloudFacts,
+  });
 
-  let rightLine: StateLine | null = bar.right;
-  if (rightLine === null && offlineOpenedAt !== null) {
-    rightLine = readerInfoLine(
-      READER_WORDS.offlineCopy(formatReaderDayDate(offlineOpenedAt)),
-    );
-  } else if (rightLine === null && signedIn && draft.canComment) {
-    rightLine = readerInfoLine(READER_WORDS.canComment);
-  }
-
-  const tappable = offlineOpenedAt === null && (!signedIn || draft.canComment);
+  const tappable =
+    !readyIsInk && offlineOpenedAt === null && (!signedIn || draft.canComment);
 
   return (
     <div data-reader-frame="" className={frameClass}>
@@ -342,16 +325,20 @@ export function ReaderScreen(props: {
               registered={isRegistered}
             />
           </div>
-          <ReaderPage
-            content={draft.content}
-            watermark={draft.watermark}
-            comparison={comparison}
-            commentedBlockIds={commentedBlockIds}
-            ports={pagePorts}
-            title={draft.name}
-            tappable={tappable}
-            onTapLine={handleTapLine}
-          />
+          {readyIsInk ? (
+            <ReaderInkPlayer token={token} draft={draft} userId={userId} />
+          ) : (
+            <ReaderPage
+              content={draft.content}
+              watermark={draft.watermark}
+              comparison={comparison}
+              commentedBlockIds={commentedBlockIds}
+              ports={pagePorts}
+              title={draft.name}
+              tappable={tappable}
+              onTapLine={handleTapLine}
+            />
+          )}
           <div
             className={
               hasMessage

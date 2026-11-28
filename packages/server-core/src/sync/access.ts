@@ -286,7 +286,9 @@ export function createDocumentAccess(options: {
     const script = resolve(userId, scriptDocId);
     if (!script.ok) return script.code;
     const sameHome = keyOf(script.home) === keyOf(home);
-    return script.kind === "script" && sameHome ? null : "bad_request";
+    return (script.kind === "script" || script.kind === "ink") && sameHome
+      ? null
+      : "bad_request";
   }
 
   function create(userId: string, request: unknown): CreateResult {

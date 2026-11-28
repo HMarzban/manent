@@ -888,3 +888,73 @@ test("anyone-with-link sign-in token admits non-recipients while recipient token
   };
   expect(listed.sends[0]?.directRecipientCount).toBe(1);
 });
+
+test("ink documents can be sent as drafts and opened with docKind ink and ink_line blocks", async () => {
+  const h = createDraftsHarness();
+  const inkDocId = "01a1e81d-c6f2-7301-a0f6-5c345eb6c777";
+  h.sync.access.create("dana", {
+    docId: inkDocId,
+    kind: "ink",
+    home: `project:${PROJECT}`,
+  });
+  const inkDoc = scriptDocFromJSON(
+    {
+      type: "doc",
+      content: [
+        {
+          type: "section",
+          content: [
+            {
+              type: "block",
+              attrs: { id: "inkline00001", type: "ink_line" },
+              content: [{ type: "text", text: "Hello from Gull Point." }],
+            },
+            {
+              type: "block",
+              attrs: { id: "inkline00002", type: "ink_line" },
+              content: [
+                { type: "text", text: "* [Look out] The harbour is dark." },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { clientId: 9 },
+  );
+  h.storage.open({ kind: "project", id: PROJECT }).log.append({
+    docId: inkDocId,
+    generation: 1,
+    userId: "dana",
+    origin: "edit",
+    update: inkDoc.encodeState(),
+    clocks: [],
+  });
+
+  const sendRes = await h.call("POST", "/api/drafts/send", "dana", {
+    docId: inkDocId,
+    key: keyOf(91),
+    name: "For the museum",
+    what: "whole_script",
+    againstVersionId: null,
+    files: [],
+    groupIds: ["network"],
+    recipientUserIds: [],
+    watermark: false,
+    link: { expiresInMs: SHARE_LINK_EXPIRIES_MS[2], signIn: false },
+  });
+  expect(sendRes.status).toBe(200);
+  const sent = (await sendRes.json()) as SendDraftResponse;
+  expect(sent.recipientToken).not.toBeNull();
+  expect(sent.linkToken).not.toBeNull();
+
+  const openRes = await h.call("POST", "/api/drafts/open", "leo", {
+    token: sent.recipientToken,
+  });
+  expect(openRes.status).toBe(200);
+  const opened = (await openRes.json()) as DraftOpenResponse;
+  expect(opened.docKind).toBe("ink");
+  expect(opened.watermark).toBe("Leo Marsh");
+  expect(opened.content.blocks.length).toBe(2);
+  expect(h.drafts.isDraftReader("leo", inkDocId)).toBe(true);
+});

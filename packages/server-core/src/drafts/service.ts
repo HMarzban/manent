@@ -1,7 +1,7 @@
 // The sent-draft service: sending drafts, listing sends, opening draft links, comparing earlier drafts and rendering PDFs.
 import type { ScriptFontFiles } from "@manent/formats";
 import type { Home, Storage } from "@manent/storage";
-import { isDocId } from "@manent/sync-protocol";
+import { isDocId, isDocKind } from "@manent/sync-protocol";
 import type {
   DraftOpenResponse,
   DraftOpenedControl,
@@ -56,7 +56,8 @@ export function createDraftReaders(storage: Storage): DraftReaders {
     isDraftReader(userId, docId) {
       if (!isDocId(docId)) return false;
       const place = storage.directory.placeOf(docId);
-      if (place === null || place.kind !== "script") return false;
+      if (place === null || (place.kind !== "script" && place.kind !== "ink"))
+        return false;
       if (storage.directory.tombstoneOf(docId) !== null) return false;
       return storage
         .open(place.home)
@@ -192,6 +193,7 @@ export function createDraftsService(options: {
         });
       const control: DraftOpenedControl = { sendId: send.id, userId };
       sync().broadcast(send.docId, "draft_opened", encodeJson(control));
+      const place = storage.directory.placeOf(send.docId);
       return {
         ok: true,
         value: {
@@ -204,6 +206,9 @@ export function createDraftsService(options: {
           watermark,
           canComment,
           lastReadVersionId,
+          ...(place !== null && isDocKind(place.kind)
+            ? { docKind: place.kind }
+            : {}),
         },
       };
     },

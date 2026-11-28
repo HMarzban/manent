@@ -1,5 +1,6 @@
 // REST requests for the reader frame: opening a sent draft link and fetching an earlier sent draft to compare.
 import { isVersionContent } from "@manent/sync-client";
+import { isDocKind } from "@manent/sync-protocol";
 import type {
   DraftOpenResponse,
   DraftSinceResponse,
@@ -65,7 +66,8 @@ export function isDraftOpenResponse(
     isVersionContent(value.content) &&
     isStringOrNull(value.watermark) &&
     typeof value.canComment === "boolean" &&
-    isStringOrNull(value.lastReadVersionId)
+    isStringOrNull(value.lastReadVersionId) &&
+    (value.docKind === undefined || isDocKind(value.docKind))
   );
 }
 

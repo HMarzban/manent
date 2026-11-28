@@ -1,4 +1,5 @@
 // What the sent-draft routes answer, what a client sends them, and the CONTROL frames they broadcast.
+import type { DocKind } from "./doc-id.ts";
 import type { VersionContent, VersionItem } from "./history-http.ts";
 import type { ShareLinkExpiryMs } from "./sharing.ts";
 
@@ -108,6 +109,8 @@ export interface DraftOpenResponse {
   canComment: boolean;
   /** Earlier sent draft the signed-in reader last read on this script; null when none or anonymous. */
   lastReadVersionId: string | null;
+  /** Document kind when known (`"script"` or `"ink"`). Additive: older servers omit it. */
+  docKind?: DocKind;
 }
 
 /** The answer to GET /api/drafts/since?token=...&since=... for an earlier sent draft of the same script. */
