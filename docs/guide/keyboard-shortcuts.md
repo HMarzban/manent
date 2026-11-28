@@ -47,7 +47,7 @@ The default keys. "Ctrl" is ⌘ on a Mac unless a row says otherwise. Every comm
 | Left panel       | ⌘⌥1 on a Mac; no key elsewhere        |
 | Side panel       | ⌘⌥2 on a Mac; no key elsewhere        |
 
-Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#tab-and-enter) describes. That flow, the keys inside the element picker and the clipboard keys are fixed and the same for everyone.
+Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#tab-and-enter) describes. In a **Book (Manuscript)**, `Ctrl+1`–`Ctrl+6` map to **Chapter**, **Body**, **Subheading**, **Epigraph**, **Quote** and **Break** (and the floating Book Format Bar also provides Superscript, Subscript, Footnote, Drop cap / Raised cap / Flush left openings, Colour & Highlight, and Book layout controls). That flow, the keys inside the element picker and the clipboard keys are fixed and the same for everyone.
 
 **Zoom.** In a browser, Ctrl+=, Ctrl+- and Ctrl+0 are left to the browser's own zoom, and the page zooms from **View ▾ → Zoom**. In the desktop app they are Zoom in, Zoom out and Zoom: 100 %.
 
