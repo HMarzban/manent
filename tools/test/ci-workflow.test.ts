@@ -153,3 +153,19 @@ test("pages deploys site/ on pushes to main touching site/** and manual dispatch
   expect(testIdx).toBeGreaterThan(bunIdx);
   expect(uploadIdx).toBeGreaterThan(testIdx);
 });
+
+test("desktop workflow installs Electrobun Linux runtime libraries including WebKitGTK 4.1", async () => {
+  const desktop = Bun.YAML.parse(
+    await Bun.file(join(repoRoot, ".github/workflows/desktop.yml")).text(),
+  ) as {
+    jobs: { desktop: { steps: Array<Step & { if?: string }> } };
+  };
+  const aptStep = desktop.jobs.desktop.steps.find(
+    (s) =>
+      s.if === "runner.os == 'Linux'" && s.run?.includes("apt-get install"),
+  );
+  expect(aptStep?.run).toContain("libgtk-3-0");
+  expect(aptStep?.run).toContain("libwebkit2gtk-4.1-0");
+  expect(aptStep?.run).toContain("libayatana-appindicator3-1");
+  expect(aptStep?.run).toContain("xvfb");
+});

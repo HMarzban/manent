@@ -48,7 +48,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-1.4.4-
       - if: runner.os == 'Linux'
-        run: sudo apt-get install -y libgtk-3-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb
       - run: bun install --frozen-lockfile
       - run: bun test --parallel ./packages/local-node/test/instance-lock.test.ts ./packages/local-node/test/open-store.test.ts
       - run: bun run desktop:build --channel canary --version 0.0.1 --update-url http://127.0.0.1:47471/

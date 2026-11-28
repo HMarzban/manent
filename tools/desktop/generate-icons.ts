@@ -17,7 +17,8 @@ const ICONSET_ENTRIES = [
   { name: "icon_512x512@2x.png", size: 1024 },
 ] as const;
 
-const ASSET_ICON_SIZE = 512;
+/** Windows ICO embeds PNGs up to 256x256 (larger PNGs fail hutch packaging with PngTooLarge). */
+const ASSET_ICON_SIZE = 256;
 
 /** Full-bleed maskable Bound "M" SVG keeping the monogram inside the 80% Android/PWA safe circle. */
 const MASKABLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">

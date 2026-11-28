@@ -4,7 +4,7 @@ export const RELEASE_NOTES = `These builds are unsigned, so your system warns yo
 
 macOS: the system says the app "cannot be opened because Apple cannot check it for malicious software". Open System Settings → Privacy & Security and choose Open Anyway.
 Windows: the system shows "Windows protected your PC". Choose More info → Run anyway.
-Linux: the system shows nothing. Manent needs GTK 3 and the Ayatana app-indicator library installed.
+Linux: the system shows nothing. Manent needs GTK 3, WebKitGTK 4.1 and the Ayatana app-indicator library installed.
 
 On macOS, a manent:// link opens its script in the app. On Windows and Linux, links do not open the app: open a file with File → Open… or by dropping it on the window.
 

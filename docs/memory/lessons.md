@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep Windows desktop PNG icons within `256 × 256` and install `libwebkit2gtk-4.1-0` on Linux Electrobun runners
+
+- Date: 2026-11-28
+
+### What happened
+
+The first cross-platform GitHub Actions `desktop` run after unifying the Bound "M" icon set passed on `macos-26` (including full live `0.0.1 → 0.0.2` auto-update smoke) but failed on the other two platforms for two platform-specific Electrobun constraints: (1) `tools/desktop/generate-icons.ts` emitted `apps/desktop/assets/icon.png` at `512 × 512`, which Electrobun's `hutch` Windows `.ico` packager rejected with `invalid Windows PNG icon: PngTooLarge` (Windows ICO headers encode dimensions up to `256 × 256`); and (2) `ubuntu-24.04` built and installed both `0.0.1` and `0.0.2` cleanly but failed `desktop:smoke` at launch because `libNativeWrapper.so` dynamically links `libwebkit2gtk-4.1.so.0`, `libsoup-3.0.so.0` and `libjavascriptcoregtk-4.1.so.0` even when `defaultRenderer: "cef"` is configured.
+
+### How it was caught
+
+By running `.github/workflows/desktop.yml` across `macos-26`, `windows-2025` and `ubuntu-24.04` and inspecting the `windows-2025` build log and `ubuntu-24.04` smoke log.
+
+### Rule
+
+Keep `apps/desktop/assets/icon.png` at `256 × 256` (`ASSET_ICON_SIZE = 256`) so Windows `.ico` embedding always succeeds, and install `libwebkit2gtk-4.1-0` alongside `libgtk-3-0` and `libayatana-appindicator3-1` in Linux CI workflows and release notes whenever Electrobun's native launcher runs.
+
+### Enforced by
+
+`apps/desktop/test/icons.test.ts` and `tools/test/ci-workflow.test.ts`.
+
 ## Keep custom `.mn-table` rows on the shared `px-3` rail, budget fixed columns below each `@container` breakpoint, and never style status cells via `span:last-child`
 
 - Date: 2026-11-28
