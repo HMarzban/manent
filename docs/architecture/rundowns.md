@@ -68,4 +68,4 @@ A rundown opens at `/s/$docId` inside the shared document frame via `DOCUMENT_BO
 
 - A rundown document is created and synced, but is never reorganised on the server.
 - Viewers are not shown as a count in the interface.
-- Newsroom scale (`rundown.w5`) and 300-row scroll benchmarks have not yet been published in [../benchmark/report.md](../benchmark/report.md).
+- In the published `a44b0bc8` benchmark report ([../benchmark/report.md](../benchmark/report.md)), `rundown.w4` was over budget; subsequent rundown hot-path optimisations (`documentsIn(home, "rundown")`, coalesced duration writes, snapshot caching) landed on `main` and await a fresh clean publish run alongside `rundown.w5` and 300-row scroll benchmarks.

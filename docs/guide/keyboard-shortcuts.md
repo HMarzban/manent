@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-The default keys. "Ctrl" is ⌘ on a Mac unless a row says otherwise. Every command, with or without a key, is in the command palette (Ctrl+K), and **Preferences → Keyboard** (Ctrl+/) lists them all and lets you change any key that is not fixed.
+The default keys. "Ctrl" is ⌘ on a Mac unless a row says otherwise. Every command, with or without a key, is in the command palette (Ctrl+K), and **Preferences → Keyboard** (Ctrl+/) lets you filter commands, view **Custom only** bindings, change any key that is not fixed, or **Reset shortcuts**.
 
 ## Anywhere
 

@@ -28,7 +28,7 @@ One row per workspace, in the order of `RULES`. `@manent/` is left out of every 
 | `pagination`    | Domain engines               | pure    | `schema` (types only)                                                                                                                                                        | none                                                                  |
 | `revisions`     | Domain engines               | pure    | `schema`, `pagination`                                                                                                                                                       | `prosemirror-changeset`, `prosemirror-model`, `prosemirror-transform` |
 | `crdt`          | Domain engines               | pure    | `schema`                                                                                                                                                                     | `yjs`, `y-protocols`, `lib0`                                          |
-| `formats`       | Domain engines               | pure    | `schema`, `pagination`, `revisions`                                                                                                                                          | `pdfkit`                                                              |
+| `formats`       | Domain engines               | pure    | `schema`, `pagination`, `revisions`                                                                                                                                          | `pdfkit`, `inkjs`, `pdfjs-dist`, `fflate`                             |
 | `sync-client`   | Services                     | pure    | `sync-protocol`, `crdt`, `revisions`, `schema`, `perf`                                                                                                                       | none                                                                  |
 | `client-web`    | Services                     | browser | `sync-client`, `sync-protocol`, `perf`                                                                                                                                       | any declared                                                          |
 | `storage`       | Services                     | Bun     | `perf`                                                                                                                                                                       | any declared                                                          |
@@ -51,17 +51,18 @@ Who may import a workspace is part of its row. The three apps, `bench`, `e2e` an
 
 Some libraries are confined: whatever the rows say, only the workspaces named here may import them from their product code.
 
-| Library or module                                                                                                     | Only in                                                |
-| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `yjs`, `y-protocols`                                                                                                  | `crdt`                                                 |
-| `y-prosemirror`                                                                                                       | `crdt-binding`                                         |
-| `electrobun`                                                                                                          | `desktop`                                              |
-| `bun:sqlite`                                                                                                          | `storage`, `local-node`                                |
-| `prosemirror-model`                                                                                                   | `schema`, `revisions`, `editor`, `crdt-binding`, `e2e` |
-| `prosemirror-state`, `prosemirror-view`                                                                               | `editor`, `crdt-binding`, `e2e`                        |
-| `prosemirror-transform`                                                                                               | `revisions`, `editor`                                  |
-| `prosemirror-keymap`, `prosemirror-commands`, `prosemirror-inputrules`, `prosemirror-gapcursor`, `prosemirror-search` | `editor`                                               |
-| `prosemirror-changeset`                                                                                               | `revisions`                                            |
+| Library or module                                                                                                     | Only in                                                         |
+| --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `yjs`, `y-protocols`                                                                                                  | `crdt`                                                          |
+| `y-prosemirror`                                                                                                       | `crdt-binding`                                                  |
+| `electrobun`                                                                                                          | `desktop`                                                       |
+| `bun:sqlite`                                                                                                          | `storage`, `local-node`                                         |
+| `prosemirror-model`                                                                                                   | `schema`, `revisions`, `editor`, `crdt-binding`, `e2e`, `bench` |
+| `prosemirror-state`                                                                                                   | `editor`, `crdt-binding`, `e2e`, `bench`                        |
+| `prosemirror-view`                                                                                                    | `editor`, `crdt-binding`, `e2e`                                 |
+| `prosemirror-transform`                                                                                               | `revisions`, `editor`, `bench`                                  |
+| `prosemirror-keymap`, `prosemirror-commands`, `prosemirror-inputrules`, `prosemirror-gapcursor`, `prosemirror-search` | `editor`                                                        |
+| `prosemirror-changeset`                                                                                               | `revisions`                                                     |
 
 ## 3. Pure and browser packages
 

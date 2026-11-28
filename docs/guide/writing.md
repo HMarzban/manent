@@ -19,9 +19,9 @@ A script has one format. Choose it in **Details → Script**, under Script setti
 
 Every format also has Section, the act breaks (New Act, End of Act, Teaser, Tag scene) and Page break. A Section names a group of scenes and never prints. In a Podcast project, Variety's Slug is called Segment and its Bracket is called Cue.
 
-Script settings also hold the paper (US Letter or A4), "(MORE) and (CONT'D) at page breaks", "Same-speaker (CONT'D)" and "Scene CONTINUED".
+Script settings also hold the paper (**US Letter** or **A4** across all formats, plus **5×8″**, **5.5×8.5″** and **6×9″** paperback trims on Manuscripts using Layout Engine 3), "(MORE) and (CONT'D) at page breaks", "Same-speaker (CONT'D)" and "Scene CONTINUED".
 
-Every script is set in Courier Prime, on pages laid out as they print. The page count and the page you are on are in the status bar ("Page 3 of 12"). A character the script font cannot draw is marked on the page; it prints as a box.
+Scripts are set in **Courier Prime** (while unlocked Book manuscripts can opt into Layout Engine 3 for proportional **Source Serif 4** typography), on pages laid out as they print. The page count and the page you are on are in the status bar ("Page 3 of 12"). A character the script font cannot draw is marked on the page; it prints as a box.
 
 ## Tab and Enter
 

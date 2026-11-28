@@ -3,7 +3,7 @@
 The benchmark suite in `bench/` measures the page engine, typing, the CRDT and the server. It ships with the code so anyone can run it on their own machine.
 
 > [!NOTE]
-> Published benchmark results live in [docs/benchmark/report.md](../benchmark/report.md) with raw unedited JSON under `docs/benchmark/runs/`. Read its Method, Limits of the method and Not measured sections alongside any figure; a figure from your own run describes your machine, your Bun and that run only.
+> Published benchmark results live in [docs/benchmark/report.md](../benchmark/report.md) with raw unedited JSON under `docs/benchmark/runs/` (currently seven clean runs at commit `a44b0bc8`; subsequent storage and rundown optimisations on `main` await a fresh publish run). Read its Method, Limits of the method and Not measured sections alongside any figure; a figure from your own run describes your machine, your Bun and that run only.
 
 ## Run it
 

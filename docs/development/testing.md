@@ -70,7 +70,9 @@ On an 18-core Mac the three took about 7 minutes together, as a rough guide. Bot
 | `e2e/sync/`        | The local store, offline work and its merge, tabs sharing one connection                                                         |
 | `e2e/offline/`     | Offline shell, first-visit offline-readiness notice, cold airplane-mode launch, manifest/icons/CSP/404 guards and SW updates     |
 | `e2e/typesetting/` | Page layout against the engine, fonts, line positions, the PDF                                                                   |
-| `e2e/tour/`        | One test per Tour scenario, on a freshly seeded demo; a scenario the Tour does not show is not run                               |
+| `e2e/rundown/`     | Rundown grid editing, timing, prompter and rundown WCAG 2.2 AA axe checks                                                        |
+| `e2e/series/`      | Series Overview episode tables, alignment budgets and Series Board workflows                                                     |
+| `e2e/tour/`        | One test per Tour scenario (93 scenarios across web and desktop), on a freshly seeded demo                                       |
 
 ### Ports
 

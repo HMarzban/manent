@@ -29,6 +29,8 @@ make demo
 
 To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `make reset` deletes the demo data and creates it again; see [The demo's data](saving-and-syncing.md#the-demos-data).
 
+To try the Electrobun desktop app against the running demo, open a second terminal and run `make desktop` (or `bun run desktop`); see [Desktop app](../development/desktop.md).
+
 ## Choose who you are
 
 ![The "Choose who you are" Studio Desk screen, showing the six demo people, the live script desk preview, and the Light and Dark theme switch](../images/choose-who-you-are.png)
@@ -79,7 +81,7 @@ Every workspace but Your desk starts with seeded projects, nested folders (`Scri
 
 ## The Tour
 
-**Tour** in the demo bar opens the Tour panel. It walks through the demo one scenario at a time: what to set up, then what to check. A scenario is shown only once what it shows works in this build.
+**Tour** in the demo bar opens the Tour panel, covering all 93 active scenarios across seven curated story tracks (plus desktop-specific scenarios when running the desktop app). Each scenario lists what to set up and what to check, and a scenario is shown only once its behaviour works in this build. To hide the Demo bar and Tour altogether and work in a quiet empty Library, use **Start in a clean workspace** on the opening screen.
 
 ## What to try
 
