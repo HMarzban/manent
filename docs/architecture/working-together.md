@@ -43,7 +43,7 @@ Document access is stored in `control.sqlite` (`packages/server-core/src/sharing
 
 Sending a draft (`packages/server-core/src/drafts/`) distributes a frozen snapshot of a script—full draft, changed pages, page range or scene range—to people, project groups, or anyone holding a draft link, optionally marked with revision asterisks against the last sent draft and optionally carrying each reader's name as a Watermark in the bottom margin on screen and in PDFs.
 
-- **Reader access:** a draft link opens a dedicated read-only reader frame (`/s/<doc>/draft/<id>` or via link token) without granting live edit access to the working script. When "Ask who they are" is enabled, readers pick their identity so they can comment into the draft's round and have their opening recorded.
+- **Reader access:** a draft link opens a dedicated read-only reader frame (`/r/<token>`) without granting live edit access to the working script. Script drafts render true watermarked pages (`ReaderPage`), while shared `ink` drafts render a full-window interactive Ink Reader Player (`reader-ink-player.tsx`) with choices, Back, Restart, Variables drawer and offline cached playback. When "Ask who they are" is enabled, readers pick their identity so they can comment into the draft's round and have their opening recorded.
 - **Opens and last read:** storage tracks every sent draft, its recipients, each reader's opens and last-read position, and History shows editors who received each sent draft and who has opened it.
 
 ## Writing modes and private copies

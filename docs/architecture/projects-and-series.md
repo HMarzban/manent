@@ -4,23 +4,24 @@ How Manent organises multi-script projects, shared styles, page furniture, serie
 
 ## The project index
 
-Every project has its own CRDT index document (`kind: "index"`), created on the device when the project is created and addressed deterministically by `indexDocId("project", projectId)` ([decision 0035](../decisions/0035-project-index-document.md)). It lives in the project's SQLite file alongside the project's scripts and holds eleven append-only root maps (`packages/crdt/src/index-maps.ts`):
+Every project has its own CRDT index document (`kind: "index"`), created on the device when the project is created and addressed deterministically by `indexDocId("project", projectId)` ([decision 0035](../decisions/0035-project-index-document.md)). It lives in the project's SQLite file alongside the project's scripts and holds twelve append-only root maps (`packages/crdt/src/index-maps.ts`):
 
-| Root map   | What it holds                                                              | Who may push to it              |
-| ---------- | -------------------------------------------------------------------------- | ------------------------------- |
-| `template` | Project kind, format defaults, Act structure, Target length, template data | Owners and revision issuers     |
-| `style`    | Shared Element style overrides, Header and footer, date format             | Owners and revision issuers     |
-| `groups`   | Project groups (`name`, `role`, `memberUserIds`, `watermark`)              | Owners and revision issuers     |
-| `ladder`   | Ordered draft-name ladder labels                                           | Owners and revision issuers     |
-| `can_also` | Extra project capabilities granted to non-owners                           | Owners and revision issuers     |
-| `seasons`  | Season entries (`id`, `number`, `title`)                                   | Editors                         |
-| `episodes` | Episode entries (number, title, writer, stage, due date, counts, doc IDs)  | Editors (summaries also server) |
-| `names`    | Project Characters, Sets and Terms                                         | Editors                         |
-| `facts`    | Pinned continuity facts linked to script blocks                            | Editors                         |
-| `board`    | Series Board Storylines and cards with scene links                         | Editors                         |
-| `source`   | Provenance records for copies (`docId`, `versionId`, `copiedAt`, chapters) | Editors                         |
+| Root map        | What it holds                                                              | Who may push to it              |
+| --------------- | -------------------------------------------------------------------------- | ------------------------------- |
+| `template`      | Project kind, format defaults, Act structure, Target length, template data | Owners and revision issuers     |
+| `style`         | Shared Element style overrides, Header and footer, date format             | Owners and revision issuers     |
+| `groups`        | Project groups (`name`, `role`, `memberUserIds`, `watermark`)              | Owners and revision issuers     |
+| `ladder`        | Ordered draft-name ladder labels                                           | Owners and revision issuers     |
+| `can_also`      | Extra project capabilities granted to non-owners                           | Owners and revision issuers     |
+| `seasons`       | Season entries (`id`, `number`, `title`)                                   | Editors                         |
+| `episodes`      | Episode entries (number, title, writer, stage, due date, counts, doc IDs)  | Editors (summaries also server) |
+| `names`         | Project Characters, Sets and Terms                                         | Editors                         |
+| `facts`         | Pinned continuity facts linked to script blocks                            | Editors                         |
+| `board`         | Series Board Storylines and cards with scene links                         | Editors                         |
+| `source`        | Provenance records for copies (`docId`, `versionId`, `copiedAt`, chapters) | Editors                         |
+| `settings_meta` | Additive project-setting provenance (`userId`, `setAt`, `replaced`)        | Owners and revision issuers     |
 
-In the server's write path (`packages/server-core/src/project/validate.ts`), every push to a project index is checked map by map against the pusher's role so non-owners cannot alter template, style, group, ladder or capability settings while editors can still maintain episodes, names, facts and the Board.
+In the server's write path (`packages/server-core/src/project/validate.ts`), every push to a project index is checked map by map against the pusher's role so non-owners cannot alter template, style, group, ladder, capability or setting provenance maps while editors can still maintain episodes, names, facts and the Board. In Project settings (`apps/web/src/screens/project-settings/`), `TemplateRow` shows a `Custom` indicator when project defaults diverge from the chosen template (applying per-template defaults with full multi-key Undo on template switch), rows display `Set by …` attribution from `settings_meta`, and remote changes from another owner announce a brief toast.
 
 ## Style, page furniture and script material
 
