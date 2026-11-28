@@ -65,7 +65,9 @@ const pushUndoMessage = (
   messages: MaterialHost["messages"],
   id: string,
   text: string,
-): void =>
+): void => {
+  for (const k of ["alternate_swapped", "material_cut", "material_restored"])
+    messages.withdraw(k);
   messages.push({
     id,
     text,
@@ -73,6 +75,7 @@ const pushUndoMessage = (
     lifetime: "reverse",
     ownWork: false,
   });
+};
 
 const refuseCuttingWholeScript = (host: MaterialHost): void =>
   host.messages.push({
@@ -83,7 +86,6 @@ const refuseCuttingWholeScript = (host: MaterialHost): void =>
     ownWork: true,
   });
 
-/** Opens the alternates popover under the speech the caret of `docId`'s page is in; false when it is in none. */
 export function showAlternatesIn(docId: string, focus: Focus): boolean {
   const editor = liveEditor(docId);
   return (

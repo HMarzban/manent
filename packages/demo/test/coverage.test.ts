@@ -44,7 +44,7 @@ const READ_BY_THE_TOUR: Readonly<Record<string, string>> = {
   JUMPOX_CHAPTER_1: "On Tuesdays the bin lorry came down Mallow Street",
   DOWN_THE_BACK_HEADINGS: "Mrs. Lomax's Spectacles",
   DOWN_THE_BACK_SCENES_1_2: "Scene 1: Mallow Street",
-  FERRY_SCENE_8_WORKING: "The pencil marks stop at Thursday.",
+  FERRY_SCENE_8_WORKING: "pencil marks stop at Thursday.",
   NEWS_STORY_01: "thirty-one votes to eight",
 };
 

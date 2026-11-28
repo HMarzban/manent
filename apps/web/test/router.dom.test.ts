@@ -105,6 +105,41 @@ test("a tab that has a person opens a script's address as it is", async () => {
   expect(await landing(DOC, leo)).toBe(DOC);
 });
 
+test("on desktop ?person=you signs in at the local node so the tab holds a node token", async () => {
+  const signedIn: string[] = [];
+  const api = {
+    ...fakeApi(),
+    choices: async () => [
+      { userId: "you", name: "You", title: "Writer", registered: false },
+    ],
+    signIn: async (userId: string) => {
+      signedIn.push(userId);
+      return {
+        ok: true as const,
+        person: { token: "node-token-you", userId, name: "You" },
+      };
+    },
+    me: async () => ({
+      ok: true as const,
+      me: { userId: "you", name: "You", workspaces: [] },
+    }),
+  };
+  const usePerson = createPersonStore(storageOf(null));
+  const router = createAppRouter({ api, fetch, usePerson, desktop: true });
+  router.update({
+    ...router.options,
+    history: createMemoryHistory({ initialEntries: ["/?person=you"] }),
+  });
+  await router.load();
+  expect(signedIn).toEqual(["you"]);
+  expect(usePerson.getState().person).toEqual({
+    token: "node-token-you",
+    userId: "you",
+    name: "You",
+  });
+  expect(router.state.location.href).toBe("/");
+});
+
 test("a screen of preferences is drawn only once they have been read from the device", async () => {
   const { promise, resolve } = Promise.withResolvers<void>();
   const services = { ...testServices({ userId: "sam" }), ready: promise };

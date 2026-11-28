@@ -23,5 +23,5 @@ export const TOGETHER_ROLES: TourScenario = {
   evidence: ["View only — you can comment"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

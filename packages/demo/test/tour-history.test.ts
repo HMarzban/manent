@@ -25,14 +25,14 @@ test("the History group holds its scenarios in order, each ready for its feature
   ]);
 });
 
-test("History shows every passing scenario and keeps unpassing ones hidden", () => {
+test("History shows every passing scenario", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "History" && s.waitsFor === null)
       .map((s) => [s.id, s.hidden]),
   ).toEqual([
     ["history-every-version", null],
-    ["history-changes-since", "its end-to-end test does not pass yet"],
+    ["history-changes-since", null],
     ["history-changes-prose", null],
     ["history-restore-scene", null],
     ["history-name-draft", null],

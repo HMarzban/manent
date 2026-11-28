@@ -3,8 +3,17 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { createMemoryBag } from "@manent/settings";
 import { createValue, useSubscribable } from "@manent/ui";
 import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { useRemoteSettingMessages } from "../src/screens/document/setting-messages.ts";
 import type { HistorySection } from "../src/screens/document/history-sections.ts";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+} from "../src/services/context.tsx";
+import { FactsContext } from "../src/state/bridge-contexts.ts";
+import { createFactsStore } from "../src/state/facts.store.ts";
 import type { OutlineRow } from "../src/state/outline.store.ts";
+import { testEnvironment } from "./services.fixtures.ts";
 import {
   NEW_SCRIPT,
   buttonNamed,
@@ -181,6 +190,54 @@ test("changing paper says so to you with Undo, and to others with your name", as
     ["Sam changed paper size to A4.", "Script settings"],
     ["Set by Sam 17 Nov · was US Letter"],
   ]);
+});
+
+test("a remote layout setting change announces first name and page count delta when pagination shifts", async () => {
+  const scriptBag = createMemoryBag({ initial: {}, writable: () => true });
+  const frame = await renderFrame({ scriptBag, startAt: NOV_17 });
+  const env = testEnvironment({ schedule: frame.clock.schedule });
+  const facts = createFactsStore({
+    frame: (fn) => frame.clock.schedule(fn, 16),
+    guard: env.guard,
+  });
+  const { selectors, writer } = facts;
+  writer.publish({ pageCount: 12 });
+  act(() => frame.clock.advance(16));
+  const people = createValue([
+    { userId: "sam", name: "Sam Okafor", initials: "SO", colour: 2 },
+  ]);
+  const doc = { ...frame, people };
+  const Probe = () => {
+    useRemoteSettingMessages(doc);
+    return null;
+  };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => {
+      root.render(
+        <EnvironmentProvider environment={env}>
+          <ServicesProvider services={frame.services}>
+            <FactsContext value={selectors}>
+              <Probe />
+            </FactsContext>
+          </ServicesProvider>
+        </EnvironmentProvider>,
+      );
+    });
+    act(() => scriptBag.receive({ "script.paper": "a4" }, "sam"));
+    act(() => {
+      writer.publish({ pageCount: 11 });
+      frame.clock.advance(16);
+    });
+    expect(frame.services.messages.current()?.text).toBe(
+      "Sam changed paper size to A4 · 12 → 11 pages.",
+    );
+  } finally {
+    act(() => root.unmount());
+    host.remove();
+  }
 });
 
 test("resetting paper says so with Undo, which sets it back", async () => {

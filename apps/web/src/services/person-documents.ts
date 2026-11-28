@@ -164,6 +164,7 @@ function openDocuments(
   const source = createSyncDocumentSource({
     sync,
     signedIn: options.person.token !== null,
+    shell: options.where.shell,
     review: parts.review,
     titles,
     messages,

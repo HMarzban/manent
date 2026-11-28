@@ -8,9 +8,10 @@ import {
   messageFor,
 } from "@manent/ui";
 import type { Message } from "@manent/ui";
-import { useEffect } from "react";
-import { useServices } from "../../services/context.tsx";
+import { useContext, useEffect } from "react";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices, PersonServices } from "../../services/ports.ts";
+import { FactsContext } from "../../state/bridge-contexts.ts";
 import type { PersonPresent } from "../../state/people.store.ts";
 
 const SCRIPT_KEYS: ReadonlySet<string> = new Set(
@@ -143,33 +144,69 @@ export function announcing(
   return wrapped;
 }
 
+/** How long to wait for the paginator's next page count before saying a remote change without a page delta. */
+const PAGE_DELTA_WAIT_MS = 200;
+
+/** What a sentence calls a person: the first of their names ("Sam" for "Sam Okafor"). */
+const firstNameOf = (name: string): string => name.split(" ")[0] ?? name;
+
 /** While `doc` is shown, a script setting another person changed is said in the message slot with their name. */
 export function useRemoteSettingMessages(doc: DocumentServices): void {
   const { messages, userId } = useServices();
-  useEffect(
-    () =>
-      doc.scriptBag.subscribe((keys, origin) => {
-        if (origin !== "remote") return;
-        for (const key of keys.filter(isScriptKey).filter(isSaidHere)) {
-          const by = doc.scriptBag.provenance(key)?.byUserId ?? null;
-          const byName = by === userId ? null : nameOf(doc.people.get(), by);
-          const parsed = SETTINGS.get(key).type.parse(
-            doc.scriptBag.read()[key],
-          );
-          // a person not present here cannot be named, and a value this build cannot read cannot be said
-          if (byName === null || !parsed.ok) continue;
+  const { schedule } = useEnvironment();
+  const facts = useContext(FactsContext);
+  useEffect(() => {
+    const cleanups = new Set<() => void>();
+    const stop = doc.scriptBag.subscribe((keys, origin) => {
+      if (origin !== "remote") return;
+      for (const key of keys.filter(isScriptKey).filter(isSaidHere)) {
+        const by = doc.scriptBag.provenance(key)?.byUserId ?? null;
+        const fullName = by === userId ? null : nameOf(doc.people.get(), by);
+        const parsed = SETTINGS.get(key).type.parse(doc.scriptBag.read()[key]);
+        // a person not present here cannot be named, and a value this build cannot read cannot be said
+        if (fullName === null || !parsed.ok) continue;
+        const byName = firstNameOf(fullName);
+        const noun = nounOf(key);
+        const label = valueLabel(key, parsed.value, "message");
+        const pagesBefore = facts?.get("pageCount") ?? null;
+        const push = (before: number | null, after: number | null): void => {
           messages.push(
             messageFor({
               kind: "setting_changed",
               byName,
-              noun: nounOf(key),
-              valueLabel: valueLabel(key, parsed.value, "message"),
-              pagesBefore: null,
-              pagesAfter: null,
+              noun,
+              valueLabel: label,
+              pagesBefore: before,
+              pagesAfter: after,
             }),
           );
-        }
-      }),
-    [doc, messages, userId],
-  );
+        };
+        push(null, null);
+        if (facts === null || pagesBefore === null) continue;
+        let settled = false;
+        let stopPages: (() => void) | null = null;
+        let cancelTimer: (() => void) | null = null;
+        const stopWaiting = (): void => {
+          if (settled) return;
+          settled = true;
+          stopPages?.();
+          cancelTimer?.();
+          cleanups.delete(stopWaiting);
+        };
+        cleanups.add(stopWaiting);
+        stopPages = facts.subscribe("pageCount", (after) => {
+          if (after === null || after === pagesBefore) return;
+          stopWaiting();
+          messages.withdraw("setting_changed");
+          push(pagesBefore, after);
+        });
+        cancelTimer = schedule(stopWaiting, PAGE_DELTA_WAIT_MS);
+      }
+    });
+    return () => {
+      stop();
+      for (const cancel of cleanups) cancel();
+      cleanups.clear();
+    };
+  }, [doc, facts, messages, schedule, userId]);
 }

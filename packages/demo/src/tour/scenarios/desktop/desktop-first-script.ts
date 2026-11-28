@@ -24,5 +24,5 @@ export const DESKTOP_FIRST_SCRIPT: TourScenario = {
   evidence: ["Saved · On this device only", "Saved · Synced"],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

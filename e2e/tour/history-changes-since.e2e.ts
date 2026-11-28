@@ -1,4 +1,5 @@
 import { DOCUMENT_WORDS } from "@manent/ui";
+import { expect } from "@playwright/test";
 import { expectEvidence, tourScenario } from "../support/tour.ts";
 
 tourScenario("history-changes-since", async ({ page, scenario, step }) => {
@@ -11,8 +12,12 @@ tourScenario("history-changes-since", async ({ page, scenario, step }) => {
     .getByRole("menuitem", { name: "Studio draft", exact: true })
     .click();
   const scene = await step(1);
-  await scene
-    .getByText("The pencil marks stop at Thursday.")
-    .scrollIntoViewIfNeeded();
+  // inline diff marks "The <del>entries</del><ins>pencil marks</ins> stop at Thursday."
+  const markedLine = scene.getByText("pencil marks stop at Thursday.");
+  await markedLine.scrollIntoViewIfNeeded();
+  await expect(scene.locator("ins", { hasText: "pencil marks" })).toBeVisible();
+  await expect(
+    scene.locator("ins", { hasText: "Nobody's logged a crossing" }),
+  ).toBeVisible();
   await expectEvidence([page], scenario);
 });

@@ -1,10 +1,15 @@
 // The Tour's write-alternates scenario: swapping in Dana's alternate on the traffic joke and restoring a cut.
+import { DOCUMENT_WORDS } from "@manent/ui";
+import { test } from "@playwright/test";
 import { settled } from "../editor/support.ts";
 import {
   expectEvidence,
   selectTourStep,
   tourScenario,
 } from "../support/tour.ts";
+
+// wide enough for the left panel beside the Tour
+test.use({ viewport: { width: 1600, height: 900 } });
 
 tourScenario("write-alternates", async ({ page, scenario, step }) => {
   const [marker, swapped, restored] = scenario.evidence;
@@ -31,9 +36,12 @@ tourScenario("write-alternates", async ({ page, scenario, step }) => {
   await selectTourStep(page, scenario.promise, 2);
   const cutsTab = page.locator("[data-tour='tab:cuts']");
   if (!(await cutsTab.isVisible())) {
-    await page.keyboard.press("ControlOrMeta+k");
-    await page.getByRole("combobox").first().fill("Left panel");
-    await page.locator('[data-tour="view.leftPanel"]').first().click();
+    await page
+      .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+      .click();
+    await page.locator("[data-tour='view.leftPanel']").click();
+    // a checkbox item leaves its menu open
+    await page.keyboard.press("Escape");
   }
   await (await step(2)).click();
   await page

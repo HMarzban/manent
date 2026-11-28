@@ -9,6 +9,7 @@ import {
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
 import type { MeResult } from "../api.ts";
+import { readNodeCloud } from "../desktop/node-cloud.ts";
 import { firstRunPath, loadScreen } from "../router.tsx";
 import { ChooseRoutePending } from "../screens/choose/choose-skeleton.tsx";
 import { CONTINUE_VIEW_ID } from "../screens/library/library-address.ts";
@@ -24,21 +25,32 @@ import { ScreenProblem } from "./screen-problem.ts";
 const openedFirstRuns = new WeakSet<PersonServices>();
 
 /** A first launch opens a blank page 1. */
-function FirstRun(): null {
+function FirstRun(props: {
+  desktop: boolean;
+  fetch: typeof fetch;
+  token: string | null;
+}): null {
   const services = useServices();
   const navigate = useNavigate();
+  const { desktop, fetch: send, token } = props;
   useEffect(() => {
     let shown = true;
-    void firstRunPath(services).then((path) => {
+    void (async () => {
+      // On desktop every person holds a node token; only one not signed in to the cloud runs first launch.
+      if (desktop) {
+        const cloud = await readNodeCloud({ fetch: send, token });
+        if (!shown || cloud !== "not_signed_in") return;
+      }
+      const path = await firstRunPath(services);
       if (!shown || path === null || openedFirstRuns.has(services)) return;
       openedFirstRuns.add(services);
       // never awaited: a blocker may stop it, and then it never settles
       void navigate({ href: path, replace: true });
-    });
+    })();
     return () => {
       shown = false;
     };
-  }, [services, navigate]);
+  }, [desktop, send, token, services, navigate]);
   return null;
 }
 
@@ -122,11 +134,16 @@ export function libraryRoutes(
     },
     component: function Library() {
       const person = usePerson((s) => s.person);
+      const desktop = deps.desktop === true;
       return createElement(
         Fragment,
         null,
-        person !== null && person.token === null
-          ? createElement(FirstRun)
+        person !== null && (desktop || person.token === null)
+          ? createElement(FirstRun, {
+              desktop,
+              fetch: deps.fetch,
+              token: person.token,
+            })
           : null,
         createElement(LibraryScreen, { api, person }),
       );

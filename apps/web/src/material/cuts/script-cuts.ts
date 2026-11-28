@@ -32,13 +32,20 @@ export function blockText(block: BlockJSON): string {
   return (block.content ?? []).map((run) => run.text).join("");
 }
 
-/** The cut's first non-empty line, skipping a leading scene/chapter heading when body lines follow, or `""` when blank. */
+const PREVIEW_SKIP_LEADING: ReadonlySet<string> = new Set([
+  "scene_heading",
+  "slug",
+  "chapter",
+  "character",
+]);
+
+/** The cut's first non-empty line, skipping a leading heading or character cue when body/dialogue lines follow, or `""` when blank. */
 export function cutFirstLine(cut: Cut): string {
   const first = cut.blocks[0];
   if (
     first !== undefined &&
     cut.blocks.length > 1 &&
-    SCENE_HEADINGS.has(String(first.attrs?.type))
+    PREVIEW_SKIP_LEADING.has(String(first.attrs?.type))
   ) {
     const body = cut.blocks
       .slice(1)

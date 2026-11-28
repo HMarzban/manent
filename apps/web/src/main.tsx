@@ -218,7 +218,12 @@ const api = createApi({
     write: (choices) => writeCachedChoices(choices),
   },
 });
-const router = createAppRouter({ api, fetch, usePerson });
+const router = createAppRouter({
+  api,
+  fetch,
+  usePerson,
+  desktop: desktopGlobal !== undefined,
+});
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });

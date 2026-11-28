@@ -455,9 +455,27 @@ test("a cut's preview line skips a scene or chapter heading when body lines foll
     ...withBody,
     blocks: [block(b1, "chapter", "Chapter One")],
   };
-  expect([cutFirstLine(withBody), cutFirstLine(headingOnly)]).toEqual([
+  const speechCut = {
+    ...withBody,
+    blocks: [
+      block(b1, "character", "HOST"),
+      block(a1, "dialogue", "The night market opens tomorrow."),
+    ],
+  };
+  const cueOnly = {
+    ...withBody,
+    blocks: [block(b1, "character", "HOST")],
+  };
+  expect([
+    cutFirstLine(withBody),
+    cutFirstLine(headingOnly),
+    cutFirstLine(speechCut),
+    cutFirstLine(cueOnly),
+  ]).toEqual([
     "The harbour lights flickered.",
     "Chapter One",
+    "The night market opens tomorrow.",
+    "HOST",
   ]);
 });
 

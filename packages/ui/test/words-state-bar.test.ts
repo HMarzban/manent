@@ -49,10 +49,28 @@ test("the state bar shows one sentence a side, the first in its order", () => {
     "Air 23:35 · Target 42:00 · Over 0:48 · In the air window — prompter text changes only when you send it.",
   );
   expect(
-    stateBarLines([{ kind: "marks_not_collated", mode: "none" }]).left,
+    stateBarLines([{ kind: "marks_not_collated", mode: "none" }]).right,
   ).toMatchObject({
     sentence: "Revision marks hidden",
     actions: [{ label: "Show collated", commandId: "view.marks.collated" }],
+  });
+  expect(
+    stateBarLines([
+      {
+        kind: "recall",
+        colour: "blue",
+        name: "Blue",
+        at: "Mon 22:41",
+        people: 4,
+      },
+      { kind: "marks_not_collated", mode: "all" },
+    ]),
+  ).toMatchObject({
+    left: { sentence: "BLUE issued Mon 22:41 to 4 people" },
+    right: {
+      sentence: "Showing all revisions",
+      actions: [{ label: "Show collated", commandId: "view.marks.collated" }],
+    },
   });
   expect(stateBarLines([]).left).toBeNull();
 });
@@ -68,13 +86,13 @@ test("each side keeps its own order whatever order the facts arrive in", () => {
     { kind: "driving", name: "Dana" },
     { kind: "writing_suggestions" },
     { kind: "writing_privately" },
+    { kind: "marks_not_collated", mode: "all" },
     { kind: "showing_changes", name: "Studio draft", date: null },
     { kind: "viewing_version", name: "Table read draft", date: "12 Nov" },
   ];
   const left: readonly StateFact[] = [
     { kind: "reader_draft", name: "Studio draft", date: "Mon 16 Nov" },
     { kind: "role_comment" },
-    { kind: "marks_not_collated", mode: "all" },
     {
       kind: "revision",
       colour: "pink",
@@ -102,13 +120,13 @@ test("each side keeps its own order whatever order the facts arrive in", () => {
     "Dana is driving",
     "Writing as suggestions — others accept or decline",
     "Writing privately — only you can see this",
+    "Showing all revisions",
     "Showing changes since Studio draft",
     "Viewing Table read draft, 12 Nov",
   ]);
   expect(winners(left, "left")).toEqual([
     "Studio draft, Mon 16 Nov",
     "View only — you can comment",
-    "Showing all revisions",
     "PINK revision · started 16 Nov 2026 · 14 pages revised",
     "BLUE issued Mon 22:41 to 131 people",
     "Air 23:35 · Target 42:00 · Over 0:48",

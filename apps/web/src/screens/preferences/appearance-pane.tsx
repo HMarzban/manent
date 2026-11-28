@@ -108,6 +108,7 @@ export function AppearancePane(): ReactNode {
 
       <section
         aria-labelledby={schemeHeadingId}
+        data-tour="setting:appearance.theme"
         className="flex flex-col gap-5 rounded-surface border border-line bg-raised p-4"
       >
         <div>

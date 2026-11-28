@@ -29,5 +29,5 @@ export const TOGETHER_SETTINGS: TourScenario = {
   evidence: ["Sam changed paper size to A4 · 12 → 11 pages"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

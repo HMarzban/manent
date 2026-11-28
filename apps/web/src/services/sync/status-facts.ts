@@ -17,6 +17,7 @@ export interface StatusInput {
   offlineSinceAt: number | null;
   toReview: number;
   signedIn: boolean;
+  shell?: StatusFacts["shell"];
   now: number;
 }
 
@@ -56,8 +57,11 @@ export function toStatusFacts(input: StatusInput): StatusFacts {
     notSent: parked ? status.waiting : 0,
     offlineSinceAt:
       !network || link.state !== "online" ? input.offlineSinceAt : null,
-    neverSynced: status.neverSynced && !input.signedIn,
-    shell: "web",
+    neverSynced:
+      input.shell === "desktop"
+        ? status.neverSynced
+        : status.neverSynced && !input.signedIn,
+    shell: input.shell ?? "web",
     toReview: input.toReview,
     now: input.now,
   };

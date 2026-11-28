@@ -1,7 +1,7 @@
 // The Tour's together-comments scenario: Leo replies to and resolves his comment on 204, and Sam sees it live.
+import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { pressKeyOf } from "../support/interface.ts";
 import {
   expectEvidence,
   selectTourStep,
@@ -13,7 +13,11 @@ tourScenario("together-comments", async ({ windows, scenario, step }) => {
   const [resolvedMsg, replyText] = scenario.evidence;
   await expect(sam.locator("[data-tour='status:server']")).toHaveText("Synced");
   // open Sam's side panel and Comments tab so he watches Leo's reply arrive and the thread leave Open
-  await pressKeyOf(sam, "view.sidePanel");
+  await sam
+    .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })
+    .click();
+  await sam.locator("[data-tour='view.sidePanel']").click();
+  await sam.keyboard.press("Escape");
   await (await step(2)).click();
   // find the dialogue block containing "you say it twice" and its gutter marker button
   const block = leo

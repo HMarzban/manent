@@ -2,7 +2,6 @@ import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
 import { settled } from "../editor/support.ts";
-import { pressKeyOf } from "../support/interface.ts";
 import { expectEvidence, tourScenario } from "../support/tour.ts";
 
 /** Clicks just right of a line's last word, which puts the caret at its end. */
@@ -21,7 +20,10 @@ tourScenario("write-stage-play", async ({ page, scenario, step }) => {
     "Synced",
   );
   // the scenario starts with the left panel closed
-  if (await left.isVisible()) await pressKeyOf(page, "view.leftPanel");
+  if (await left.isVisible())
+    await left
+      .getByRole("button", { name: DOCUMENT_WORDS.closeLeftPanel })
+      .click();
   await expect(left).toBeHidden();
   await page
     .getByRole("button", { name: DOCUMENT_WORDS.viewMenu, exact: true })

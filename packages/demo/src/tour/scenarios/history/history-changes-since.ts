@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { FERRY } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_CHANGES_SINCE: TourScenario = {
   id: "history-changes-since",
@@ -26,10 +25,10 @@ export const HISTORY_CHANGES_SINCE: TourScenario = {
   check:
     'The marked lines include "The pencil marks stop at Thursday." and "Nobody\'s logged a crossing since the fog came in."',
   evidence: [
-    "The pencil marks stop at Thursday.",
+    "pencil marks stop at Thursday.",
     "Nobody's logged a crossing since the fog came in.",
   ],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

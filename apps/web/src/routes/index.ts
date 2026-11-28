@@ -18,6 +18,7 @@ export interface AppRouterDeps {
   api: Api;
   fetch: typeof fetch;
   usePerson: PersonStore;
+  desktop?: boolean;
 }
 
 /** Each group's routes, under the root route, in list order. */

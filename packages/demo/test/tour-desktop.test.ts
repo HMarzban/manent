@@ -6,16 +6,15 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-const NOT_PASSING = "its end-to-end test does not pass yet";
 const DESKTOP = TOUR.scenarios.filter((s) => s.group === "Desktop");
 
-test("Desktop shows three scenarios in the desktop app and hides two whose test does not pass yet", () => {
+test("Desktop shows all five scenarios in the desktop app", () => {
   expect(
     DESKTOP.map((s) => [s.id, s.setup.shell, s.waitsFor, s.hidden]),
   ).toEqual([
     ["desktop-offline", "desktop", null, null],
-    ["desktop-first-script", "desktop", null, NOT_PASSING],
-    ["desktop-open-in-browser", "desktop", null, NOT_PASSING],
+    ["desktop-first-script", "desktop", null, null],
+    ["desktop-open-in-browser", "desktop", null, null],
     ["desktop-files", "desktop", null, null],
     ["desktop-prompter-files", "desktop", null, null],
   ]);

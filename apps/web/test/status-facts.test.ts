@@ -128,6 +128,14 @@ test("each fact of the sync client says its sentence", () => {
       link: { ...OFFLINE_LINK, issue: "sign_in" },
     }),
   ).toBe("Saved · Only in this browser — not backed up");
+  expect(
+    said({
+      status: { ...S, neverSynced: true, docSync: "local" },
+      link: { ...OFFLINE_LINK, issue: "sign_in" },
+      shell: "desktop",
+      signedIn: true,
+    }),
+  ).toBe("Saved · On this device only");
   expect(said({ toReview: 2 })).toBe("Saved · Synced, 2 to review");
   expect(
     said({ status: { ...S, side: ["view_only"] }, viewRole: "view" }),

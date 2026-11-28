@@ -231,7 +231,10 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         throw new RangeError(`the node holds no ${docId}`);
       const state = doc.encodeState();
       doc.destroy();
-      const home = `${place.home.kind}:${place.home.id}`;
+      const home =
+        place.home.kind === "user"
+          ? "user"
+          : `${place.home.kind}:${place.home.id}`;
       const workspaceId = records.workspaceOf(docId);
       return { state, kind: place.kind, home, workspaceId };
     },

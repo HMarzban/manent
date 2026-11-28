@@ -302,3 +302,32 @@ test("opening a cloud-seeded private index through the local node mirrors and sy
     at: 100,
   });
 });
+
+test("Sign in to sync hands over a person's private index, workspace index and script made on the device", async () => {
+  const w = nodeWorld();
+  const token = await w.chooses("you");
+  const userIdx = indexDocId("user", "you");
+  const wsIdx = indexDocId("workspace", WORKSPACE);
+  await w.request("POST", "/api/docs", {
+    token,
+    body: { docId: userIdx, kind: "index", home: "user" },
+  });
+  await w.open("you", userIdx);
+  await w.request("POST", "/api/docs", {
+    token,
+    body: { docId: wsIdx, kind: "index", home: workspaceHome(WORKSPACE) },
+  });
+  await w.open("you", wsIdx);
+  await w.open("you", DOC, true, WORKSPACE);
+  w.windowTypes("you", DOC, "first scene");
+  await w.settle();
+  const answer = await w.request("POST", "/api/local/sign-in-to-sync", {
+    token,
+  });
+  expect(answer.status).toBe(200);
+  await w.settle();
+  expect(w.records.docState(userIdx)?.state).toBe("synced");
+  expect(w.records.docState(wsIdx)?.state).toBe("synced");
+  expect(w.records.docState(DOC)?.state).toBe("synced");
+  expect(w.cloudText(DOC)).toEqual(["first scene"]);
+});

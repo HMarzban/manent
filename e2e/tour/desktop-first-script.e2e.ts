@@ -2,7 +2,11 @@
 // writer signs in to sync.
 import { test } from "@playwright/test";
 import { settled } from "../editor/support.ts";
-import { expectEvidence, tourScenario } from "../support/tour.ts";
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 // it starts from a new seed, which takes the demo some 20 seconds to make
 test.describe.configure({ timeout: 120_000 });
@@ -13,6 +17,7 @@ tourScenario("desktop-first-script", async ({ page, scenario, step }) => {
   await settled(page);
   await page.keyboard.type("INT. FERRY TERMINAL - NIGHT");
   await expectEvidence([page], { ...scenario, evidence: [deviceOnly!] });
+  await selectTourStep(page, scenario.promise, 1);
   await page.locator("[data-tour='status:server']").click();
   await (await step(1)).click();
   await expectEvidence([page], { ...scenario, evidence: [synced!] });

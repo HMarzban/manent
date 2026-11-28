@@ -29,6 +29,7 @@ export interface Following {
   review: ReviewPort;
   titles: (docId: string) => string;
   messages: MessageQueue;
+  shell?: StatusFacts["shell"];
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   removedInfo: (docId: string) => Promise<RemovedDocResponse | null>;
@@ -147,6 +148,7 @@ export function followHandle(options: Following, open: Opened): () => void {
       viewLive: view?.status.get().live ?? false,
       offlineSinceAt: sync.offlineSince.get(),
       signedIn: sync.signedIn,
+      shell: options.shell,
       toReview: toReview.get(),
       now: options.now(),
     });

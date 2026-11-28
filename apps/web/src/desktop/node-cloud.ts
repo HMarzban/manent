@@ -11,17 +11,36 @@ export interface NodeCloud {
 }
 
 const CLOUD_STATES = ["signed_in", "not_signed_in"] as const;
+export type NodeCloudState = (typeof CLOUD_STATES)[number];
 
 /** The person's `cloud` the node answered; null for anything else. */
-async function readCloud(
-  response: Response,
-): Promise<(typeof CLOUD_STATES)[number] | null> {
+async function readCloud(response: Response): Promise<NodeCloudState | null> {
   if (!response.ok) return null;
   const body: unknown = await response.json();
   if (typeof body !== "object" || body === null || !("cloud" in body))
     return null;
   const { cloud } = body;
   return CLOUD_STATES.find((state) => state === cloud) ?? null;
+}
+
+/** Reads the node's cloud state for the person whose node token `token` gives; null when the node does not answer. */
+export async function readNodeCloud(options: {
+  fetch: typeof fetch;
+  token: string | null;
+}): Promise<NodeCloudState | null> {
+  const send = options.fetch;
+  try {
+    const response = await send("/api/local/person", {
+      method: "GET",
+      headers:
+        options.token === null
+          ? {}
+          : { Authorization: `Bearer ${options.token}` },
+    });
+    return await readCloud(response);
+  } catch {
+    return null;
+  }
 }
 
 /** Reads the node's answer for the person whose node token `token` gives, at once and after each `signIn`. */
@@ -40,12 +59,8 @@ export function createNodeCloud(options: {
     });
   };
   const read = async (): Promise<void> => {
-    try {
-      const cloud = await readCloud(await request("/api/local/person", "GET"));
-      if (cloud !== null) signedIn.set(cloud === "signed_in");
-    } catch {
-      // a node that does not answer, or answers with no JSON, leaves the last answer standing
-    }
+    const cloud = await readNodeCloud({ fetch: send, token: options.token() });
+    if (cloud !== null) signedIn.set(cloud === "signed_in");
   };
   void read();
   return {

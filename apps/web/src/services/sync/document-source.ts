@@ -16,7 +16,11 @@ export type { ReviewPort } from "./follow-handle.ts";
 const noop = (): void => {};
 
 /** The status while the document opens: an editor's, saved; syncing for a person with a session, else never synced. */
-const opening = (now: number, signedIn: boolean): StatusFacts => ({
+const opening = (
+  now: number,
+  signedIn: boolean,
+  shell: StatusFacts["shell"] = "web",
+): StatusFacts => ({
   access: "edit",
   device: "ok",
   network: "online",
@@ -25,7 +29,7 @@ const opening = (now: number, signedIn: boolean): StatusFacts => ({
   notSent: 0,
   offlineSinceAt: null,
   neverSynced: !signedIn,
-  shell: "web",
+  shell,
   toReview: 0,
   now,
 });
@@ -95,7 +99,9 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
   const open = new Map<string, { services: DocumentServices; close(): void }>();
   const openDocument = (docId: string) => {
     const shown: Shown = {
-      status: createValue(opening(options.now(), options.signedIn)),
+      status: createValue(
+        opening(options.now(), options.signedIn, options.shell),
+      ),
       waitingByScene: createValue<readonly SceneWaiting[]>([]),
       stateFacts: createValue<readonly StateFact[]>([]),
       viewers: createValue(0),
@@ -162,7 +168,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
     })().catch(() => {
       // a sync that cannot start, or a document it cannot open, is never said to be saved on this device
       shown.status.set({
-        ...opening(options.now(), options.signedIn),
+        ...opening(options.now(), options.signedIn, options.shell),
         device: "failing",
       });
     });

@@ -23,5 +23,5 @@ export const DESKTOP_OPEN_IN_BROWSER: TourScenario = {
   evidence: ["Saved · Synced"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

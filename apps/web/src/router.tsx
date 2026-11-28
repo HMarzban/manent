@@ -234,7 +234,11 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       // a server that cannot be reached leaves the tab who it was
       const choices = await api.choices().catch(() => []);
       const choice = choices.find((c) => c.userId === userId);
-      const result = choice ? await choosePerson(choice, api) : null;
+      const result = choice
+        ? deps.desktop
+          ? await api.signIn(choice.userId)
+          : await choosePerson(choice, api)
+        : null;
       if (result?.ok) usePerson.getState().setPerson(result.person);
       closingPanels = params.get("panels") === "closed";
       if (closingPanels) tourActions.suppress();

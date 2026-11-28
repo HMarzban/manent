@@ -57,6 +57,7 @@ type Kind = StateFact["kind"];
 const RIGHT_ORDER: readonly Kind[] = [
   "viewing_version",
   "showing_changes",
+  "marks_not_collated",
   "writing_privately",
   "writing_suggestions",
   "driving",
@@ -74,7 +75,6 @@ const LEFT_ORDER: readonly Kind[] = [
   "rundown_timing",
   "recall",
   "revision",
-  "marks_not_collated",
   "role_comment",
   "reader_draft",
   "prompter_send",

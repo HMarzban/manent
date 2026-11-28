@@ -73,10 +73,10 @@ export function createHandover(options: {
       .documentsIn(home)
       .find((id) => commentsDocId(id) === docId);
 
-  /** The person's documents the node is still the authority for, or is handing over, oldest first. */
+  /** The person's documents the node is still the authority for, or is handing over: indexes first, then oldest first. */
   function ownDocuments(userId: string): string[] {
     const { directory } = storage;
-    const found: { docId: string; createdAt: number }[] = [];
+    const found: { docId: string; isIndex: boolean; createdAt: number }[] = [];
     for (const home of directory.homes())
       for (const docId of directory.documentsIn(home)) {
         const place = directory.placeOf(docId);
@@ -92,11 +92,18 @@ export function createHandover(options: {
         if (records.docState(docId)?.state === "synced") continue;
         if (records.handoff(docId)?.refused != null) continue;
         const createdAt = storage.open(home).log.get(docId)?.createdAt ?? 0;
-        found.push({ docId, createdAt });
+        found.push({
+          docId,
+          isIndex: INDEX_KINDS.some((kind) => kind === place.kind),
+          createdAt,
+        });
       }
     return found
       .toSorted(
-        (a, b) => a.createdAt - b.createdAt || (a.docId < b.docId ? -1 : 1),
+        (a, b) =>
+          (a.isIndex ? 0 : 1) - (b.isIndex ? 0 : 1) ||
+          a.createdAt - b.createdAt ||
+          (a.docId < b.docId ? -1 : 1),
       )
       .map(({ docId }) => docId);
   }
