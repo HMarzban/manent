@@ -83,8 +83,9 @@
     const place = () => {
       const tab = list.querySelector('[aria-selected="true"]');
       if (!tab) return;
-      // the bar is 100px wide and scaled to the tab, so the slide moves only a transform
-      bar.style.cssText = `--m-ind-x:${tab.offsetLeft}px;--m-ind-y:${tab.offsetTop}px;--m-ind-s:${tab.offsetWidth / 100}`;
+      // align flush with the bottom hairline of the chosen tab so it slides cleanly even if wrapped
+      const y = tab.offsetTop + tab.offsetHeight - 1;
+      bar.style.cssText = `--m-ind-x:${tab.offsetLeft}px;--m-ind-y:${y}px;--m-ind-s:${tab.offsetWidth / 100}`;
       // the first position is a jump, not a slide from zero
       void bar.offsetWidth;
       bar.classList.add("is-placed");

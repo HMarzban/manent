@@ -296,7 +296,8 @@ html[data-ds-theme="dark"] {
   top: 0;
   z-index: 2;
   width: 100px;
-  height: 3px;
+  height: 2px;
+  border-radius: 2px;
   background: var(--accent);
   transform-origin: 0 0;
   transform: translate(var(--m-ind-x, 0), var(--m-ind-y, 0))
@@ -309,7 +310,7 @@ html[data-ds-theme="dark"] {
   opacity: 1;
 }
 
-/* the page draws the chosen tab's top edge as an inset shadow; the indicator replaces it */
+/* the page draws the chosen tab's bottom rule as an inset shadow; the sliding indicator replaces it */
 [data-tab-indicator].is-indicated [role="tab"][aria-selected="true"] {
   box-shadow: none;
 }

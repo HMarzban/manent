@@ -782,7 +782,469 @@
     renderRev();
   }
 
-  // ---------- 6. Contextual ⌘K Command Palette Dialog ----------
+  // ---------- 6. Instrument 4: Dedicated Version History & Minimap Studio ----------
+  const histRoot = doc.querySelector("[data-inst-hist]");
+  if (histRoot) {
+    const mapEl = histRoot.querySelector("[data-hist-map]");
+    const splitEl = histRoot.querySelector("[data-hist-split]");
+    const listEl = histRoot.querySelector("[data-hist-list]");
+    const restoreBtn = histRoot.querySelector("[data-hist-restore]");
+    const readout = histRoot.querySelector("[data-hist-readout]");
+
+    const BASE_SNAPS = [
+      {
+        id: "working",
+        title: "Working draft",
+        meta: "You · Today 14:10",
+        changes: 0,
+        map: [0, 0, 0, 0, 0, 0, 0, 0],
+        asWas: [
+          { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            text: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", text: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            text: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", text: "IDA" },
+          {
+            cls: "inst-hist-di",
+            text: "Then I'll be the first. Cast off when I say.",
+          },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            html: "Then I'll be the first. Cast off when I say.",
+          },
+        ],
+      },
+      {
+        id: "1140",
+        title: "Today 11:40",
+        meta: "DR, SO · 2 changes · 1 scene",
+        changes: 2,
+        map: [0, 0, 0, 0, 1, 0, 0, 0],
+        asWas: [
+          { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            text: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", text: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            text: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", text: "IDA" },
+          { cls: "inst-hist-di", text: "Then I'll be the first." },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
+      },
+      {
+        id: "0902",
+        title: "Today 09:02",
+        meta: "SO · 5 changes · 3 scenes",
+        changes: 5,
+        map: [0, 1, 0, 1, 2, 0, 0, 0],
+        asWas: [
+          { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            text: "IDA folds the tide table. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", text: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            text: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", text: "IDA" },
+          { cls: "inst-hist-di", text: "Then I'll be the first." },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
+      },
+      {
+        id: "studio",
+        title: "★ Studio",
+        meta: "Named by Dana · Mon 16 Nov",
+        changes: 9,
+        map: [1, 1, 0, 2, 2, 1, 0, 1],
+        asWas: [
+          { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            text: "IDA folds the tide table. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", text: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            text: "No one has crossed since the fog.",
+          },
+          { cls: "inst-hist-ch", text: "IDA" },
+          { cls: "inst-hist-di", text: "Then I'll be the first." },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "<del>No one has crossed since the fog.</del> <ins>Nobody's logged a crossing since the fog came in.</ins>",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
+      },
+    ];
+
+    let activeId = "studio";
+    let mode = "page";
+    let restoredFrom = null;
+
+    const makeSheet = (tagLeft, tagRight, lines, isHtml) => {
+      const sheet = doc.createElement("div");
+      sheet.className = "inst-hist-sheet";
+      const tag = doc.createElement("div");
+      tag.className = "inst-hist-sheet-tag";
+      const l = doc.createElement("span");
+      l.textContent = tagLeft;
+      const r = doc.createElement("span");
+      r.textContent = tagRight;
+      tag.append(l, r);
+      sheet.append(tag);
+      for (const line of lines) {
+        const p = doc.createElement("p");
+        if (line.cls) p.className = line.cls;
+        if (isHtml) p.innerHTML = line.html;
+        else p.textContent = line.text;
+        sheet.append(p);
+      }
+      return sheet;
+    };
+
+    const renderHist = () => {
+      const snap = BASE_SNAPS.find((s) => s.id === activeId) || BASE_SNAPS[3];
+      for (const b of all("[data-hist-mode]", histRoot))
+        b.setAttribute("aria-pressed", String(b.dataset.histMode === mode));
+
+      // Minimap
+      mapEl.innerHTML = '<span class="inst-map-label">Map</span>';
+      snap.map.forEach((level, idx) => {
+        const cell = doc.createElement("div");
+        cell.className = "inst-map-scene";
+        if (idx === 4) cell.dataset.active = "true";
+        const b1 = doc.createElement("span");
+        b1.className = "inst-map-bar";
+        if (level >= 1) b1.dataset.change = "add";
+        const b2 = doc.createElement("span");
+        b2.className = "inst-map-bar";
+        if (level >= 2) b2.dataset.change = "del";
+        cell.append(b1, b2);
+        mapEl.append(cell);
+      });
+
+      // Script sheet(s)
+      splitEl.dataset.mode = mode;
+      splitEl.innerHTML = "";
+      if (mode === "page") {
+        splitEl.append(
+          makeSheet(
+            snap.id === "working"
+              ? "Working draft"
+              : `Changes since ${snap.title}`,
+            "Page 12 · Scene 18",
+            snap.diff,
+            true,
+          ),
+        );
+      } else if (mode === "side") {
+        splitEl.append(
+          makeSheet(snap.title, "Snapshot", snap.asWas, false),
+          makeSheet("Working draft", "Current", BASE_SNAPS[0].asWas, false),
+        );
+      } else {
+        splitEl.append(
+          makeSheet(snap.title, "As it was · Read-only", snap.asWas, false),
+        );
+      }
+
+      // Timeline list
+      listEl.innerHTML = "";
+      const entries = restoredFrom
+        ? [
+            {
+              id: "before-restore",
+              title: "Before restore",
+              meta: "Auto-saved · 14:10",
+            },
+            ...BASE_SNAPS,
+          ]
+        : BASE_SNAPS;
+      for (const item of entries) {
+        const li = doc.createElement("li");
+        const btn = doc.createElement("button");
+        btn.type = "button";
+        btn.className = "inst-hist-snap";
+        const targetId = item.id === "before-restore" ? "working" : item.id;
+        btn.setAttribute("aria-current", String(targetId === activeId));
+        const st = doc.createElement("strong");
+        st.textContent = item.title;
+        const sm = doc.createElement("small");
+        sm.textContent = item.meta;
+        btn.append(st, sm);
+        btn.addEventListener("click", () => {
+          activeId = targetId;
+          renderHist();
+        });
+        li.append(btn);
+        listEl.append(li);
+      }
+
+      restoreBtn.disabled = activeId === "working" && !restoredFrom;
+      restoreBtn.textContent = restoredFrom
+        ? "Undo restore ('Before restore')"
+        : `Restore ${snap.title}`;
+
+      readout.textContent = restoredFrom
+        ? `Restored '${restoredFrom}' · Previous draft saved as 'Before restore'`
+        : snap.id === "working"
+          ? "Viewing current working draft · Pick any snapshot to compare"
+          : `Comparing against ${snap.title} · ${snap.changes} changes across script`;
+    };
+
+    for (const b of all("[data-hist-mode]", histRoot))
+      b.addEventListener("click", () => {
+        mode = b.dataset.histMode;
+        renderHist();
+      });
+
+    restoreBtn.addEventListener("click", () => {
+      if (restoredFrom) {
+        restoredFrom = null;
+      } else {
+        const snap = BASE_SNAPS.find((s) => s.id === activeId);
+        if (snap && snap.id !== "working") restoredFrom = snap.title;
+      }
+      renderHist();
+    });
+
+    renderHist();
+  }
+
+  // ---------- 7. Instrument 5: Import & Export Format Studio ----------
+  const filesRoot = doc.querySelector("[data-inst-files]");
+  if (filesRoot) {
+    const extEl = filesRoot.querySelector("[data-file-ext]");
+    const checksEl = filesRoot.querySelector("[data-file-checks]");
+    const sheetEl = filesRoot.querySelector("[data-file-sheet]");
+    const readout = filesRoot.querySelector("[data-file-readout]");
+
+    const SAMPLES = {
+      fdx: {
+        ext: "FDX",
+        kind: "script",
+        checks: [
+          { tone: "ok", text: "Scene numbers & dual dialogue" },
+          { tone: "ok", text: "Revision marks & notes kept" },
+          { tone: "ok", text: "Page count matches (58 pp.)" },
+        ],
+        receipt:
+          "Imported 58 pages, 41 scenes and 6 notes · Revision marks kept",
+        lines: [
+          { cls: "inst-hist-sh", text: "14 INT. TERMINAL OFFICE - DAY" },
+          {
+            cls: "",
+            text: "Timetables pinned three deep. A kettle ticks as it cools. MAREN reads a letter twice, then folds it into her coat.",
+          },
+          { cls: "inst-hist-ch", text: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            text: "They want the licence back by Friday. If we miss the morning boat, the berth goes to the harbour board.",
+          },
+        ],
+      },
+      fountain: {
+        ext: "FOUNTAIN",
+        kind: "script",
+        checks: [
+          { tone: "ok", text: "Title page & boneyard notes" },
+          { tone: "ok", text: "Clean Fountain round-trip" },
+          { tone: "ok", text: "31 pages · 22 scenes" },
+        ],
+        receipt: "Imported 31 pages, 22 scenes and 2 notes · Offline",
+        lines: [
+          { cls: "inst-hist-sh", text: "INT. LAMP ROOM - NIGHT" },
+          {
+            cls: "",
+            text: "The lens turns on its bath of mercury. Every eleven seconds the beam crosses the wall and is gone.",
+          },
+          { cls: "inst-hist-ch", text: "ELSPETH" },
+          {
+            cls: "inst-hist-di",
+            text: "Count it with me. One, and two, and three. Keep your hand off the brass.",
+          },
+        ],
+      },
+      docx: {
+        ext: "DOCX",
+        kind: "script",
+        checks: [
+          { tone: "ok", text: "Script elements recognised" },
+          { tone: "ok", text: "Emphasis & footnotes kept" },
+          { tone: "note", text: "Page count: 47 pp. (45 pp. in Word)" },
+        ],
+        receipt:
+          "Imported 47 pages, 33 scenes from Word · Page count differs by 2",
+        lines: [
+          { cls: "inst-hist-sh", text: "EXT. HARBOUR MOUTH - DAWN" },
+          {
+            cls: "",
+            text: "Flat water. The tide stands still between going and coming, and every boat on the slip waits for the turn.",
+          },
+          { cls: "inst-hist-ch", text: "ARNE" },
+          {
+            cls: "inst-hist-di",
+            text: "Twenty minutes of slack. Then she's yours to take past the bar.",
+          },
+        ],
+      },
+      md: {
+        ext: "MARKDOWN",
+        kind: "book",
+        checks: [
+          { tone: "ok", text: "Chapters, epigraphs & footnotes" },
+          { tone: "ok", text: "Opened as Book project (Engine 3)" },
+          { tone: "ok", text: "Lossless .md round-trip" },
+        ],
+        receipt:
+          "Imported 14 chapters, 18 footnotes into Book layout · Offline",
+        lines: [
+          { cls: "inst-book-chap", text: "Chapter Four · Slack Water" },
+          {
+            cls: "",
+            text: "By four o'clock the barometer had dropped six millibars, and the ferry master locked the ticket hutch before the first gusts reached the breakwater.",
+          },
+          {
+            cls: "",
+            text: "She carried the brass logbook under her oilskin and took the steep stone steps two at a time.",
+          },
+        ],
+      },
+      fdr: {
+        ext: "FDR",
+        kind: "notice",
+        checks: [
+          { tone: "note", text: "Older binary Final Draft format" },
+          {
+            tone: "ok",
+            text: "Recognised immediately — nothing silently dropped",
+          },
+        ],
+        receipt:
+          "Recognised legacy .fdr · Save as .fdx in Final Draft 8+ to import cleanly",
+        lines: [
+          {
+            cls: "",
+            text: "Manent recognises older Final Draft (.fdr) files straight away rather than opening garbled text.",
+          },
+          {
+            cls: "",
+            text: "In Final Draft 8 or later, choose File → Save As → Final Draft Script (.fdx), then drop the .fdx file here to bring across every scene, note and revision mark offline.",
+          },
+        ],
+      },
+    };
+
+    let activeFile = "fdx";
+
+    const renderFile = () => {
+      const s = SAMPLES[activeFile] || SAMPLES.fdx;
+      for (const b of all("[data-file-sample]", filesRoot))
+        b.setAttribute(
+          "aria-pressed",
+          String(b.dataset.fileSample === activeFile),
+        );
+      extEl.textContent = s.ext;
+      checksEl.innerHTML = "";
+      for (const c of s.checks) {
+        const li = doc.createElement("li");
+        li.dataset.tone = c.tone;
+        li.textContent = c.text;
+        checksEl.append(li);
+      }
+      sheetEl.dataset.kind = s.kind;
+      sheetEl.innerHTML = "";
+      for (const line of s.lines) {
+        const p = doc.createElement("p");
+        if (line.cls) p.className = line.cls;
+        p.textContent = line.text;
+        sheetEl.append(p);
+      }
+      readout.textContent = s.receipt;
+    };
+
+    for (const b of all("[data-file-sample]", filesRoot))
+      b.addEventListener("click", () => {
+        activeFile = b.dataset.fileSample;
+        renderFile();
+      });
+
+    renderFile();
+  }
+
+  // ---------- 8. Contextual ⌘K Command Palette Dialog ----------
   const palDialog = doc.getElementById("pg-palette-dialog");
   if (palDialog) {
     const openers = all("[data-pg-palette-open]");
@@ -1119,17 +1581,29 @@
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", String(i === selIdx));
         const left = doc.createElement("span");
+        left.className = "pg-pal-label";
         left.textContent = row.label;
         const right = doc.createElement("span");
         right.className = "pg-pal-meta";
         if (typeof row.toggle === "boolean") {
-          const pill = doc.createElement("span");
-          pill.className = "pg-pal-pill";
-          pill.dataset.on = String(row.toggle);
-          pill.textContent = row.toggle ? "On" : "Off";
-          right.append(pill);
+          const sw = doc.createElement("span");
+          sw.className = "pg-pal-switch";
+          sw.dataset.on = String(row.toggle);
+          const lbl = doc.createElement("span");
+          lbl.textContent = row.toggle ? "On" : "Off";
+          const track = doc.createElement("span");
+          track.className = "pg-pal-track";
+          track.setAttribute("aria-hidden", "true");
+          sw.append(lbl, track);
+          right.append(sw);
         } else if (row.hint) {
-          right.textContent = row.hint;
+          if (/^(⌘|Ctrl|Enter\b)/i.test(row.hint)) {
+            const k = doc.createElement("kbd");
+            k.textContent = row.hint;
+            right.append(k);
+          } else {
+            right.textContent = row.hint;
+          }
         }
         li.append(left, right);
         li.addEventListener("mouseenter", () => {
@@ -1222,6 +1696,9 @@
         if (palDialog.open) palDialog.close();
         else openPalette(doc.activeElement);
       }
+    });
+    onThemeChangeListeners.push(() => {
+      if (palDialog.open) renderPal();
     });
   }
 
