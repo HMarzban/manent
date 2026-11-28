@@ -8,10 +8,10 @@
       content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; base-uri 'self'; form-action 'none'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>Manent — Open-source script writing app that works offline</title>
+    <title>Manent — Open-source offline script &amp; book writing app</title>
     <meta
       name="description"
-      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
+      content="Free, open-source script and book app for film, TV, stage, games and news. Write live or offline with identical pages and 24 themes."
     />
     <meta
       name="robots"
@@ -50,7 +50,7 @@
     />
     <meta
       property="og:description"
-      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
+      content="Free, open-source script and book app for film, TV, stage, games and news. Write live or offline with identical pages and 24 themes."
     />
     <meta property="og:url" content="https://hmarzban.github.io/manent/" />
     <meta
@@ -73,7 +73,7 @@
     />
     <meta
       name="twitter:description"
-      content="Free, open-source screenwriting and script app for film, TV, stage, books, games and news. Write live or offline with identical pages everywhere."
+      content="Free, open-source script and book app for film, TV, stage, games and news. Write live or offline with identical pages and 24 themes."
     />
     <meta
       name="twitter:image"
@@ -94,9 +94,11 @@
     <link rel="stylesheet" href="assets/site.css?v=d39b3441" />
     <link rel="stylesheet" href="assets/vignettes.css?v=310cd264" />
     <link rel="stylesheet" href="assets/motion.css?v=6d2ad66b" />
+    <link rel="stylesheet" href="assets/playgrounds.css?v=91aa4a1f" />
     <script src="assets/motion.js?v=7d1f7574" defer></script>
     <script src="assets/vignettes.js?v=fabb3833" defer></script>
     <script src="assets/site.js?v=548b7530" defer></script>
+    <script src="assets/playgrounds.js?v=d6d6278c" defer></script>
 
     <script type="application/ld+json">
       {
@@ -107,6 +109,7 @@
             "@id": "https://hmarzban.github.io/manent/#org",
             "name": "Manent",
             "url": "https://hmarzban.github.io/manent/",
+            "image": "https://hmarzban.github.io/manent/apple-touch-icon.png?v=8c471eca",
             "sameAs": ["https://github.com/HMarzban/manent"]
           },
           {
@@ -114,11 +117,47 @@
             "@id": "https://hmarzban.github.io/manent/#website",
             "url": "https://hmarzban.github.io/manent/",
             "name": "Manent",
-            "description": "Free, open-source screenwriting and script writing app that works offline and live with your room.",
+            "description": "Free, open-source script and book app for film, TV, stage, games and news. Write live or offline with identical pages and 24 themes.",
             "inLanguage": "en-GB",
             "publisher": {
               "@id": "https://hmarzban.github.io/manent/#org"
             }
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://hmarzban.github.io/manent/#page",
+            "url": "https://hmarzban.github.io/manent/",
+            "name": "Manent — Open-source offline script & book writing app",
+            "description": "Free, open-source script and book app for film, TV, stage, games and news. Write live or offline with identical pages and 24 themes.",
+            "inLanguage": "en-GB",
+            "dateModified": "2026-11-28",
+            "isPartOf": {
+              "@id": "https://hmarzban.github.io/manent/#website"
+            },
+            "about": {
+              "@id": "https://hmarzban.github.io/manent/#app"
+            },
+            "breadcrumb": {
+              "@id": "https://hmarzban.github.io/manent/#breadcrumb"
+            },
+            "primaryImageOfPage": {
+              "@type": "ImageObject",
+              "url": "https://hmarzban.github.io/manent/og.png?v=9224b60e",
+              "width": 1200,
+              "height": 630
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://hmarzban.github.io/manent/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Manent",
+                "item": "https://hmarzban.github.io/manent/"
+              }
+            ]
           },
           {
             "@type": "SoftwareApplication",
@@ -136,6 +175,8 @@
             "dateModified": "2026-11-28",
             "downloadUrl": "https://github.com/HMarzban/manent/releases",
             "releaseNotes": "https://github.com/HMarzban/manent/releases",
+            "softwareHelp": "https://github.com/HMarzban/manent/blob/main/docs/README.md",
+            "softwareRequirements": "macOS, Windows 10+, Linux with GTK 3, or any current desktop browser",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -155,18 +196,19 @@
               "Live co-writing with named carets, Follow, passive Scenes Ghost Follow (dashed ghost rail and Back to … strip in List and Cards views), shared comments in review rounds, Writers-only notes, suggestions and private copies with Hand in",
               "Identical page breaks on every device and in the PDF, with versioned layout engines pinned per script",
               "Production revisions: locked pages and scenes, A-pages, colours, asterisks, Sides PDF, Try on a copy first, Issue and Recall",
-              "Full revision history for scripts and rundowns: every session, named draft and issue kept, with Changes since, Who wrote this, single-scene restore, and Rundown History (In the grid, Side by side, As it was, non-colour diff badges, and whole-rundown or single-row restore with 'Before restore' backups and air-window safety)",
+              "Dedicated read-only Version History screen with change-aware Minimap and full revision history for scripts and rundowns: every session, named draft and issue kept, with Changes since, Who wrote this, single-scene restore, and Rundown History (In the grid, Side by side, As it was, non-colour diff badges, and whole-rundown or single-row restore with 'Before restore' backups and air-window safety)",
               "Eight script formats — screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink — plus Show and News rundowns with reusable templates (Save template… as project default or shared workspace template, pure stripping of dates, timings, previous values, comments and revision marks, fresh ID minting on New rundown / New script, and Project settings → Templates)",
               "Inline images and broadcast chyrons (Image, Lower third, Over the shoulder, Full screen) with adjustable line height, editable on-page captions, zero-dialog image picking, offline-first project asset storage, and PDF, FDX, Fountain, Project Archive and MOS export support",
               "FDX, Fountain, Word (.docx) and Markdown (.md) in and out; EPUB 3 (.epub) export; text-based PDF and plain text import; older .fdr files recognised with steps to save as .fdx",
               "Project Archive (.zip) export, Game Script JSON and XML line-data exports, and Animation Pickup lines CSV",
-              "Live Web Worker Ink compiler with inline problem markers and an interactive Play Beside player for both Game Script and Ink (replay, visited gutter marks and live Variables editing)",
+              "Live Web Worker Ink compiler with inline problem markers, interactive Play Beside player for both Game Script and Ink (replay, visited gutter marks and live Variables editing), and shared Ink Reader Player links (/r/<token>)",
               "Series Board with storylines, companion outlines and room logs Beside the script, Names and facts, pre-send Checks, bare Room window with Take keys and watermarked Reader links",
               "Variety and podcast read-rate timing, T=m:ss bracket durations, collaborative Show and News rundowns with live read-only Can view and Can comment grids, remote-scrolled Prompter window with server-arbitrated operator scroll leases (Take control, Take over, Stop controlling), docked rundown transport strip, Follow / Free scroll and feed-loss pause, direct MOS 2.8.5 and Autoscript WinPlus-IP bridge (Workspace settings → Broadcast and Desktop LAN MOS relay; verified against a deterministic mock MOS prompter and not yet tested on physical studio hardware), and desktop Prompter files folder",
               "Full-text workspace and offline desktop search, nested folders, personal Favourites, Private folder and 30-day recoverable Trash",
               "Writing tools: smart contextual ⌘K Command Palette (Suggested here, Jump to quick jumps, live in-place Settings here switches, inline numeric prompts for Lines per page, Read rate and Target length, direct panel/Checks/Board/Preferences jumps, scope filters and acronym/synonym search), single-undo Rename character, Focus mode, Read aloud, daily goals and sprints, Script numbers and CSV/PDF reports",
               "Workspace settings, per-project Can also permissions, read-only /api/v1/ REST API with workspace API keys, and Webhook, Slack and email notifications",
               "Whole manuscripts of 2,000 pages in one document or compiled across multiple parts, with a floating Book Format Bar (styles, chapter openings, rich inline marks, footnotes and page layout), cover and front/back matter, opt-in Layout Engine 3 (bundled Source Serif 4, paperback trims, mirrored margins, right-hand chapters, Table of Contents and facing spreads), Book checks, and PDF, EPUB 3 (.epub), Word (.docx) and Markdown (.md) export",
+              "24 calibrated studio themes (Light & Dark) with eye-health contrast floors, Hidden Gem emblems and invariant pagination, plus Clean workspace mode and custom theme-matched Desktop chrome",
               "Desktop app for Mac, Windows and Linux with durable on-disk storage, Export everything on this device, Desktop LAN MOS relay and macOS manent:// links, plus a self-hosted server with an installable offline web app on localhost or self-hosted HTTPS",
               "No AI writing features, and no training on your scripts"
             ]
@@ -182,6 +224,36 @@
             "targetProduct": {
               "@id": "https://hmarzban.github.io/manent/#app"
             }
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://hmarzban.github.io/manent/#quickstart",
+            "name": "Start writing offline in Manent",
+            "description": "Install Manent on Mac, Windows or Linux and write your first script or book with local-first storage and exact PDF pagination.",
+            "inLanguage": "en-GB",
+            "step": [
+              {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Download the desktop app",
+                "text": "Get the Manent installer for Mac, Windows or Linux from GitHub Releases, or run bun run demo from source.",
+                "url": "https://hmarzban.github.io/manent/#download"
+              },
+              {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Start in a clean workspace or explore the demo",
+                "text": "Open straight into an empty workspace with your own scripts, or step into the six-person writers' room demo with a guided tour.",
+                "url": "https://hmarzban.github.io/manent/#yours"
+              },
+              {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Write anywhere and export cleanly",
+                "text": "Every keystroke saves to disk first. Export print-ready PDF, FDX, Fountain, Word, EPUB 3 or Markdown offline whenever you need.",
+                "url": "https://hmarzban.github.io/manent/#files"
+              }
+            ]
           },
           {
             "@type": "VideoObject",
@@ -266,6 +338,22 @@
                   "@type": "Answer",
                   "text": "Yes. Manent's server is one Bun and SQLite process (also published as a standalone binary with each release) that you can run on your own machine or private network. Workspace owners can create revocable, read-only mk_ API keys for the /api/v1/ REST API — listing folders, reading script lines, exporting .fdx or fetching compiled Ink JSON without ever exposing Trash or Private scripts — turn on outbox-backed comment and @mention notifications to a custom webhook, Slack incoming webhook or Resend email, and configure Workspace settings → Broadcast for MOS 2.8.5 and Autoscript WinPlus-IP external prompters (or use the Desktop LAN MOS relay on local studio networks; verified against a deterministic mock MOS prompter, not yet tested on physical studio hardware)."
                 }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I write and publish books as well as scripts?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Write a whole novel or non-fiction manuscript of up to 2,000 pages in one document (or compile multiple parts), choose standard Courier manuscript layout or opt-in Book layout (bundled Source Serif 4, paperback trims, mirrored gutters, right-hand chapters, Table of Contents, facing spreads and inline footnotes), run Book checks, and export print-ready PDF, EPUB 3 (.epub), Word (.docx) or lossless Markdown (.md) offline."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I start with a clean empty workspace instead of the demo?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Choose Start in a clean workspace on launch (or in Preferences → This device) to open straight onto your own blank Library without sample scripts or demo personas; you can always reopen the sample writers' room and guided tour whenever you want to explore a workflow."
+                }
               }
             ]
           }
@@ -297,7 +385,7 @@
             /></svg
           ><span aria-hidden="true">anent</span></a
         >
-        <nav aria-label="Sections">
+        <nav aria-label="Sections" data-spy>
           <ul>
             <li class="section-link">
               <a class="m-link" href="#never-lose">Never lose a word</a>
@@ -321,6 +409,50 @@
               <a class="m-link" href="https://github.com/HMarzban/manent"
                 >GitHub</a
               >
+            </li>
+            <li class="pg-theme-wrap" data-theme-picker hidden>
+              <button
+                class="pg-theme-btn"
+                type="button"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-label="Choose studio theme and colour scheme"
+              >
+                <span class="pg-theme-dot" aria-hidden="true"></span>
+                <span class="pg-theme-label">Studio</span>
+              </button>
+              <div class="pg-theme-pop" hidden>
+                <div class="pg-theme-pop-head">
+                  <strong>Studio theme</strong>
+                  <div class="pg-seg" role="group" aria-label="Colour scheme">
+                    <button
+                      type="button"
+                      data-pg-scheme="light"
+                      aria-pressed="true"
+                    >
+                      Light
+                    </button>
+                    <button
+                      type="button"
+                      data-pg-scheme="dark"
+                      aria-pressed="false"
+                    >
+                      Dark
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="pg-swatches"
+                  role="radiogroup"
+                  aria-label="Studio palette"
+                ></div>
+                <div class="pg-theme-foot">
+                  <span>Pages stay invariant</span>
+                  <a class="m-link" href="design-system.html#themes"
+                    >All 24 themes →</a
+                  >
+                </div>
+              </div>
             </li>
             <li>
               <a
@@ -436,8 +568,37 @@
               Free and open source · No account · No AI writing · Desktop app
               &amp; installable offline web app (localhost or self-hosted HTTPS)
             </p>
+            <ul class="hero-proof" aria-label="Key guarantees">
+              <li>
+                <strong>0 changes lost</strong>
+                <span>200 server kills on D-small</span>
+              </li>
+              <li>
+                <strong>8 formats + rundowns</strong>
+                <span>Film, TV, books, games &amp; news</span>
+              </li>
+              <li>
+                <strong>24 studio themes</strong>
+                <span>Light &amp; dark · eye-health floor</span>
+              </li>
+              <li>
+                <strong>Apache 2.0 · No AI</strong>
+                <span>Free, open source, local-first</span>
+              </li>
+            </ul>
             <p class="quiet-line handoff">
               <a href="#never-lose">See how nothing gets lost ↓</a>
+              <button
+                type="button"
+                class="pg-pill-btn"
+                data-pg-palette-open
+                hidden
+              >
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
+                </svg>
+                Try ⌘K palette
+              </button>
             </p>
           </div>
 
@@ -782,6 +943,67 @@
               <p>Two versions of one line, and your call.</p>
             </li>
           </ul>
+          <div
+            class="playground"
+            role="region"
+            aria-labelledby="pg-offline-title"
+            data-pg-offline
+            hidden
+          >
+            <div class="pg-head">
+              <div>
+                <span class="pg-kicker">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="assets/icons.svg?v=2b7b378f#i-wifi-off" />
+                  </svg>
+                  Interactive sandbox
+                </span>
+                <p class="pg-title" id="pg-offline-title">
+                  Cut the signal, write a few lines, then reconnect
+                </p>
+              </div>
+              <div class="pg-controls">
+                <button
+                  type="button"
+                  class="pg-pill-btn"
+                  data-tone="warn"
+                  data-off-toggle
+                  aria-pressed="false"
+                >
+                  Cut signal
+                </button>
+                <button type="button" class="pg-pill-btn" data-off-add>
+                  Add sample line
+                </button>
+                <button type="button" class="pg-pill-btn" data-off-reset>
+                  Reset
+                </button>
+              </div>
+            </div>
+            <div class="pg-body">
+              <div class="pg-off-lines" data-off-lines></div>
+              <form class="pg-off-form" data-off-form>
+                <label class="m-sr" for="pg-off-input"
+                  >Type a line of action or dialogue</label
+                >
+                <input
+                  id="pg-off-input"
+                  class="pg-input"
+                  type="text"
+                  maxlength="110"
+                  placeholder="Type a line of dialogue or action and press Enter…"
+                  data-off-input
+                />
+                <button type="submit" class="pg-pill-btn">Add line</button>
+              </form>
+              <div class="pg-status-line" aria-live="polite">
+                <span class="pg-badge" data-off-badge data-state="synced"
+                  >Saved · Synced</span
+                >
+                <span data-off-receipt></span>
+              </div>
+            </div>
+          </div>
           <p class="quiet-line handoff">
             <a href="#together"
               >Writing with others? Watch their words arrive ↓</a
@@ -2485,6 +2707,180 @@
                     </p>
                   </li>
                 </ul>
+                <div
+                  class="playground"
+                  role="region"
+                  aria-labelledby="pg-book-title"
+                  data-pg-book
+                  hidden
+                >
+                  <div class="pg-head">
+                    <div>
+                      <span class="pg-kicker">
+                        <svg class="m-icon" aria-hidden="true">
+                          <use href="assets/icons.svg?v=2b7b378f#i-book-open" />
+                        </svg>
+                        Book publishing studio
+                      </span>
+                      <p class="pg-title" id="pg-book-title">
+                        Switch trims, facing spreads, chapter openings and
+                        footnotes
+                      </p>
+                    </div>
+                    <div class="pg-controls">
+                      <div
+                        class="pg-seg"
+                        role="group"
+                        aria-label="Layout engine"
+                      >
+                        <button
+                          type="button"
+                          data-book-engine="v2"
+                          aria-pressed="false"
+                        >
+                          Manuscript (Engine 2)
+                        </button>
+                        <button
+                          type="button"
+                          data-book-engine="v3"
+                          aria-pressed="true"
+                        >
+                          Book (Engine 3)
+                        </button>
+                      </div>
+                      <div class="pg-seg" role="group" aria-label="Book trim">
+                        <button
+                          type="button"
+                          data-book-trim="5x8"
+                          aria-pressed="false"
+                        >
+                          5×8″
+                        </button>
+                        <button
+                          type="button"
+                          data-book-trim="55x85"
+                          aria-pressed="true"
+                        >
+                          5.5×8.5″
+                        </button>
+                        <button
+                          type="button"
+                          data-book-trim="6x9"
+                          aria-pressed="false"
+                        >
+                          6×9″
+                        </button>
+                      </div>
+                      <div class="pg-seg" role="group" aria-label="Page view">
+                        <button
+                          type="button"
+                          data-book-view="single"
+                          aria-pressed="false"
+                        >
+                          Single
+                        </button>
+                        <button
+                          type="button"
+                          data-book-view="spread"
+                          aria-pressed="true"
+                        >
+                          Facing spread
+                        </button>
+                      </div>
+                      <div
+                        class="pg-seg"
+                        role="group"
+                        aria-label="Chapter opening style"
+                      >
+                        <button
+                          type="button"
+                          data-book-open="drop_cap"
+                          aria-pressed="true"
+                        >
+                          Drop cap
+                        </button>
+                        <button
+                          type="button"
+                          data-book-open="raised_cap"
+                          aria-pressed="false"
+                        >
+                          Raised cap
+                        </button>
+                        <button
+                          type="button"
+                          data-book-open="indent"
+                          aria-pressed="false"
+                        >
+                          Indent
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="pg-body">
+                    <div
+                      class="pg-book-stage"
+                      data-book-stage
+                      data-engine="v3"
+                      data-trim="55x85"
+                      data-view="spread"
+                    >
+                      <div
+                        class="pg-book-sheet pg-verso-blank"
+                        data-side="verso"
+                        data-book-verso
+                      >
+                        <div>
+                          <div class="pg-book-runhead">
+                            <span>186</span><span>The Salt Road</span>
+                          </div>
+                          <p>
+                            Verso kept blank so Chapter Twelve opens on a
+                            right-hand (recto) page.
+                          </p>
+                        </div>
+                      </div>
+                      <div class="pg-book-sheet" data-side="recto">
+                        <div class="pg-book-runhead">
+                          <span data-book-recto-head
+                            >Chapter opening — running head suppressed</span
+                          >
+                          <span>187</span>
+                        </div>
+                        <p class="pg-book-chap">Chapter Twelve · The Weir</p>
+                        <p
+                          class="pg-book-p"
+                          data-book-opening
+                          data-open="drop_cap"
+                        >
+                          The river was lower than Nell had ever seen it. Below
+                          the weir the stones stood out of the water like the
+                          backs of sheep, and the mill race ran thin and
+                          brown.<button
+                            type="button"
+                            class="pg-fn-btn"
+                            data-book-fn-btn
+                            aria-expanded="false"
+                            aria-label="Toggle footnote 1"
+                          >
+                            1
+                          </button>
+                        </p>
+                        <p class="pg-book-p">
+                          She left the bicycle against the parapet and climbed
+                          down to the sluice.
+                        </p>
+                        <div class="pg-fn-note" data-book-fn-note hidden>
+                          <strong>Footnote 1:</strong> Rendered at the foot of
+                          the page in PDF and as a linked back-reference in EPUB
+                          3.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="pg-status-line" aria-live="polite">
+                      <span data-book-readout></span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2509,7 +2905,9 @@
                     <b>Play Beside</b> in both Game Script and Ink — pick
                     branches, replay paths, see visited gutter marks and edit
                     <b>Variables</b> live, while Ink compiles in a Web Worker
-                    with inline problem underlines as you type.
+                    with inline problem underlines as you type. Share a playable
+                    <b>Ink Reader Player</b> link
+                    (<code>/r/&lt;token&gt;</code>) for zero-login playtesting.
                   </li>
                   <li>
                     <b>Shipping</b> Export Game Script line data as
@@ -2723,6 +3121,103 @@
                     </p>
                   </li>
                 </ul>
+                <div
+                  class="playground"
+                  role="region"
+                  aria-labelledby="pg-ink-title"
+                  data-pg-ink
+                  hidden
+                >
+                  <div class="pg-head">
+                    <div>
+                      <span class="pg-kicker">
+                        <svg class="m-icon" aria-hidden="true">
+                          <use href="assets/icons.svg?v=2b7b378f#i-gamepad-2" />
+                        </svg>
+                        Interactive Ink &amp; Game Script player
+                      </span>
+                      <p class="pg-title" id="pg-ink-title">
+                        Pick a branch (or press 1–3) to light visited lines and
+                        update variables
+                      </p>
+                    </div>
+                    <div class="pg-controls">
+                      <button type="button" class="pg-pill-btn" data-ink-back>
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        class="pg-pill-btn"
+                        data-ink-restart
+                      >
+                        Restart
+                      </button>
+                    </div>
+                  </div>
+                  <div class="pg-body">
+                    <div class="pg-ink-grid">
+                      <div class="pg-ink-code" aria-label="Ink script source">
+                        <div class="pg-ink-row" data-ink-line="1">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>1</span
+                          ><span
+                            >VAR oil = 1, logged = false, bell = false</span
+                          >
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="3">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>3</span
+                          ><span>=== harbour_sill ===</span>
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="5">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>5</span
+                          ><span>* &#123;oil &gt; 0&#125; [Trim the wick]</span>
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="6">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>6</span
+                          ><span
+                            >&nbsp;&nbsp;~ oil = oil - 1 -&gt; trimmed</span
+                          >
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="8">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>8</span
+                          ><span>+ [Write the time in the log]</span>
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="9">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>9</span
+                          ><span>&nbsp;&nbsp;~ logged = true -&gt; logged</span>
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="10">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>10</span
+                          ><span>+ [Sound the harbour bell]</span>
+                        </div>
+                        <div class="pg-ink-row" data-ink-line="11">
+                          <span class="pg-ink-ln"
+                            ><i class="pg-ink-dot"></i>11</span
+                          ><span>&nbsp;&nbsp;~ bell = true -&gt; bell</span>
+                        </div>
+                      </div>
+                      <div class="pg-ink-player">
+                        <div
+                          class="pg-ink-log"
+                          data-ink-log
+                          aria-live="polite"
+                        ></div>
+                        <div class="pg-ink-choices" data-ink-choices></div>
+                        <div
+                          class="pg-vars"
+                          data-ink-vars
+                          aria-label="Live Ink variables"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3004,6 +3499,7 @@
           </div>
           <ul
             class="colours"
+            data-rev-chips
             aria-label="The standard order of revision colours"
           >
             <li data-chip="white">White</li>
@@ -3016,7 +3512,70 @@
             <li data-chip="salmon">Salmon</li>
             <li data-chip="cherry">Cherry</li>
           </ul>
-          <p class="small-print">The standard order, or your own.</p>
+          <p class="small-print">
+            The standard order, or your own. Pick any colour to preview the
+            locked page stamp below.
+          </p>
+          <div
+            class="playground"
+            role="region"
+            aria-labelledby="pg-rev-title"
+            data-pg-rev
+            hidden
+          >
+            <div class="pg-head">
+              <div>
+                <span class="pg-kicker">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="assets/icons.svg?v=2b7b378f#i-lock" />
+                  </svg>
+                  Locked page &amp; 12A sandbox
+                </span>
+                <p class="pg-title" id="pg-rev-title">
+                  Add or undo a line on locked Page 12 — Page 13 never moves
+                </p>
+              </div>
+              <div class="pg-controls">
+                <button
+                  type="button"
+                  class="pg-pill-btn"
+                  data-rev-overflow
+                  aria-pressed="true"
+                >
+                  Undo added line (remove 12A)
+                </button>
+              </div>
+            </div>
+            <div class="pg-body">
+              <div class="pg-rev-pages">
+                <div class="pg-rev-sheet" data-rev-p12>
+                  <div class="pg-rev-sheet-head">
+                    <span data-rev-head12>Blue Rev. (28 Nov 2026)</span>
+                    <strong>12.</strong>
+                  </div>
+                  <p>18 EXT. EAST CHANNEL - NIGHT</p>
+                  <p>IDA: Then I'll be the first.</p>
+                  <p data-rev-added>
+                    <span class="pg-rev-ast">*</span>IDA: Somebody has to.
+                  </p>
+                  <p>PIKE (O.S.): Four fathoms!</p>
+                </div>
+                <div class="pg-rev-sheet" data-rev-p12a>
+                  <div class="pg-rev-sheet-head">
+                    <span data-rev-head12a>Blue Rev. (28 Nov 2026)</span>
+                    <strong>12A.</strong>
+                  </div>
+                  <p>IDA (to Cal): Get the boat hook.</p>
+                  <p>
+                    <small>(Overflow kept on 12A; Page 13 stays 13.)</small>
+                  </p>
+                </div>
+              </div>
+              <div class="pg-status-line" aria-live="polite">
+                <span data-rev-readout></span>
+              </div>
+            </div>
+          </div>
           <ul class="points points-grid-3">
             <li>
               <span class="m-card-icon"
@@ -3101,16 +3660,16 @@
                 class="mv mv-hist"
                 data-cycle="12"
                 role="img"
-                aria-label="The History tab of The Long Night. Choosing older versions shows more changes on the page, struck through and underlined; the draft Studio is restored, and the script as it was is kept as Before restore."
+                aria-label="The dedicated read-only Version History screen of The Long Night. Choosing older versions shows more changes on the page, struck through and underlined; the draft Studio is restored, and the script as it was is kept as Before restore."
               >
                 <div class="mv-crop">
                   <div class="mv-stage">
                     <div class="mv-win">
                       <div class="mv-tb">
-                        <span>‹ Library</span
-                        ><span class="mv-title">The Long Night</span>
+                        <span>← Back to script</span
+                        ><span class="mv-title">The Long Night · History</span>
                         <span class="mv-status"
-                          ><span class="mv-dev">Saved</span
+                          ><span class="mv-dev">Read-only</span
                           ><span class="mv-srv"><span>Synced</span></span></span
                         >
                         <span class="mv-people mv-push"
@@ -3190,9 +3749,8 @@
                         </div>
                         <div class="mv-panel">
                           <div class="mv-tabs">
-                            <span>Comments</span
-                            ><span class="mv-tab-on">History</span
-                            ><span>Details</span
+                            <span class="mv-tab-on">Versions</span
+                            ><span>Drafts</span><span>Issues</span
                             ><span class="mv-push mv-muted">✕</span>
                           </div>
                           <div class="mv-prow">
@@ -3332,18 +3890,115 @@
           </figure>
           <div class="prose after-figure">
             <p>
-              Every session, every named draft and every issue is kept, and
-              opens exactly as it was. Name a draft with
-              <kbd data-shortcut="Ctrl+Shift+S">⌘⇧S</kbd>, see every line you've
-              changed since, and bring back one scene or the whole script. A
-              restore can always be undone, and "Who wrote this?" answers for
-              any line. Show and News rundowns keep full
+              Every session, every named draft and every issue opens in a
+              dedicated read-only <b>Version History</b> screen with a
+              change-aware <b>Minimap</b> so your live editor stays clean and
+              untouched. Name a draft with
+              <kbd data-shortcut="Ctrl+Shift+S">⌘⇧S</kbd>, compare
+              <b>On the page</b>, <b>Side by side</b>, <b>As it was</b> or
+              <b>Asterisks only</b>, and bring back one scene or the whole
+              script. A restore can always be undone, and "Who wrote this?"
+              answers for any line. Show and News rundowns keep full
               <b>Rundown History</b> too — compare <b>In the grid</b>,
               <b>Side by side</b> or <b>As it was</b> with non-colour diff
               badges, and restore a single row or the whole rundown with an
               automatic <code>'Before restore'</code> backup and air-window
               safety.
             </p>
+          </div>
+          <div
+            class="playground"
+            role="region"
+            aria-labelledby="pg-hist-title"
+            data-pg-hist
+            hidden
+          >
+            <div class="pg-head">
+              <div>
+                <span class="pg-kicker">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="assets/icons.svg?v=2b7b378f#i-history" />
+                  </svg>
+                  Dedicated Version History &amp; Minimap
+                </span>
+                <p class="pg-title" id="pg-hist-title">
+                  Scrub drafts, switch compare modes and inspect changed-scene
+                  ticks
+                </p>
+              </div>
+              <div class="pg-controls">
+                <div class="pg-seg" role="group" aria-label="Snapshot">
+                  <button
+                    type="button"
+                    data-hist-snap="now"
+                    aria-pressed="false"
+                  >
+                    Now
+                  </button>
+                  <button
+                    type="button"
+                    data-hist-snap="morning"
+                    aria-pressed="false"
+                  >
+                    Today 11:40
+                  </button>
+                  <button
+                    type="button"
+                    data-hist-snap="studio"
+                    aria-pressed="true"
+                  >
+                    ★ Studio
+                  </button>
+                </div>
+                <div class="pg-seg" role="group" aria-label="Compare mode">
+                  <button
+                    type="button"
+                    data-hist-mode="page"
+                    aria-pressed="true"
+                  >
+                    On the page
+                  </button>
+                  <button
+                    type="button"
+                    data-hist-mode="side"
+                    aria-pressed="false"
+                  >
+                    Side by side
+                  </button>
+                  <button
+                    type="button"
+                    data-hist-mode="aswas"
+                    aria-pressed="false"
+                  >
+                    As it was
+                  </button>
+                  <button
+                    type="button"
+                    data-hist-mode="asterisks"
+                    aria-pressed="false"
+                  >
+                    Asterisks only
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="pg-body">
+              <div class="pg-hist-wrap">
+                <div
+                  class="pg-hist-sheet"
+                  data-hist-sheet
+                  aria-live="polite"
+                ></div>
+                <div
+                  class="pg-minimap"
+                  data-hist-map
+                  aria-label="Change-aware Minimap scene ticks"
+                ></div>
+              </div>
+              <div class="pg-status-line" aria-live="polite">
+                <span data-hist-readout></span>
+              </div>
+            </div>
           </div>
           <p class="quiet-line handoff">
             <a href="#files"
@@ -3720,6 +4375,19 @@
               </p>
             </li>
           </ul>
+          <p class="quiet-line">
+            <button
+              type="button"
+              class="pg-pill-btn"
+              data-pg-palette-open
+              hidden
+            >
+              <svg class="m-icon" aria-hidden="true">
+                <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
+              </svg>
+              Open live ⌘K Command Palette (or press ⌘K / Ctrl+K)
+            </button>
+          </p>
           <figure class="shot-frame" data-reveal>
             <img
               src="media/command-palette.png?v=8cee11aa"
@@ -3778,7 +4446,12 @@
                   <use href="assets/icons.svg?v=2b7b378f#i-user-x" /></svg
               ></span>
               <h3>Page 1, not a sign-up form</h3>
-              <p>Manent opens on page 1 and sends no usage data.</p>
+              <p>
+                Choose <b>Start in a clean workspace</b> for an empty Library on
+                page 1, or step into the six-person writers' room demo — with
+                zero telemetry and 24 calm
+                <a href="design-system.html#themes">studio themes</a>.
+              </p>
             </li>
             <li>
               <span class="m-card-icon"
@@ -3920,7 +4593,7 @@
             </p>
             <p class="quiet-line">
               <a href="compare.html#named-desktop"
-                >See every app, checked 26 November 2026 →</a
+                >See every app, checked 28 November 2026 →</a
               >
             </p>
           </div>
@@ -4113,6 +4786,41 @@
                 prompter, not yet tested on physical studio hardware).
               </p>
             </details>
+            <details>
+              <summary>
+                Can I write and publish books as well as scripts?<svg
+                  class="m-icon"
+                  aria-hidden="true"
+                >
+                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                </svg>
+              </summary>
+              <p>
+                Yes. Write a whole novel or non-fiction manuscript of up to
+                2,000 pages in one document (or compile multiple parts), choose
+                standard Courier manuscript layout or opt-in Book layout
+                (bundled Source Serif 4, paperback trims, mirrored gutters,
+                right-hand chapters, Table of Contents, facing spreads and
+                inline footnotes), run Book checks, and export print-ready PDF,
+                EPUB 3 (<code>.epub</code>), Word (<code>.docx</code>) or
+                lossless Markdown (<code>.md</code>) offline.
+              </p>
+            </details>
+            <details>
+              <summary>
+                Can I start with a clean empty workspace instead of the
+                demo?<svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                </svg>
+              </summary>
+              <p>
+                Yes. Choose Start in a clean workspace on launch (or in
+                Preferences → This device) to open straight onto your own blank
+                Library without sample scripts or demo personas; you can always
+                reopen the sample writers' room and guided tour whenever you
+                want to explore a workflow.
+              </p>
+            </details>
           </div>
           <p class="quiet-line handoff">
             <a href="#download">Ready when you are. Get Manent ↓</a>
@@ -4135,8 +4843,9 @@
             </p>
             <h2 id="download-title">Write your first page tonight.</h2>
             <p class="sub">
-              For Mac, Windows and Linux. Every script lives on your own disk,
-              with offline full-text search, Desktop LAN MOS relay, Prompter
+              For Mac, Windows and Linux, in a custom theme-matched desktop
+              window. Every script lives on your own disk, with Clean workspace
+              mode, offline full-text search, Desktop LAN MOS relay, Prompter
               folder output, <code>manent://</code> links on macOS and
               <b>Export everything on this device…</b> — everything works with
               no network.
@@ -4261,8 +4970,9 @@
               </summary>
               <p>
                 Run Manent from its source and explore a whole writers' room:
-                six people you can be with no password, scripts at every stage,
-                a show day with its rundown and prompter, and a 2,000-page book.
+                six people you can be with no password, a 93-scenario guided
+                Tour across 7 story tracks, scripts at every stage, a show day
+                with its rundown and prompter, and a 2,000-page book.
               </p>
               <ol class="steps">
                 <li>
@@ -4390,7 +5100,8 @@ bun run demo</pre>
                 <div class="mv-stage">
                   <div class="mv-os">
                     <div class="mv-os-bar">
-                      <span></span><span>Untitled — Manent</span
+                      <span>Manent</span
+                      ><span>Untitled · Offline · Saved on this device</span
                       ><span class="mv-os-ctl"
                         ><i class="min"></i><i class="max"></i
                         ><i class="cls"></i
@@ -4614,7 +5325,8 @@ bun run demo</pre>
         </ul>
         <p>
           This page sets no cookies, loads nothing from other sites, and
-          remembers only your tab and your animation choice, in this browser.
+          remembers only your tab, studio theme and animation choice, in this
+          browser.
         </p>
         <p>
           © 2026 Harvey Marzban
@@ -4626,5 +5338,132 @@ bun run demo</pre>
         </p>
       </div>
     </footer>
+
+    <dialog
+      class="pg-palette"
+      id="pg-palette-dialog"
+      aria-labelledby="pg-pal-title"
+      aria-modal="true"
+    >
+      <div class="pg-pal-head">
+        <svg class="m-icon" aria-hidden="true">
+          <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
+        </svg>
+        <label class="m-sr" id="pg-pal-title" for="pg-pal-input"
+          >Interactive Command Palette preview</label
+        >
+        <input
+          id="pg-pal-input"
+          class="pg-pal-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Try 'lines 52', 'page 12', 'dark', or pick a context below…"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="pg-pal-list"
+          aria-autocomplete="list"
+          data-pal-input
+        />
+        <button type="button" class="pg-pill-btn" data-pal-close>Close</button>
+      </div>
+      <div class="pg-pal-strip">
+        <div
+          class="pg-pal-contexts"
+          role="group"
+          aria-label="Simulated editor context"
+        >
+          <button
+            type="button"
+            class="pg-pal-chip"
+            data-pal-ctx="dialogue"
+            aria-pressed="true"
+          >
+            Dialogue
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            data-pal-ctx="book"
+            aria-pressed="false"
+          >
+            Book
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            data-pal-ctx="locked"
+            aria-pressed="false"
+          >
+            Locked
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            data-pal-ctx="rundown"
+            aria-pressed="false"
+          >
+            Rundown
+          </button>
+        </div>
+        <div class="pg-pal-scopes" role="tablist" aria-label="Command scope">
+          <button
+            type="button"
+            class="pg-pal-chip"
+            role="tab"
+            data-pal-scope="all"
+            aria-selected="true"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            role="tab"
+            data-pal-scope="commands"
+            aria-selected="false"
+          >
+            &gt; Commands
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            role="tab"
+            data-pal-scope="settings"
+            aria-selected="false"
+          >
+            , Settings
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            role="tab"
+            data-pal-scope="goto"
+            aria-selected="false"
+          >
+            # Go to
+          </button>
+          <button
+            type="button"
+            class="pg-pal-chip"
+            role="tab"
+            data-pal-scope="scripts"
+            aria-selected="false"
+          >
+            / Scripts
+          </button>
+        </div>
+      </div>
+      <ul
+        id="pg-pal-list"
+        class="pg-pal-list"
+        role="listbox"
+        aria-label="Matching commands"
+        data-pal-list
+      ></ul>
+      <div class="pg-pal-foot">
+        <span data-pal-status aria-live="polite"></span>
+        <span>↑↓ move · Tab cycle scope · Enter run · Esc close</span>
+      </div>
+    </dialog>
   </body>
 </html>

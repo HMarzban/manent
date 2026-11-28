@@ -862,16 +862,68 @@
     ["podcast", "Podcast"],
     ["games", "Games"],
   ];
+  var SCHEME_KEY = "manent.site.scheme";
+  var PALETTE_KEY = "manent.site.palette";
+  var EXPLORED_KEY = "manent.site.explored";
+  function readLocal(k) {
+    try {
+      return window.localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  }
+  function writeLocal(k, v) {
+    try {
+      window.localStorage.setItem(k, v);
+    } catch (e) {}
+  }
+  var savedScheme = readLocal(SCHEME_KEY);
+  var savedPalette = readLocal(PALETTE_KEY);
+  var exploredSet = new Set(["studio"]);
+  try {
+    var rawExplored = readLocal(EXPLORED_KEY);
+    if (rawExplored) {
+      JSON.parse(rawExplored).forEach(function (id) {
+        exploredSet.add(id);
+      });
+    }
+  } catch (e) {}
   var state = {
     scheme:
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light",
-    palette: "studio",
+      savedScheme === "dark" || savedScheme === "light"
+        ? savedScheme
+        : window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light",
+    palette:
+      savedPalette &&
+      THEMES.some(function (t) {
+        return t.id === savedPalette;
+      })
+        ? savedPalette
+        : "studio",
     filter: "all",
     gems: true,
+    printProof: false,
   };
+  function hexToLum(hex) {
+    var clean = String(hex || "#000000").replace("#", "");
+    if (clean.length === 3)
+      clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+    var r = parseInt(clean.slice(0, 2), 16) / 255;
+    var g = parseInt(clean.slice(2, 4), 16) / 255;
+    var b = parseInt(clean.slice(4, 6), 16) / 255;
+    var f = function (c) {
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  }
+  function contrastRatio(a, b) {
+    var l1 = hexToLum(a),
+      l2 = hexToLum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  }
   var activeVT = null;
   var byId = function (id) {
     return document.getElementById(id);
@@ -1168,10 +1220,71 @@
 
     var pt = byId("ds-proof-title"),
       pb = byId("ds-proof-badge"),
-      pw = byId("ds-proof-whisper");
+      pw = byId("ds-proof-whisper"),
+      pg = byId("ds-proof-gem"),
+      ps = byId("ds-proof-swatches"),
+      pe = byId("ds-explored-tally"),
+      cb = byId("ds-contrast-bar"),
+      pp = byId("ds-print-proof-sheet"),
+      ptog = byId("ds-print-toggle");
+    exploredSet.add(active.id);
+    writeLocal(SCHEME_KEY, state.scheme);
+    writeLocal(PALETTE_KEY, state.palette);
+    writeLocal(EXPLORED_KEY, JSON.stringify(Array.from(exploredSet)));
     if (pt) pt.textContent = active.name;
     if (pb) pb.textContent = " · " + active.badge;
     if (pw) pw.textContent = "“" + active.whisper + "”";
+    if (pe)
+      pe.textContent = exploredSet.size + " of " + THEMES.length + " explored";
+    if (pg) {
+      pg.innerHTML =
+        '<svg viewBox="0 0 512 512" fill="none" aria-hidden="true"><path fill="currentColor" d="' +
+        active.path +
+        '"/></svg>';
+    }
+    var pal = state.scheme === "dark" ? active.k : active.l;
+    if (ps) {
+      ps.innerHTML = "";
+      [
+        ["Desk", pal.d],
+        ["Raised", pal.r],
+        ["Paper", pal.pp],
+        ["Accent", pal.a],
+      ].forEach(function (pair) {
+        var chip = document.createElement("span");
+        chip.className = "ds-swatch-pill";
+        var dot = document.createElement("span");
+        dot.className = "ds-swatch-dot";
+        dot.style.setProperty("--sw", pair[1]);
+        dot.setAttribute("aria-hidden", "true");
+        chip.appendChild(dot);
+        chip.appendChild(document.createTextNode(pair[0] + " " + pair[1]));
+        ps.appendChild(chip);
+      });
+    }
+    if (cb) {
+      cb.innerHTML = "";
+      [
+        ["Paper ink / Paper", pal.pi, pal.pp],
+        ["UI ink / Desk", pal.f, pal.d],
+        ["Accent / Paper", pal.a, pal.pp],
+        ["On-accent / Accent", pal.oa, pal.a],
+      ].forEach(function (row) {
+        var ratio = contrastRatio(row[1], row[2]);
+        var grade = ratio >= 7 ? "AAA" : ratio >= 4.5 ? "AA" : "AA Large";
+        var cell = document.createElement("div");
+        cell.className = "ds-contrast-cell";
+        var st = document.createElement("strong");
+        st.textContent = ratio.toFixed(1) + ":1 · " + grade;
+        var sp = document.createElement("span");
+        sp.textContent = row[0];
+        cell.appendChild(st);
+        cell.appendChild(sp);
+        cb.appendChild(cell);
+      });
+    }
+    if (pp) pp.classList.toggle("is-print", state.printProof);
+    if (ptog) ptog.setAttribute("aria-pressed", String(state.printProof));
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -1247,6 +1360,12 @@
     if (gemsBtn)
       gemsBtn.addEventListener("click", function () {
         state.gems = !state.gems;
+        render();
+      });
+    var printToggle = byId("ds-print-toggle");
+    if (printToggle)
+      printToggle.addEventListener("click", function () {
+        state.printProof = !state.printProof;
         render();
       });
     render();

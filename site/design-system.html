@@ -103,10 +103,12 @@
     />
     <link rel="stylesheet" href="assets/site.css?v=d39b3441" />
     <link rel="stylesheet" href="assets/motion.css?v=6d2ad66b" />
-    <link rel="stylesheet" href="assets/design-system.css?v=70ad757f" />
+    <link rel="stylesheet" href="assets/playgrounds.css?v=91aa4a1f" />
+    <link rel="stylesheet" href="assets/design-system.css?v=182f7d4d" />
     <script src="assets/motion.js?v=7d1f7574" defer></script>
     <script src="assets/site.js?v=548b7530" defer></script>
-    <script src="assets/design-system.js?v=b4bcca98" defer></script>
+    <script src="assets/playgrounds.js?v=d6d6278c" defer></script>
+    <script src="assets/design-system.js?v=d8cc86d1" defer></script>
 
     <script type="application/ld+json">
       {
@@ -127,9 +129,54 @@
             "about": {
               "@id": "https://hmarzban.github.io/manent/#app"
             },
+            "mainEntity": {
+              "@id": "https://hmarzban.github.io/manent/design-system.html#studio-themes"
+            },
             "breadcrumb": {
               "@id": "https://hmarzban.github.io/manent/design-system.html#breadcrumb"
+            },
+            "primaryImageOfPage": {
+              "@type": "ImageObject",
+              "url": "https://hmarzban.github.io/manent/og.png?v=9224b60e",
+              "width": 1200,
+              "height": 630
             }
+          },
+          {
+            "@type": "ItemList",
+            "@id": "https://hmarzban.github.io/manent/design-system.html#studio-themes",
+            "name": "Manent 24 calibrated studio themes",
+            "numberOfItems": 24,
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Studio" },
+              { "@type": "ListItem", "position": 2, "name": "Twin suns" },
+              { "@type": "ListItem", "position": 3, "name": "Starlog" },
+              { "@type": "ListItem", "position": 4, "name": "Celluloid" },
+              { "@type": "ListItem", "position": 5, "name": "Cold harbour" },
+              { "@type": "ListItem", "position": 6, "name": "Fifty-third" },
+              { "@type": "ListItem", "position": 7, "name": "Dateline" },
+              { "@type": "ListItem", "position": 8, "name": "Breaking desk" },
+              { "@type": "ListItem", "position": 9, "name": "Broadsheet" },
+              { "@type": "ListItem", "position": 10, "name": "Telegraph" },
+              { "@type": "ListItem", "position": 11, "name": "West march" },
+              { "@type": "ListItem", "position": 12, "name": "Clothbound" },
+              { "@type": "ListItem", "position": 13, "name": "Amber court" },
+              { "@type": "ListItem", "position": 14, "name": "Sea and ink" },
+              { "@type": "ListItem", "position": 15, "name": "Copperplate" },
+              { "@type": "ListItem", "position": 16, "name": "Ghost light" },
+              { "@type": "ListItem", "position": 17, "name": "Globe timber" },
+              { "@type": "ListItem", "position": 18, "name": "Velvet box" },
+              { "@type": "ListItem", "position": 19, "name": "Green room" },
+              { "@type": "ListItem", "position": 20, "name": "Reel to reel" },
+              {
+                "@type": "ListItem",
+                "position": 21,
+                "name": "Night frequency"
+              },
+              { "@type": "ListItem", "position": 22, "name": "Twenty-sided" },
+              { "@type": "ListItem", "position": 23, "name": "Crossroads" },
+              { "@type": "ListItem", "position": 24, "name": "Electric sheep" }
+            ]
           },
           {
             "@type": "BreadcrumbList",
@@ -193,13 +240,16 @@
             /></svg
           ><span aria-hidden="true">anent</span></a
         >
-        <nav aria-label="Sections">
+        <nav aria-label="Sections" data-spy>
           <ul>
             <li class="section-link">
               <a class="m-link" href="#brand">Brand</a>
             </li>
             <li class="section-link">
               <a class="m-link" href="#themes">24 Themes</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="#surfaces">Surfaces</a>
             </li>
             <li class="section-link">
               <a class="m-link" href="#eye-health">Eye health</a>
@@ -214,6 +264,20 @@
               <a class="m-link" href="https://github.com/HMarzban/manent"
                 >GitHub</a
               >
+            </li>
+            <li>
+              <a
+                class="button button-small button-quiet m-btn"
+                href="media/demo-recording.mp4?v=78f586e0"
+                data-watch="watch"
+                aria-haspopup="dialog"
+              >
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
+                </svg>
+                <span class="bar-word">Watch</span
+                ><span class="m-sr"> it in 45 seconds</span>
+              </a>
             </li>
             <li>
               <a class="button button-small m-btn" href="./#download" data-get>
@@ -351,6 +415,131 @@
               </p>
             </article>
           </div>
+
+          <div class="ds-card ds-scale-card">
+            <h3>Bound "M" optical scale</h3>
+            <p class="ds-theme-tag">
+              Verified at every shipping pixel size — from 16 px browser tabs to
+              desktop Docks and 64 px colophons.
+            </p>
+            <div class="ds-scale-strip" aria-label="Bound M optical sizes">
+              <div class="ds-scale-item">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11 12H17.5C18.2 12 18.8 12.3 19.2 12.9L32 31.2L41.3 17.8C41.7 17.2 42.5 17.5 42.5 18.2V29.8C42.5 30.3 42.3 30.7 42 31.1L33.7 42.6C33.3 43.1 32.7 43.4 32 43.4C31.3 43.4 30.7 43.1 30.3 42.6L17.5 24.8V50C17.5 51.1 16.6 52 15.5 52H11C9.9 52 9 51.1 9 50V14C9 12.9 9.9 12 11 12Z"
+                  />
+                  <rect
+                    x="46.5"
+                    y="12"
+                    width="8.5"
+                    height="40"
+                    rx="2"
+                    fill="var(--accent)"
+                  />
+                </svg>
+                <span>16 px</span>
+              </div>
+              <div class="ds-scale-item">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11 12H17.5C18.2 12 18.8 12.3 19.2 12.9L32 31.2L41.3 17.8C41.7 17.2 42.5 17.5 42.5 18.2V29.8C42.5 30.3 42.3 30.7 42 31.1L33.7 42.6C33.3 43.1 32.7 43.4 32 43.4C31.3 43.4 30.7 43.1 30.3 42.6L17.5 24.8V50C17.5 51.1 16.6 52 15.5 52H11C9.9 52 9 51.1 9 50V14C9 12.9 9.9 12 11 12Z"
+                  />
+                  <rect
+                    x="46.5"
+                    y="12"
+                    width="8.5"
+                    height="40"
+                    rx="2"
+                    fill="var(--accent)"
+                  />
+                </svg>
+                <span>24 px</span>
+              </div>
+              <div class="ds-scale-item">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="32"
+                  height="32"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11 12H17.5C18.2 12 18.8 12.3 19.2 12.9L32 31.2L41.3 17.8C41.7 17.2 42.5 17.5 42.5 18.2V29.8C42.5 30.3 42.3 30.7 42 31.1L33.7 42.6C33.3 43.1 32.7 43.4 32 43.4C31.3 43.4 30.7 43.1 30.3 42.6L17.5 24.8V50C17.5 51.1 16.6 52 15.5 52H11C9.9 52 9 51.1 9 50V14C9 12.9 9.9 12 11 12Z"
+                  />
+                  <rect
+                    x="46.5"
+                    y="12"
+                    width="8.5"
+                    height="40"
+                    rx="2"
+                    fill="var(--accent)"
+                  />
+                </svg>
+                <span>32 px</span>
+              </div>
+              <div class="ds-scale-item">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="48"
+                  height="48"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11 12H17.5C18.2 12 18.8 12.3 19.2 12.9L32 31.2L41.3 17.8C41.7 17.2 42.5 17.5 42.5 18.2V29.8C42.5 30.3 42.3 30.7 42 31.1L33.7 42.6C33.3 43.1 32.7 43.4 32 43.4C31.3 43.4 30.7 43.1 30.3 42.6L17.5 24.8V50C17.5 51.1 16.6 52 15.5 52H11C9.9 52 9 51.1 9 50V14C9 12.9 9.9 12 11 12Z"
+                  />
+                  <rect
+                    x="46.5"
+                    y="12"
+                    width="8.5"
+                    height="40"
+                    rx="2"
+                    fill="var(--accent)"
+                  />
+                </svg>
+                <span>48 px</span>
+              </div>
+              <div class="ds-scale-item">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="64"
+                  height="64"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M11 12H17.5C18.2 12 18.8 12.3 19.2 12.9L32 31.2L41.3 17.8C41.7 17.2 42.5 17.5 42.5 18.2V29.8C42.5 30.3 42.3 30.7 42 31.1L33.7 42.6C33.3 43.1 32.7 43.4 32 43.4C31.3 43.4 30.7 43.1 30.3 42.6L17.5 24.8V50C17.5 51.1 16.6 52 15.5 52H11C9.9 52 9 51.1 9 50V14C9 12.9 9.9 12 11 12Z"
+                  />
+                  <rect
+                    x="46.5"
+                    y="12"
+                    width="8.5"
+                    height="40"
+                    rx="2"
+                    fill="var(--accent)"
+                  />
+                </svg>
+                <span>64 px</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -423,18 +612,95 @@
             ></div>
 
             <div class="ds-proof" aria-live="polite">
-              <div>
-                <strong id="ds-proof-title">Studio</strong>
-                <span id="ds-proof-badge" class="ds-theme-badge">Default</span>
-                <p id="ds-proof-whisper" class="ds-theme-tag ds-gem-only">
-                  Two brads, three holes and a clean first draft.
-                </p>
+              <div class="ds-vitrine-id">
+                <span
+                  id="ds-proof-gem"
+                  class="ds-vitrine-gem ds-gem-only"
+                  aria-hidden="true"
+                ></span>
+                <div>
+                  <strong id="ds-proof-title">Studio</strong>
+                  <span id="ds-proof-badge" class="ds-theme-badge"
+                    >Default</span
+                  >
+                  <span id="ds-explored-tally" class="ds-explored-tally"
+                    >1 of 24 explored</span
+                  >
+                  <p id="ds-proof-whisper" class="ds-theme-tag ds-gem-only">
+                    Two brads, three holes and a clean first draft.
+                  </p>
+                  <div id="ds-proof-swatches" class="ds-swatches"></div>
+                </div>
               </div>
               <div class="ds-proof-sheet">
                 <div><strong>14 INT. OBSERVATORY — NIGHT</strong></div>
                 <div>Rain lashes the ribbed glass dome.</div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ds-section" id="surfaces">
+        <div class="wrap">
+          <div class="ds-section-head">
+            <h2>Live surface &amp; component specimen</h2>
+            <p>
+              Switch any of the 24 themes above and watch Manent's real studio
+              chrome, floating book bar, room notes and revision surfaces adapt
+              together without shifting layout.
+            </p>
+          </div>
+          <div class="ds-specimen-grid">
+            <article class="ds-card">
+              <h3>Desktop 36 px studio titlebar</h3>
+              <div class="ds-spec-bar">
+                <span class="ds-spec-brand">Manent</span>
+                <span class="ds-spec-title">The Long Night</span>
+                <span class="ds-spec-pill">Offline · Saved on this device</span>
+              </div>
+              <p class="ds-theme-tag">
+                Theme-matched native window chrome on macOS, Windows and Linux
+                with clean inset controls.
+              </p>
+            </article>
+            <article class="ds-card">
+              <h3>Floating Book Format Bar</h3>
+              <div class="ds-spec-toolbar">
+                <span class="ds-spec-chip is-on">Source Serif 4</span>
+                <span class="ds-spec-chip">5.5×8.5″</span>
+                <span class="ds-spec-chip">Drop cap</span>
+                <span class="ds-spec-chip">Footnote [1]</span>
+              </div>
+              <p class="ds-theme-tag">
+                Appears over manuscript selections for styles, chapter openings,
+                footnotes and trim presets.
+              </p>
+            </article>
+            <article class="ds-card">
+              <h3>Shared Comments vs Writers-only Notes</h3>
+              <div class="ds-spec-notes">
+                <div class="ds-spec-note">
+                  <strong>@sam · Studio round</strong>
+                  <span>Trim the second beat before the horn.</span>
+                </div>
+                <div class="ds-spec-note is-private">
+                  <strong>[[ Writers-only Note ]]</strong>
+                  <span>Never leaves the writers' room or prints to PDF.</span>
+                </div>
+              </div>
+            </article>
+            <article class="ds-card">
+              <h3>Passive Ghost Follow &amp; Revision stamp</h3>
+              <div class="ds-spec-ghost">
+                <span class="ds-spec-rail">Back to Sc. 14 · Observatory</span>
+                <span class="ds-spec-rev">Blue Rev. · 12A *</span>
+              </div>
+              <p class="ds-theme-tag">
+                Viewport tracking and production colour badges remain legible in
+                every palette and high-contrast mode.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -447,6 +713,39 @@
               Every palette ships in both Light and Dark schemes and obeys the
               same mathematical visual ergonomics floor.
             </p>
+          </div>
+          <div class="ds-card ds-contrast-card">
+            <div class="ds-contrast-head">
+              <div>
+                <h3>Live contrast &amp; print-paper proof</h3>
+                <p class="ds-theme-tag">
+                  Computed from the active studio palette's live CSS tokens.
+                </p>
+              </div>
+              <button
+                type="button"
+                id="ds-print-toggle"
+                class="pg-pill-btn"
+                aria-pressed="false"
+              >
+                Preview Print / PDF white paper
+              </button>
+            </div>
+            <div
+              id="ds-contrast-bar"
+              class="ds-contrast-grid"
+              aria-live="polite"
+            ></div>
+            <div
+              id="ds-print-proof-sheet"
+              class="ds-proof-sheet ds-print-proof"
+            >
+              <div><strong>47. EXT. FERRY SLIP — DAY</strong></div>
+              <div>
+                Margins, line breaks and page counts stay invariant across all
+                24 themes; print and PDF always render on archival white paper.
+              </div>
+            </div>
           </div>
           <div class="ds-rules-grid">
             <article class="ds-card">
@@ -564,12 +863,51 @@
           ><span aria-hidden="true">anent</span></a
         >
         <ul>
-          <li><a class="m-link" href="./">Home</a></li>
-          <li><a class="m-link" href="compare.html">How it compares</a></li>
           <li><a class="m-link" href="./#download">Download</a></li>
+          <li>
+            <a
+              class="m-link"
+              href="media/demo-recording.mp4?v=78f586e0"
+              data-watch="watch"
+              aria-haspopup="dialog"
+              >Watch it in 45 seconds</a
+            >
+          </li>
           <li>
             <a class="m-link" href="https://github.com/HMarzban/manent"
               >Source on GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
+              >Documentation</a
+            >
+          </li>
+          <li>
+            <a class="m-link" href="https://github.com/HMarzban/manent/releases"
+              >Release notes</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
+              >Changelog</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
+              >Benchmark report</a
+            >
+          </li>
+          <li><a class="m-link" href="compare.html">How it compares</a></li>
+          <li>
+            <a class="m-link" href="design-system.html" aria-current="page"
+              >Design system</a
             >
           </li>
           <li>
@@ -580,7 +918,10 @@
             >
           </li>
         </ul>
-        <p>This page sets no cookies and loads nothing from other sites.</p>
+        <p>
+          This page sets no cookies, loads nothing from other sites, and
+          remembers only your studio theme choice, in this browser.
+        </p>
         <p>
           © 2026 Harvey Marzban
           <a
@@ -591,5 +932,74 @@
         </p>
       </div>
     </footer>
+
+    <dialog
+      class="watch"
+      id="watch"
+      aria-labelledby="watch-title"
+      aria-modal="true"
+    >
+      <div class="watch-body">
+        <div class="watch-head">
+          <h2 id="watch-title">Two windows, one script, and no signal</h2>
+          <button
+            class="button button-small button-quiet m-btn"
+            type="button"
+            data-watch-close
+          >
+            Close
+          </button>
+        </div>
+        <video
+          controls
+          muted
+          playsinline
+          preload="none"
+          poster="media/demo-recording-poster.webp?v=02beac87"
+          width="1792"
+          height="720"
+          aria-describedby="watch-note"
+        >
+          <source
+            src="media/demo-recording.webm?v=67a8729d"
+            type="video/webm"
+          />
+          <source src="media/demo-recording.mp4?v=78f586e0" type="video/mp4" />
+          <track
+            kind="captions"
+            src="media/demo-recording.vtt?v=b6142d8a"
+            srclang="en-GB"
+            label="English"
+            default
+          />
+        </video>
+        <p class="figure-note" id="watch-note">
+          A real recording, 27 November 2026. Dana Reyes and Sam Okafor write
+          together, one loses network and catches up, followed by locked Blue
+          revisions and a live newsroom rundown. 45 seconds, no sound.
+        </p>
+        <div class="actions">
+          <a
+            class="button button-large button-download m-btn"
+            href="https://github.com/HMarzban/manent/releases"
+            data-get
+          >
+            <svg class="m-icon" aria-hidden="true">
+              <use href="assets/icons.svg?v=2b7b378f#i-download" />
+            </svg>
+            <span
+              ><span data-get-label data-handheld="Get Manent for your computer"
+                >Download</span
+              >
+              <small
+                data-system
+                data-handheld="A desktop app for Mac, Windows and Linux"
+                >for Mac, Windows or Linux</small
+              ></span
+            >
+          </a>
+        </div>
+      </div>
+    </dialog>
   </body>
 </html>
