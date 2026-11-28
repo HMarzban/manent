@@ -14,7 +14,7 @@ A script has one format. Choose it in **Details → Script**, under Script setti
 | Variety      | Slug, Bracket, Character, Parenthetical, Dialogue, Transition, Shot, General         |
 | Game Script  | The Screenplay elements, and Emote, Camera and Engine Direction                      |
 | Ink          | Ink line                                                                             |
-| Manuscript   | Chapter, Body, Quote, Break                                                          |
+| Manuscript   | Chapter, Subheading, Epigraph, Body, Quote, Break                                    |
 | Stage play   | Scene, Stage direction, Character, Parenthetical, Dialogue, General                  |
 
 Every format also has Section, the act breaks (New Act, End of Act, Teaser, Tag scene) and Page break. A Section names a group of scenes and never prints. In a Podcast project, Variety's Slug is called Segment and its Bracket is called Cue.
@@ -69,8 +69,8 @@ Press **Alt+Enter** (⌥↵ on a Mac), or click the **Element** button in the st
 | --- | ------------- | ------------------------------------------------------- |
 | 1   | Scene Heading | Slug in Variety, Chapter in Manuscript                  |
 | 2   | Action        | Bracket in Variety, Body in Manuscript, Ink line in Ink |
-| 3   | Character     |                                                         |
-| 4   | Parenthetical |                                                         |
+| 3   | Character     | Subheading in Manuscript                                |
+| 4   | Parenthetical | Epigraph in Manuscript                                  |
 | 5   | Dialogue      | Quote in Manuscript                                     |
 | 6   | Transition    | Break in Manuscript; not in Stage play                  |
 | 7   | Shot          | Not in Stage play                                       |
@@ -80,7 +80,7 @@ Press **Alt+Enter** (⌥↵ on a Mac), or click the **Element** button in the st
 | E   | End of Act    |                                                         |
 | M   | Emote         | Game Script only. C is Camera and G is Engine Direction |
 
-A format offers only its own elements: Manuscript has 1, 2, 5, 6, 8, 9 and E, and Ink has 2, 8, 9 and E.
+A format offers only its own elements: Manuscript has 1, 2, 3, 4, 5, 6, 8, 9 and E, and Ink has 2, 8, 9 and E.
 
 The first nine elements also have a shortcut from anywhere on the page: Ctrl+1 to Ctrl+9 (⌘1 to ⌘9 on a Mac). See [Keyboard shortcuts](keyboard-shortcuts.md).
 
@@ -104,10 +104,10 @@ Open the command palette with **Ctrl+K** (⌘K) and type the name of a style:
 
 On a **Book (Manuscript)** document, a compact floating **Book Format Bar** sits top-centre over the page (toggleable from **View ▾ → Format bar**, and never shown on screenplays, stage plays, variety or Ink):
 
-- **Element & inline craft:** Switch between **Chapter**, **Body**, **Quote** and **Break**; toggle **Bold**, **Italic**, **Underline**; pick **Text colour** and **Highlight** with live swatch indicators; or open **More text styles** (`T ▾`) for **Strikethrough**, **All-caps**, **Superscript**, **Subscript**, inline **Link** and **Clear style** — keeping your caret and text selection intact as you click.
+- **Element & inline craft:** Switch between **Chapter**, **Subheading** (`Mod+3`), **Epigraph** (`Mod+4`), **Body**, **Quote** and **Break**; toggle **Bold**, **Italic**, **Underline**; pick **Text colour** and **Highlight** with live swatch indicators; or open **More text styles** (`T ▾`) for **Strikethrough**, **All-caps**, **Superscript**, **Subscript**, inline **Link**, live numbered **Footnote** (shown with subtle superscript callouts on the page, exported as native Word footnotes, EPUB 3 popup notes and appended PDF endnotes) and **Clear style** — keeping your caret and text selection intact as you click.
 - **Paragraph & opening styles:** Choose **Left / Centre / Right** alignment directly, toggle a 1-click **Drop cap** on the opening paragraph of a chapter, or open **Space & indent** (`¶ ▾`) for **Indent / Flush left / Drop cap / Raised cap** openings, **Space before** (`0–10` lines), **Indent** and **Width** steppers, the **Ruler**, and **Reset layout**.
-- **Insert & Page layout:** Insert a **New chapter**, **Quote**, **Break**, **Page break** or **Figure** (`+ ▾`), or open **Page layout** for **US Letter / A4**, **Single / Double** line spacing, **Lines per page**, running header presets (whose Section slot resolves chapter headings automatically), **White page**, and direct jumps to **Title page**, **Book style** and **Header and footer**.
-- **Book counts & chapters:** The status bar shows a live manuscript word count alongside the page number, **Details → Numbers** reports **Pages**, **Chapters**, **Words** and reading time, and the **Chapters** sidebar lets you add titled chapters directly.
+- **Insert & Page layout (including opt-in Book layout / Engine 3):** Insert a **New chapter**, **Subheading**, **Epigraph**, **Quote**, **Break**, **Page break** or **Figure** (`+ ▾`), or open **Page layout** for **US Letter / A4**, **Single / Double** line spacing, **Lines per page**, running header presets (whose Section slot resolves chapter headings automatically), **White page**, and direct jumps to **Title page**, **Book style** and **Header and footer**. Switch on **Book layout** (Layout Engine 3) on any unlocked book to typeset in bundled proportional **Source Serif 4** (`10.5 pt / 15 pt`), choose paperback trim sizes (**5×8″**, **5.5×8.5″**, **6×9″** alongside US Letter and A4), and enable **Left and right margins** for recto/verso inner binding gutters across screen, print, PDF and Word.
+- **Book counts & chapter targets:** The status bar shows a live manuscript word count alongside the page number; **Details → Chapter** sets an optional per-chapter **Word target** tracked as compact progress chips in the **Chapters** sidebar and per-chapter progress bars in **Details → Numbers** alongside **Pages**, **Chapters**, **Words** and reading time; and the **Chapters** sidebar lets you add titled chapters directly.
 
 ## Paste
 

@@ -2,19 +2,21 @@
 // every line placed on the page's grid in points.
 import type { PageFurnitureOptions } from "@manent/editor";
 import {
-  CELL_PT,
   DEFAULT_READ_RATE,
   STYLE,
-  UNIT_PT,
+  cellPtOf,
   durationMs,
   engineFor,
+  isVersoPage,
+  pageMarginLeftPt,
   timeScript,
+  unitPtOf,
 } from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
   LineRun,
-  PageGeometry,
+  PageProfile,
   Pagination,
   PositionedLine,
 } from "@manent/pagination";
@@ -54,13 +56,25 @@ function runSpan(run: LineRun): HTMLSpanElement {
   return span;
 }
 
-// `lines` on a sheet of the paper, in points, in the script font with ligatures and kerning off.
+// `lines` on a sheet of the paper, in points, in the script or book font with ligatures and kerning off.
 function sheetOf(
-  geometry: PageGeometry,
+  profile: PageProfile,
   lines: readonly PositionedLine[],
+  pageIndex = 0,
 ): HTMLElement {
-  const { widthPt, heightPt, marginLeftPt, marginTopPt } = geometry;
+  const { geometry, typography } = profile;
+  const { widthPt, heightPt, marginTopPt } = geometry;
+  const marginLeftPt = pageMarginLeftPt(geometry, pageIndex);
+  const unitPt = unitPtOf(profile);
+  const cellPt = cellPtOf(profile);
+  const font =
+    typography?.kind === "book_serif"
+      ? `${typography.fontSizePt}pt/${typography.linePt}pt "${typography.family}", Georgia, serif`
+      : '12pt/12pt "Courier Prime", monospace';
   const sheet = document.createElement("div");
+  if (geometry.mirrored === true) {
+    sheet.dataset["side"] = isVersoPage(pageIndex) ? "verso" : "recto";
+  }
   Object.assign(sheet.style, {
     position: "relative",
     overflow: "hidden",
@@ -68,7 +82,7 @@ function sheetOf(
     height: `${heightPt}pt`,
     background: "var(--page-paper)",
     color: "var(--page-ink)",
-    font: '12pt/12pt "Courier Prime", monospace',
+    font,
     fontKerning: "none",
     fontVariantLigatures: "none",
     whiteSpace: "pre",
@@ -76,8 +90,8 @@ function sheetOf(
   for (const line of lines) {
     const row = document.createElement("div");
     row.style.position = "absolute";
-    row.style.left = `${marginLeftPt + line.x * CELL_PT}pt`;
-    row.style.top = `${marginTopPt + line.y * UNIT_PT}pt`;
+    row.style.left = `${marginLeftPt + (line.xPt ?? line.x * cellPt)}pt`;
+    row.style.top = `${marginTopPt + line.y * unitPt}pt`;
     row.append(...line.runs.map(runSpan));
     sheet.append(row);
   }
@@ -123,8 +137,9 @@ export function drawSheet(
 ): HTMLElement {
   const laid = engine.layoutPage(p, index);
   const sheet = sheetOf(
-    p.profile.geometry,
+    p.profile,
     laid.lines.filter((line) => !PRINT_REPLACED_KINDS.has(line.kind)),
+    index,
   );
   const resolvedDuration =
     furniture?.durationMs !== undefined
@@ -176,7 +191,7 @@ export function printPages(
     // the theme's rule for this class prints it on light paper with its colours exact
     root.className = PRINT_ID;
     for (const page of options.front ?? [])
-      root.append(sheetOf(p.profile.geometry, page.lines));
+      root.append(sheetOf(p.profile, page.lines, 0));
     document.body.append(root);
     let cancelFrame = NO_FRAME;
     let next = 0;

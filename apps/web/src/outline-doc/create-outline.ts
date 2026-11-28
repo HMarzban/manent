@@ -109,7 +109,7 @@ async function openOrCreateInner(here: BesideHere): Promise<string | null> {
 
     const store = services.openScriptStore(scriptDocId);
     const format = store.get("script.format");
-    const paper = store.get("script.paper");
+    const paper = store.get("script.paper") === "a4" ? "a4" : "letter";
     let createdDocId: string;
     try {
       const created = await services.library.addCopy(

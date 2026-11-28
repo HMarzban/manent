@@ -4,9 +4,11 @@ import { BLOCK_TYPES } from "@manent/schema";
 import type { Alignment } from "@manent/schema";
 import {
   BLOCK_SLACK_CELLS,
-  LINE_PX,
+  cellPtOf,
+  linePtOf,
   pageSizePx,
   specKey,
+  unitPtOf,
 } from "@manent/pagination";
 import type { ElementSpec, PageProfile } from "@manent/pagination";
 import { PAGE_GAP_PX } from "./config.ts";
@@ -25,6 +27,16 @@ function toScreenGrid(px: number): number {
   return Math.round(px * SCREEN_STEPS_PER_PX) / SCREEN_STEPS_PER_PX;
 }
 
+/** Screen line height in px for `profile` (`16` on v1/v2, `20` on v3 book serif). */
+export function linePxOf(profile: PageProfile): number {
+  return toScreenGrid((linePtOf(profile) * 4) / 3);
+}
+
+/** Screen half-line unit in px for `profile` (`8` on v1/v2, `10` on v3 book serif). */
+export function unitPxOf(profile: PageProfile): number {
+  return toScreenGrid((unitPtOf(profile) * 4) / 3);
+}
+
 /**
  * The page's lengths on screen at 100 %, in px; heights are rounded to the nearest 1/4 px, the finest length
  * Chromium and WebKit (1/64 px) and Firefox (1/60 px) all lay out exactly, so page breaks add no rounding.
@@ -38,11 +50,12 @@ export function screenPagePx(profile: PageProfile): {
   const page = pageSizePx(profile);
   const height = toScreenGrid(page.height);
   const top = toScreenGrid((profile.geometry.marginTopPt * 4) / 3);
+  const linePx = linePxOf(profile);
   return {
     width: page.width,
     height,
     top,
-    bottom: height - top - profile.linesPerPage * LINE_PX,
+    bottom: height - top - profile.linesPerPage * linePx,
   };
 }
 
@@ -76,6 +89,16 @@ function elementRule(
 export function profileCss(profile: PageProfile): string {
   const g = profile.geometry;
   const screen = screenPagePx(profile);
+  const linePx = linePxOf(profile);
+  const unitPx = unitPxOf(profile);
+  const cellPt = cellPtOf(profile);
+  const fontSizePt = profile.typography?.fontSizePt ?? 12;
+  const mirrorDeltaPt =
+    g.mirrored === true &&
+    g.marginInnerPt !== undefined &&
+    g.marginOuterPt !== undefined
+      ? g.marginInnerPt - g.marginOuterPt
+      : 0;
   const page = [
     `--geo-page-w: ${g.widthPt}pt`,
     `--geo-page-h: ${screen.height}px`,
@@ -83,6 +106,11 @@ export function profileCss(profile: PageProfile): string {
     `--geo-right: ${g.marginRightPt}pt`,
     `--geo-top: ${screen.top}px`,
     `--geo-bottom: ${screen.bottom}px`,
+    `--geo-line: ${linePx}px`,
+    `--geo-unit: ${unitPx}px`,
+    `--geo-cell: ${cellPt}pt`,
+    `--geo-font-size: ${fontSizePt}pt`,
+    `--geo-mirror-delta: ${mirrorDeltaPt}pt`,
     `--geo-lines: ${profile.linesPerPage}`,
     `--geo-column: ${profile.columnCells}`,
     `--geo-cue-indent: ${profile.elements.character.indent}`,

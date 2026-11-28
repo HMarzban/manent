@@ -1,5 +1,7 @@
 import {
   ALIGNMENTS,
+  CHAPTER_TARGET_WORDS_MAX,
+  CHAPTER_TARGET_WORDS_MIN,
   DUALS,
   FIRST_LINES,
   GRAPHIC_ATTR_KEYS,
@@ -78,6 +80,12 @@ export function isGraphicAttrs(value: unknown): value is GraphicAttrs {
   );
 }
 
+const isTargetWords = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isSafeInteger(value) &&
+  value >= CHAPTER_TARGET_WORDS_MIN &&
+  value <= CHAPTER_TARGET_WORDS_MAX;
+
 /** The valid values of each block attribute except `id` and `type`, which have their own codes. */
 export const BLOCK_ATTR_CHECKS: Readonly<
   Record<Exclude<keyof BlockAttrs, "id" | "type">, Check>
@@ -104,4 +112,5 @@ export const BLOCK_ATTR_CHECKS: Readonly<
   linkTo: orNull(isLinkTo),
   graphic: orNull(isGraphicAttrs),
   firstLine: orNull(oneOf(FIRST_LINES)),
+  targetWords: orNull(isTargetWords),
 };

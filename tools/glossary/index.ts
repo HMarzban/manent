@@ -61,7 +61,7 @@ export const NAMES: readonly string[] = Object.freeze([
   ...listOf(`
     Scene Heading, Action, Character, Parenthetical, Dialogue, Transition,
     Shot, General, New Act, End of Act, Teaser, Tag scene, Slug, Bracket,
-    Cue, Emote, Camera, Engine Direction, Body, Quote, Break, Ink line,
+    Cue, Emote, Camera, Engine Direction, Body, Quote, Break, Subheading, Epigraph, Ink line,
     White, Blue, Pink, Yellow, Green, Goldenrod, Buff, Salmon, Cherry, Tan,
     Red, Orange, Violet
   `),
@@ -71,6 +71,7 @@ export const NAMES: readonly string[] = Object.freeze([
   "A4",
   "A12",
   "Courier Prime",
+  "Source Serif 4",
   "Final Draft",
   "Word",
   "Safari",
@@ -82,8 +83,8 @@ export const NAMES: readonly string[] = Object.freeze([
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
   access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
-  collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere,
-  exported, exporting, fdx, font, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
+  collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere, epub,
+  exported, exporting, fdx, font, footnote, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
   margin, mores, multi-camera, paper, pdf, picker, probe, reconnect, redo, rename, same-speaker, screenplay, setup,
   size, spelling, stable, strikethrough, syncing, tabs, underline, undo, variety
 `);

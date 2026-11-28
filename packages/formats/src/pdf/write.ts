@@ -1,18 +1,34 @@
 // A PDF drawn line by line from the positioned lines of the engine a script was paginated with, in
-// the script font's own faces, every glyph on the grid of 10 cells to the inch.
-import { CELL_PT, STYLE, UNIT_PT, engineFor } from "@manent/pagination";
+// the script font's own faces (or Source Serif 4 for Layout Engine 3 book manuscripts).
+import {
+  CELL_PT,
+  STYLE,
+  cellPtOf,
+  engineFor,
+  linePtOf,
+  pageMarginLeftPt,
+  unitPtOf,
+} from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
-  PageGeometry,
+  PageProfile,
   Pagination,
 } from "@manent/pagination";
-import { drawGlyphRun, fontScale, startPdf } from "./draw.ts";
+import {
+  bookFontScale,
+  drawGlyphRun,
+  drawProportionalRun,
+  fontScale,
+  startPdf,
+} from "./draw.ts";
+import { drawEndnotesPages } from "./endnotes.ts";
+import type { PdfEndnote } from "./endnotes.ts";
 import type { ScriptFontFiles } from "./fonts.ts";
 import { drawPageGraphics } from "./graphics.ts";
 import type { PdfAsset } from "./graphics.ts";
 
-export type { PdfAsset };
+export type { PdfAsset, PdfEndnote };
 import {
   durationOfParts,
   sectionsOfPagination,
@@ -47,6 +63,10 @@ export interface PdfOptions {
   readonly durationMs?: number | null;
   /** Decoded PNG/JPEG blobs keyed by SHA-256 assetId; missing entries render as vector placeholders. */
   readonly assets?: ReadonlyMap<string, PdfAsset>;
+  /** Manuscript endnotes appended after the final body page without shifting body page breaks. */
+  readonly footnotes?: readonly PdfEndnote[];
+  /** Optional Source Serif 4 faces used when a part uses Layout Engine 3 book serif typography. */
+  readonly bookFonts?: ScriptFontFiles;
 }
 
 const SCRIPT_SCALE = fontScale(12, CELL_PT);
@@ -57,19 +77,20 @@ const STRIKE_ABOVE_PT = 3.5;
 interface Pen {
   readonly doc: PDFKit.PDFDocument;
   readonly engine: Engine;
+  readonly hasBookFonts: boolean;
 }
 
-function rule(
+function rulePt(
   doc: PDFKit.PDFDocument,
   x: number,
   y: number,
-  cells: number,
+  widthPt: number,
 ): void {
   doc
     .save()
     .lineWidth(RULE_LINE_PT)
     .moveTo(x, y)
-    .lineTo(x + cells * CELL_PT, y)
+    .lineTo(x + widthPt, y)
     .stroke()
     .restore();
 }
@@ -85,29 +106,56 @@ function drawRun(
   drawGlyphRun(doc, text, style, x, y, SCRIPT_SCALE, engine);
   const cells = engine.clusterCells(text, 0, text.length, false);
   if ((style & STYLE.UNDERLINE) !== 0)
-    rule(doc, x, y + UNDERLINE_BELOW_PT, cells);
-  if ((style & STYLE.STRIKE) !== 0) rule(doc, x, y - STRIKE_ABOVE_PT, cells);
+    rulePt(doc, x, y + UNDERLINE_BELOW_PT, cells * CELL_PT);
+  if ((style & STYLE.STRIKE) !== 0)
+    rulePt(doc, x, y - STRIKE_ABOVE_PT, cells * CELL_PT);
   return cells;
 }
-
-// The baseline of the row `y` units below the top of the text area, in points.
-const rowY = (geometry: PageGeometry, y: number): number =>
-  geometry.marginTopPt + y * UNIT_PT + SCRIPT_SCALE.baselinePt;
 
 function drawLines(
   pen: Pen,
   lines: readonly FurnitureLine[],
-  geometry: PageGeometry,
+  profile: PageProfile,
+  pageIndex: number,
 ): void {
+  const { geometry, typography } = profile;
+  const marginLeftPt = pageMarginLeftPt(geometry, pageIndex);
+  const unitPt = unitPtOf(profile);
+  const cellPt = cellPtOf(profile);
+  const useBookSerif = pen.hasBookFonts && typography?.kind === "book_serif";
+  if (useBookSerif && typography !== undefined) {
+    const scale = bookFontScale(typography.fontSizePt, linePtOf(profile));
+    for (const line of lines) {
+      let x = marginLeftPt + (line.xPt ?? line.x * cellPt);
+      const y = geometry.marginTopPt + line.y * unitPt + scale.baselinePt;
+      for (const run of line.runs) {
+        const w = drawProportionalRun(
+          pen.doc,
+          run.text,
+          run.style,
+          x,
+          y,
+          scale,
+        );
+        if ((run.style & STYLE.UNDERLINE) !== 0)
+          rulePt(pen.doc, x, y + UNDERLINE_BELOW_PT, w);
+        if ((run.style & STYLE.STRIKE) !== 0)
+          rulePt(pen.doc, x, y - STRIKE_ABOVE_PT, w);
+        x += w;
+      }
+    }
+    return;
+  }
   for (const line of lines) {
     let cell = line.x;
+    const y = geometry.marginTopPt + line.y * unitPt + SCRIPT_SCALE.baselinePt;
     for (const run of line.runs)
       cell += drawRun(
         pen,
         run.text,
         run.style,
-        geometry.marginLeftPt + cell * CELL_PT,
-        rowY(geometry, line.y),
+        marginLeftPt + cell * CELL_PT,
+        y,
       );
   }
 }
@@ -162,33 +210,45 @@ function drawPage(
         .fill()
         .restore();
     }
+  const marginLeftPt = pageMarginLeftPt(geometry, at.documentIndex);
+  const unitPt = unitPtOf(profile);
+  const cellPt = cellPtOf(profile);
   if (laid.graphics.length > 0)
-    drawPageGraphics(doc, laid.graphics, geometry, options.assets, engine);
+    drawPageGraphics(
+      doc,
+      laid.graphics,
+      geometry,
+      options.assets,
+      engine,
+      profile,
+      at.documentIndex,
+    );
   drawLines(
     pen,
     laid.lines.filter((line) => !replaced.has(line.kind)),
-    geometry,
+    profile,
+    at.documentIndex,
   );
   for (const [index, { lines, rules }] of drawings.entries()) {
     if (PDF_FURNITURE[index]!.replaces.length === 0) continue;
-    drawLines(pen, lines, geometry);
+    drawLines(pen, lines, profile, at.documentIndex);
     for (const lineRule of rules ?? [])
-      rule(
+      rulePt(
         doc,
-        geometry.marginLeftPt + lineRule.x * CELL_PT,
-        geometry.marginTopPt + lineRule.y * UNIT_PT,
-        lineRule.cells,
+        marginLeftPt + lineRule.x * cellPt,
+        geometry.marginTopPt + lineRule.y * unitPt,
+        lineRule.cells * cellPt,
       );
   }
   for (const [index, { lines, rules }] of drawings.entries()) {
     if (PDF_FURNITURE[index]!.replaces.length > 0) continue;
-    drawLines(pen, lines, geometry);
+    drawLines(pen, lines, profile, at.documentIndex);
     for (const lineRule of rules ?? [])
-      rule(
+      rulePt(
         doc,
-        geometry.marginLeftPt + lineRule.x * CELL_PT,
-        geometry.marginTopPt + lineRule.y * UNIT_PT,
-        lineRule.cells,
+        marginLeftPt + lineRule.x * cellPt,
+        geometry.marginTopPt + lineRule.y * unitPt,
+        lineRule.cells * cellPt,
       );
   }
 }
@@ -217,19 +277,21 @@ export async function writePdfParts(
     throw new RangeError("a PDF is written from at least one part, not none");
   const engines = parts.map(engineOf);
   const { geometry } = first.profile;
+  const hasBookFonts = options.bookFonts !== undefined;
   const { pdf: doc, finish } = startPdf({
     widthPt: geometry.widthPt,
     heightPt: geometry.heightPt,
     title: options.title ?? "",
     createdAt: options.createdAt,
     fonts: options.fonts,
+    bookFonts: options.bookFonts,
   });
   const computedDuration =
     options.durationMs !== undefined
       ? options.durationMs
       : durationOfParts(parts);
   const pages: PartPage[] = parts.flatMap((p, k) => {
-    const pen = { doc, engine: engines[k]! };
+    const pen: Pen = { doc, engine: engines[k]!, hasBookFonts };
     const sections = sectionsOfPagination(p);
     return p.pages.map((_, pageIndex) => ({
       pen,
@@ -240,7 +302,12 @@ export async function writePdfParts(
   });
   for (const page of options.front ?? []) {
     doc.addPage();
-    drawLines({ doc, engine: engines[0]! }, page.lines, geometry);
+    drawLines(
+      { doc, engine: engines[0]!, hasBookFonts },
+      page.lines,
+      first.profile,
+      0,
+    );
   }
   for (const documentIndex of options.pages ?? pages.map((_, k) => k)) {
     const page = pages[documentIndex];
@@ -257,6 +324,17 @@ export async function writePdfParts(
       },
       options,
     );
+  }
+  if (options.footnotes !== undefined && options.footnotes.length > 0) {
+    drawEndnotesPages({
+      doc,
+      engine: engines[0]!,
+      profile: first.profile,
+      footnotes: options.footnotes,
+      useBookSerif:
+        hasBookFonts && first.profile.typography?.kind === "book_serif",
+      startPageIndex: pages.length,
+    });
   }
   return await finish();
 }

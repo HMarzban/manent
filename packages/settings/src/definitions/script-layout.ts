@@ -24,6 +24,23 @@ export const SCRIPT_LAYOUT_SETTINGS = Object.freeze([
     keywords: ["spacing", "single", "double"],
   }),
   setting({
+    key: "script.mirrorMargins",
+    scope: "script",
+    type: t.boolean(),
+    default: true,
+    label: "Mirrored margins",
+    description: null,
+    noun: "mirrored margins",
+    surfaces: [
+      { in: "scriptSettings", group: "page_setup", order: 28 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: ["recto", "verso", "gutter", "margins", "book"],
+  }),
+  setting({
     key: "script.linesPerPage",
     scope: "script",
     type: t.numberOrNull({ min: 10, max: 70, step: 1 }),

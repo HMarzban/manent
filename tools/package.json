@@ -28,6 +28,7 @@
     "fontkit": "catalog:",
     "@types/fontkit": "catalog:",
     "@fontsource/courier-prime": "catalog:",
+    "@fontsource/source-serif-4": "catalog:",
     "tailwindcss": "catalog:",
     "bun-plugin-tailwind": "catalog:"
   }

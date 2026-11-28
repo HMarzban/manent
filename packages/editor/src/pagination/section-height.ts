@@ -1,8 +1,7 @@
 // The height on screen of each section and of all the pages, from the engine alone, and the height a section left
 // behind is drawn at.
-import { UNIT_PX } from "@manent/pagination";
 import { PAGE_GAP_PX } from "../page/config.ts";
-import { screenPagePx } from "../page/profile-css.ts";
+import { screenPagePx, unitPxOf } from "../page/profile-css.ts";
 import type { PaginationState } from "./plugin.ts";
 
 /**
@@ -16,14 +15,15 @@ export function sectionHeightPx(
   const { pagination: p, index, settings } = state;
   const { engine } = settings;
   const { top, bottom } = screenPagePx(p.profile);
+  const unitPx = unitPxOf(p.profile);
   const from = index.sectionStart[section]!;
   const to = index.sectionStart[section + 1]!;
   let height =
-    engine.flowUnits(p, from, to) * UNIT_PX +
+    engine.flowUnits(p, from, to) * unitPx +
     engine.breaksIn(p, from, to) * (bottom + PAGE_GAP_PX + top);
   if (section === 0) height += top;
   if (section === index.sectionPos.length - 1)
-    height += engine.fillUnits(p, p.pages.length - 1) * UNIT_PX + bottom;
+    height += engine.fillUnits(p, p.pages.length - 1) * unitPx + bottom;
   return height;
 }
 

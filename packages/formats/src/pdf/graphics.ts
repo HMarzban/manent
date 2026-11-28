@@ -4,9 +4,16 @@ import {
   STYLE,
   UNIT_PT,
   UNITS_PER_LINE,
+  cellPtOf,
   graphicCueTag,
+  pageMarginLeftPt,
+  unitPtOf,
 } from "@manent/pagination";
-import type { PageGeometry, PositionedGraphic } from "@manent/pagination";
+import type {
+  PageGeometry,
+  PageProfile,
+  PositionedGraphic,
+} from "@manent/pagination";
 import type { GraphicKind } from "@manent/schema";
 import { drawGlyphRun, fontScale } from "./draw.ts";
 import type { GlyphMetrics } from "./draw.ts";
@@ -214,13 +221,21 @@ export function drawPageGraphics(
   geometry: PageGeometry,
   assets: ReadonlyMap<string, PdfAsset> | undefined,
   metrics: GlyphMetrics,
+  profile?: PageProfile,
+  pageIndex = 0,
 ): void {
+  const marginLeftPt =
+    profile !== undefined
+      ? pageMarginLeftPt(geometry, pageIndex)
+      : geometry.marginLeftPt;
+  const cellPt = profile !== undefined ? cellPtOf(profile) : CELL_PT;
+  const unitPt = profile !== undefined ? unitPtOf(profile) : UNIT_PT;
   for (const g of graphics) {
     const rect: GraphicRectPt = {
-      xPt: geometry.marginLeftPt + g.x * CELL_PT,
-      yPt: geometry.marginTopPt + g.y * UNIT_PT,
-      widthPt: g.widthCells * CELL_PT,
-      heightPt: g.heightLines * UNITS_PER_LINE * UNIT_PT,
+      xPt: marginLeftPt + g.x * cellPt,
+      yPt: geometry.marginTopPt + g.y * unitPt,
+      widthPt: g.widthCells * cellPt,
+      heightPt: g.heightLines * UNITS_PER_LINE * unitPt,
     };
     const asset = g.assetId !== null ? assets?.get(g.assetId) : undefined;
     drawGraphicBox(

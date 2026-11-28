@@ -1,10 +1,9 @@
 // Syncs `.mn-sheet` underlay positions and heights to rendered `.pb` breaks while inline diff marks (`display: "page"`) are shown.
-import { UNIT_PX } from "@manent/pagination";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { changesKey } from "../changes/plugin.ts";
-import { screenPagePx } from "../page/profile-css.ts";
+import { screenPagePx, unitPxOf } from "../page/profile-css.ts";
 import type { PageBox, PageScaffold } from "../page/scaffold.ts";
 import { driftKey } from "./drift.ts";
 import { paginationKey } from "./plugin.ts";
@@ -87,6 +86,7 @@ export function sheetBoxSyncPlugin(scaffold: PageScaffold): Plugin {
         if (breaks.length !== pageCount + 1) return;
 
         const pageHeight = screenPagePx(paged.pagination.profile).height;
+        const unitPx = unitPxOf(paged.pagination.profile);
         const boxes: PageBox[] = [];
         const writes: TrimWrite[] = [];
         let cumulativeDeltaTrim = 0;
@@ -107,7 +107,7 @@ export function sheetBoxSyncPlugin(scaffold: PageScaffold): Plugin {
             0;
           const fillUnits =
             Number.parseFloat(endBreak.style.getPropertyValue("--fill")) || 0;
-          const availFill = Math.max(0, fillUnits) * UNIT_PX;
+          const availFill = Math.max(0, fillUnits) * unitPx;
           const untrimmedHeight = rawBottom - rawTop + prevTrim;
           const extra = Math.max(0, untrimmedHeight - pageHeight);
           const trim = snap(Math.min(extra, availFill));

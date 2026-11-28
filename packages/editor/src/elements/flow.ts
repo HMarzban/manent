@@ -76,6 +76,8 @@ const ROWS: Readonly<Record<TableElement, Cells>> = Object.freeze({
   end_of_act: ["new_act", "new_act", "new_act", "picker"],
   group: TO_SCENE,
   chapter: TO_BODY,
+  subheading: TO_BODY,
+  epigraph: ["body", "body", "body", "body"],
   break: TO_BODY,
   body: BODY,
   quote: ["body", "body", "body", "body"],

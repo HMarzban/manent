@@ -2,10 +2,13 @@
 import {
   FONT_FACE_KEYS,
   FONT_METRICS,
+  SERIF_METRICS,
   STYLE,
   clusterCells,
   fontSubset,
   graphemeEnd,
+  measureSerifPt,
+  serifFontSubset,
 } from "@manent/pagination";
 import type { FontFaceKey } from "@manent/pagination";
 import PDFDocument from "pdfkit";
@@ -159,13 +162,75 @@ export function drawGlyphRun(
   }
 }
 
-/** Opens a deterministic pdfkit instance with the script font faces registered and collects its bytes. */
+/** Proportional metrics of Source Serif 4 at `sizePt` (`characterSpacingPt = 0`). */
+export function bookFontScale(sizePt: number, linePt: number): FontScale {
+  const ptPerUnit = sizePt / SERIF_METRICS.unitsPerEm;
+  const baselinePt =
+    (linePt - (SERIF_METRICS.ascent - SERIF_METRICS.descent) * ptPerUnit) / 2 +
+    SERIF_METRICS.ascent * ptPerUnit;
+  return {
+    sizePt,
+    cellPt: 6,
+    characterSpacingPt: 0,
+    baselinePt,
+    boxHeightPt: sizePt * 0.75,
+  };
+}
+
+/** Draws proportional Source Serif 4 `text` at `(xPt, baselineYPt)` and returns its advance in points. */
+export function drawProportionalRun(
+  pdf: PDFKit.PDFDocument,
+  text: string,
+  style: number,
+  xPt: number,
+  baselineYPt: number,
+  scale: FontScale,
+): number {
+  if (text === "") return 0;
+  const options = textOptions(0);
+  let cursorX = xPt;
+  for (let at = 0; at < text.length;) {
+    const end = graphemeEnd(text, at);
+    const cluster = text.slice(at, end);
+    const first = cluster.codePointAt(0);
+    let subset: "latin" | "latin-ext" | null =
+      first === undefined ? null : serifFontSubset(first);
+    if (subset !== null) {
+      for (const ch of cluster) {
+        if (serifFontSubset(ch.codePointAt(0)!) !== subset) {
+          subset = null;
+          break;
+        }
+      }
+    }
+    const wPt = measureSerifPt(cluster, style, scale.sizePt);
+    if (subset === null) {
+      pdf
+        .save()
+        .lineWidth(BOX_LINE_PT)
+        .rect(cursorX, baselineYPt - scale.boxHeightPt, wPt, scale.boxHeightPt)
+        .stroke()
+        .restore();
+    } else {
+      pdf
+        .font(`book-${faceOf(subset, style)}`)
+        .fontSize(scale.sizePt)
+        .text(cluster, cursorX, baselineYPt, options);
+    }
+    cursorX += wPt;
+    at = end;
+  }
+  return cursorX - xPt;
+}
+
+/** Opens a deterministic pdfkit instance with the script font faces (and optional book serif faces) registered. */
 export function startPdf(options: {
   readonly widthPt: number;
   readonly heightPt: number;
   readonly title: string;
   readonly createdAt?: number;
   readonly fonts: ScriptFontFiles;
+  readonly bookFonts?: ScriptFontFiles;
 }): {
   readonly pdf: PDFKit.PDFDocument;
   readonly finish: () => Promise<Uint8Array>;
@@ -192,6 +257,10 @@ export function startPdf(options: {
     pdf.on("error", reject);
   });
   for (const key of FONT_FACE_KEYS) pdf.registerFont(key, options.fonts[key]);
+  if (options.bookFonts !== undefined) {
+    for (const key of FONT_FACE_KEYS)
+      pdf.registerFont(`book-${key}`, options.bookFonts[key]);
+  }
   return {
     pdf,
     finish: () => {

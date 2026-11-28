@@ -3,6 +3,7 @@ import { paginate, profileFor } from "@manent/pagination";
 import { attrsForNewBlock, minSchemaVersionOf, schema } from "@manent/schema";
 import { EditorState, TextSelection } from "prosemirror-state";
 import { insertChapter, insertSceneBreak } from "../src/actions/book-blocks.ts";
+import { setChapterTarget, setFootnote } from "../src/actions/footnotes.ts";
 import { setFirstLine } from "../src/actions/layout.ts";
 import {
   clearFormatting,
@@ -264,4 +265,94 @@ test("sectionsOf resolves chapter headings and paginationWordCount counts printe
   );
   expect(sectionsOf(p)).toEqual(["1. High Water", "2. The Bar"]);
   expect(paginationWordCount(p.blocks)).toBe(12);
+});
+
+test("Phase 2 Book craft: subheading, epigraph, chapter word target and inline footnotes bump schema to 5 and survive clearFormatting", () => {
+  let state = makeState([
+    { type: "chapter", text: "1. High Water" },
+    { type: "epigraph", text: "The tide waits for no clerk." },
+    { type: "subheading", text: "Morning at the quay" },
+    { type: "body", text: "Every harbour keeps two clocks." },
+  ]);
+  expect(minSchemaVersionOf(state.doc.toJSON())).toBe(5);
+
+  const chapterId = String(state.doc.child(0).child(0).attrs.id);
+  const setTarget = setChapterTarget(state, chapterId, 2000, (tr) => {
+    state = state.apply(tr);
+  });
+  expect(setTarget).toEqual({ ok: true });
+  expect(state.doc.child(0).child(0).attrs.targetWords).toBe(2000);
+
+  // Place caret at end of "harbour" in body block (index 3) and attach a footnote on collapsed caret
+  const bodyPos =
+    state.doc.child(0).child(0).nodeSize +
+    state.doc.child(0).child(1).nodeSize +
+    state.doc.child(0).child(2).nodeSize +
+    1;
+  state = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, bodyPos + 1 + 13)),
+  );
+  const added = setFootnote(state, "Harbour log, 1911.", ids, (tr) => {
+    state = state.apply(tr);
+  });
+  expect(added).toEqual({ ok: true });
+
+  const midFacts = factsOf(state, {
+    history: noHistory,
+    words,
+    format: "manuscript",
+    outline: { entries: [], headingBlocks: new Int32Array(0) },
+  });
+  expect((midFacts.marksMask & MARK_BIT.footnote) !== 0).toBe(true);
+  expect(midFacts.markFootnoteText).toBe("Harbour log, 1911.");
+
+  // Clear formatting on the whole body block must preserve the footnote mark
+  const bodyEnd = bodyPos + 1 + state.doc.child(0).child(3).textContent.length;
+  const boldTr = state.tr.addMark(
+    bodyPos + 1,
+    bodyEnd,
+    schema.marks.bold.create(),
+  );
+  state = state.apply(
+    boldTr.setSelection(TextSelection.create(boldTr.doc, bodyPos + 1, bodyEnd)),
+  );
+  clearFormatting(state, (tr) => {
+    state = state.apply(tr);
+  });
+  const bodyMarks: string[] = [];
+  state.doc
+    .child(0)
+    .child(3)
+    .forEach((child) => {
+      for (const m of child.marks) bodyMarks.push(m.type.name);
+    });
+  expect(bodyMarks).toEqual(["footnote"]);
+
+  // Edit then remove footnote
+  state = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, bodyPos + 1 + 9)),
+  );
+  setFootnote(state, "Updated log, 1912.", ids, (tr) => {
+    state = state.apply(tr);
+  });
+  expect(
+    factsOf(state, {
+      history: noHistory,
+      words,
+      format: "manuscript",
+      outline: { entries: [], headingBlocks: new Int32Array(0) },
+    }).markFootnoteText,
+  ).toBe("Updated log, 1912.");
+
+  setFootnote(state, null, ids, (tr) => {
+    state = state.apply(tr);
+  });
+  expect(
+    factsOf(state, {
+      history: noHistory,
+      words,
+      format: "manuscript",
+      outline: { entries: [], headingBlocks: new Int32Array(0) },
+    }).markFootnoteId,
+  ).toBeNull();
 });

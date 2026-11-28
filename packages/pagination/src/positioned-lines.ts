@@ -23,6 +23,8 @@ export interface PositionedLine {
   readonly kind: LineKind;
   /** Cells from the text edge; may be negative or fractional. */
   readonly x: number;
+  /** Optional explicit horizontal offset in points (used by Engine 3 proportional book typography). */
+  readonly xPt?: number;
   /** Units from the top of the text area; negative in the top margin. */
   readonly y: number;
   /** The drawn width in cells, trailing spaces left out. */

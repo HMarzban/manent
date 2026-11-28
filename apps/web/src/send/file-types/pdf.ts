@@ -35,15 +35,49 @@ async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
   const front = liveFrontPages(docId) ?? [];
   const furniture = liveFurniture(docId);
   const created = now();
-  const [fonts, assets, { writePdf }] = await Promise.all([
+  const needsBookFonts = pages.profile.typography?.kind === "book_serif";
+  const [
+    fonts,
+    bookFonts,
+    assets,
+    { extractFootnotes, writePdf },
+    { scriptForExport },
+  ] = await Promise.all([
     loadPdfFonts(fetchBytes),
+    needsBookFonts
+      ? import("../pdf-book-fonts.ts").then((m) =>
+          m.loadBookPdfFonts(fetchBytes),
+        )
+      : Promise.resolve(undefined),
     loadPdfAssetsForDoc(docId, pages),
     import("@manent/formats"),
+    import("../../editor-host/export-source.ts"),
   ]);
+  let footnotes:
+    | readonly { ordinal: number; text: string; pageLabel: string | null }[]
+    | undefined;
+  if (pages.profile.format === "manuscript") {
+    const script = await scriptForExport(docId, title);
+    if (script !== null) {
+      const extracted = extractFootnotes(script.blocks);
+      if (extracted.notes.length > 0) {
+        const { engineFor } = await import("@manent/pagination");
+        const eng = engineFor(pages.engineVersion);
+        footnotes = extracted.notes.map((note) => {
+          const pageIdx =
+            eng === null ? null : eng.pageOf(pages, note.blockIndex, 0);
+          const label =
+            pageIdx === null ? null : (pages.pages[pageIdx]?.label ?? null);
+          return { ordinal: note.ordinal, text: note.text, pageLabel: label };
+        });
+      }
+    }
+  }
   // a copy over an ArrayBuffer of its own, which a Blob takes
   const bytes = new Uint8Array(
     await writePdf(pages, {
       fonts,
+      bookFonts,
       front,
       title,
       createdAt: created,
@@ -54,6 +88,7 @@ async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
       day: furniture.day ?? isoDay(created),
       durationMs: furniture.durationMs,
       assets,
+      footnotes,
     }),
   );
   return { bytes, name: fileName(title, ".pdf") };

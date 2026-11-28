@@ -14,6 +14,10 @@ export interface OutlineRow {
   heading: string;
   synopsis: string;
   eighths: number | null;
+  /** Word count of the scene/chapter body; null for acts, sections and Ink knots/stitches. */
+  words?: number | null;
+  /** Optional chapter word-count target; null when unset. */
+  targetWords?: number | null;
   /** An omitted scene reads "{number}  OMITTED". */
   omitted: boolean;
   current: boolean;

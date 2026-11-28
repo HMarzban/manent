@@ -1,5 +1,9 @@
 // Inline PaletteAsk flows for numeric script and project settings, with validation, messages and Undo.
-import { defaultLinesPerPage, maxLinesPerPage } from "@manent/pagination";
+import {
+  defaultLinesPerPage,
+  maxLinesPerPage,
+  parsePaper,
+} from "@manent/pagination";
 import { SETTINGS } from "@manent/settings";
 import {
   LAYOUT_SETTINGS_WORDS,
@@ -74,9 +78,10 @@ export function askLinesPerPage(deps: HandlerDeps): void {
   }
   const current = store.get("script.linesPerPage");
   const format = store.get("script.format");
-  const paper = store.get("script.paper") === "a4" ? "a4" : "letter";
-  const defaultLines = defaultLinesPerPage(format, paper);
-  const maxLines = maxLinesPerPage(format, paper);
+  const engineVersion = store.get("script.engineVersion");
+  const paper = parsePaper(store.get("script.paper"), engineVersion);
+  const defaultLines = defaultLinesPerPage(format, paper, engineVersion);
+  const maxLines = maxLinesPerPage(format, paper, engineVersion);
   const prefill = consumePendingInitial("doc.linesPerPage");
 
   paletteActions.ask({

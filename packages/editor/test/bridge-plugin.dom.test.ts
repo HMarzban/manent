@@ -250,6 +250,8 @@ test("a composition at the end of a scene never moves the outline's current scen
         kind: "scene",
         synopsis: "",
         eighths: 1,
+        words: 1,
+        targetWords: null,
       },
       {
         blockId: bid(2),
@@ -260,6 +262,8 @@ test("a composition at the end of a scene never moves the outline's current scen
         kind: "scene",
         synopsis: "",
         eighths: 1,
+        words: 0,
+        targetWords: null,
       },
     ],
   ]);
@@ -274,6 +278,8 @@ const row = (heading: string): OutlineEntry[] => [
     heading,
     synopsis: "",
     eighths: 1,
+    words: 1,
+    targetWords: null,
     omitted: false,
     current: true,
   },
@@ -342,6 +348,8 @@ test("an omitted scene is listed as omitted", () => {
         kind: "scene",
         synopsis: "",
         eighths: 1,
+        words: 1,
+        targetWords: null,
       },
       {
         blockId: bid(2),
@@ -352,6 +360,8 @@ test("an omitted scene is listed as omitted", () => {
         kind: "scene",
         synopsis: "",
         eighths: 1,
+        words: 0,
+        targetWords: null,
       },
     ],
   ]);

@@ -27,6 +27,14 @@ import {
   toLayoutBlocks,
 } from "./v1/index.ts";
 import { profileFor as profileForV2 } from "./v2/index.ts";
+import {
+  layoutPageV3,
+  paginateV3,
+  profileFor as profileForV3,
+  repaginateV3,
+  serifFontSubset,
+  serifOffFontRanges,
+} from "./v3/index.ts";
 
 /** Every function whose result can differ between engine versions. */
 export interface Engine {
@@ -92,15 +100,35 @@ const V2: Engine = Object.freeze({
   profileFor: profileForV2,
 });
 
+/** Engine 3: opt-in Book Publishing typography (Source Serif 4), paperback trims and mirrored recto/verso margins. */
+const V3: Engine = Object.freeze({
+  ...V2,
+  version: 3,
+  profileFor: profileForV3,
+  paginate: paginateV3,
+  repaginate: repaginateV3,
+  layoutPage: layoutPageV3,
+  offFontRanges: serifOffFontRanges,
+  fontSubset: serifFontSubset,
+});
+
 const ENGINES: Readonly<Record<number, Engine>> = Object.freeze({
   1: V1,
   2: V2,
+  3: V3,
 });
 
 /** The engine versions this build carries, oldest first. */
 export const ENGINE_VERSIONS: readonly number[] = Object.freeze(
   Object.keys(ENGINES).map(Number),
 );
+
+/** The latest layout engine version offered for `format` (`3` for Books, `1` for Ink, `2` for other paged formats). */
+export function latestEngineForFormat(format: string): number {
+  if (format === "manuscript") return 3;
+  if (format === "ink") return 1;
+  return 2;
+}
 
 /** The engine a script or an issued revision is pinned to; null when this build does not carry it. */
 export function engineFor(version: number): Engine | null {

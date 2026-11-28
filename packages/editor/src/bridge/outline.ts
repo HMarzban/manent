@@ -6,6 +6,7 @@ import { classifyLine } from "@manent/schema";
 import type { SourceRange } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import type { OutlineEntry } from "../script-editor/ports.ts";
+import { wordsInBlock } from "./word-count.ts";
 
 /** `headingBlocks[k]` is the block index of `entries[k]`, ascending. */
 export interface OutlineIndex {
@@ -50,11 +51,13 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
   let scenes = 0;
   let scene: number | null = null;
   let lines = 0;
+  let words = 0;
   const close = (): void => {
     if (scene === null) return;
     entries[scene] = {
       ...entries[scene]!,
       eighths: eighthsOf(lines, linesPerPage),
+      words,
     };
     scene = null;
   };
@@ -66,8 +69,10 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
     if (kind === "scene" && !untitled) {
       scene = entries.length;
       lines = 0;
+      words = 0;
     }
     lines += linesOf(p, i);
+    if (scene !== null && kind !== "scene") words += wordsInBlock(block);
     if (kind === null) continue;
     let number: string | null = null;
     if (kind === "scene" && block.type !== "chapter") {
@@ -82,6 +87,8 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
       heading: block.text,
       synopsis: "",
       eighths: null,
+      words: null,
+      targetWords: null,
       omitted: false,
       current: false,
     });
@@ -183,6 +190,8 @@ export function inkOutlineOf(doc: Node, caretBlock: number): OutlineIndex {
               heading: name,
               synopsis: "",
               eighths: null,
+              words: null,
+              targetWords: null,
               omitted: false,
               current: false,
             });
@@ -198,6 +207,8 @@ export function inkOutlineOf(doc: Node, caretBlock: number): OutlineIndex {
               heading: `${currentKnot} › ${name}`,
               synopsis: "",
               eighths: null,
+              words: null,
+              targetWords: null,
               omitted: false,
               current: false,
             });

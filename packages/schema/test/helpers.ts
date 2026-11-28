@@ -48,6 +48,7 @@ export const MARK_ATTRS: Record<string, Record<string, unknown>> = {
   link: { href: "https://example.com" },
   suggest_insert: { id: "s1", authorUserId: "dana", at: 5 },
   suggest_delete: { id: "s1", authorUserId: "dana", at: 5 },
+  footnote: { id: "fn1", text: "Source note" },
 };
 
 /** One run per mark name, each with full attributes. */

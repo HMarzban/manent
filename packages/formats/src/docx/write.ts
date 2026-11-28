@@ -1,35 +1,36 @@
-// Pure OOXML Word (.docx) writer for manuscripts and scripts via fflate, preserving chapters, quotes, inline marks and links.
+// Pure OOXML Word (.docx) writer for manuscripts and scripts via fflate, preserving chapters, subheadings, epigraphs,
+// quotes, inline marks, links, footnotes, trim sizes and mirrored margins.
 import type { BlockJSON, MarkJSON, TextJSON } from "@manent/schema";
 import { strToU8, zipSync } from "fflate";
+import { extractFootnotes } from "../script/footnotes.ts";
+import type { ExtractedFootnote } from "../script/footnotes.ts";
 import type { ScriptForExport } from "../script/model.ts";
+import { HIGHLIGHT_FILL_HEX, TEXT_COLOUR_HEX } from "./colours.ts";
+import {
+  R_NS,
+  W_NS,
+  contentTypesXml,
+  documentRelsXml,
+  escapeXml,
+  footnotesXml,
+  rootRelsXml,
+  settingsXml,
+  stylesXml,
+} from "./parts.ts";
+import type { LinkEntry } from "./parts.ts";
 
-const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-const R_NS =
-  "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-const PKG_REL_NS =
-  "http://schemas.openxmlformats.org/package/2006/relationships";
-const DOC_REL_TYPE =
-  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
-const STYLES_REL_TYPE =
-  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles";
-const HYPERLINK_REL_TYPE =
-  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+export type DocxPaper =
+  "letter" | "a4" | "trade_5x8" | "trade_5_5x8_5" | "trade_6x9";
 
 const PAPER_TWIPS: Readonly<
-  Record<"letter" | "a4", { readonly w: number; readonly h: number }>
+  Record<DocxPaper, { readonly w: number; readonly h: number }>
 > = Object.freeze({
   letter: { w: 12240, h: 15840 },
   a4: { w: 11906, h: 16838 },
+  trade_5x8: { w: 7200, h: 11520 },
+  trade_5_5x8_5: { w: 7920, h: 12240 },
+  trade_6x9: { w: 8640, h: 12960 },
 });
-
-function escapeXml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
 
 function findMark(
   marks: readonly MarkJSON[] | undefined,
@@ -38,29 +39,13 @@ function findMark(
   return marks?.find((mark) => mark.type === type);
 }
 
-const TEXT_COLOUR_HEX: Readonly<Record<string, string>> = Object.freeze({
-  red: "B42318",
-  orange: "B54708",
-  green: "067647",
-  blue: "175CD3",
-  violet: "6941C6",
-});
-
-const HIGHLIGHT_FILL_HEX: Readonly<Record<string, string>> = Object.freeze({
-  yellow: "FEF08A",
-  green: "BBF7D0",
-  pink: "FBCFE8",
-  orange: "FED7AA",
-  violet: "DDD6FE",
-});
-
 function runPropsXml(marks: readonly MarkJSON[] | undefined): string {
   if (marks === undefined || marks.length === 0) return "";
   const parts: string[] = [];
   if (findMark(marks, "bold") !== undefined) parts.push("<w:b/>");
   if (findMark(marks, "italic") !== undefined) parts.push("<w:i/>");
-  if (findMark(marks, "underline") !== undefined)
-    parts.push('<w:u w:val="single"/>');
+  const hasUnderline = findMark(marks, "underline") !== undefined;
+  if (hasUnderline) parts.push('<w:u w:val="single"/>');
   if (findMark(marks, "strike") !== undefined) parts.push("<w:strike/>");
   if (findMark(marks, "caps") !== undefined) parts.push("<w:caps/>");
   if (findMark(marks, "sup") !== undefined)
@@ -78,29 +63,43 @@ function runPropsXml(marks: readonly MarkJSON[] | undefined): string {
     parts.push(
       `<w:shd w:val="clear" w:color="auto" w:fill="${HIGHLIGHT_FILL_HEX[hlName]}"/>`,
     );
-  if (findMark(marks, "link") !== undefined) {
+  if (findMark(marks, "link") !== undefined && !hasUnderline) {
     parts.push('<w:u w:val="single"/>');
   }
   return parts.length === 0 ? "" : `<w:rPr>${parts.join("")}</w:rPr>`;
 }
 
-interface LinkEntry {
-  readonly id: string;
-  readonly href: string;
+function footnoteRefsXml(
+  notes: readonly ExtractedFootnote[] | undefined,
+): string {
+  if (notes === undefined || notes.length === 0) return "";
+  return notes
+    .map(
+      (note) =>
+        `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${note.ordinal}"/></w:r>`,
+    )
+    .join("");
 }
 
-function inlineXml(node: TextJSON, links: LinkEntry[]): string {
+function inlineXml(
+  node: TextJSON,
+  links: LinkEntry[],
+  endingNotes: readonly ExtractedFootnote[] | undefined,
+): string {
   if (node.type !== "text" || node.text === "") return "";
   const rPr = runPropsXml(node.marks);
   const run = `<w:r>${rPr}<w:t xml:space="preserve">${escapeXml(node.text)}</w:t></w:r>`;
   const linkMark = findMark(node.marks, "link");
   const href = linkMark?.attrs?.href;
-  if (typeof href === "string" && href !== "") {
-    const id = `rId${links.length + 2}`;
-    links.push({ id, href });
-    return `<w:hyperlink r:id="${id}">${run}</w:hyperlink>`;
-  }
-  return run;
+  const wrapped =
+    typeof href === "string" && href !== ""
+      ? (() => {
+          const id = `rId${links.length + 2}`;
+          links.push({ id, href });
+          return `<w:hyperlink r:id="${id}">${run}</w:hyperlink>`;
+        })()
+      : run;
+  return wrapped + footnoteRefsXml(endingNotes);
 }
 
 function alignValue(align: unknown, fallback: string | null): string | null {
@@ -108,9 +107,29 @@ function alignValue(align: unknown, fallback: string | null): string | null {
   return fallback;
 }
 
+function renderRunsWithOffset(
+  nodes: readonly TextJSON[],
+  blockIndex: number,
+  startIndex: number,
+  links: LinkEntry[],
+  endingAt: ReadonlyMap<string, readonly ExtractedFootnote[]>,
+): string {
+  let out = "";
+  for (let i = 0; i < nodes.length; i++) {
+    out += inlineXml(
+      nodes[i]!,
+      links,
+      endingAt.get(`${blockIndex}:${startIndex + i}`),
+    );
+  }
+  return out;
+}
+
 function raisedCapRunsXml(
   nodes: readonly TextJSON[],
+  blockIndex: number,
   links: LinkEntry[],
+  endingAt: ReadonlyMap<string, readonly ExtractedFootnote[]>,
 ): string | null {
   const firstIdx = nodes.findIndex((n) => n.type === "text" && n.text !== "");
   if (firstIdx < 0) return null;
@@ -120,16 +139,29 @@ function raisedCapRunsXml(
   if (initial === undefined) return null;
   const tailText = chars.slice(1).join("");
   const capRun = `<w:r><w:rPr><w:b/><w:sz w:val="44"/><w:szCs w:val="44"/></w:rPr><w:t xml:space="preserve">${escapeXml(initial)}</w:t></w:r>`;
-  const restNodes: TextJSON[] = [
-    ...(tailText === "" ? [] : [{ ...first, text: tailText }]),
-    ...nodes.slice(firstIdx + 1),
-  ];
-  return capRun + restNodes.map((node) => inlineXml(node, links)).join("");
+  const firstTail =
+    tailText === ""
+      ? footnoteRefsXml(endingAt.get(`${blockIndex}:${firstIdx}`))
+      : inlineXml(
+          { ...first, text: tailText },
+          links,
+          endingAt.get(`${blockIndex}:${firstIdx}`),
+        );
+  const rest = renderRunsWithOffset(
+    nodes.slice(firstIdx + 1),
+    blockIndex,
+    firstIdx + 1,
+    links,
+    endingAt,
+  );
+  return capRun + firstTail + rest;
 }
 
 function dropCapRunXml(
   nodes: readonly TextJSON[],
+  blockIndex: number,
   links: LinkEntry[],
+  endingAt: ReadonlyMap<string, readonly ExtractedFootnote[]>,
   lineTwips: number,
 ): { dropXml: string; restXml: string } | null {
   const firstIdx = nodes.findIndex((n) => n.type === "text" && n.text !== "");
@@ -144,11 +176,23 @@ function dropCapRunXml(
     '<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around" w:vAnchor="text" w:hAnchor="text" w:hSpace="120"/>' +
     `<w:spacing w:line="${lineTwips}" w:lineRule="auto" w:after="0"/><w:ind w:firstLine="0"/></w:pPr>` +
     `<w:r><w:rPr><w:b/><w:sz w:val="72"/><w:szCs w:val="72"/></w:rPr><w:t>${escapeXml(initial)}</w:t></w:r></w:p>`;
-  const restNodes: TextJSON[] = [
-    ...(tailText === "" ? [] : [{ ...first, text: tailText }]),
-    ...nodes.slice(firstIdx + 1),
-  ];
-  const restXml = restNodes.map((node) => inlineXml(node, links)).join("");
+  const firstTail =
+    tailText === ""
+      ? footnoteRefsXml(endingAt.get(`${blockIndex}:${firstIdx}`))
+      : inlineXml(
+          { ...first, text: tailText },
+          links,
+          endingAt.get(`${blockIndex}:${firstIdx}`),
+        );
+  const restXml =
+    firstTail +
+    renderRunsWithOffset(
+      nodes.slice(firstIdx + 1),
+      blockIndex,
+      firstIdx + 1,
+      links,
+      endingAt,
+    );
   return { dropXml, restXml };
 }
 
@@ -157,6 +201,7 @@ function paragraphXml(
   index: number,
   seenChapter: boolean,
   links: LinkEntry[],
+  endingAt: ReadonlyMap<string, readonly ExtractedFootnote[]>,
   lineTwips: number,
 ): { xml: string; isChapter: boolean } {
   const attrs = block.attrs ?? {};
@@ -177,6 +222,11 @@ function paragraphXml(
     pPr.push('<w:pStyle w:val="Heading1"/>');
     if (seenChapter && index > 0) pPr.push("<w:pageBreakBefore/>");
     defaultAlign = "center";
+  } else if (type === "subheading") {
+    pPr.push('<w:pStyle w:val="Heading2"/>');
+  } else if (type === "epigraph") {
+    pPr.push('<w:pStyle w:val="Epigraph"/>');
+    defaultAlign = "right";
   } else if (type === "quote") {
     pPr.push('<w:pStyle w:val="Quote"/>');
   } else if (type === "break") {
@@ -201,7 +251,13 @@ function paragraphXml(
   if (jc !== null) pPr.push(`<w:jc w:val="${jc}"/>`);
 
   if (firstLine === "drop_cap" && block.content !== undefined) {
-    const split = dropCapRunXml(block.content, links, lineTwips);
+    const split = dropCapRunXml(
+      block.content,
+      index,
+      links,
+      endingAt,
+      lineTwips,
+    );
     if (split !== null) {
       return {
         xml: `${split.dropXml}<w:p><w:pPr>${pPr.join("")}</w:pPr>${split.restXml}</w:p>`,
@@ -212,8 +268,8 @@ function paragraphXml(
 
   const runs =
     firstLine === "raised_cap" && block.content !== undefined
-      ? (raisedCapRunsXml(block.content, links) ?? "")
-      : (block.content ?? []).map((node) => inlineXml(node, links)).join("");
+      ? (raisedCapRunsXml(block.content, index, links, endingAt) ?? "")
+      : renderRunsWithOffset(block.content ?? [], index, 0, links, endingAt);
   const content =
     runs !== ""
       ? runs
@@ -226,83 +282,43 @@ function paragraphXml(
   };
 }
 
-function stylesXml(lineTwips: number): string {
-  return (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<w:styles xmlns:w="${W_NS}">` +
-    "<w:docDefaults><w:rPrDefault><w:rPr>" +
-    '<w:rFonts w:ascii="Georgia" w:hAnsi="Georgia" w:cs="Georgia"/>' +
-    '<w:sz w:val="24"/><w:szCs w:val="24"/>' +
-    "</w:rPr></w:rPrDefault></w:docDefaults>" +
-    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">' +
-    '<w:name w:val="Normal"/>' +
-    `<w:pPr><w:spacing w:line="${lineTwips}" w:lineRule="auto" w:after="0"/><w:ind w:firstLine="720"/></w:pPr>` +
-    "</w:style>" +
-    '<w:style w:type="paragraph" w:styleId="Heading1">' +
-    '<w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>' +
-    `<w:pPr><w:keepNext/><w:spacing w:before="2880" w:after="480" w:line="${lineTwips}" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="center"/></w:pPr>` +
-    '<w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr>' +
-    "</w:style>" +
-    '<w:style w:type="paragraph" w:styleId="Quote">' +
-    '<w:name w:val="Quote"/><w:basedOn w:val="Normal"/>' +
-    `<w:pPr><w:spacing w:before="240" w:after="240" w:line="${lineTwips === 240 ? 240 : 360}" w:lineRule="auto"/><w:ind w:left="720" w:right="720" w:firstLine="0"/></w:pPr>` +
-    "<w:rPr><w:i/></w:rPr>" +
-    "</w:style>" +
-    '<w:style w:type="paragraph" w:styleId="SceneBreak">' +
-    '<w:name w:val="Scene Break"/><w:basedOn w:val="Normal"/>' +
-    `<w:pPr><w:keepNext/><w:spacing w:before="240" w:after="240" w:line="${lineTwips}" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="center"/></w:pPr>` +
-    "</w:style>" +
-    '<w:style w:type="paragraph" w:styleId="Caption">' +
-    '<w:name w:val="Caption"/><w:basedOn w:val="Normal"/>' +
-    '<w:pPr><w:spacing w:before="120" w:after="240" w:line="300" w:lineRule="auto"/><w:ind w:firstLine="0"/></w:pPr>' +
-    '<w:rPr><w:i/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>' +
-    "</w:style>" +
-    "</w:styles>"
-  );
+export interface DocxWriteOptions {
+  readonly paper?: DocxPaper;
+  readonly lineSpacing?: 1 | 2;
+  readonly mirrorMargins?: boolean;
+  readonly marginsPt?: {
+    readonly inner: number;
+    readonly outer: number;
+    readonly top: number;
+    readonly bottom: number;
+  };
+  readonly bookFont?: string;
+  readonly fontSizePt?: number;
 }
 
-function contentTypesXml(): string {
-  return (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-    '<Default Extension="xml" ContentType="application/xml"/>' +
-    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
-    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-    "</Types>"
-  );
-}
-
-function rootRelsXml(): string {
-  return (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<Relationships xmlns="${PKG_REL_NS}">` +
-    `<Relationship Id="rId1" Type="${DOC_REL_TYPE}" Target="word/document.xml"/>` +
-    "</Relationships>"
-  );
-}
-
-function documentRelsXml(links: readonly LinkEntry[]): string {
-  const rels = [
-    `<Relationship Id="rId1" Type="${STYLES_REL_TYPE}" Target="styles.xml"/>`,
-    ...links.map(
-      (link) =>
-        `<Relationship Id="${link.id}" Type="${HYPERLINK_REL_TYPE}" Target="${escapeXml(link.href)}" TargetMode="External"/>`,
-    ),
-  ];
-  return (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<Relationships xmlns="${PKG_REL_NS}">${rels.join("")}</Relationships>`
-  );
-}
-
-/** Writes `script` as a valid Word (.docx) archive with Heading 1 chapters, prose spacing, quotes, inline marks and links. */
+/** Writes `script` as a valid Word (.docx) archive with chapters, subheadings, epigraphs, inline marks, links, footnotes and optional mirrored margins. */
 export function writeDocx(
   script: ScriptForExport,
-  options?: { readonly paper?: "letter" | "a4"; readonly lineSpacing?: 1 | 2 },
+  options?: DocxWriteOptions,
 ): Uint8Array<ArrayBuffer> {
   const paper = PAPER_TWIPS[options?.paper ?? "letter"];
   const lineTwips = options?.lineSpacing === 1 ? 240 : 480;
+  const mirrorMargins = options?.mirrorMargins === true;
+  const toTwips = (pt: number): number => Math.round(pt * 20);
+  const leftTwips =
+    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.inner);
+  const rightTwips =
+    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.outer);
+  const topTwips =
+    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.top);
+  const bottomTwips =
+    options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.bottom);
+  const fontName = options?.bookFont ?? "Georgia";
+  const fontHalfPt = Math.round((options?.fontSizePt ?? 12) * 2);
+
+  const footnotes = extractFootnotes(script.blocks);
+  const hasFootnotes = footnotes.notes.length > 0;
+  const hasSettings = mirrorMargins;
   const links: LinkEntry[] = [];
   let seenChapter = false;
   const paragraphs: string[] = [];
@@ -313,6 +329,7 @@ export function writeDocx(
       i,
       seenChapter,
       links,
+      footnotes.endingAt,
       lineTwips,
     );
     if (xml !== "") paragraphs.push(xml);
@@ -324,15 +341,24 @@ export function writeDocx(
     `<w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>` +
     paragraphs.join("") +
     `<w:sectPr><w:pgSz w:w="${paper.w}" w:h="${paper.h}"/>` +
-    '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>' +
+    `<w:pgMar w:top="${topTwips}" w:right="${rightTwips}" w:bottom="${bottomTwips}" w:left="${leftTwips}" w:header="720" w:footer="720" w:gutter="0"/>` +
     "</w:sectPr></w:body></w:document>";
 
-  const zipped = zipSync({
-    "[Content_Types].xml": strToU8(contentTypesXml()),
+  const files: Record<string, Uint8Array> = {
+    "[Content_Types].xml": strToU8(
+      contentTypesXml({ hasFootnotes, hasSettings }),
+    ),
     "_rels/.rels": strToU8(rootRelsXml()),
     "word/document.xml": strToU8(documentXml),
-    "word/styles.xml": strToU8(stylesXml(lineTwips)),
-    "word/_rels/document.xml.rels": strToU8(documentRelsXml(links)),
-  });
-  return new Uint8Array(zipped);
+    "word/styles.xml": strToU8(stylesXml(lineTwips, fontName, fontHalfPt)),
+    "word/_rels/document.xml.rels": strToU8(
+      documentRelsXml(links, { hasFootnotes, hasSettings }),
+    ),
+  };
+  if (hasFootnotes)
+    files["word/footnotes.xml"] = strToU8(footnotesXml(footnotes.notes));
+  if (hasSettings)
+    files["word/settings.xml"] = strToU8(settingsXml(mirrorMargins));
+
+  return new Uint8Array(zipSync(files));
 }

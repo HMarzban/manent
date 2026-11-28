@@ -132,3 +132,4 @@ The evidence or event that would reopen this.
 - [0084. Unified Tour story tracks and Smart Director's Rail demo stage](0084-unified-tour-story-and-smart-demo-stage.md)
 - [0085. Game Script playthrough runs as a pure block walker unified with Ink's Play flow](0085-game-script-playthrough-and-unified-player.md)
 - [0086. Book formatting toolbar and manuscript authoring chrome](0086-book-formatting-toolbar-and-manuscript-authoring.md)
+- [0087. Book authoring Phase 2: craft elements, footnotes, EPUB 3 and opt-in Layout Engine v3](0087-book-phase-2-craft-epub-and-layout-engine-v3.md)

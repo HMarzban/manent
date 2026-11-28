@@ -2,19 +2,18 @@
 import type { PageProfile } from "@manent/pagination";
 import { CONTAINMENT, PAGE_GAP_PX } from "./config.ts";
 import type { BrowserEngine, LayoutView } from "./config.ts";
-import {
-  applyFurnitureReplaces,
-  isSameFurniture,
-} from "./furniture/page-furniture.ts";
+import { applyFurnitureReplaces } from "./furniture/page-furniture.ts";
 import type {
   PageFurniture,
   PageFurnitureInput,
   PageFurnitureOptions,
-  SheetRevision,
 } from "./furniture/page-furniture.ts";
 import { PAGE_FURNITURE } from "./furniture/registry.ts";
 import { PAGE_CSS, REFLOW_CSS } from "./page-css.ts";
 import { profileCss, screenPagePx } from "./profile-css.ts";
+import { loadBookSerifFonts } from "./serif-fonts.ts";
+import { drawSheets } from "./sheet-draw.ts";
+import type { PlacedSheet, SheetDecor, SheetFrame } from "./sheet-draw.ts";
 import {
   detectEngine,
   isSameBoxes,
@@ -25,17 +24,10 @@ import {
 import type { PageBox } from "./sheet-geometry.ts";
 
 export { detectEngine, visibleSheetBoxes, visibleSheets, zoomBox };
-export type { PageBox };
+export type { PageBox, SheetDecor };
 
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
-
-/** What a sheet shows of a revision. `key` changes whenever any sheet would. */
-export interface SheetDecor {
-  readonly key: string;
-  /** Null: the sheet shows nothing of a revision. */
-  sheet(index: number): SheetRevision | null;
-}
 
 export interface PageScaffold {
   readonly pages: HTMLElement;
@@ -52,78 +44,6 @@ export interface PageScaffold {
   setPageLabels(labels: readonly string[]): void;
   setTint(on: boolean): void;
   destroy(): void;
-}
-
-interface SheetFrame {
-  count: number;
-  decor: SheetDecor | null;
-  furniture: PageFurnitureOptions;
-  labels: readonly string[];
-  entries: readonly PageFurniture[];
-}
-
-interface PlacedSheet {
-  readonly index: number;
-  readonly top: number;
-  readonly height?: number;
-}
-
-/** Places the sheet and redraws its furniture only when `input` differs from `drawn`. */
-function drawSheet(
-  sheet: HTMLElement,
-  at: PlacedSheet,
-  frame: SheetFrame,
-  profile: PageProfile,
-  drawn: WeakMap<HTMLElement, PageFurnitureInput>,
-): void {
-  const page = String(at.index);
-  if (sheet.dataset["page"] !== page) sheet.dataset["page"] = page;
-  const top = `${at.top}px`;
-  if (sheet.style.top !== top) sheet.style.top = top;
-  const height = at.height === undefined ? "" : `${at.height}px`;
-  if (sheet.style.height !== height) sheet.style.height = height;
-  const { furniture, labels } = frame;
-  const input: PageFurnitureInput = {
-    pageIndex: at.index,
-    pageCount: frame.count,
-    pageLabel: labels[at.index] ?? null,
-    profile,
-    title: furniture.title ?? null,
-    revision: frame.decor?.sheet(at.index) ?? null,
-    watermark: furniture.watermark ?? null,
-    header: furniture.header ?? null,
-    footer: furniture.footer ?? null,
-    dateFormat: furniture.dateFormat ?? null,
-    section: furniture.sections?.[at.index] ?? furniture.section ?? null,
-    revisionLabel: furniture.revisionLabel ?? null,
-    day: furniture.day ?? null,
-    durationMs: furniture.durationMs ?? null,
-  };
-  if (isSameFurniture(drawn.get(sheet), input)) return;
-  drawn.set(sheet, input);
-  for (const key of Object.keys(sheet.dataset))
-    if (key !== "page") delete sheet.dataset[key];
-  sheet.replaceChildren();
-  for (const entry of frame.entries) entry.draw(sheet, input);
-}
-
-/** Draws the wanted sheets with the elements already drawn, adding or removing only the difference. */
-function drawSheets(
-  pages: HTMLElement,
-  sheets: HTMLElement[],
-  wanted: readonly PlacedSheet[],
-  frame: SheetFrame,
-  profile: PageProfile,
-  drawn: WeakMap<HTMLElement, PageFurnitureInput>,
-): void {
-  while (sheets.length > wanted.length) sheets.pop()?.remove();
-  while (sheets.length < wanted.length) {
-    const sheet = pages.ownerDocument.createElement("div");
-    sheet.className = "mn-sheet";
-    pages.prepend(sheet);
-    sheets.push(sheet);
-  }
-  wanted.forEach((at, i) => drawSheet(sheets[i]!, at, frame, profile, drawn));
 }
 
 interface ScaffoldBatch {
@@ -314,9 +234,19 @@ export function createPageScaffold(options: {
     if (!destroyed && !defer("layout"))
       applyLayout(scroller.scrollTop, scroller.clientHeight);
   };
+  const layoutCurrent = (): void => {
+    if (viewBox !== null && viewBox.height > 0)
+      applyLayout(viewBox.top, viewBox.height);
+    else applyLayout(scroller.scrollTop, scroller.clientHeight);
+  };
   const setProfile = (next: PageProfile): void => {
     profile = next;
     profileStyle.textContent = profileCss(next);
+    if (next.typography !== undefined) {
+      pages.dataset["typography"] = next.typography.kind;
+      if (next.typography.kind === "book_serif")
+        void loadBookSerifFonts(pages.ownerDocument.fonts);
+    } else delete pages.dataset["typography"];
     layout();
   };
   scroller.addEventListener("scroll", redraw, { passive: true });
@@ -335,18 +265,12 @@ export function createPageScaffold(options: {
     },
     setPageCount(next) {
       count = next;
-      if (destroyed || defer("layout")) return;
-      if (viewBox !== null && viewBox.height > 0)
-        applyLayout(viewBox.top, viewBox.height);
-      else applyLayout(scroller.scrollTop, scroller.clientHeight);
+      if (!destroyed && !defer("layout")) layoutCurrent();
     },
     setPageBoxes(next) {
       if (isSameBoxes(pageBoxes, next)) return;
       pageBoxes = next;
-      if (destroyed || defer("layout")) return;
-      if (viewBox !== null && viewBox.height > 0)
-        applyLayout(viewBox.top, viewBox.height);
-      else applyLayout(scroller.scrollTop, scroller.clientHeight);
+      if (!destroyed && !defer("layout")) layoutCurrent();
     },
     applyZoom(next) {
       percent = next;

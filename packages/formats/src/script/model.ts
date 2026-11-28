@@ -104,6 +104,8 @@ export interface ImportedProduction {
 
 export interface ImportedScript {
   readonly from: SourceFormat;
+  /** Detected script format when known (e.g. `"manuscript"` for Book `.docx` files); defaults to `"screenplay"`. */
+  readonly format?: FormatId;
   /** The title page's title, null when the file gives none. */
   readonly title: string | null;
   readonly paper: "letter" | "a4" | null;

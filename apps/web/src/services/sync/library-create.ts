@@ -236,24 +236,22 @@ export function projectMaking(
       });
       return added;
     },
-    importProject: (ws, imported) =>
-      addProject(
+    importProject: (ws, imported) => {
+      const format = imported.script.format ?? PROJECT_KIND_FORMATS.film;
+      const kind: ProjectKind = format === "manuscript" ? "book" : "film";
+      return addProject(
         options,
-        { workspaceId: ws, projectId: null, kind: "film" },
+        { workspaceId: ws, projectId: null, kind },
         () => ({ project: imported.title, script: imported.title }),
         {
           docKind: "script",
           airDate: null,
           rundownId: null,
           start: (handle) =>
-            startImported(
-              handle,
-              imported,
-              options.language,
-              PROJECT_KIND_FORMATS.film,
-            ),
+            startImported(handle, imported, options.language, format),
         },
-      ),
+      );
+    },
     addCopy: (ws, projectId, kind, title, start) =>
       addProject(
         options,

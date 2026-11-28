@@ -366,6 +366,9 @@ test("each setting's help, values, places and effect are fixed", () => {
       choices: [
         { value: "letter", label: "US Letter" },
         { value: "a4", label: "A4" },
+        { value: "trade_5x8", label: 'Trade 5×8"' },
+        { value: "trade_5_5x8_5", label: 'Digest 5.5×8.5"' },
+        { value: "trade_6x9", label: 'Trade 6×9"' },
       ],
       description: null,
       noun: "paper size",

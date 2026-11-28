@@ -21,6 +21,7 @@ import {
   synopsisEntry,
 } from "./loaded-apart.ts";
 import { insertBreakEntry, insertChapterEntry } from "./book-blocks.ts";
+import { chapterTargetEntry, footnoteEntry } from "./footnotes.ts";
 import { pageBreakEntry } from "./page-break.ts";
 import {
   renameCharacterEntry,
@@ -42,6 +43,8 @@ export const EDITOR_ACTIONS = Object.freeze({
   page_break: pageBreakEntry,
   insert_break: insertBreakEntry,
   insert_chapter: insertChapterEntry,
+  chapter_target: chapterTargetEntry,
+  footnote: footnoteEntry,
   style: styleEntry,
   colour: colourEntry,
   highlight: highlightEntry,

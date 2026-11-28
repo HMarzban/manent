@@ -122,6 +122,8 @@ const UNWRITTEN_LABELS: Readonly<Record<string, string>> = Object.freeze({
   ink_line: "Ink line",
   group: "Section",
   chapter: "Chapter",
+  subheading: "Subheading",
+  epigraph: "Epigraph",
   body: "Body",
   break: "Break",
   quote: "Quote",

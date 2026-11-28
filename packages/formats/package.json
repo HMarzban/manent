@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/pdfkit": "catalog:",
     "@fontsource/courier-prime": "catalog:",
+    "@fontsource/source-serif-4": "catalog:",
     "fast-check": "catalog:"
   }
 }

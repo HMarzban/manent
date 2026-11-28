@@ -205,7 +205,48 @@ test("Book format bar preserves caret/selection and sheet alignment across inlin
     await page.keyboard.press("Escape");
     await expectChaptersAlignedToSheets(page);
 
-    // 7. WCAG 2.2 AA check.
+    // 7. Phase 2 craft: Footnote mark + superscript callout + Subheading/Epigraph element options.
+    await selectPhrase(page, "p.el.el-body", "clocks");
+    await toolbar.getByRole("button", { name: "More text styles" }).click();
+    await page.getByRole("button", { name: "Footnote" }).click();
+    await page
+      .getByPlaceholder("Add a note for readers…")
+      .fill("Harbour tide log, 1911.");
+    await page.getByRole("button", { name: "Save footnote" }).click();
+    await expect(page.locator("p.el.el-body span.mn-footnote")).toHaveCount(1);
+    await expect(page.locator(".mn-fn-ref")).toHaveCount(1);
+    await expectChaptersAlignedToSheets(page);
+
+    await toolbar.getByRole("button", { name: "Element" }).click();
+    await expect(
+      page.getByRole("menuitem", { name: /Subheading/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /Epigraph/ }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // 8. Phase 2 Engine 3 Book Layout: opt-in Source Serif 4, 6×9″ trim, and mirrored margins (on by default).
+    await toolbar.getByRole("button", { name: "Page layout" }).click();
+    await page.getByRole("switch", { name: "Book layout" }).click();
+    await expect(
+      page.locator('.mn-pages[data-typography="book_serif"]'),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "6×9″" }).click();
+    const mirrorSwitch = page.getByRole("switch", {
+      name: "Left and right margins",
+    });
+    await expect(mirrorSwitch).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await expect(
+      page.locator('.mn-sheet[data-side="recto"]').first(),
+    ).toBeVisible();
+    await expect(
+      page.locator('.mn-sheet[data-side="verso"]').first(),
+    ).toBeVisible();
+    await expectChaptersAlignedToSheets(page);
+
+    // 9. WCAG 2.2 AA check on Engine 3 Book Layout + Footnotes.
     expect(await violationsOf(page)).toEqual([]);
   } finally {
     await context.close();

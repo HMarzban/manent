@@ -19,7 +19,8 @@
     "prosemirror-keymap": "catalog:",
     "prosemirror-commands": "catalog:",
     "prosemirror-search": "catalog:",
-    "@fontsource/courier-prime": "catalog:"
+    "@fontsource/courier-prime": "catalog:",
+    "@fontsource/source-serif-4": "catalog:"
   },
   "devDependencies": {
     "@manent/testkit": "workspace:*",

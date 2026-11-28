@@ -112,6 +112,21 @@ export function NumbersSection(props: { docId: string }): ReactNode {
   }
 
   const isBook = format === "manuscript";
+  const targetedChapters = isBook
+    ? outlineRows.filter(
+        (row): row is OutlineRow & { targetWords: number } =>
+          row.kind === "scene" &&
+          typeof row.targetWords === "number" &&
+          row.targetWords > 0,
+      )
+    : [];
+  const chaptersOnTarget = targetedChapters.filter(
+    (row) => (row.words ?? 0) >= row.targetWords,
+  ).length;
+  const shownTargets =
+    targetedChapters.length > EIGHTHS_CAP && !eighthsExpanded
+      ? targetedChapters.slice(0, EIGHTHS_CAP)
+      : targetedChapters;
   const lockedScenes = locked
     ? outlineRows.filter(
         (row): row is OutlineRow & { eighths: number } =>
@@ -225,6 +240,65 @@ export function NumbersSection(props: { docId: string }): ReactNode {
                 {eighthsExpanded
                   ? WRITING_TOOLS_WORDS.numbersShowFewer
                   : WRITING_TOOLS_WORDS.numbersShowAll(lockedScenes.length)}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isBook && targetedChapters.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <h4 className="text-meta font-semibold text-fg">
+              {WRITING_TOOLS_WORDS.numbersChapterTargets}
+            </h4>
+            <span className="text-micro text-fg-muted tabular-nums">
+              {WRITING_TOOLS_WORDS.numbersChaptersOnTarget(
+                chaptersOnTarget,
+                targetedChapters.length,
+              )}
+            </span>
+          </div>
+          <ul className="flex flex-col gap-1.5 text-ui">
+            {shownTargets.map((row) => {
+              const words = row.words ?? 0;
+              const ratio = Math.min(1, words / row.targetWords);
+              return (
+                <li key={row.blockId} className="flex flex-col gap-0.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate text-fg-muted">
+                      {row.heading}
+                    </span>
+                    <span className="shrink-0 text-micro text-fg tabular-nums">
+                      {WRITING_TOOLS_WORDS.numbersChapterProgress(
+                        words,
+                        row.targetWords,
+                      )}
+                    </span>
+                  </div>
+                  <div className="mn-progress-track h-1 w-full overflow-hidden rounded-full">
+                    <div
+                      className="mn-progress-fill h-full w-full origin-left"
+                      style={{ transform: `scaleX(${ratio})` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {targetedChapters.length > EIGHTHS_CAP ? (
+            <div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-expanded={eighthsExpanded}
+                className="h-control-sm cursor-pointer px-1.5 text-meta text-fg-muted hover:text-fg"
+                onClick={() => setEighthsExpanded((v) => !v)}
+              >
+                {eighthsExpanded
+                  ? WRITING_TOOLS_WORDS.numbersShowFewer
+                  : WRITING_TOOLS_WORDS.numbersShowAll(targetedChapters.length)}
               </Button>
             </div>
           ) : null}

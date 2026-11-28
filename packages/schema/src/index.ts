@@ -15,6 +15,8 @@ export type {
 } from "./block-types.ts";
 export {
   ALIGNMENTS,
+  CHAPTER_TARGET_WORDS_MAX,
+  CHAPTER_TARGET_WORDS_MIN,
   DEFAULT_BLOCK_ATTRS,
   DUALS,
   FIRST_LINES,

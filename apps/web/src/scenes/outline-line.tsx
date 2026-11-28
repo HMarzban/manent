@@ -41,7 +41,11 @@ function SceneLine(props: {
     length === null
       ? undefined
       : (parts.extras.lengthTitle?.(row) ?? undefined);
-  const meta = sceneRowMeta(marks, row.synopsis);
+  const chapterProgress =
+    typeof row.targetWords === "number" && row.targetWords > 0
+      ? { words: row.words ?? 0, targetWords: row.targetWords }
+      : null;
+  const meta = sceneRowMeta(marks, row.synopsis, chapterProgress);
   const trailing: ReactNode[] = [
     ...(marks.some((mark) => mark.kind === "revised")
       ? [

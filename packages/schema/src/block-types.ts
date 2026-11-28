@@ -25,6 +25,9 @@ export const BLOCK_TYPES = [
   "quote",
   // inline images and broadcast chyrons (schema 3)
   "graphic",
+  // manuscript craft elements (schema 5)
+  "subheading",
+  "epigraph",
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
@@ -98,7 +101,15 @@ export const FORMAT_ELEMENTS: Readonly<Record<FormatId, readonly BlockType[]>> =
       ...STRUCTURE,
     ],
     ink: ["ink_line", ...STRUCTURE],
-    manuscript: ["chapter", "body", "break", "quote", ...STRUCTURE],
+    manuscript: [
+      "chapter",
+      "subheading",
+      "epigraph",
+      "body",
+      "break",
+      "quote",
+      ...STRUCTURE,
+    ],
     // the layout shows Action as a stage direction; Transition and Shot are not part of the format
     stage_play: [
       "scene_heading",

@@ -16,7 +16,8 @@
     "@manent/settings": "workspace:*",
     "@manent/formats": "workspace:*",
     "@manent/perf": "workspace:*",
-    "@fontsource/courier-prime": "catalog:"
+    "@fontsource/courier-prime": "catalog:",
+    "@fontsource/source-serif-4": "catalog:"
   },
   "devDependencies": {
     "@manent/testkit": "workspace:*"

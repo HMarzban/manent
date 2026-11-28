@@ -18,6 +18,9 @@ export const PAPER_PORTRAIT_PT: Readonly<
 > = Object.freeze({
   letter: Object.freeze({ widthPt: 612, heightPt: 792 }),
   a4: Object.freeze({ widthPt: 595.28, heightPt: 841.89 }),
+  trade_5x8: Object.freeze({ widthPt: 360, heightPt: 576 }),
+  trade_5_5x8_5: Object.freeze({ widthPt: 396, heightPt: 612 }),
+  trade_6x9: Object.freeze({ widthPt: 432, heightPt: 648 }),
 });
 
 /** Splits `text` into wrapped lines fitting within `maxCells` cells. */

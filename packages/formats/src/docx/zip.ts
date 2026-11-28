@@ -10,7 +10,14 @@ export const DOCX_PART_LIMIT_BYTES = 64 * 1024 * 1024;
 
 const BODY_PART = "word/document.xml";
 const STYLES_PART = "word/styles.xml";
-const WANTED_PARTS = new Set([BODY_PART, STYLES_PART]);
+const RELS_PART = "word/_rels/document.xml.rels";
+const FOOTNOTES_PART = "word/footnotes.xml";
+const WANTED_PARTS = new Set([
+  BODY_PART,
+  STYLES_PART,
+  RELS_PART,
+  FOOTNOTES_PART,
+]);
 /** Cap on central-directory entries inspected, to refuse pathological zip headers. */
 const DOCX_ENTRY_LIMIT = 4096;
 /** Zip local-file / central-directory signature prefix ("PK"). */
@@ -22,6 +29,8 @@ const ZIP_MIN_BYTES = 22;
 export interface DocxParts {
   readonly body: Uint8Array;
   readonly styles: Uint8Array | null;
+  readonly rels: Uint8Array | null;
+  readonly footnotes: Uint8Array | null;
 }
 
 function checkHeader(info: UnzipFileInfo, seen: Set<string>): void {
@@ -107,15 +116,23 @@ export function extractDocxParts(bytes: Uint8Array): DocxParts {
   const styles = Object.hasOwn(extracted, STYLES_PART)
     ? (extracted[STYLES_PART] ?? null)
     : null;
-  if (body.byteLength > DOCX_PART_LIMIT_BYTES)
-    throw new FormatError(
-      "too_large",
-      `${BODY_PART} unpacked to ${body.byteLength} bytes, over ${DOCX_PART_LIMIT_BYTES}`,
-    );
-  if (styles !== null && styles.byteLength > DOCX_PART_LIMIT_BYTES)
-    throw new FormatError(
-      "too_large",
-      `${STYLES_PART} unpacked to ${styles.byteLength} bytes, over ${DOCX_PART_LIMIT_BYTES}`,
-    );
-  return { body, styles };
+  const rels = Object.hasOwn(extracted, RELS_PART)
+    ? (extracted[RELS_PART] ?? null)
+    : null;
+  const footnotes = Object.hasOwn(extracted, FOOTNOTES_PART)
+    ? (extracted[FOOTNOTES_PART] ?? null)
+    : null;
+  for (const [name, part] of [
+    [BODY_PART, body],
+    [STYLES_PART, styles],
+    [RELS_PART, rels],
+    [FOOTNOTES_PART, footnotes],
+  ] as const) {
+    if (part !== null && part.byteLength > DOCX_PART_LIMIT_BYTES)
+      throw new FormatError(
+        "too_large",
+        `${name} unpacked to ${part.byteLength} bytes, over ${DOCX_PART_LIMIT_BYTES}`,
+      );
+  }
+  return { body, styles, rels, footnotes };
 }

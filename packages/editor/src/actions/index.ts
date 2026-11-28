@@ -19,6 +19,7 @@ export {
   toggleSpaceBefore,
 } from "./layout.ts";
 export { insertChapter, insertSceneBreak } from "./book-blocks.ts";
+export { setChapterTarget, setFootnote } from "./footnotes.ts";
 export { insertPageBreak } from "./page-break.ts";
 export type { EditorAction } from "./registry.ts";
 export { runAction } from "./run-action.ts";

@@ -1,11 +1,14 @@
 // Header and footer furniture in a PDF: left, centre and right slots plus an optional hairline rule.
 import {
   DEFAULT_READ_RATE,
-  LINE_PT,
-  UNIT_PT,
+  cellPtOf,
   durationMs,
   engineFor,
+  isVersoPage,
+  linePtOf,
+  measureSerifPt,
   timeScript,
+  unitPtOf,
 } from "@manent/pagination";
 import type { Engine, Pagination } from "@manent/pagination";
 import type {
@@ -123,38 +126,45 @@ function addBar(
   rules: FurnitureRule[],
 ): void {
   if (!slots.firstPage && input.pageIndex === 0) return;
-  const { geometry, columnCells, linesPerPage } = input.profile;
+  const { geometry, columnCells, linesPerPage, typography } = input.profile;
+  const linePt = linePtOf(input.profile);
+  const unitPt = unitPtOf(input.profile);
+  const cellPt = cellPtOf(input.profile);
   const topPt =
     kind === "header"
       ? geometry.pageNumberTopPt
       : Math.max(
-          geometry.marginTopPt + linesPerPage * LINE_PT + LINE_PT,
-          geometry.heightPt - geometry.pageNumberTopPt - LINE_PT,
+          geometry.marginTopPt + linesPerPage * linePt + linePt,
+          geometry.heightPt - geometry.pageNumberTopPt - linePt,
         );
-  const y = (topPt - geometry.marginTopPt) / UNIT_PT;
+  const y = (topPt - geometry.marginTopPt) / unitPt;
+  const swap = geometry.mirrored === true && isVersoPage(input.pageIndex);
   const placements: readonly [PdfHeaderSlot, "left" | "center" | "right"][] = [
-    [slots.left, "left"],
+    [swap ? slots.right : slots.left, "left"],
     [slots.center, "center"],
-    [slots.right, "right"],
+    [swap ? slots.left : slots.right, "right"],
   ];
   for (const [slot, align] of placements) {
     const text = resolveSlot(slot, input, hasRevisionHeader);
     if (text === "") continue;
-    const cells = engine.clusterCells(text, 0, text.length, false);
+    const widthCells =
+      typography !== undefined
+        ? measureSerifPt(text, 0, typography.fontSizePt) / cellPt
+        : engine.clusterCells(text, 0, text.length, false);
     const x =
       align === "left"
         ? 0
         : align === "right"
-          ? columnCells - cells
-          : (columnCells - cells) / 2;
+          ? columnCells - widthCells
+          : (columnCells - widthCells) / 2;
     lines.push({ x, y, runs: [{ text, style: 0 }] });
   }
   if (slots.rule) {
     const ruleTopPt =
-      kind === "header" ? topPt + LINE_PT + RULE_GAP_PT : topPt - RULE_GAP_PT;
+      kind === "header" ? topPt + linePt + RULE_GAP_PT : topPt - RULE_GAP_PT;
     rules.push({
       x: 0,
-      y: (ruleTopPt - geometry.marginTopPt) / UNIT_PT,
+      y: (ruleTopPt - geometry.marginTopPt) / unitPt,
       cells: columnCells,
     });
   }

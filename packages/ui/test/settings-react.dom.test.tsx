@@ -328,12 +328,12 @@ test("a script setting someone else set is never said to be set by you", () => {
       />
     </SettingsProvider>,
   );
-  const group = host.querySelector('[role="radiogroup"]');
-  if (group === null) throw new TypeError("no radio group");
-  expect([store.explain("script.paper").modified, describedBy(group)]).toEqual([
-    true,
-    "Default: US Letter",
-  ]);
+  const control = host.querySelector('[role="combobox"]');
+  if (control === null) throw new TypeError("no combobox");
+  expect([
+    store.explain("script.paper").modified,
+    describedBy(control),
+  ]).toEqual([true, "Default: US Letter"]);
 });
 
 test("a row on a device that cannot save says so", () => {

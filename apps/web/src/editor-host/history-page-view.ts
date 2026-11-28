@@ -47,6 +47,7 @@ export function readWorkingSnapshot(
     "script.format",
     "script.paper",
     "script.lineSpacing",
+    "script.mirrorMargins",
     "script.linesPerPage",
     "script.moresAtBreaks",
     "script.sameSpeakerContd",

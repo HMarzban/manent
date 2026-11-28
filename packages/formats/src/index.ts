@@ -2,6 +2,7 @@
 // A line is added only by the task that lays out a piece of work, never by a task that fills it in.
 export * from "./archive/index.ts";
 export * from "./docx/index.ts";
+export * from "./epub/index.ts";
 export * from "./fdx/index.ts";
 export * from "./fountain/index.ts";
 export * from "./game/index.ts";

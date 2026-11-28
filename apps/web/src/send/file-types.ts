@@ -3,6 +3,7 @@ import type { FormatId } from "@manent/schema";
 import type { DocKind } from "@manent/sync-protocol";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 import { docxFileType } from "./file-types/docx.ts";
+import { epubFileType } from "./file-types/epub.ts";
 import { fdxFileType } from "./file-types/fdx.ts";
 import { fountainFileType } from "./file-types/fountain.ts";
 import { pdfFileType } from "./file-types/pdf.ts";
@@ -31,6 +32,7 @@ import type { ExportFileType } from "./script-file.ts";
 export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
   pdfFileType,
   docxFileType,
+  epubFileType,
   fdxFileType,
   fountainFileType,
   rundownPdfFileType,

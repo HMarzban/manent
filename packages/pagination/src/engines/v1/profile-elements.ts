@@ -76,11 +76,16 @@ export const ELEMENT_ROWS: Readonly<Record<SpecKey, ElementSpec>> =
     break: ACTION,
     quote: ACTION,
     graphic: like({ split: "never" }),
+    subheading: ACTION,
+    epigraph: ACTION,
   });
 
 /** The manuscript's own elements, on its 65-cell column and double-spaced. */
 export const MANUSCRIPT_ROWS: Readonly<
-  Record<"chapter" | "body" | "break" | "quote", ElementSpec>
+  Record<
+    "chapter" | "subheading" | "epigraph" | "body" | "break" | "quote",
+    ElementSpec
+  >
 > = Object.freeze({
   chapter: like({
     width: 65,
@@ -89,6 +94,21 @@ export const MANUSCRIPT_ROWS: Readonly<
     keptWithNext: true,
     startingPage: true,
     dropLines: 18,
+  }),
+  subheading: like({
+    width: 65,
+    align: "left",
+    spaceBefore: 1,
+    lineSpacing: 2,
+    keptWithNext: true,
+    split: "never",
+  }),
+  epigraph: like({
+    indent: 10,
+    width: 45,
+    align: "right",
+    spaceBefore: 1,
+    lineSpacing: 2,
   }),
   body: like({ width: 65, firstLineIndent: 5, spaceBefore: 0, lineSpacing: 2 }),
   break: like({

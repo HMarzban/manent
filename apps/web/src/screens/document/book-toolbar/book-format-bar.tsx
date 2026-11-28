@@ -49,43 +49,15 @@ const FLOATING_BAR_ATTR = "data-floating-bar";
 const W = DOCUMENT_WORDS.bookToolbar;
 
 const BOOK_ELEMENTS = Object.freeze([
-  {
-    slot: "1" as const,
-    type: "chapter",
-    label: EDITOR_WORDS.elements.chapter,
-    chord: "Mod+1",
-  },
-  {
-    slot: "2" as const,
-    type: "body",
-    label: EDITOR_WORDS.elements.body,
-    chord: "Mod+2",
-  },
-  {
-    slot: "5" as const,
-    type: "quote",
-    label: EDITOR_WORDS.elements.quote,
-    chord: "Mod+5",
-  },
-  {
-    slot: "6" as const,
-    type: "break",
-    label: EDITOR_WORDS.elements.break,
-    chord: "Mod+6",
-  },
-  {
-    slot: "8" as const,
-    type: "group",
-    label: EDITOR_WORDS.elements.group,
-    chord: "Mod+8",
-  },
-  {
-    slot: "9" as const,
-    type: "act_break",
-    label: EDITOR_WORDS.actBreaks.new_act,
-    chord: "Mod+9",
-  },
-]);
+  ["1", "chapter", EDITOR_WORDS.elements.chapter, "Mod+1"],
+  ["3", "subheading", EDITOR_WORDS.elements.subheading, "Mod+3"],
+  ["4", "epigraph", EDITOR_WORDS.elements.epigraph, "Mod+4"],
+  ["2", "body", EDITOR_WORDS.elements.body, "Mod+2"],
+  ["5", "quote", EDITOR_WORDS.elements.quote, "Mod+5"],
+  ["6", "break", EDITOR_WORDS.elements.break, "Mod+6"],
+  ["8", "group", EDITOR_WORDS.elements.group, "Mod+8"],
+  ["9", "act_break", EDITOR_WORDS.actBreaks.new_act, "Mod+9"],
+] as const);
 
 function ElementPicker(): ReactNode {
   const { editor } = useServices();
@@ -125,18 +97,18 @@ function ElementPicker(): ReactNode {
         onMouseDown={keepEditorFocus}
         className="w-48"
       >
-        {BOOK_ELEMENTS.map((item) => (
+        {BOOK_ELEMENTS.map(([slot, type, label, chord]) => (
           <DropdownMenuItem
-            key={item.slot}
-            data-active={blockType === item.type ? "true" : undefined}
+            key={slot}
+            data-active={blockType === type ? "true" : undefined}
             onClick={() => {
-              editor.run({ kind: "element", slot: item.slot });
+              editor.run({ kind: "element", slot });
               dom.focusPage();
             }}
           >
-            <span>{item.label}</span>
+            <span>{label}</span>
             <DropdownMenuShortcut>
-              {keyLabel(item.chord, platform)}
+              {keyLabel(chord, platform)}
             </DropdownMenuShortcut>
           </DropdownMenuItem>
         ))}

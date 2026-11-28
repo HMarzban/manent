@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep proportional book fonts, non-inclusive inline marks and format-scoped engines isolated from v1/v2 invariants
+
+- Date: 2026-11-28
+
+### What happened
+
+During Book Phase 2 (Schema v5 craft elements, pure-TS EPUB 3, DOCX round-trip and opt-in Layout Engine 3), four cross-layer subtleties surfaced: (1) `fontkit@2.0.4` threw a `RangeError` inside `_getCBox` on empty-contour whitespace codepoints (`U+2002`, `U+2009`, `U+200B`) when generating build-time FUnit advance tables from `@fontsource/source-serif-4`; (2) because the inline `footnote` mark is `inclusive: false` (so typing after a footnoted word does not extend the note), reading only `$from.marks()` missed a footnote when the caret sat immediately at its right edge; (3) upgrading `LayoutEngineRow` to offer `ENGINE_VERSIONS.at(-1)` (`3`) globally would have changed the screenplay `write-layout-engine` Tour scenario (which expects Engine 2 on screenplays); and (4) `section-height.ts`, `drift.ts`, `graphic-height.ts` and `sheet-sync.ts` assumed fixed `LINE_PX = 16` / `UNIT_PX = 8`, which would mis-measure Engine 3's `20 px` (`15 pt`) book leading.
+
+### How it was caught
+
+Item (1) surfaced when running `bun tools/unicode/generate-tables.ts`; item (2) was caught by unit tests in `packages/editor/test/book-authoring.test.ts`; item (3) was caught by auditing `packages/demo/src/tour/scenarios/write/write-layout-engine.ts` before changing `LayoutEngineRow`; and item (4) was caught during the Engine 3 editor-geometry audit across `packages/editor/src/pagination/`.
+
+### Rule
+
+When generating font metric tables with `fontkit`, guard each glyph lookup (`glyphForCodePoint(cp).advanceWidth`) in a `try/catch` so empty-contour glyphs are skipped cleanly and never break runtime PDFKit embedding. For any `inclusive: false` inline mark whose popover edits the mark at a collapsed caret, check `$from.nodeBefore.marks` when `$from.marks()` lacks the mark (and never set `inclusive: true`). Scope format-specific layout engines through `latestEngineForFormat(format)` rather than `ENGINE_VERSIONS.at(-1)`, and read dynamic line/unit screen metrics through `linePxOf(profile)` / `unitPxOf(profile)` across `section-height.ts`, `drift.ts`, `graphic-height.ts` and `sheet-sync.ts`.
+
+### Enforced by
+
+`tools/unicode/generate-tables.ts`, `packages/pagination/src/engines/registry.ts`, `packages/pagination/test/v3-book-publishing.test.ts`, `packages/editor/test/book-authoring.test.ts`, `packages/formats/test/pdf.test.ts`, and `e2e/interface/book-format-bar.e2e.ts`.
+
 ## Never clobber `dom.className` in a ProseMirror NodeView, guard Base UI floating controls against stealing focus, and keep writing-mode pills at full AA contrast
 
 - Date: 2026-11-28

@@ -36,8 +36,11 @@ export const PAGE_CSS = `
   background: var(--page-paper);
   box-shadow: 0 0 0 1px var(--page-edge);
 }
+.mn-sheet[data-side="verso"] {
+  left: var(--geo-mirror-delta, 0pt);
+}
 .mn-page-view {
-  font: 12pt/12pt "Courier Prime", monospace;
+  font: var(--geo-font-size, 12pt)/var(--geo-line, 12pt) "Courier Prime", monospace;
   font-synthesis: none;
   text-rendering: geometricPrecision;
   font-kerning: none;
@@ -51,6 +54,15 @@ export const PAGE_CSS = `
   background: transparent;
   color: var(--page-ink);
   outline: none;
+}
+.mn-pages[data-typography="book_serif"] .mn-page-view {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-feature-settings: "kern" 0, "liga" 0, "clig" 0, "dlig" 0, "calt" 0;
+}
+.mn-pages[data-typography="book_serif"] p.el,
+.mn-pages[data-typography="book_serif"] del.el {
+  margin-left: calc(var(--el-indent) * var(--geo-cell));
+  width: calc(var(--el-width) * var(--geo-cell));
 }
 .mn-pages.fonts-loading .mn-page-view {
   visibility: hidden;
@@ -289,6 +301,37 @@ mn-offfont {
 }
 .caps {
   text-transform: uppercase;
+}
+.el-subheading {
+  font-weight: 700;
+}
+.el-epigraph {
+  font-style: italic;
+}
+.mn-footnote {
+  text-decoration: underline dotted var(--focus);
+  text-underline-offset: 2px;
+}
+.mn-fn-ref {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  line-height: 0;
+  overflow: visible;
+  position: relative;
+  vertical-align: baseline;
+  user-select: none;
+}
+.mn-fn-ref::after {
+  content: attr(data-n);
+  position: absolute;
+  top: -0.7em;
+  left: 0.06em;
+  font-size: 0.65em;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--focus);
+  pointer-events: none;
 }
 .mn-mark {
   position: absolute;

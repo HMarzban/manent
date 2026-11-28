@@ -69,14 +69,9 @@ function changedFacts(
 }
 
 const isSameEntry = (a: OutlineEntry, b: OutlineEntry): boolean =>
-  a.blockId === b.blockId &&
-  a.kind === b.kind &&
-  a.number === b.number &&
-  a.heading === b.heading &&
-  a.synopsis === b.synopsis &&
-  a.eighths === b.eighths &&
-  a.omitted === b.omitted &&
-  a.current === b.current;
+  (Object.keys(a) as (keyof OutlineEntry)[]).every((k) =>
+    Object.is(a[k], b[k]),
+  );
 
 const isSameOutline = (
   a: readonly OutlineEntry[],
@@ -84,7 +79,7 @@ const isSameOutline = (
 ): boolean =>
   a.length === b.length && a.every((entry, k) => isSameEntry(entry, b[k]!));
 
-/** The entries with each heading's own `omitted` and `synopsis` attributes, read from its node in one pass over the sections. */
+/** The entries with each heading's own `omitted`, `synopsis` and `targetWords` attributes, read in one pass over the sections. */
 function withHeadingAttributes(
   outline: OutlineIndex,
   index: BlockIndex,
@@ -93,15 +88,22 @@ function withHeadingAttributes(
   return outline.entries.map((entry, k) => {
     const block = outline.headingBlocks[k]!;
     while (index.sectionStart[section + 1]! <= block) section++;
-    const { omitted, synopsis } = index.doc
+    const { omitted, synopsis, targetWords } = index.doc
       .child(section)
       .child(block - index.sectionStart[section]!).attrs;
-    if (omitted !== true && (typeof synopsis !== "string" || synopsis === ""))
+    const nextTarget =
+      typeof targetWords === "number" && targetWords > 0 ? targetWords : null;
+    if (
+      omitted !== true &&
+      (typeof synopsis !== "string" || synopsis === "") &&
+      nextTarget === null
+    )
       return entry;
     return {
       ...entry,
       omitted: omitted === true,
       synopsis: typeof synopsis === "string" ? synopsis : "",
+      targetWords: nextTarget,
     };
   });
 }
@@ -364,9 +366,7 @@ export function bridgePlugin(options: BridgeOptions): Plugin {
           facts.request();
           syncViewed?.();
         },
-        () => {
-          facts.request();
-        },
+        facts.request,
       );
       const viewed = viewedPublisher({
         view,

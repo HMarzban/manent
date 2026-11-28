@@ -129,7 +129,11 @@ function pagesOf(
   if (engine === null)
     throw new RangeError(`no pagination engine ${ENGINE_VERSION}`);
   const paper = script.paper ?? paperForRegion(language);
-  const settings = { ...DEFAULT_LAYOUT_SETTINGS, paper };
+  const settings = {
+    ...DEFAULT_LAYOUT_SETTINGS,
+    format: script.format ?? DEFAULT_LAYOUT_SETTINGS.format,
+    paper,
+  };
   const profile = profileFromSettings(engine, settings);
   if (profile === null)
     throw new RangeError(`no page profile for ${settings.format}`);

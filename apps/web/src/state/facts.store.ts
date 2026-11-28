@@ -34,6 +34,8 @@ export interface EditorFacts {
   markColor: string | null;
   markHighlight: string | null;
   markLink: string | null;
+  markFootnoteId: string | null;
+  markFootnoteText: string | null;
   /** Total word count of the document, updated off the keystroke path. */
   wordCount: number | null;
   canUndo: boolean;
@@ -86,6 +88,8 @@ const INITIAL_FACTS: EditorFacts & Readonly<Record<FactKey, FactValue>> =
     markColor: null,
     markHighlight: null,
     markLink: null,
+    markFootnoteId: null,
+    markFootnoteText: null,
     wordCount: null,
     canUndo: false,
     canRedo: false,

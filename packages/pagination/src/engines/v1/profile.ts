@@ -35,8 +35,10 @@ export interface ProfileOptions {
     readonly sceneStartingPage?: boolean;
     readonly scenesLettered?: boolean;
   };
-  /** Read by the manuscript format only; default 2 (double-spaced). */
+  /** Read by the manuscript format only; default 2 (double-spaced on v1/v2, 1 on v3). */
   readonly manuscriptLineSpacing?: 1 | 2;
+  /** Read by Engine 3 manuscript format only; default true (recto/verso inner/outer gutters). */
+  readonly mirrorMargins?: boolean;
   /** A project's style, applied last. */
   readonly elements?: ElementChanges;
 }
@@ -51,12 +53,14 @@ type FurnitureFlags = Pick<
   | "scenesLettered"
 >;
 
+type V1Paper = "letter" | "a4";
+
 interface FormatPage {
   readonly columnCells: number;
   readonly marginLeftPt: number;
   readonly marginTopPt: number;
   readonly pageNumberTopPt: number;
-  readonly linesPerPage: Readonly<Record<Paper, number>>;
+  readonly linesPerPage: Readonly<Record<V1Paper, number>>;
 }
 
 interface FormatLayout {
@@ -69,7 +73,7 @@ interface FormatLayout {
 const VERSION = 1;
 const MIN_LINES_PER_PAGE = 10;
 const PAPER_SIZES: Readonly<
-  Record<Paper, { readonly widthPt: number; readonly heightPt: number }>
+  Record<V1Paper, { readonly widthPt: number; readonly heightPt: number }>
 > = Object.freeze({
   letter: Object.freeze({ widthPt: 612, heightPt: 792 }),
   a4: Object.freeze({ widthPt: 595.28, heightPt: 841.89 }),
@@ -163,6 +167,8 @@ const MULTICAM = Object.freeze<FormatLayout>({
 
 const MANUSCRIPT_SINGLE_ROWS: ElementChanges = Object.freeze({
   chapter: Object.freeze({ ...MANUSCRIPT_ROWS.chapter, lineSpacing: 1 }),
+  subheading: Object.freeze({ ...MANUSCRIPT_ROWS.subheading, lineSpacing: 1 }),
+  epigraph: Object.freeze({ ...MANUSCRIPT_ROWS.epigraph, lineSpacing: 1 }),
   body: Object.freeze({ ...MANUSCRIPT_ROWS.body, lineSpacing: 1 }),
   break: Object.freeze({ ...MANUSCRIPT_ROWS.break, lineSpacing: 1 }),
   quote: Object.freeze({ ...MANUSCRIPT_ROWS.quote, lineSpacing: 1 }),
@@ -296,7 +302,7 @@ export function profileFor(
   const layout = LAYOUTS[isFormatId(format) ? format : "screenplay"];
   if (layout === null) return null;
   const { page } = layout;
-  const paper = options.paper ?? "letter";
+  const paper: V1Paper = options.paper === "a4" ? "a4" : "letter";
   const { widthPt, heightPt } = PAPER_SIZES[paper];
   const most = Math.floor((heightPt - page.marginTopPt) / LINE_PT);
   const linesPerPage = Math.min(

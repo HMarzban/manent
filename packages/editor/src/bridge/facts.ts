@@ -24,6 +24,7 @@ export const MARK_BIT = Object.freeze({
   link: 32,
   sup: 64,
   sub: 128,
+  footnote: 256,
 } as const);
 
 type PageFacts = Pick<
@@ -52,6 +53,8 @@ interface CaretMarkFacts {
   readonly markColor: string | null;
   readonly markHighlight: string | null;
   readonly markLink: string | null;
+  readonly markFootnoteId: string | null;
+  readonly markFootnoteText: string | null;
 }
 
 const NO_MARKS: CaretMarkFacts = Object.freeze({
@@ -59,16 +62,39 @@ const NO_MARKS: CaretMarkFacts = Object.freeze({
   markColor: null,
   markHighlight: null,
   markLink: null,
+  markFootnoteId: null,
+  markFootnoteText: null,
 });
 
 function marksAtCaret(state: EditorState): CaretMarkFacts {
-  const { $from } = state.selection;
+  const { $from, empty } = state.selection;
   const active: readonly Mark[] = state.storedMarks ?? $from.marks();
-  if (active.length === 0) return NO_MARKS;
+  const trailingFootnote =
+    empty &&
+    !active.some((mark) => mark.type.name === "footnote") &&
+    $from.nodeBefore?.isText
+      ? ($from.nodeBefore.marks.find((mark) => mark.type.name === "footnote") ??
+        null)
+      : null;
+  if (active.length === 0 && trailingFootnote === null) return NO_MARKS;
   let marksMask = 0;
   let markColor: string | null = null;
   let markHighlight: string | null = null;
   let markLink: string | null = null;
+  let markFootnoteId: string | null = null;
+  let markFootnoteText: string | null = null;
+  if (
+    trailingFootnote !== null &&
+    typeof trailingFootnote.attrs.id === "string" &&
+    trailingFootnote.attrs.id !== ""
+  ) {
+    marksMask |= MARK_BIT.footnote;
+    markFootnoteId = trailingFootnote.attrs.id;
+    markFootnoteText =
+      typeof trailingFootnote.attrs.text === "string"
+        ? trailingFootnote.attrs.text
+        : "";
+  }
   for (const mark of active) {
     switch (mark.type.name) {
       case "bold":
@@ -96,6 +122,14 @@ function marksAtCaret(state: EditorState): CaretMarkFacts {
         marksMask |= MARK_BIT.link;
         if (typeof mark.attrs.href === "string") markLink = mark.attrs.href;
         break;
+      case "footnote":
+        marksMask |= MARK_BIT.footnote;
+        if (typeof mark.attrs.id === "string" && mark.attrs.id !== "") {
+          markFootnoteId = mark.attrs.id;
+          markFootnoteText =
+            typeof mark.attrs.text === "string" ? mark.attrs.text : "";
+        }
+        break;
       case "color":
         if (typeof mark.attrs.value === "string") markColor = mark.attrs.value;
         break;
@@ -105,7 +139,14 @@ function marksAtCaret(state: EditorState): CaretMarkFacts {
         break;
     }
   }
-  return { marksMask, markColor, markHighlight, markLink };
+  return {
+    marksMask,
+    markColor,
+    markHighlight,
+    markLink,
+    markFootnoteId,
+    markFootnoteText,
+  };
 }
 
 /** The caret block's page and layout as the engine draws them; `block` null: the caret is in no block. */

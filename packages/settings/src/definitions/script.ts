@@ -36,6 +36,9 @@ export const SCRIPT_SETTINGS = Object.freeze([
     type: t.choice([
       { value: "letter", label: "US Letter" },
       { value: "a4", label: "A4" },
+      { value: "trade_5x8", label: 'Trade 5×8"' },
+      { value: "trade_5_5x8_5", label: 'Digest 5.5×8.5"' },
+      { value: "trade_6x9", label: 'Trade 6×9"' },
     ]),
     // fixed, as every shared default is; a new script is given paperForRegion's answer instead
     default: "letter" as const,
@@ -187,12 +190,13 @@ const SCREENPLAY_ONLY_SETTINGS: ReadonlySet<string> = new Set([
   "script.colourOrder",
 ]);
 
-/** Whether a script setting does something in `format`: Ink has only its format, Manuscript hides screenplay-only settings, and line spacing is manuscript-only. */
+/** Whether a script setting does something in `format`: Ink has only its format, Manuscript hides screenplay-only settings, and line spacing / mirrored margins are manuscript-only. */
 export function appliesToFormat(
   key: string,
   format: SettingValue<"script.format">,
 ): boolean {
-  if (key === "script.lineSpacing") return format === "manuscript";
+  if (key === "script.lineSpacing" || key === "script.mirrorMargins")
+    return format === "manuscript";
   if (format === "ink") return key === "script.format";
   if (format === "manuscript") return !SCREENPLAY_ONLY_SETTINGS.has(key);
   return true;

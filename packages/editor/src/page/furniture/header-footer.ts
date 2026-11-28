@@ -1,7 +1,13 @@
 // Header and footer furniture on a sheet: left, centre and right slots plus an optional hairline rule.
-import { CELL_PX, LINE_PT, LINE_PX } from "@manent/pagination";
+import {
+  cellPtOf,
+  isVersoPage,
+  linePtOf,
+  pageMarginLeftPt,
+} from "@manent/pagination";
+import type { BookTypography } from "@manent/pagination";
 import type { HeaderSlot, HeaderSlots } from "@manent/settings";
-import { screenPagePx } from "../profile-css.ts";
+import { linePxOf, screenPagePx } from "../profile-css.ts";
 import type {
   DateFormat,
   PageFurniture,
@@ -106,10 +112,16 @@ function createBand(
   className: string,
   leftPt: number,
   widthPx: number,
+  linePx: number,
+  typography: BookTypography | undefined,
   vertical: { top: number } | { bottom: number },
 ): HTMLDivElement {
   const band = doc.createElement("div");
   band.className = className;
+  const font =
+    typography === undefined
+      ? '12pt/12pt "Courier Prime", monospace'
+      : `${typography.fontSizePt}pt/${typography.linePt}pt "${typography.family}", Georgia, serif`;
   Object.assign(band.style, {
     position: "absolute",
     left: `${leftPt}pt`,
@@ -117,8 +129,8 @@ function createBand(
     ...("top" in vertical
       ? { top: `${vertical.top}px` }
       : { bottom: `${vertical.bottom}px` }),
-    height: `${LINE_PX}px`,
-    font: '12pt/12pt "Courier Prime", monospace',
+    height: `${linePx}px`,
+    font,
     fontKerning: "none",
     fontVariantLigatures: "none",
     textRendering: "geometricPrecision",
@@ -179,31 +191,39 @@ function drawBar(
   hasRevisionHeader: boolean,
 ): void {
   if (!slots.firstPage && input.pageIndex === 0) return;
-  const left = resolveSlot(slots.left, input, hasRevisionHeader);
+  const rawLeft = resolveSlot(slots.left, input, hasRevisionHeader);
   const center = resolveSlot(slots.center, input, hasRevisionHeader);
-  const right = resolveSlot(slots.right, input, hasRevisionHeader);
-  if (left === "" && center === "" && right === "" && !slots.rule) return;
+  const rawRight = resolveSlot(slots.right, input, hasRevisionHeader);
+  if (rawLeft === "" && center === "" && rawRight === "" && !slots.rule) return;
   const { profile } = input;
   const { geometry } = profile;
-  const widthPx = profile.columnCells * CELL_PX;
+  const mirrorSwap = geometry.mirrored === true && isVersoPage(input.pageIndex);
+  const left = mirrorSwap ? rawRight : rawLeft;
+  const right = mirrorSwap ? rawLeft : rawRight;
+  const marginLeftPt = pageMarginLeftPt(geometry, input.pageIndex);
+  const linePt = linePtOf(profile);
+  const linePx = linePxOf(profile);
+  const widthPx = profile.columnCells * cellPtOf(profile) * PX_PER_PT;
   const screen = screenPagePx(profile);
   const topPx =
     kind === "header"
       ? geometry.pageNumberTopPt * PX_PER_PT
       : Math.max(
-          screen.top + (profile.linesPerPage + 1) * LINE_PX,
-          screen.height - geometry.pageNumberTopPt * PX_PER_PT - LINE_PX,
+          screen.top + (profile.linesPerPage + 1) * linePx,
+          screen.height - geometry.pageNumberTopPt * PX_PER_PT - linePx,
         );
   const bandVertical =
     kind === "header"
       ? { top: topPx }
-      : { bottom: Math.max(0, screen.height - topPx - LINE_PX) };
+      : { bottom: Math.max(0, screen.height - topPx - linePx) };
   const doc = sheet.ownerDocument;
   const band = createBand(
     doc,
     kind === "header" ? "mn-header" : "mn-footer",
-    geometry.marginLeftPt,
+    marginLeftPt,
     widthPx,
+    linePx,
+    profile.typography,
     bandVertical,
   );
   appendSlot(band, left, "left");
@@ -215,13 +235,13 @@ function drawBar(
     const gapPx = RULE_GAP_PT * PX_PER_PT;
     const ruleVertical =
       kind === "header"
-        ? { top: topPx + LINE_PT * PX_PER_PT + gapPx }
+        ? { top: topPx + linePt * PX_PER_PT + gapPx }
         : { bottom: Math.max(0, screen.height - (topPx - gapPx) - 1) };
     sheet.append(
       createRule(
         doc,
         kind === "header" ? "mn-header-rule" : "mn-footer-rule",
-        geometry.marginLeftPt,
+        marginLeftPt,
         widthPx,
         ruleVertical,
       ),

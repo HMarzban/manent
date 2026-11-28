@@ -1,6 +1,11 @@
 // What a scene's row or card draws of other features: its marks in their fixed order, the people in it, and the text
 // in place of its length; and the heading the marks are drawn after.
-import { AvatarStack, DOCUMENT_WORDS, SCENES_WORDS } from "@manent/ui";
+import {
+  AvatarStack,
+  DOCUMENT_WORDS,
+  SCENES_WORDS,
+  WRITING_TOOLS_WORDS,
+} from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -137,15 +142,29 @@ export function SceneMetaMarks(props: {
   );
 }
 
-/** The second line of a scene row: assignment and comment tags beside any synopsis; undefined when both are absent. */
+/** The second line of a scene row: assignment, comment and optional chapter word-target tags beside any synopsis. */
 export function sceneRowMeta(
   marks: readonly SceneMark[],
   synopsis: string,
+  chapterProgress?: {
+    readonly words: number;
+    readonly targetWords: number;
+  } | null,
 ): ReactNode | undefined {
-  if (!marks.some(isMetaMark)) return synopsis === "" ? undefined : synopsis;
+  const hasMarks = marks.some(isMetaMark);
+  const hasProgress = chapterProgress !== undefined && chapterProgress !== null;
+  if (!hasMarks && !hasProgress) return synopsis === "" ? undefined : synopsis;
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <SceneMetaMarks marks={marks} />
+      {hasMarks ? <SceneMetaMarks marks={marks} /> : null}
+      {hasProgress ? (
+        <span className="mn-tag shrink-0 tabular-nums">
+          {WRITING_TOOLS_WORDS.numbersChapterProgress(
+            chapterProgress.words,
+            chapterProgress.targetWords,
+          )}
+        </span>
+      ) : null}
       {synopsis === "" ? null : (
         <span className="min-w-0 truncate">{synopsis}</span>
       )}

@@ -1,9 +1,9 @@
-// XML helpers and paragraph style resolution for Word (.docx) files.
-import type { BlockType } from "@manent/schema";
+// XML helpers and paragraph style resolution for Word (.docx) files across screenplay and manuscript styles.
+import type { BlockType, FormatId } from "@manent/schema";
 import type { XmlNode } from "../xml/node.ts";
 
-/** Paragraph style names mapped by lower-cased name with all spaces removed. */
-const STYLE_MAP: Readonly<Record<string, BlockType>> = Object.freeze({
+/** Screenplay paragraph style names mapped by lower-cased name with all spaces removed. */
+const SCREENPLAY_STYLES: Readonly<Record<string, BlockType>> = Object.freeze({
   sceneheading: "scene_heading",
   action: "action",
   character: "character",
@@ -12,6 +12,34 @@ const STYLE_MAP: Readonly<Record<string, BlockType>> = Object.freeze({
   transition: "transition",
   shot: "shot",
   general: "general",
+});
+
+/** Book (manuscript) paragraph style names mapped by lower-cased name with all spaces removed. */
+const BOOK_STYLES: Readonly<Record<string, BlockType>> = Object.freeze({
+  heading1: "chapter",
+  title: "chapter",
+  chapter: "chapter",
+  chapterheading: "chapter",
+  chaptertitle: "chapter",
+  heading2: "subheading",
+  heading3: "subheading",
+  subheading: "subheading",
+  subtitle: "subheading",
+  epigraph: "epigraph",
+  quote: "quote",
+  blockquote: "quote",
+  intensequote: "quote",
+  scenebreak: "break",
+  break: "break",
+  sectionbreak: "break",
+  normal: "body",
+  body: "body",
+  bodytext: "body",
+  bodytextfirstindent: "body",
+  firstparagraph: "body",
+  paragraph: "body",
+  listparagraph: "body",
+  caption: "body",
 });
 
 /** Local XML tag or attribute name without its namespace prefix. */
@@ -65,32 +93,106 @@ export function readStyleNames(
   return names;
 }
 
+/** True when `word/styles.xml` gives the `Normal` paragraph style a positive first-line indent. */
+export function hasNormalFirstLineIndent(stylesRoot: XmlNode | null): boolean {
+  if (stylesRoot === null) return false;
+  for (const child of childElements(stylesRoot)) {
+    if (localName(child.name) !== "style") continue;
+    const id = wordAttr(child, "styleId");
+    if (id !== "Normal" && wordAttr(child, "default") !== "1") continue;
+    const pPr = firstChild(child, "pPr");
+    const ind = pPr === null ? null : firstChild(pPr, "ind");
+    const first = ind === null ? null : Number(wordAttr(ind, "firstLine") ?? 0);
+    if (Number.isFinite(first) && first !== null && first > 0) return true;
+  }
+  return false;
+}
+
 const normalizeStyle = (name: string): string =>
   name.toLowerCase().replace(/\s+/g, "");
 
+function isScreenplaySpecific(key: string): boolean {
+  return Object.hasOwn(SCREENPLAY_STYLES, key) && key !== "general";
+}
+
+function isBookSpecific(key: string): boolean {
+  return (
+    Object.hasOwn(BOOK_STYLES, key) &&
+    key !== "normal" &&
+    key !== "body" &&
+    key !== "paragraph" &&
+    key !== "caption"
+  );
+}
+
+/** Infers whether a `.docx` body represents a Book (`manuscript`) or a `screenplay`. */
+export function detectDocxFormat(
+  body: XmlNode,
+  stylesRoot: XmlNode | null,
+  styleNames: ReadonlyMap<string, string>,
+): FormatId {
+  let sawBookSignal = false;
+  const inspect = (container: XmlNode): boolean => {
+    for (const child of childElements(container)) {
+      const tag = localName(child.name);
+      if (tag === "sdt") {
+        const content = firstChild(child, "sdtContent");
+        if (content !== null && inspect(content)) return true;
+        continue;
+      }
+      if (tag !== "p") continue;
+      const pPr = firstChild(child, "pPr");
+      if (pPr === null) continue;
+      const frame = firstChild(pPr, "framePr");
+      if (frame !== null && wordAttr(frame, "dropCap") !== null)
+        sawBookSignal = true;
+      const styleNode = firstChild(pPr, "pStyle");
+      const styleId = styleNode === null ? null : wordAttr(styleNode, "val");
+      if (styleId === null || styleId.trim() === "") continue;
+      const byId = normalizeStyle(styleId);
+      const byName = normalizeStyle(styleNames.get(styleId) ?? styleId);
+      if (isScreenplaySpecific(byName) || isScreenplaySpecific(byId))
+        return true;
+      if (isBookSpecific(byName) || isBookSpecific(byId)) sawBookSignal = true;
+    }
+    return false;
+  };
+  if (inspect(body)) return "screenplay";
+  if (sawBookSignal || hasNormalFirstLineIndent(stylesRoot))
+    return "manuscript";
+  return "screenplay";
+}
+
 export interface StyleMatch {
   readonly type: BlockType;
-  /** The Word style name when it mapped to no element and fell back to Action; null when mapped or unstyled. */
+  /** The Word style name when it mapped to no element and fell back to Action/Body; null when mapped or unstyled. */
   readonly unmapped: string | null;
 }
 
-/**
- * Resolves a Word paragraph's `styleId` to a Manent screenplay element. Unstyled paragraphs become Action without
- * adding an unread entry; unknown styles become Action with their display name reported in `unmapped`.
- */
+/** Resolves a Word paragraph's `styleId` to a Manent screenplay or manuscript element. */
 export function resolveParagraphStyle(
   styleId: string | null,
   styleNames: ReadonlyMap<string, string>,
+  format: FormatId = "screenplay",
 ): StyleMatch {
+  const fallback: BlockType = format === "manuscript" ? "body" : "action";
   if (styleId === null || styleId.trim() === "")
-    return { type: "action", unmapped: null };
+    return { type: fallback, unmapped: null };
   const display = styleNames.get(styleId) ?? styleId;
   const byDisplay = normalizeStyle(display);
-  if (Object.hasOwn(STYLE_MAP, byDisplay))
-    return { type: STYLE_MAP[byDisplay]!, unmapped: null };
   const byId = normalizeStyle(styleId);
-  if (Object.hasOwn(STYLE_MAP, byId))
-    return { type: STYLE_MAP[byId]!, unmapped: null };
+  const primary = format === "manuscript" ? BOOK_STYLES : SCREENPLAY_STYLES;
+  const secondary = format === "manuscript" ? SCREENPLAY_STYLES : BOOK_STYLES;
+  if (Object.hasOwn(primary, byDisplay))
+    return { type: primary[byDisplay]!, unmapped: null };
+  if (Object.hasOwn(primary, byId))
+    return { type: primary[byId]!, unmapped: null };
+  if (format === "manuscript") {
+    if (Object.hasOwn(secondary, byDisplay))
+      return { type: secondary[byDisplay]!, unmapped: null };
+    if (Object.hasOwn(secondary, byId))
+      return { type: secondary[byId]!, unmapped: null };
+  }
   const label = display.trim();
-  return { type: "action", unmapped: label === "" ? null : label };
+  return { type: fallback, unmapped: label === "" ? null : label };
 }

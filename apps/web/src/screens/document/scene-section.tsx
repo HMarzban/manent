@@ -1,6 +1,7 @@
 // Details → Scene: the caret's scene, its length and omitted badge, synopsis, and Omit/Bring back actions.
 import {
   CommandButton,
+  DOCUMENT_WORDS,
   Input,
   Label,
   PLACE_WORDS,
@@ -84,6 +85,106 @@ function SynopsisField(props: {
   );
 }
 
+/** Optional numeric word-count target for a book chapter, with a live GPU progress bar. */
+function ChapterTargetField(props: {
+  row: OutlineRow;
+  readOnly: boolean;
+}): ReactNode {
+  const { row, readOnly } = props;
+  const { editor } = useServices();
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+  const current = row.targetWords ?? null;
+  const words = row.words ?? 0;
+
+  const commit = (): void => {
+    if (draft === null) return;
+    const raw = draft.trim();
+    setDraft(null);
+    if (raw === "") {
+      if (current !== null)
+        editor.run({
+          kind: "chapter_target",
+          blockId: row.blockId,
+          targetWords: null,
+        });
+      return;
+    }
+    const parsed = Number.parseInt(raw.replaceAll(",", ""), 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return;
+    if (parsed !== current)
+      editor.run({
+        kind: "chapter_target",
+        blockId: row.blockId,
+        targetWords: parsed,
+      });
+  };
+
+  const ratio =
+    current !== null && current > 0 ? Math.min(1, words / current) : 0;
+  const reached = current !== null && words >= current;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id} className="text-ui">
+          {DOCUMENT_WORDS.chapterTarget}
+        </Label>
+        {reached ? (
+          <span className="text-micro font-medium text-ok">
+            {DOCUMENT_WORDS.chapterTargetReached}
+          </span>
+        ) : null}
+      </div>
+      <Input
+        id={id}
+        type="number"
+        min={1}
+        step={100}
+        readOnly={readOnly}
+        placeholder={
+          readOnly ? undefined : DOCUMENT_WORDS.chapterTargetPlaceholder
+        }
+        value={draft ?? (current === null ? "" : String(current))}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            return;
+          }
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          commit();
+        }}
+        onBlur={commit}
+        className="h-control text-ui tabular-nums"
+      />
+      {current !== null ? (
+        <div className="flex flex-col gap-1">
+          <div
+            role="progressbar"
+            aria-label={DOCUMENT_WORDS.chapterTarget}
+            aria-valuemin={0}
+            aria-valuemax={current}
+            aria-valuenow={Math.min(words, current)}
+            className="mn-progress-track h-1.5 w-full overflow-hidden rounded-full"
+          >
+            <div
+              className="mn-progress-fill h-full w-full origin-left"
+              style={{ transform: `scaleX(${ratio})` }}
+            />
+          </div>
+          <p className="text-micro text-fg-muted tabular-nums">
+            {DOCUMENT_WORDS.chapterWordsOf(words, current)}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** Drawn while the caret is in a scene or chapter. */
 export function SceneSection(props: { docId: string }): ReactNode {
   const services = useServices();
@@ -137,6 +238,13 @@ export function SceneSection(props: { docId: string }): ReactNode {
       {row.number === null && !isBook ? null : (
         <SynopsisField key={row.blockId} row={row} readOnly={!editable} />
       )}
+      {isBook ? (
+        <ChapterTargetField
+          key={`target-${row.blockId}`}
+          row={row}
+          readOnly={!editable}
+        />
+      ) : null}
       {showActions ? (
         <div className="flex flex-wrap gap-2">
           <CommandButton

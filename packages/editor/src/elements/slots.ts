@@ -79,6 +79,8 @@ const SLOTS: Readonly<Record<FormatId, FormatSlots>> = Object.freeze({
   manuscript: Object.freeze({
     "1": ref("chapter"),
     "2": ref("body"),
+    "3": ref("subheading"),
+    "4": ref("epigraph"),
     "5": ref("quote"),
     "6": ref("break"),
     ...SECTION_AND_ACTS,

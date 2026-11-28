@@ -1,7 +1,11 @@
 // A script's layout settings and the page profile they give, so the server and the formats lay a script out exactly as the editor does.
 import { profileFor } from "./engines/v1/profile.ts";
+import {
+  v3DefaultLinesPerPage,
+  v3MaxLinesPerPage,
+} from "./engines/v3/profile.ts";
 import type { Engine, ProfileOptions } from "./engines/index.ts";
-import { SCENE_NUMBER_SIDES } from "./page-profile.ts";
+import { PAPERS, SCENE_NUMBER_SIDES } from "./page-profile.ts";
 import type {
   ElementSpec,
   PageProfile,
@@ -32,6 +36,8 @@ export interface ScriptLayoutSettings {
   readonly elements?: ProfileOptions["elements"];
   /** Manuscript line spacing override from `script.lineSpacing` (1 = single); omitted for default double-spacing. */
   readonly lineSpacing?: 1 | 2;
+  /** Layout Engine 3 manuscript mirrored recto/verso margins; defaults to true when omitted. */
+  readonly mirrorMargins?: boolean;
 }
 
 /** The script settings the page profile is made from. */
@@ -45,6 +51,7 @@ export const LAYOUT_SETTING_KEYS: readonly string[] = Object.freeze([
   "script.linesPerPage",
   "script.sceneNumbers",
   "script.lineSpacing",
+  "script.mirrorMargins",
 ]);
 
 /** The defaults of the `script.*` layout settings, and scenes not numbered. */
@@ -82,6 +89,8 @@ const SPEC_KEYS: Readonly<Record<SpecKey, true>> = {
   group: true,
   page_break: true,
   chapter: true,
+  subheading: true,
+  epigraph: true,
   body: true,
   break: true,
   quote: true,
@@ -157,18 +166,43 @@ function readSceneNumberSides(value: unknown): SceneNumberSides | null {
   return SCENE_NUMBER_SIDES.find((side) => side === value) ?? null;
 }
 
+/** Validates a raw paper setting for `engineVersion`; trade trims require Engine 3, else falls back to `"letter"`. */
+export function parsePaper(raw: unknown, engineVersion = 1): Paper {
+  if (raw === "a4") return "a4";
+  if (engineVersion >= 3 && PAPERS.some((p) => p === raw)) return raw as Paper;
+  return "letter";
+}
+
 /** The most lines `paper` holds for `format`, using the engine's exact page geometry. */
-export function maxLinesPerPage(format: string, paper: Paper): number {
+export function maxLinesPerPage(
+  format: string,
+  paper: Paper,
+  engineVersion = 1,
+): number {
+  if (engineVersion >= 3 && format === "manuscript")
+    return v3MaxLinesPerPage(paper);
+  const safePaper = parsePaper(paper, 1);
   const profile =
-    profileFor(format, { paper, linesPerPage: MAX_LINES_SETTING }) ??
-    profileFor("screenplay", { paper, linesPerPage: MAX_LINES_SETTING })!;
+    profileFor(format, { paper: safePaper, linesPerPage: MAX_LINES_SETTING }) ??
+    profileFor("screenplay", {
+      paper: safePaper,
+      linesPerPage: MAX_LINES_SETTING,
+    })!;
   return profile.linesPerPage;
 }
 
 /** The format's default lines per page on `paper`. */
-export function defaultLinesPerPage(format: string, paper: Paper): number {
+export function defaultLinesPerPage(
+  format: string,
+  paper: Paper,
+  engineVersion = 1,
+): number {
+  if (engineVersion >= 3 && format === "manuscript")
+    return v3DefaultLinesPerPage(paper);
+  const safePaper = parsePaper(paper, 1);
   const profile =
-    profileFor(format, { paper }) ?? profileFor("screenplay", { paper })!;
+    profileFor(format, { paper: safePaper }) ??
+    profileFor("screenplay", { paper: safePaper })!;
   return profile.linesPerPage;
 }
 
@@ -178,7 +212,15 @@ export function readLayoutSettings(
 ): ScriptLayoutSettings {
   const d = DEFAULT_LAYOUT_SETTINGS;
   const elements = readElementStyle(read("script.style"));
-  const lineSpacing = read("script.lineSpacing") === "single" ? 1 : undefined;
+  const rawLineSpacing = read("script.lineSpacing");
+  const lineSpacing: 1 | 2 | undefined =
+    rawLineSpacing === "single"
+      ? 1
+      : rawLineSpacing === "double"
+        ? 2
+        : undefined;
+  const rawMirror = read("script.mirrorMargins");
+  const mirrorMargins = typeof rawMirror === "boolean" ? rawMirror : undefined;
   return {
     format: stringOr(read("script.format"), d.format),
     paper: stringOr(read("script.paper"), d.paper),
@@ -193,16 +235,21 @@ export function readLayoutSettings(
     sceneNumberSides: readSceneNumberSides(read("script.sceneNumbers")),
     ...(elements === undefined ? {} : { elements }),
     ...(lineSpacing === undefined ? {} : { lineSpacing }),
+    ...(mirrorMargins === undefined ? {} : { mirrorMargins }),
   };
 }
 
-/** The profile `engine` gives these settings; null for a format without pages (Ink). A paper other than "a4" is letter. */
+/** The profile `engine` gives these settings; null for a format without pages (Ink). Trade trims require Engine 3. */
 export function profileFromSettings(
   engine: Engine,
   s: ScriptLayoutSettings,
 ): PageProfile | null {
+  const paper = parsePaper(
+    s.paper,
+    s.format === "manuscript" ? engine.version : 1,
+  );
   return engine.profileFor(s.format, {
-    paper: s.paper === "a4" ? "a4" : "letter",
+    paper,
     ...(s.linesPerPage === null ? {} : { linesPerPage: s.linesPerPage }),
     speechContinued: s.moresAtBreaks,
     speakerContinued: s.sameSpeakerContd,
@@ -215,5 +262,8 @@ export function profileFromSettings(
     ...(s.lineSpacing === undefined
       ? {}
       : { manuscriptLineSpacing: s.lineSpacing }),
+    ...(s.mirrorMargins === undefined
+      ? {}
+      : { mirrorMargins: s.mirrorMargins }),
   });
 }

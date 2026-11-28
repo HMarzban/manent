@@ -15,6 +15,7 @@ export const MARK_NAMES = [
   "suggest_delete",
   "sup",
   "sub",
+  "footnote",
 ] as const;
 export type MarkName = (typeof MARK_NAMES)[number];
 
@@ -162,6 +163,29 @@ export const MARK_SPECS: Record<MarkName, MarkSpec> = {
     parseDOM: [{ tag: "sub" }],
     toDOM: () => ["sub", 0],
   },
+  footnote: {
+    attrs: { id: { default: "" }, text: { default: "" } },
+    inclusive: false,
+    parseDOM: [
+      {
+        tag: "span[data-footnote-id]",
+        getAttrs: (dom) => {
+          const id = dom.getAttribute("data-footnote-id");
+          const text = dom.getAttribute("data-footnote-text") ?? "";
+          return id !== null && id !== "" ? { id, text } : false;
+        },
+      },
+    ],
+    toDOM: (mark) => [
+      "span",
+      {
+        class: "mn-footnote",
+        "data-footnote-id": mark.attrs.id,
+        "data-footnote-text": mark.attrs.text,
+      },
+      0,
+    ],
+  },
 };
 
 /** The attributes of each mark, with their valid values. */
@@ -180,4 +204,5 @@ export const MARK_ATTR_CHECKS: Readonly<
   suggest_delete: SUGGESTION_CHECKS,
   sup: {},
   sub: {},
+  footnote: { id: isString, text: isString },
 };

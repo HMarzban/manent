@@ -31,6 +31,7 @@ import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import { useEditorFact } from "../../../state/facts.store.ts";
 import { ColourHighlightPopover } from "./book-colour-popover.tsx";
+import { BookFootnoteSection } from "./book-footnote-section.tsx";
 import { keepEditorFocus } from "./keep-editor-focus.ts";
 
 const W = DOCUMENT_WORDS.bookToolbar;
@@ -43,6 +44,7 @@ const MARK_BIT = Object.freeze({
   link: 32,
   sup: 64,
   sub: 128,
+  footnote: 256,
 } as const);
 
 const SAFE_LINK = /^(?:https?:\/\/|mailto:)/i;
@@ -102,10 +104,13 @@ export function BookInlineControls(): ReactNode {
   const activeColor = useEditorFact("markColor");
   const activeHighlight = useEditorFact("markHighlight");
   const currentLink = useEditorFact("markLink");
+  const currentFootnote = useEditorFact("markFootnoteText");
 
   const [open, setOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [footnoteOpen, setFootnoteOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [footnoteDraft, setFootnoteDraft] = useState("");
   const [invalid, setInvalid] = useState(false);
   const linkInputId = useId();
 
@@ -117,7 +122,8 @@ export function BookInlineControls(): ReactNode {
   const link = (mask & MARK_BIT.link) !== 0;
   const sup = (mask & MARK_BIT.sup) !== 0;
   const sub = (mask & MARK_BIT.sub) !== 0;
-  const hasMoreStyle = strike || caps || link || sup || sub;
+  const footnote = (mask & MARK_BIT.footnote) !== 0;
+  const hasMoreStyle = strike || caps || link || sup || sub || footnote;
 
   const handleOpenChange = (
     next: boolean,
@@ -125,8 +131,10 @@ export function BookInlineControls(): ReactNode {
   ): void => {
     setOpen(next);
     if (next) {
-      setLinkOpen(link);
+      setLinkOpen(link && !footnote);
+      setFootnoteOpen(footnote);
       setDraft(currentLink ?? "");
+      setFootnoteDraft(currentFootnote ?? "");
       setInvalid(false);
     } else if (details.reason !== "outside-press") {
       dom.focusPage();
@@ -260,7 +268,7 @@ export function BookInlineControls(): ReactNode {
               </Button>
             </div>
 
-            <div className="border-t border-line pt-2">
+            <div className="flex flex-col gap-1.5 border-t border-line pt-2">
               <Button
                 type="button"
                 variant={link || linkOpen ? "secondary" : "outline"}
@@ -269,6 +277,7 @@ export function BookInlineControls(): ReactNode {
                 className="h-control-sm w-full justify-start gap-1.5 px-2 text-meta"
                 onClick={() => {
                   setLinkOpen((prev) => !prev);
+                  setFootnoteOpen(false);
                   setDraft(currentLink ?? "");
                   setInvalid(false);
                 }}
@@ -276,6 +285,22 @@ export function BookInlineControls(): ReactNode {
                 <Link2Icon aria-hidden="true" className="size-3.5" />
                 <span className="truncate">{currentLink ?? W.link}</span>
               </Button>
+              <BookFootnoteSection
+                active={footnote}
+                open={footnoteOpen}
+                currentText={currentFootnote}
+                draft={footnoteDraft}
+                onToggle={() => {
+                  setFootnoteOpen((prev) => !prev);
+                  setLinkOpen(false);
+                  setFootnoteDraft(currentFootnote ?? "");
+                }}
+                onDraftChange={setFootnoteDraft}
+                onDone={() => {
+                  setFootnoteOpen(false);
+                  setOpen(false);
+                }}
+              />
             </div>
 
             {linkOpen ? (

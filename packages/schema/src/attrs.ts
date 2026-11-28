@@ -27,6 +27,8 @@ export const GRAPHIC_MAX_HEIGHT_LINES = 24;
 export const GRAPHIC_MAX_LABEL_LENGTH = 120;
 export const GRAPHIC_MAX_ALT_LENGTH = 400;
 export const GRAPHIC_MAX_DIMENSION_PX = 4096;
+export const CHAPTER_TARGET_WORDS_MIN = 1;
+export const CHAPTER_TARGET_WORDS_MAX = 1_000_000;
 
 /** Flat seven-primitive attributes carried by a `graphic` block (schema 3). */
 export interface GraphicAttrs {
@@ -90,8 +92,10 @@ export interface BlockAttrs {
   linkTo: { kind: LinkKind; blockId: string } | null;
   /** On graphic only (schema 3): flat seven-primitive box and asset metadata. */
   graphic: GraphicAttrs | null;
-  /** On prose body blocks (schema 4): opening-line style ("flush" or "drop_cap"); null keeps the element's default indent. */
+  /** On prose body blocks (schema 4): opening-line style ("flush", "drop_cap" or "raised_cap"); null keeps the element's default indent. */
   firstLine: FirstLine | null;
+  /** On chapter headings (schema 5): optional word-count target; null means no target. */
+  targetWords: number | null;
 }
 
 /** The defaults, in the order the block node declares its attributes. */
@@ -119,6 +123,7 @@ export const DEFAULT_BLOCK_ATTRS: BlockAttrs = Object.freeze({
   linkTo: null,
   graphic: null,
   firstLine: null,
+  targetWords: null,
 });
 
 function isBlockAttrName(key: string): key is keyof BlockAttrs {

@@ -1,10 +1,11 @@
 // Custom Script settings rows for Lines per page, Scene numbers state notes, and Layout engine updates.
 import {
-  ENGINE_VERSIONS,
   LAYOUT_SETTING_KEYS,
   defaultLinesPerPage,
   engineFor,
+  latestEngineForFormat,
   maxLinesPerPage,
+  parsePaper,
   profileFromSettings,
   readLayoutSettings,
 } from "@manent/pagination";
@@ -32,7 +33,6 @@ import type { ScriptSettingRowProps } from "./script-setting-rows.ts";
 import { recordEnginePageDelta } from "./setting-messages.ts";
 
 const MIN_LINES = 10;
-const LATEST_ENGINE = ENGINE_VERSIONS.at(-1) ?? 1;
 
 const LAYOUT_KEYS: readonly SettingKey[] = [
   ...LAYOUT_SETTING_KEYS.filter((key): key is SettingKey =>
@@ -59,7 +59,8 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
   const store = useSettingsStore();
   const value = useSetting("script.linesPerPage");
   const format = useSetting("script.format");
-  const paper: Paper = useSetting("script.paper") === "a4" ? "a4" : "letter";
+  const engineVersion = useSetting("script.engineVersion");
+  const paper: Paper = parsePaper(useSetting("script.paper"), engineVersion);
   const explained = store.explain("script.linesPerPage");
   const def = SETTINGS.get("script.linesPerPage");
   const id = useId();
@@ -67,8 +68,8 @@ export function LinesPerPageRow(_props: ScriptSettingRowProps): ReactNode {
   const noteId = `${id}-note`;
   const alertId = `${id}-alert`;
 
-  const defaultLines = defaultLinesPerPage(format, paper);
-  const maxLines = maxLinesPerPage(format, paper);
+  const defaultLines = defaultLinesPerPage(format, paper, engineVersion);
+  const maxLines = maxLinesPerPage(format, paper, engineVersion);
   const [typed, setTyped] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
 
@@ -234,11 +235,13 @@ export function LayoutEngineRow(props: ScriptSettingRowProps): ReactNode {
   const { docId } = props;
   const store = useSettingsStore();
   const services = useServices();
+  const format = useSetting("script.format");
   const currentEngine = useSetting("script.engineVersion");
+  const targetEngine = latestEngineForFormat(format);
   const explained = store.explain("script.engineVersion");
   const locked = useProductionContext(docId)?.locked === true;
   const canUpdate =
-    !locked && explained.writable && LATEST_ENGINE > currentEngine;
+    !locked && explained.writable && targetEngine > currentEngine;
 
   const [counts, setCounts] = useState<PageCounts | null>(null);
   const [revision, setRevision] = useState(0);
@@ -265,20 +268,20 @@ export function LayoutEngineRow(props: ScriptSettingRowProps): ReactNode {
     setCounts(null);
     const frame = requestAnimationFrame(() => {
       if (cancelled) return;
-      setCounts(countPagesForUpdate(docId, store, LATEST_ENGINE));
+      setCounts(countPagesForUpdate(docId, store, targetEngine));
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [canUpdate, docId, store, revision]);
+  }, [canUpdate, docId, store, revision, targetEngine]);
 
   const onUpdate = (): void => {
-    const resolved = counts ?? countPagesForUpdate(docId, store, LATEST_ENGINE);
+    const resolved = counts ?? countPagesForUpdate(docId, store, targetEngine);
     if (resolved !== null) {
       recordEnginePageDelta(store, resolved.before, resolved.after);
     }
-    const result = store.set("script.engineVersion", LATEST_ENGINE);
+    const result = store.set("script.engineVersion", targetEngine);
     if (!result.ok) {
       services.messages.push({
         id: "layout_engine_refused",
@@ -302,9 +305,9 @@ export function LayoutEngineRow(props: ScriptSettingRowProps): ReactNode {
         <div className="flex flex-col items-start gap-2">
           <p role="status" className="text-meta text-fg-muted">
             {counts === null
-              ? LAYOUT_SETTINGS_WORDS.engineCounting(LATEST_ENGINE)
+              ? LAYOUT_SETTINGS_WORDS.engineCounting(targetEngine)
               : LAYOUT_SETTINGS_WORDS.engineAvailable(
-                  LATEST_ENGINE,
+                  targetEngine,
                   counts.before,
                   counts.after,
                 )}

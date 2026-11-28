@@ -4,7 +4,8 @@ import type { LayoutBlock } from "@manent/pagination";
 const WORD_SPLIT = /\s+/;
 const blockWordCache = new WeakMap<LayoutBlock, number>();
 
-function wordsInBlock(block: LayoutBlock): number {
+/** Counts words in one printed pagination block using a WeakMap cache (zero doc walks). */
+export function wordsInBlock(block: LayoutBlock): number {
   const cached = blockWordCache.get(block);
   if (cached !== undefined) return cached;
   let count = 0;

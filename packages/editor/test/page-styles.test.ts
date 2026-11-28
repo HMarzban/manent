@@ -35,7 +35,7 @@ const sp = profileFor("screenplay")!;
 test("the page is set in physical units, in the real faces, with ligatures off", () => {
   expect(rule(PAGE_CSS, ".mn-page-view")).toEqual(
     expect.arrayContaining([
-      'font: 12pt/12pt "Courier Prime", monospace',
+      'font: var(--geo-font-size, 12pt)/var(--geo-line, 12pt) "Courier Prime", monospace',
       "font-synthesis: none",
       "font-kerning: none",
       "font-variant-ligatures: none",
@@ -163,6 +163,11 @@ test("each element's box is its cells plus the slack, and space before is paddin
     "--geo-right: 72pt",
     "--geo-top: 96px",
     "--geo-bottom: 96px",
+    "--geo-line: 16px",
+    "--geo-unit: 8px",
+    "--geo-cell: 7.2pt",
+    "--geo-font-size: 12pt",
+    "--geo-mirror-delta: 0pt",
     "--geo-lines: 54",
     "--geo-column: 60",
     "--geo-cue-indent: 22",

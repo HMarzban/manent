@@ -26,6 +26,7 @@
     "zustand": "catalog:",
     "serwist": "catalog:",
     "@fontsource/courier-prime": "catalog:",
+    "@fontsource/source-serif-4": "catalog:",
     "lucide-react": "catalog:"
   },
   "devDependencies": {

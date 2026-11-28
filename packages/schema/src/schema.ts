@@ -7,8 +7,8 @@ import { MARK_SPECS } from "./marks.ts";
 import type { MarkName } from "./marks.ts";
 import { isObject, isString } from "./shape.ts";
 
-/** 4: prose opening-line styles (`firstLine`) and superscript/subscript marks (`sup`, `sub`); blocks carrying them need schema 4. */
-export const SCHEMA_VERSION = 4;
+/** 5: manuscript subheading/epigraph elements, chapter `targetWords`, and inline `footnote` marks; blocks carrying them need schema 5. */
+export const SCHEMA_VERSION = 5;
 
 /** The number of blocks a section holds when a script is cut into sections. */
 export const SECTION_TARGET_BLOCKS = 100;
@@ -123,12 +123,12 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
   marks: MARK_SPECS,
 });
 
-function hasV4Mark(content: unknown): boolean {
+function hasMarkNamed(content: unknown, names: readonly string[]): boolean {
   if (!Array.isArray(content)) return false;
   for (const child of content) {
     if (!isObject(child) || !Array.isArray(child.marks)) continue;
     for (const mark of child.marks) {
-      if (isObject(mark) && (mark.type === "sup" || mark.type === "sub"))
+      if (isObject(mark) && isString(mark.type) && names.includes(mark.type))
         return true;
     }
   }
@@ -140,8 +140,15 @@ function blockMinSchemaVersion(block: unknown): number {
     return 1;
   const attrs = block.attrs;
   if (
+    attrs.type === "subheading" ||
+    attrs.type === "epigraph" ||
+    (attrs.targetWords !== null && attrs.targetWords !== undefined) ||
+    hasMarkNamed(block.content, ["footnote"])
+  )
+    return 5;
+  if (
     (attrs.firstLine !== null && attrs.firstLine !== undefined) ||
-    hasV4Mark(block.content)
+    hasMarkNamed(block.content, ["sup", "sub"])
   )
     return 4;
   if (

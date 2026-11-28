@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  engineFor,
   pageStarts,
   paginate,
   profileFor,
@@ -241,4 +242,67 @@ test("watermark placement sits below footer.center and PdfOptions.watermark draw
   // topPt 768 + BASELINE_PT (~8.64) ≈ 776.6, strictly below bottom margin midpoint (750-762)
   const wmLine = pdf[0]!.lines.find((l) => l.text === "Leo Marsh")!;
   expect(wmLine.y).toBeGreaterThan(770);
+});
+
+test("Engine 3 Book Publishing PDF embeds Source Serif 4, 6x9 trim, mirrored gutters and appended endnotes deterministically", async () => {
+  const serifWoff = (key: FontFaceKey) =>
+    Bun.file(
+      Bun.resolveSync(
+        `@fontsource/source-serif-4/files/source-serif-4-${key}.woff`,
+        import.meta.dir,
+      ),
+    ).bytes();
+  const bookFonts: ScriptFontFiles = {
+    "latin-400-normal": await serifWoff("latin-400-normal"),
+    "latin-400-italic": await serifWoff("latin-400-italic"),
+    "latin-700-normal": await serifWoff("latin-700-normal"),
+    "latin-700-italic": await serifWoff("latin-700-italic"),
+    "latin-ext-400-normal": await serifWoff("latin-ext-400-normal"),
+    "latin-ext-400-italic": await serifWoff("latin-ext-400-italic"),
+    "latin-ext-700-normal": await serifWoff("latin-ext-700-normal"),
+    "latin-ext-700-italic": await serifWoff("latin-ext-700-italic"),
+  };
+  const v3 = engineFor(3)!;
+  const profile = v3.profileFor("manuscript", {
+    paper: "trade_6x9",
+    mirrorMargins: true,
+    manuscriptLineSpacing: 1,
+  })!;
+  const blocks = [
+    toLayoutBlock(viewOf({ type: "chapter" }, ["Chapter One"])),
+    toLayoutBlock(viewOf({ type: "subheading" }, ["At the Quay"])),
+    toLayoutBlock(
+      viewOf({ type: "epigraph" }, ["The tide waits for no watch."]),
+    ),
+    ...Array.from({ length: 24 }, (_, idx) =>
+      toLayoutBlock(
+        viewOf({ type: "body" }, [
+          `Paragraph ${idx + 1}. Every harbour keeps two clocks along the granite quay while the channel wind rises.`,
+        ]),
+      ),
+    ),
+  ];
+  const paginated = v3.paginate(blocks, profile);
+  expect(paginated.pages.length).toBeGreaterThanOrEqual(2);
+  const footnotes = [
+    { ordinal: 1, text: "Harbour watch log, 1911.", pageLabel: "1" },
+  ];
+  const a = await writePdf(paginated, { fonts, bookFonts, footnotes });
+  const b = await writePdf(paginated, { fonts, bookFonts, footnotes });
+  expect(a).toEqual(b);
+
+  const parsed = await readPdf(a);
+  expect(parsed.length).toBe(paginated.pages.length + 1);
+  expect(parsed[0]!.width).toBeCloseTo(432, 1);
+  expect(parsed[0]!.height).toBeCloseTo(648, 1);
+  const rectoLeft = Math.min(...parsed[0]!.lines.map((l) => l.x));
+  const versoLeft = Math.min(...parsed[1]!.lines.map((l) => l.x));
+  // Recto uses inner gutter (63pt); verso uses outer margin (45pt)
+  expect(rectoLeft).toBeGreaterThan(versoLeft + 10);
+  const notesText = parsed
+    .at(-1)!
+    .lines.map((l) => l.text)
+    .join(" ");
+  expect(notesText).toContain("Notes");
+  expect(notesText).toContain("Harbour watch log, 1911.");
 });

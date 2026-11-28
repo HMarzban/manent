@@ -7,6 +7,7 @@ import { completePlugin } from "../complete/complete-plugin.ts";
 import { cursorsPlugin } from "../cursors/cursor-plugin.ts";
 import { plainTextElement } from "../elements/slots.ts";
 import { findPlugin } from "../find/find-plugin.ts";
+import { footnotesPlugin } from "../footnotes/footnotes-plugin.ts";
 import { clipboardPlugin } from "../identity/clipboard.ts";
 import { idRegistryPlugin } from "../identity/id-registry.ts";
 import { commandKeymap } from "../keys/command-keymap.ts";
@@ -87,6 +88,7 @@ export function editorPlugins(
       ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
       : []),
     placeholderPlugin({ format, words }),
+    footnotesPlugin({ timers, format }),
     sourcePlugin({ format, layer }),
     findPlugin(),
     cursorsPlugin({

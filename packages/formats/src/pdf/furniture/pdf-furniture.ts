@@ -54,7 +54,7 @@ export interface PdfFurnitureInput {
 }
 
 /** A line placed as the engine places its lines: cells from the text edge, units from the top of the text area. */
-export type FurnitureLine = Pick<PositionedLine, "x" | "y" | "runs">;
+export type FurnitureLine = Pick<PositionedLine, "x" | "xPt" | "y" | "runs">;
 
 /** A horizontal hairline rule on the grid: `x` in cells from the text edge, `y` in units from the text top, `cells` wide. */
 export interface FurnitureRule {

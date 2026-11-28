@@ -39,6 +39,8 @@ const LACKING: Readonly<Record<BlockType, string | null>> = {
   group: null,
   page_break: null,
   chapter: "Chapter",
+  subheading: "Subheading",
+  epigraph: "Epigraph",
   body: "Body",
   break: "Break",
   quote: "Quote",

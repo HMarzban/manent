@@ -53,6 +53,8 @@ test("format element sets", () => {
   expect(FORMAT_ELEMENTS.ink).toEqual(["ink_line", ...all]);
   expect(FORMAT_ELEMENTS.manuscript).toEqual([
     "chapter",
+    "subheading",
+    "epigraph",
     "body",
     "break",
     "quote",

@@ -7,6 +7,7 @@ import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import { DRIFT } from "../page/config.ts";
+import { linePxOf } from "../page/profile-css.ts";
 import { blockAt, blockPos } from "./block-index.ts";
 import {
   driftModelLines,
@@ -25,13 +26,14 @@ export interface DriftReport {
   readonly fonts: "loading" | "ready" | "fallback";
 }
 
-/** A block's rendered lines: (heightPx − extraPx) / (LINE_PX × lineSpacing), rounded. */
+/** A block's rendered lines: (heightPx − extraPx) / (linePx × lineSpacing), rounded. */
 export function domLineCount(
   heightPx: number,
   extraPx: number,
   lineSpacing: 1 | 2,
+  linePx: number = LINE_PX,
 ): number {
-  return Math.round((heightPx - extraPx) / (LINE_PX * lineSpacing));
+  return Math.round((heightPx - extraPx) / (linePx * lineSpacing));
 }
 
 interface DriftState {
@@ -244,14 +246,16 @@ function measureSection(
         ":scope > .pb, :scope > .mn-graphic-caption > .pb",
       ),
     ];
+    const linePx = linePxOf(state.pagination.profile);
     const extra =
       Number.parseFloat(getComputedStyle(el).paddingTop) +
       breaks.reduce((sum, b) => sum + b.offsetHeight, 0) +
-      graphicExtraPx(layout);
+      graphicExtraPx(layout, linePx);
     const lines = domLineCount(
       el.offsetHeight,
       extra,
       metrics.spec.lineSpacing,
+      linePx,
     );
     if (lines !== expected) found.push([block, lines]);
   }

@@ -140,6 +140,7 @@ test("every profile lays out every element, and the formats that only relabel sh
     "dialogue",
     "emote",
     "engine",
+    "epigraph",
     "general",
     "graphic",
     "group",
@@ -149,6 +150,7 @@ test("every profile lays out every element, and the formats that only relabel sh
     "scene_heading",
     "shot",
     "slug",
+    "subheading",
     "transition",
   ]);
   expect([

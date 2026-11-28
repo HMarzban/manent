@@ -117,6 +117,9 @@ export interface FactsShape {
   markHighlight: string | null;
   /** Active link href at the caret; null when none. */
   markLink: string | null;
+  /** Active footnote mark at the caret; null when none. */
+  markFootnoteId: string | null;
+  markFootnoteText: string | null;
   /** Total word count of the document, updated off the keystroke path on the coalesced outline cadence. */
   wordCount: number | null;
   canUndo: boolean;
@@ -144,6 +147,10 @@ export interface OutlineEntry {
   heading: string;
   synopsis: string;
   eighths: number | null;
+  /** Word count of the scene/chapter body; null for acts, sections and Ink knots/stitches. */
+  words: number | null;
+  /** Optional word-count target set on a chapter heading; null when unset. */
+  targetWords: number | null;
   omitted: boolean;
   current: boolean;
 }

@@ -21,8 +21,11 @@ export function graphicBoxLines(block: LayoutBlock): number {
 }
 
 /** Extra pixel height contributed by a graphic block's fixed-height image/chyron box. */
-export function graphicExtraPx(block: LayoutBlock): number {
-  return graphicBoxLines(block) * LINE_PX;
+export function graphicExtraPx(
+  block: LayoutBlock,
+  linePx: number = LINE_PX,
+): number {
+  return graphicBoxLines(block) * linePx;
 }
 
 /** Caption-only model line count compared against DOM height after subtracting `graphicExtraPx`. */

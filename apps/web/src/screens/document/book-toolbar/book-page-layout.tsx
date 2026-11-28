@@ -1,11 +1,13 @@
-// Book Page Layout popover for the floating Book format bar: paper, lines per page, running headers, white page and canonical links.
-import { defaultLinesPerPage, maxLinesPerPage } from "@manent/pagination";
+// Book Page Layout popover for the floating Book format bar: trims, Engine 3 book layout, line spacing, headers and links.
+import {
+  defaultLinesPerPage,
+  maxLinesPerPage,
+  parsePaper,
+} from "@manent/pagination";
 import type { Paper } from "@manent/pagination";
-import type { HeaderSlots } from "@manent/settings";
 import {
   Button,
   DOCUMENT_WORDS,
-  HEADER_FOOTER_WORDS,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -18,48 +20,29 @@ import {
 import {
   BookOpenIcon,
   ChevronDownIcon,
-  FileTextIcon,
   MinusIcon,
   PlusIcon,
-  SlidersHorizontalIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import { openDetailsAt } from "../details-tab.tsx";
-import { HEADER_PRESET_SLOTS, detectPreset } from "../header-footer-presets.ts";
 import { requestScriptSettingsOpen } from "../script-settings-part.ts";
+import {
+  BookHeaderPresetSection,
+  BookLayoutLinksSection,
+  BookPaperSection,
+  PAPER_LABELS,
+} from "./book-page-layout-parts.tsx";
 import { keepEditorFocus } from "./keep-editor-focus.ts";
 
 const W = DOCUMENT_WORDS.bookToolbar;
 const MIN_LINES = 10;
 
-const PAPER_OPTIONS = Object.freeze([
-  { value: "letter", label: W.paperLetter },
-  { value: "a4", label: W.paperA4 },
-]);
-
 const LINE_SPACING_OPTIONS = Object.freeze([
   { value: "single", label: W.singleSpacing },
   { value: "double", label: W.doubleSpacing },
 ]);
-
-const NONE_SLOT = Object.freeze({ kind: "none" as const });
-const CHAPTER_HEADER_SLOTS: HeaderSlots = Object.freeze({
-  left: Object.freeze({ kind: "section" as const }),
-  center: NONE_SLOT,
-  right: Object.freeze({ kind: "page_number" as const }),
-  firstPage: false,
-  rule: false,
-});
-
-function isChapterHeader(header: HeaderSlots): boolean {
-  return (
-    header.left.kind === "section" &&
-    header.center.kind === "none" &&
-    header.right.kind === "page_number"
-  );
-}
 
 /** Compact icon-first Page Layout popover with live summary in its tooltip and header. */
 export function BookPageLayoutPopover(props: {
@@ -73,36 +56,35 @@ export function BookPageLayoutPopover(props: {
     () => services.openScriptStore(docId),
     [services, docId],
   );
-
+  const sub = useCallback(
+    (key: Parameters<typeof scriptStore.subscribe>[0]) =>
+      (notify: () => void) =>
+        scriptStore.subscribe(key, notify),
+    [scriptStore],
+  );
   const paper = useSyncExternalStore(
-    useCallback(
-      (notify: () => void) => scriptStore.subscribe("script.paper", notify),
-      [scriptStore],
-    ),
+    useMemo(() => sub("script.paper"), [sub]),
     () => scriptStore.get("script.paper"),
   );
   const customLines = useSyncExternalStore(
-    useCallback(
-      (notify: () => void) =>
-        scriptStore.subscribe("script.linesPerPage", notify),
-      [scriptStore],
-    ),
+    useMemo(() => sub("script.linesPerPage"), [sub]),
     () => scriptStore.get("script.linesPerPage"),
   );
   const lineSpacing = useSyncExternalStore(
-    useCallback(
-      (notify: () => void) =>
-        scriptStore.subscribe("script.lineSpacing", notify),
-      [scriptStore],
-    ),
+    useMemo(() => sub("script.lineSpacing"), [sub]),
     () => scriptStore.get("script.lineSpacing"),
   );
   const header = useSyncExternalStore(
-    useCallback(
-      (notify: () => void) => scriptStore.subscribe("script.header", notify),
-      [scriptStore],
-    ),
+    useMemo(() => sub("script.header"), [sub]),
     () => scriptStore.get("script.header"),
+  );
+  const engineVersion = useSyncExternalStore(
+    useMemo(() => sub("script.engineVersion"), [sub]),
+    () => scriptStore.get("script.engineVersion"),
+  );
+  const mirrorMargins = useSyncExternalStore(
+    useMemo(() => sub("script.mirrorMargins"), [sub]),
+    () => scriptStore.get("script.mirrorMargins"),
   );
   const whitePage = useSyncExternalStore(
     useCallback(
@@ -113,34 +95,27 @@ export function BookPageLayoutPopover(props: {
     () => services.settings.get("appearance.whitePage"),
   );
 
-  const paperValue: Paper = paper === "a4" ? "a4" : "letter";
-  const paperLabel = paperValue === "a4" ? W.paperA4 : W.paperLetter;
-  const defaultLines = defaultLinesPerPage("manuscript", paperValue);
-  const maxLines = maxLinesPerPage("manuscript", paperValue);
+  const isBookPublishing = engineVersion >= 3;
+  const paperValue: Paper = parsePaper(paper, engineVersion);
+  const paperLabel = PAPER_LABELS[paperValue];
+  const defaultLines = defaultLinesPerPage(
+    "manuscript",
+    paperValue,
+    engineVersion,
+  );
+  const maxLines = maxLinesPerPage("manuscript", paperValue, engineVersion);
   const effectiveLines = customLines ?? defaultLines;
   const summary = W.layoutSummary(paperLabel, effectiveLines);
 
-  const activeHeaderPreset = isChapterHeader(header)
-    ? "chapter_and_page"
-    : detectPreset(header, true);
-
-  const applyHeaderPreset = (
-    id: "none" | "page_number" | "title_and_page_number" | "chapter_and_page",
-  ): void => {
-    if (id === "chapter_and_page") {
-      scriptStore.set("script.header", {
-        ...CHAPTER_HEADER_SLOTS,
-        firstPage: header.firstPage,
-        rule: header.rule,
-      });
+  const toggleBookPublishing = (checked: boolean): void => {
+    if (checked) {
+      scriptStore.set("script.engineVersion", 3);
       return;
     }
-    const triple = HEADER_PRESET_SLOTS[id];
-    scriptStore.set("script.header", {
-      ...triple,
-      firstPage: header.firstPage,
-      rule: header.rule,
-    });
+    if (paperValue !== "letter" && paperValue !== "a4") {
+      scriptStore.set("script.paper", "letter");
+    }
+    scriptStore.set("script.engineVersion", 2);
   };
 
   return (
@@ -187,7 +162,7 @@ export function BookPageLayoutPopover(props: {
         initialFocus={false}
         finalFocus={false}
         onMouseDown={keepEditorFocus}
-        className="w-76 p-3"
+        className="w-80 p-3"
       >
         <div className="flex flex-col gap-3 text-ui">
           <div className="flex items-baseline justify-between gap-2">
@@ -198,18 +173,28 @@ export function BookPageLayoutPopover(props: {
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
-            <span className="font-medium text-fg">{W.paperSize}</span>
-            <Segmented
-              label={W.paperSize}
-              value={paperValue}
-              options={PAPER_OPTIONS}
-              onChange={(next) => {
-                if (next === "letter" || next === "a4") {
-                  scriptStore.set("script.paper", next);
-                }
-              }}
+            <div className="flex min-w-0 flex-col">
+              <span className="font-medium text-fg">{W.bookPublishing}</span>
+              <span className="text-micro text-fg-muted">
+                {W.bookPublishingNote}
+              </span>
+            </div>
+            <Switch
+              aria-label={W.bookPublishing}
+              checked={isBookPublishing}
+              onCheckedChange={toggleBookPublishing}
             />
           </div>
+
+          <BookPaperSection
+            isBookPublishing={isBookPublishing}
+            paperValue={paperValue}
+            mirrorMargins={mirrorMargins}
+            onPaper={(next) => scriptStore.set("script.paper", next)}
+            onMirror={(checked) =>
+              scriptStore.set("script.mirrorMargins", checked)
+            }
+          />
 
           <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <span className="font-medium text-fg">{W.lineSpacing}</span>
@@ -275,36 +260,10 @@ export function BookPageLayoutPopover(props: {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 border-t border-line pt-2.5">
-            <span className="font-medium text-fg">{W.runningHeader}</span>
-            <div className="grid grid-cols-2 gap-1">
-              {(
-                [
-                  ["none", HEADER_FOOTER_WORDS.headerPresets.none],
-                  [
-                    "page_number",
-                    HEADER_FOOTER_WORDS.headerPresets.page_number,
-                  ],
-                  [
-                    "title_and_page_number",
-                    HEADER_FOOTER_WORDS.headerPresets.title_and_page_number,
-                  ],
-                  ["chapter_and_page", W.headerChapterAndPage],
-                ] as const
-              ).map(([id, label]) => (
-                <Button
-                  key={id}
-                  type="button"
-                  variant={activeHeaderPreset === id ? "secondary" : "outline"}
-                  size="sm"
-                  className="h-control-sm justify-start truncate px-2 text-meta"
-                  onClick={() => applyHeaderPreset(id)}
-                >
-                  <span className="truncate">{label}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
+          <BookHeaderPresetSection
+            header={header}
+            onHeader={(next) => scriptStore.set("script.header", next)}
+          />
 
           <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <span className="text-fg">{W.whitePage}</span>
@@ -317,55 +276,26 @@ export function BookPageLayoutPopover(props: {
             />
           </div>
 
-          <div className="flex flex-col gap-0.5 border-t border-line pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-control-sm justify-start gap-2 text-meta text-fg-muted hover:text-fg"
-              onClick={() => {
-                setOpen(false);
-                requestScriptSettingsOpen();
-                openDetailsAt("script", frame);
-              }}
-            >
-              <SlidersHorizontalIcon aria-hidden="true" className="size-3.5" />
-              <span>{W.headerAndFooter}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-control-sm justify-start gap-2 text-meta text-fg-muted hover:text-fg"
-              onMouseDown={keepEditorFocus}
-              onClick={() => {
-                setOpen(false);
-                services.editor.showTitlePage();
-              }}
-            >
-              <FileTextIcon aria-hidden="true" className="size-3.5" />
-              <span>{W.titlePage}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-control-sm justify-start gap-2 text-meta text-fg-muted hover:text-fg"
-              onMouseDown={keepEditorFocus}
-              onClick={() => {
-                setOpen(false);
-                queueMicrotask(() => {
-                  if (document.activeElement instanceof HTMLElement) {
-                    document.activeElement.blur();
-                  }
-                  services.commands.run("project.openSettings", "control");
-                });
-              }}
-            >
-              <BookOpenIcon aria-hidden="true" className="size-3.5" />
-              <span>{W.bookStyle}</span>
-            </Button>
-          </div>
+          <BookLayoutLinksSection
+            onOpenHeaderFooter={() => {
+              setOpen(false);
+              requestScriptSettingsOpen();
+              openDetailsAt("script", frame);
+            }}
+            onOpenTitlePage={() => {
+              setOpen(false);
+              services.editor.showTitlePage();
+            }}
+            onOpenBookStyle={() => {
+              setOpen(false);
+              queueMicrotask(() => {
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+                services.commands.run("project.openSettings", "control");
+              });
+            }}
+          />
         </div>
       </PopoverContent>
     </Popover>
