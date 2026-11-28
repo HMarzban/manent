@@ -579,6 +579,8 @@ test("index.html and compare.html reflect Stage 5 and Ghost Follow capabilities"
     "As it was",
     "Ghost Follow",
     "Back to …",
+    "EPUB 3",
+    "Markdown",
   ]) {
     expect(features, `JSON-LD featureList includes "${needle}"`).toContain(
       needle,
@@ -587,6 +589,19 @@ test("index.html and compare.html reflect Stage 5 and Ghost Follow capabilities"
       needle,
     );
     expect(compareMain, `compare.html <main> includes "${needle}"`).toContain(
+      needle,
+    );
+  }
+  for (const needle of [
+    "Source Serif 4",
+    "facing spreads",
+    "Table of Contents",
+    "Book checks",
+  ]) {
+    expect(features, `JSON-LD featureList includes "${needle}"`).toContain(
+      needle,
+    );
+    expect(indexMain, `index.html <main> includes "${needle}"`).toContain(
       needle,
     );
   }

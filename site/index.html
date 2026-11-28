@@ -158,7 +158,7 @@
               "Full revision history for scripts and rundowns: every session, named draft and issue kept, with Changes since, Who wrote this, single-scene restore, and Rundown History (In the grid, Side by side, As it was, non-colour diff badges, and whole-rundown or single-row restore with 'Before restore' backups and air-window safety)",
               "Eight script formats — screenplay, multi-camera, stage play, manuscript, animation, variety and podcasts, game script and Ink — plus Show and News rundowns with reusable templates (Save template… as project default or shared workspace template, pure stripping of dates, timings, previous values, comments and revision marks, fresh ID minting on New rundown / New script, and Project settings → Templates)",
               "Inline images and broadcast chyrons (Image, Lower third, Over the shoulder, Full screen) with adjustable line height, editable on-page captions, zero-dialog image picking, offline-first project asset storage, and PDF, FDX, Fountain, Project Archive and MOS export support",
-              "FDX, Fountain and Word (.docx) in and out; text-based PDF and plain text import; older .fdr files recognised with steps to save as .fdx",
+              "FDX, Fountain, Word (.docx) and Markdown (.md) in and out; EPUB 3 (.epub) export; text-based PDF and plain text import; older .fdr files recognised with steps to save as .fdx",
               "Project Archive (.zip) export, Game Script JSON and XML line-data exports, and Animation Pickup lines CSV",
               "Live Web Worker Ink compiler with inline problem markers and an interactive Play Beside player for both Game Script and Ink (replay, visited gutter marks and live Variables editing)",
               "Series Board with storylines, companion outlines and room logs Beside the script, Names and facts, pre-send Checks, bare Room window with Take keys and watermarked Reader links",
@@ -166,7 +166,7 @@
               "Full-text workspace and offline desktop search, nested folders, personal Favourites, Private folder and 30-day recoverable Trash",
               "Writing tools: smart contextual ⌘K Command Palette (Suggested here, Jump to quick jumps, live in-place Settings here switches, inline numeric prompts for Lines per page, Read rate and Target length, direct panel/Checks/Board/Preferences jumps, scope filters and acronym/synonym search), single-undo Rename character, Focus mode, Read aloud, daily goals and sprints, Script numbers and CSV/PDF reports",
               "Workspace settings, per-project Can also permissions, read-only /api/v1/ REST API with workspace API keys, and Webhook, Slack and email notifications",
-              "Whole manuscripts of 2,000 pages in one document, with a floating Book Format Bar (styles, chapter openings, rich inline marks and page layout) and Word (.docx) export",
+              "Whole manuscripts of 2,000 pages in one document or compiled across multiple parts, with a floating Book Format Bar (styles, chapter openings, rich inline marks, footnotes and page layout), cover and front/back matter, opt-in Layout Engine 3 (bundled Source Serif 4, paperback trims, mirrored margins, right-hand chapters, Table of Contents and facing spreads), Book checks, and PDF, EPUB 3 (.epub), Word (.docx) and Markdown (.md) export",
               "Desktop app for Mac, Windows and Linux with durable on-disk storage, Export everything on this device, Desktop LAN MOS relay and macOS manent:// links, plus a self-hosted server with an installable offline web app on localhost or self-hosted HTTPS",
               "No AI writing features, and no training on your scripts"
             ]
@@ -256,7 +256,7 @@
                 "name": "How do I move my scripts from Final Draft, Fountain, Word or PDF?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Drop a Final Draft .fdx, Fountain (.fountain), Word (.docx), text-based PDF or plain-text file straight onto the Library, or use Import… — it works in the browser and offline on desktop. Manent keeps notes, dual dialogue, scene numbers and revision marks from .fdx and Fountain, and tells you in one line what came across and whether the page count changed. Older Final Draft .fdr files aren't read directly; if you drop one in, Manent recognises it and shows how to save it as .fdx in Final Draft 8 or later. You can export back to .fdx, Fountain, Word (.docx), PDF or a whole Project Archive zip at any time."
+                  "text": "Drop a Final Draft .fdx, Fountain (.fountain), Word (.docx), Markdown (.md), text-based PDF or plain-text file straight onto the Library, or use Import… — it works in the browser and offline on desktop. Manent keeps notes, dual dialogue, scene numbers and revision marks from .fdx and Fountain, and tells you in one line what came across and whether the page count changed. Older Final Draft .fdr files aren't read directly; if you drop one in, Manent recognises it and shows how to save it as .fdx in Final Draft 8 or later. You can export back to .fdx, Fountain, Word (.docx), EPUB 3 (.epub), Markdown (.md), PDF or a whole Project Archive zip at any time."
                 }
               },
               {
@@ -2283,21 +2283,28 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>Every day</b> Write the whole book in one document, in
-                    standard manuscript layout, with the chapter list beside the
-                    page and a floating <b>Book Format Bar</b> for styles,
-                    chapter openings, inline marks and page layout.
+                    <b>Every day</b> Write the whole book in one document (or
+                    compile multiple parts), in standard manuscript layout or
+                    opt-in <b>Book layout</b> (bundled <b>Source Serif 4</b>,
+                    paperback trims, mirrored margins, right-hand chapters and
+                    Table of Contents), with the chapter list beside the page,
+                    in-editor cover and front/back matter, and a floating
+                    <b>Book Format Bar</b> for styles, chapter openings, inline
+                    footnotes and page layout.
                   </li>
                   <li>
                     <b>On the train</b> No connection, no difference.
                     <b>Focus mode</b> hides both panels and remembers your
-                    preference per device; <b>daily goals and timed sprints</b>
-                    track your pace quietly.
+                    preference per device; <b>daily goals</b>,
+                    <b>timed sprints</b>, per-chapter <b>word targets</b> and
+                    <b>Book checks</b> keep long drafts on track quietly.
                   </li>
                   <li>
-                    <b>Months later</b> Open last spring's chapter twelve as it
-                    was, restore a chapter or a single scene, or hear a passage
-                    back with <b>Read aloud</b>.
+                    <b>Ready to publish</b> Open last spring's chapter twelve as
+                    it was, restore a chapter or hear a passage back with
+                    <b>Read aloud</b>, proof two-up <b>facing spreads</b>, and
+                    export print-ready <b>PDF</b>, <b>EPUB 3</b>, <b>Word</b> or
+                    lossless <b>Markdown</b> offline.
                   </li>
                 </ol>
               </div>
@@ -2442,11 +2449,13 @@
                           href="assets/icons.svg?v=2b7b378f#i-book-open"
                         /></svg
                     ></span>
-                    <h4>Standard manuscript layout</h4>
+                    <h4>Manuscript &amp; book publishing</h4>
                     <p>
-                      Double-spaced Courier or custom book typography, indented
-                      first lines, each chapter on a new page, and Word
-                      (<code>.docx</code>) or PDF export.
+                      Double-spaced Courier or opt-in Source Serif 4 book trims
+                      with mirrored margins, cover &amp; front/back matter,
+                      Table of Contents, facing spreads, footnotes, and PDF,
+                      EPUB 3 (<code>.epub</code>), Word (<code>.docx</code>) or
+                      Markdown (<code>.md</code>) export (single or multi-part).
                     </p>
                   </li>
                   <li>
@@ -2471,7 +2480,8 @@
                     <h4>Every version kept</h4>
                     <p>
                       Restore a chapter, a scene or the whole book, with daily
-                      goals, sprints and word counts in Details.
+                      goals, sprints, per-chapter word targets, footnotes and
+                      Book checks in Details.
                     </p>
                   </li>
                 </ul>
@@ -3359,9 +3369,9 @@
                 </h2>
                 <p class="sub">
                   Drop in an <code>.fdx</code>, a <code>.fountain</code>, a Word
-                  <code>.docx</code>, a text-based PDF or plain text, and it
-                  opens as a script — with one line saying exactly what came
-                  across.
+                  <code>.docx</code>, a Markdown <code>.md</code>, a text-based
+                  PDF or plain text, and it opens as a script — with one line
+                  saying exactly what came across.
                 </p>
               </div>
               <div class="prose">
@@ -3553,9 +3563,9 @@
               <p>
                 Final Draft <code>.fdx</code> and Fountain with notes, dual
                 dialogue, scene numbers and revision marks; text-based PDF, Word
-                (<code>.docx</code>) and plain text too — all offline. Older
-                <code>.fdr</code> files are recognised with steps to convert via
-                <code>.fdx</code>.
+                (<code>.docx</code>), Markdown (<code>.md</code>) and plain text
+                too — all offline. Older <code>.fdr</code> files are recognised
+                with steps to convert via <code>.fdx</code>.
               </p>
             </li>
             <li>
@@ -3565,10 +3575,12 @@
               ></span>
               <h3>Out</h3>
               <p>
-                PDF, Sides PDF, Word (<code>.docx</code>), <code>.fdx</code>,
-                Fountain, Game Script JSON and XML, Ink (<code>.ink</code> and
-                compiled JSON), CSV and PDF reports, or a whole Project Archive
-                (<code>.zip</code>) — carrying inline images and broadcast
+                PDF, Sides PDF, EPUB 3 (<code>.epub</code>), Word
+                (<code>.docx</code>), Markdown (<code>.md</code>),
+                <code>.fdx</code>, Fountain, Game Script JSON and XML, Ink
+                (<code>.ink</code> and compiled JSON), CSV and PDF reports, or a
+                whole Project Archive (<code>.zip</code>) — carrying inline
+                images, book covers, front/back matter, footnotes and broadcast
                 chyrons (with adjustable line height, editable on-page captions,
                 zero-dialog picking and offline-first project asset storage)
                 offline, whenever you like.
@@ -4060,17 +4072,19 @@
               </summary>
               <p>
                 Drop a Final Draft <code>.fdx</code>, Fountain
-                (<code>.fountain</code>), Word (<code>.docx</code>), text-based
-                PDF or plain-text file straight onto the Library, or use
-                <b>Import…</b> — it works in the browser and offline on desktop.
-                Manent keeps notes, dual dialogue, scene numbers and revision
-                marks from <code>.fdx</code> and Fountain, and tells you in one
-                line what came across and whether the page count changed. Older
-                Final Draft <code>.fdr</code> files aren't read directly; if you
-                drop one in, Manent recognises it and shows how to save it as
+                (<code>.fountain</code>), Word (<code>.docx</code>), Markdown
+                (<code>.md</code>), text-based PDF or plain-text file straight
+                onto the Library, or use <b>Import…</b> — it works in the
+                browser and offline on desktop. Manent keeps notes, dual
+                dialogue, scene numbers and revision marks from
+                <code>.fdx</code> and Fountain, and tells you in one line what
+                came across and whether the page count changed. Older Final
+                Draft <code>.fdr</code> files aren't read directly; if you drop
+                one in, Manent recognises it and shows how to save it as
                 <code>.fdx</code> in Final Draft 8 or later. You can export back
-                to <code>.fdx</code>, Fountain, Word (<code>.docx</code>), PDF
-                or a whole Project Archive zip at any time.
+                to <code>.fdx</code>, Fountain, Word (<code>.docx</code>), EPUB
+                3 (<code>.epub</code>), Markdown (<code>.md</code>), PDF or a
+                whole Project Archive zip at any time.
               </p>
             </details>
             <details>
