@@ -2315,15 +2315,15 @@ html:has(.jump) {
 
   .button:hover,
   .jump a[aria-current],
-  [role="tab"][aria-selected="true"] {
+  .tabs [role="tab"][aria-selected="true"] {
     background: Highlight;
     border-color: Highlight;
     color: HighlightText;
     box-shadow: none;
   }
 
-  [role="tab"][aria-selected="true"] {
-    border-top: 3px solid Highlight;
+  .tabs [role="tab"][aria-selected="true"] {
+    border-bottom: 3px solid Highlight;
   }
 
   .m-tab-indicator {

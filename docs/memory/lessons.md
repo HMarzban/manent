@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Scope ARIA role selectors, omit `border-radius` on directional accent borders, sync theme-transition UI via listeners, and avoid hardcoded inverted section colours on multi-theme pages
+
+- Date: 2026-11-28
+
+### What happened
+
+Four classes of visual regression surfaced during live multi-theme review of `site/`: (1) an unscoped `[role="tab"]` selector in `site/assets/site.css` bled into `#pg-palette-dialog`'s scope buttons, stretching the active tab into a tall vertical box; (2) combining `border-radius` with a single-side `border-inline-start` or `border-left` accent bar curved the accent rail awkwardly on palette rows, history timeline items, revision sheets, notice cards and the AI pledge plaque; (3) toggling Dark mode inside `#pg-palette-dialog` called `renderPal()` synchronously before `document.startViewTransition` mutated `activeScheme`, leaving the switch stuck on `Off`; and (4) legacy `.closing` CSS hardcoded `background: var(--code-bg)` and `--fg: var(--code-fg)` without updating `--paper`, turning `#download` into a black band in Light mode and rendering white-on-white invisible text inside `.mv-desktop`.
+
+### How it was caught
+
+By live visual inspection of `site/index.html` across Dateline Dark and Light modes at `1280 × 800` and `390 × 844`.
+
+### Rule
+
+Scope ARIA role selectors (`[role="tab"]`, `[role="option"]`) to their owning component container (`.tabs [role="tab"]`). Keep `border-radius: 0` on every element carrying a directional accent border (`border-inline-start` or `border-left`). Subscribe theme-reactive widgets (`#pg-palette-dialog`, `[data-inst-rev]`) to `onThemeChangeListeners` rather than reading theme state synchronously after `startViewTransition`. Never hardcode inverted background or `--fg` overrides on page sections inside a multi-theme site — derive every section and embedded vignette strictly from active studio tokens (`--desk`, `--raised`, `--paper`, `--fg`, `--accent`, `--frame-border`, `--frame-shadow`).
+
+### Enforced by
+
+`tools/test/site.test.ts`, `docs/development/design-system.md`, `site/assets/site.css`, `site/assets/playgrounds.css`, `site/assets/playgrounds.js`, and `site/assets/vignettes.css`.
+
 ## Mark canary tag releases as `--prerelease` and give parallel CI Playwright setup waits headroom
 
 - Date: 2026-11-28

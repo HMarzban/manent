@@ -757,3 +757,57 @@ test("every mutable local asset reference across all site/*.html pages carries i
     expect(cssFontUrls).toContain(fontUrl);
   }
 });
+
+test("site stylesheets keep tab selectors scoped, directional accent borders square, and .closing theme-driven", async () => {
+  const siteCss = await Bun.file(join(site, "assets", "site.css")).text();
+  const playgroundsCss = await Bun.file(
+    join(site, "assets", "playgrounds.css"),
+  ).text();
+  const dsCss = await Bun.file(
+    join(site, "assets", "design-system.css"),
+  ).text();
+
+  // Never declare an unscoped [role="tab"] rule that can leak into modal palettes.
+  const unscopedTab = new RegExp('^\\s*\\[role="tab"\\]', "m");
+  expect(unscopedTab.test(siteCss)).toBe(false);
+
+  // .closing must inherit active studio theme tokens rather than forcing a dark slab.
+  const closingBlock = siteCss.match(/\.closing\s*\{([^}]*)\}/)?.[1] ?? "";
+  expect(closingBlock).not.toContain("--code-bg");
+  expect(closingBlock).not.toContain("--code-fg");
+
+  // Elements with directional accent borders stay strictly square (border-radius: 0).
+  const squareSelectors: [string, string, RegExp][] = [
+    ["site.css .pledge", siteCss, /\.pledge\s*\{([^}]*)\}/],
+    [
+      "playgrounds.css .pg-pal-item",
+      playgroundsCss,
+      /\.pg-pal-item\s*\{([^}]*)\}/,
+    ],
+    [
+      "playgrounds.css .inst-hist-snap",
+      playgroundsCss,
+      /\.inst-hist-snap\s*\{([^}]*)\}/,
+    ],
+    [
+      "playgrounds.css .inst-rev-sheet",
+      playgroundsCss,
+      /\.inst-rev-sheet\s*\{([^}]*)\}/,
+    ],
+    [
+      "playgrounds.css .inst-files-sheet[data-kind=notice]",
+      playgroundsCss,
+      new RegExp(
+        '\\.inst-files-sheet\\[data-kind="notice"\\]\\s*\\{([^}]*)\\}',
+      ),
+    ],
+    ["design-system.css .ds-spec-note", dsCss, /\.ds-spec-note\s*\{([^}]*)\}/],
+  ];
+  for (const [label, css, pattern] of squareSelectors) {
+    const body = css.match(pattern)?.[1] ?? "";
+    expect(body, `${label} exists`).toBeTruthy();
+    expect(body, `${label} uses border-radius: 0`).toMatch(
+      /border-radius:\s*0\s*;/,
+    );
+  }
+});
