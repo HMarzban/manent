@@ -221,7 +221,7 @@ async function signIn(page: Page, url: string, userId: string): Promise<void> {
     await Reflect.apply(Reflect.get(Object(sync), "createScript"), sync, [id]);
   }, docId);
   await page.goto(`${url}/s/${docId}`);
-  await page.locator(PAGE_VIEW).waitFor({ state: "attached" });
+  await page.locator(PAGE_VIEW).waitFor({ state: "attached", timeout: 90_000 });
 }
 
 /** A session token for `userId` from the demo at `url`. */

@@ -101,7 +101,9 @@ jobs:
       - name: Create the release with the installers and the server
         run: |
           bun -e 'import { RELEASE_NOTES } from "./tools/desktop/release-notes.ts"; await Bun.write("release-notes.md", RELEASE_NOTES);'
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md artifacts/Manent-* artifacts/manent-*
+          prerelease=()
+          if [[ "$CHANNEL" == canary ]]; then prerelease=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" "${prerelease[@]}" --notes-file release-notes.md artifacts/Manent-* artifacts/manent-*
       - name: Make sure the channel's release exists
         run: |
           gh release view "channel-$CHANNEL" > /dev/null 2>&1 ||

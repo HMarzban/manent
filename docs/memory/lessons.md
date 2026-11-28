@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Mark canary tag releases as `--prerelease` and give parallel CI Playwright setup waits headroom
+
+- Date: 2026-11-28
+
+### What happened
+
+Two small release and CI rough edges appeared during end-to-end GitHub Actions verification: (1) `.github/workflows/release.yml` created `channel-canary` with `--prerelease` but created the tagged `v0.1.0-canary` release without `--prerelease`, causing a canary build to appear as the repository's latest stable release on GitHub; and (2) `bench/client/driver.ts`'s `signIn` setup waited for `[data-editor-host] .mn-page-view` with Playwright's default `30 s` timeout, which timed out across Linux, macOS and Windows `verify` runners when `bun test --parallel` ran 685 test files concurrently.
+
+### How it was caught
+
+By inspecting the published `v0.1.0-canary` release metadata (`isPrerelease: false`) after `release` run completion and the `verify` failure logs across all three OSes.
+
+### Rule
+
+Pass `--prerelease` to `gh release create` whenever `CHANNEL=canary` in `.github/workflows/release.yml`, and give pre-measurement Playwright setup waits (`signIn` in `bench/client/driver.ts`) explicit `90 s` headroom so parallel `verify` CPU contention does not cause false failures.
+
+### Enforced by
+
+`.github/workflows/release.yml`, `tools/test/ci-workflow.test.ts`, and `bench/client/driver.ts`.
+
 ## Avoid unbounded `Math.min`/`Math.max` spreads and quadratic queue copies, scope WebSocket CSP to allowed hosts, isolate `@manent/demo` in `apps/web`, and guard async screen-title announcements
 
 - Date: 2026-11-28

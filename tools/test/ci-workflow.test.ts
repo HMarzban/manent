@@ -185,3 +185,16 @@ test("desktop workflow installs Electrobun Linux runtime libraries, uses 24-bit 
   expect(winInstall?.run).toContain("ELECTROBUN_INSTALLER_UI_AUTOCLOSE");
   expect(winInstall?.run).not.toContain('"/S"');
 });
+
+test("release workflow marks canary tags as prereleases and publishes channel feeds", async () => {
+  const release = Bun.YAML.parse(
+    await Bun.file(join(repoRoot, ".github/workflows/release.yml")).text(),
+  ) as {
+    jobs: { publish: { steps: Array<Step & { name?: string }> } };
+  };
+  const createStep = release.jobs.publish.steps.find(
+    (s) => s.name === "Create the release with the installers and the server",
+  );
+  expect(createStep?.run).toContain('if [[ "$CHANNEL" == canary ]]');
+  expect(createStep?.run).toContain("--prerelease");
+});
