@@ -26,7 +26,14 @@ tourScenario("together-settings", async ({ page, windows, scenario, step }) => {
     .getByRole("button", { name: DOCUMENT_WORDS.titleMenu(TITLE) })
     .click();
   await page.getByRole("menuitem", { name: "Script settings" }).click();
-  await (await step(1)).getByRole("radio", { name: "A4" }).click();
+  const paperRow = await step(1);
+  const paperCombo = paperRow.getByRole("combobox");
+  if ((await paperCombo.count()) > 0) {
+    await paperCombo.click();
+    await page.getByRole("option", { name: "A4", exact: true }).click();
+  } else {
+    await paperRow.getByRole("radio", { name: "A4" }).click();
+  }
   await expectEvidence([danas], scenario);
   for (const win of windows)
     await expect(win.locator("[data-tour='status:page']")).toContainText(

@@ -218,6 +218,11 @@ export function generateFontTable(
   );
 }
 
+const commonOf = (sets: Set<number>[]): number[] =>
+  [...sets[0]!]
+    .filter((cp) => sets.every((s) => s.has(cp)))
+    .toSorted((a, b) => a - b);
+
 /** Generates `v3/tables/serif.generated.ts` with exact per-face FUnit advance widths for Source Serif 4. */
 export function generateSerifTable(
   read: (key: FontFaceKey) => Uint8Array,
@@ -273,10 +278,6 @@ export function generateSerifTable(
     }
   }
 
-  const commonOf = (sets: Set<number>[]): number[] =>
-    [...sets[0]!]
-      .filter((cp) => sets.every((s) => s.has(cp)))
-      .toSorted((a, b) => a - b);
   const latin = commonOf(subsets.latin);
   const inLatin = new Set(latin);
   const ext = commonOf(subsets["latin-ext"]).filter((cp) => !inLatin.has(cp));

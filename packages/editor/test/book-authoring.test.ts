@@ -236,23 +236,24 @@ test("manuscript Enter detection converts ***, * * * and --- in body to break", 
   expect(detectOnEnter("manuscript", body, "Ordinary prose.")).toBeNull();
 });
 
+const lb = (id: string, type: string, text: string) => ({
+  id,
+  type,
+  kind: null,
+  text,
+  styles: new Uint8Array(text.length),
+  dual: null,
+  num: null,
+  omitted: false,
+  align: null,
+  indent: null,
+  width: null,
+  spaceBefore: null,
+  noContd: false,
+});
+
 test("sectionsOf resolves chapter headings and paginationWordCount counts printed words", () => {
   const profile = profileFor("manuscript")!;
-  const lb = (id: string, type: string, text: string) => ({
-    id,
-    type,
-    kind: null,
-    text,
-    styles: new Uint8Array(text.length),
-    dual: null,
-    num: null,
-    omitted: false,
-    align: null,
-    indent: null,
-    width: null,
-    spaceBefore: null,
-    noContd: false,
-  });
   const p = paginate(
     [
       lb("c1", "chapter", "1. High Water"),

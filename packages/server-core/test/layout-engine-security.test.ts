@@ -26,11 +26,13 @@ test("SET of script.engineVersion accepts carried engines (including 2 -> 1 roll
     PRODUCT_SETTING_RULES.check("script.engineVersion", 1),
     PRODUCT_SETTING_RULES.check("script.engineVersion", 2),
     PRODUCT_SETTING_RULES.check("script.engineVersion", 3),
+    PRODUCT_SETTING_RULES.check("script.engineVersion", 4),
     PRODUCT_SETTING_RULES.check("script.engineVersion", 99),
     PRODUCT_SETTING_RULES.check("script.engineVersion", 0),
     PRODUCT_SETTING_RULES.check("script.engineVersion", 1.5),
     PRODUCT_SETTING_RULES.check("script.engineVersion", "2"),
   ]).toEqual([
+    { ok: true },
     { ok: true },
     { ok: true },
     { ok: false, code: "bad_value" },
@@ -44,8 +46,8 @@ test("SET of script.engineVersion accepts carried engines (including 2 -> 1 roll
     registry: PRODUCT_SETTING_RULES,
   });
 
-  // Uncarried engine version 3 is refused as bad_value without mutating the document.
-  path.set(room, subA, setOf(1, "script.engineVersion", 3));
+  // Uncarried engine version 4 is refused as bad_value without mutating the document.
+  path.set(room, subA, setOf(1, "script.engineVersion", 4));
   clock.runDeferred();
   expect(scriptSettings(room.doc!).entries()["script.engineVersion"]).toBe(
     undefined,

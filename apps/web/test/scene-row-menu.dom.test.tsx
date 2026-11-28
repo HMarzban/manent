@@ -645,7 +645,7 @@ test("a card's row menu sits outside the drag handle and the blank card inserts 
     true,
     false,
     "6 pp.",
-    "Describe a chapter. It becomes a chapter when you write it.",
+    "Title a new chapter to add it to your book.",
   ]);
 
   // Submitting BlankCard in manuscript format inserts a "chapter" block
@@ -664,9 +664,15 @@ test("a card's row menu sits outside the drag handle and the blank card inserts 
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
   });
-  const inserted = scriptBlocks(doc).at(-1);
-  expect([inserted?.attrs?.type, inserted?.attrs?.synopsis]).toEqual([
+  const blocks = scriptBlocks(doc);
+  const chapter = blocks.at(-2);
+  const body = blocks.at(-1);
+  const chapterText = (chapter?.content ?? [])
+    .map((run) => run.text ?? "")
+    .join("");
+  expect([chapter?.attrs?.type, chapterText, body?.attrs?.type]).toEqual([
     "chapter",
     "A storm arrives.",
+    "body",
   ]);
 });

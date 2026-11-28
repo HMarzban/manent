@@ -6,6 +6,7 @@ import type {
   PageFurnitureOptions,
   PageScaffold,
   PresencePort,
+  RemoteCursor,
 } from "@manent/editor";
 import { contentPageCount } from "@manent/pagination";
 import type { FrontPage, Pagination } from "@manent/pagination";
@@ -30,6 +31,8 @@ export interface LiveEditor {
   frontPages(): FrontPage[] | null;
   /** The furniture options of the open editor (header, footer, dateFormat, revisionLabel, day, durationMs). */
   furniture?(): PageFurnitureOptions;
+  /** Every remote cursor the page last received, drawn or not. */
+  remoteCursors?(): readonly RemoteCursor[];
 }
 
 const editors = new Map<string, LiveEditor>();

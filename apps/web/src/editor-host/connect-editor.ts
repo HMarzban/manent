@@ -4,6 +4,7 @@ import type { PresencePort, ScriptEditor } from "@manent/editor";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import { registerLiveEditor } from "./live-editor.ts";
+import { remoteCursorsOf } from "./margin-people.ts";
 
 /** Attaches `editor` to the control and registers it as its document's live editor; returns the stop of both. */
 export function connectEditor(options: {
@@ -32,6 +33,7 @@ export function connectEditor(options: {
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
     frontPages: () => editor.frontPages(),
     furniture: () => editor.furniture(),
+    remoteCursors: () => remoteCursorsOf(editor.view),
   });
   return () => {
     detach();

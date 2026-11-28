@@ -313,7 +313,7 @@ test("Export names one file, a clean PDF of the whole script, and the first page
       ["What", "Whole scriptPrint with alternates"],
       [
         "As",
-        "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+        "Clean PDFWord (.docx)FDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
       ],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
@@ -366,7 +366,7 @@ test("while the script's editor is still opening, Export and Print show their ro
           ["What", "Whole scriptPrint with alternates"],
           [
             "As",
-            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+            "Clean PDFWord (.docx)FDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
           ],
         ],
         0,
@@ -380,7 +380,7 @@ test("while the script's editor is still opening, Export and Print show their ro
           ["What", "Whole scriptPrint with alternates"],
           [
             "As",
-            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+            "Clean PDFWord (.docx)FDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
           ],
         ],
         8,
@@ -713,7 +713,7 @@ test("an Ink script offers neither", async () => {
   ]);
 });
 
-test("send_draft offers whole_script, pages, scenes, pdf and fdx", () => {
+test("send_draft offers whole_script, pages, scenes, pdf, docx and fdx", () => {
   const offeredTo = {
     docKind: "script" as const,
     format: "screenplay" as const,
@@ -724,6 +724,6 @@ test("send_draft offers whole_script, pages, scenes, pdf and fdx", () => {
     typesOffered("send_draft", offeredTo).map((type) => type.id),
   ]).toEqual([
     ["whole_script", "pages", "scenes"],
-    ["pdf", "fdx"],
+    ["pdf", "docx", "fdx"],
   ]);
 });

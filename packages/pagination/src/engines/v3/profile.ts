@@ -232,7 +232,7 @@ export function profileFor(
     const merged =
       override === undefined && custom === undefined
         ? row
-        : like(row, { ...(override ?? {}), ...(custom ?? {}) });
+        : like(row, { ...override, ...custom });
     const clampedWidth = Math.min(
       Math.max(1, merged.width),
       Math.max(1, columnCells - Math.min(merged.indent, columnCells - 1)),

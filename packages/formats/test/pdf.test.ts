@@ -244,14 +244,15 @@ test("watermark placement sits below footer.center and PdfOptions.watermark draw
   expect(wmLine.y).toBeGreaterThan(770);
 });
 
+const serifWoff = (key: FontFaceKey) =>
+  Bun.file(
+    Bun.resolveSync(
+      `@fontsource/source-serif-4/files/source-serif-4-${key}.woff`,
+      import.meta.dir,
+    ),
+  ).bytes();
+
 test("Engine 3 Book Publishing PDF embeds Source Serif 4, 6x9 trim, mirrored gutters and appended endnotes deterministically", async () => {
-  const serifWoff = (key: FontFaceKey) =>
-    Bun.file(
-      Bun.resolveSync(
-        `@fontsource/source-serif-4/files/source-serif-4-${key}.woff`,
-        import.meta.dir,
-      ),
-    ).bytes();
   const bookFonts: ScriptFontFiles = {
     "latin-400-normal": await serifWoff("latin-400-normal"),
     "latin-400-italic": await serifWoff("latin-400-italic"),

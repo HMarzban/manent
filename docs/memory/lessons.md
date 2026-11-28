@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep editor-only helpers off the command-context entry path, send canonical user homes on desktop adopt, and guard Windows tar/hotkeys in CI
+
+- Date: 2026-11-28
+
+### What happened
+
+Three subtle cross-layer regressions surfaced during integration and cross-platform CI auditing: (1) adding `driverCommandContext` to `apps/web/src/services/command-context.ts` imported `room/pitch.ts`, which statically imported `remoteCursorsOf` from `editor-host/margin-people.ts` (`@manent/editor`), pulling ProseMirror and the entire editor bundle into the entry, document and palette chunks; (2) `packages/local-node/src/node/core.ts` wrote `home: "user:<id>"` instead of canonical `"user"` when snapshotting private indexes and listed scripts ahead of index documents during handoff, deadlocking `POST /api/docs/adopt` during first-run desktop sign-in (`desktop-first-script`); and (3) on Windows and Linux CI, MSYS GNU `tar` parsed `D:\...` absolute archive paths as remote hosts (`D:`), `bash -eo pipefail` exited on non-ELF `ldd` checks, and E2E tests called `pressKeyOf(..., "view.leftPanel" | "view.sidePanel")` for commands that intentionally carry no default shortcut on Linux or Windows.
+
+### How it was caught
+
+Item (1) was caught immediately by `apps/web/test/build.test.ts` on the combined merge; item (2) was caught by running `e2e/tour/desktop-first-script.e2e.ts` against `--project=tour-desktop`; and item (3) was caught by inspecting GitHub Actions logs across `windows-2025` and `ubuntu-24.04` runners.
+
+### Rule
+
+Never import a module that value-imports `@manent/editor` (such as `editor-host/margin-people.ts`) from `services/` or `room/` modules reached by the entry chunk: expose lazy runtime readers on the zero-editor-import `LiveEditor` interface (`editor-host/live-editor.ts`) and populate them inside `connect-editor.ts`. In `packages/local-node`, always send canonical `home: "user"` for private snapshots and order index documents ahead of regular documents during first-sync handoff. For cross-platform CI, run `tar` from the archive's parent directory with relative filenames on Windows, guard optional `ldd` probes with `|| true`, and drive panels in cross-platform E2E tests via palette/UI controls rather than macOS-only default shortcuts.
+
+### Enforced by
+
+`apps/web/src/editor-host/live-editor.ts`, `apps/web/src/editor-host/connect-editor.ts`, `apps/web/test/build.test.ts`, `packages/local-node/test/core.test.ts`, `e2e/tour/desktop-first-script.e2e.ts`, `tools/test/desktop-devkit.test.ts`, `.github/workflows/desktop.yml`, and `e2e/support/interface.ts`.
+
 ## Keep proportional book fonts, non-inclusive inline marks and format-scoped engines isolated from v1/v2 invariants
 
 - Date: 2026-11-28

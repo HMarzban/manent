@@ -172,11 +172,23 @@ test("changing paper says so to you with Undo, and to others with your name", as
   const frame = await renderFrame({ scriptBag, startAt: NOV_17 });
   act(() => frame.people.set([SAM]));
   await run(frame, "doc.scriptSettings");
-  const a4 = [...sidePanel(frame).querySelectorAll("[role='radio']")].find(
-    (radio) => labelOf(radio) === "A4",
+  const paperTrigger = sidePanel(frame).querySelector<HTMLElement>(
+    "[data-tour='setting:script.paper'] [role='combobox']",
   );
-  if (a4 === undefined) throw new Error("no A4 choice");
-  await click(a4);
+  if (paperTrigger !== null) {
+    await click(paperTrigger);
+    const a4 = [
+      ...document.querySelectorAll<HTMLElement>("[role='option']"),
+    ].find((option) => nameOf(option) === "A4");
+    if (a4 === undefined) throw new Error("no A4 choice");
+    await click(a4);
+  } else {
+    const a4 = [...sidePanel(frame).querySelectorAll("[role='radio']")].find(
+      (radio) => labelOf(radio) === "A4",
+    );
+    if (a4 === undefined) throw new Error("no A4 choice");
+    await click(a4);
+  }
   const yours = shownMessage(frame);
   await click(buttonNamed(region(frame.container, "status_bar"), "Undo"));
   const afterUndo = scriptBag.read()["script.paper"];

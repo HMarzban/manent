@@ -296,6 +296,8 @@ export interface DocxWriteOptions {
   readonly fontSizePt?: number;
 }
 
+const toTwips = (pt: number): number => Math.round(pt * 20);
+
 /** Writes `script` as a valid Word (.docx) archive with chapters, subheadings, epigraphs, inline marks, links, footnotes and optional mirrored margins. */
 export function writeDocx(
   script: ScriptForExport,
@@ -304,7 +306,6 @@ export function writeDocx(
   const paper = PAPER_TWIPS[options?.paper ?? "letter"];
   const lineTwips = options?.lineSpacing === 1 ? 240 : 480;
   const mirrorMargins = options?.mirrorMargins === true;
-  const toTwips = (pt: number): number => Math.round(pt * 20);
   const leftTwips =
     options?.marginsPt === undefined ? 1440 : toTwips(options.marginsPt.inner);
   const rightTwips =

@@ -2,7 +2,6 @@
 import { addAlternate } from "@manent/crdt";
 import { randomBlockId } from "@manent/schema";
 import { liveEditor } from "../editor-host/live-editor.ts";
-import { remoteCursorsOf } from "../editor-host/margin-people.ts";
 
 /** The dialogue block id for `driverUserId`'s latest caret, or null when their caret is outside a speech. */
 export function driverSpeechBlockId(
@@ -13,7 +12,7 @@ export function driverSpeechBlockId(
   if (live === null) return null;
   let latestMovedAt = -1;
   let headBlockId: string | null = null;
-  for (const cursor of remoteCursorsOf(live.view)) {
+  for (const cursor of live.remoteCursors?.() ?? []) {
     if (cursor.userId !== driverUserId) continue;
     if (cursor.movedAt >= latestMovedAt) {
       latestMovedAt = cursor.movedAt;

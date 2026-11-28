@@ -209,20 +209,27 @@ async function changePaperToA4(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Untitled script" }).click();
   await page.getByRole("menuitem", { name: "Script settings" }).click();
   const settings = page.locator('[data-region="side_panel"]');
-  // the Paper row's own Change layout…, the first button after its choices
-  await settings
-    .getByRole("radiogroup", { name: "Paper" })
-    .locator("xpath=following::button[1]")
-    .click();
-  await settings.getByRole("radio", { name: "A4", disabled: false }).click();
+  const paperRow = settings.locator('[data-tour="setting:script.paper"]');
+  await paperRow.getByRole("button", { name: "Change layout…" }).click();
+  const paperCombo = paperRow.getByRole("combobox");
+  if ((await paperCombo.count()) > 0) {
+    await paperCombo.click();
+    await page.getByRole("option", { name: "A4", exact: true }).click();
+  } else {
+    await settings.getByRole("radio", { name: "A4", disabled: false }).click();
+  }
   await page
     .getByRole("alertdialog", { name: "Change paper size to A4?" })
     .getByRole("button", { name: "Change paper size to A4" })
     .click();
   // the new paper reaches the page once the server has written it
-  await expect(
-    settings.getByRole("radio", { name: "A4", checked: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  if ((await paperCombo.count()) > 0) {
+    await expect(paperCombo).toContainText("A4", { timeout: 15_000 });
+  } else {
+    await expect(
+      settings.getByRole("radio", { name: "A4", checked: true }),
+    ).toBeVisible({ timeout: 15_000 });
+  }
 }
 
 const synced = (page: Page): Promise<void> =>
