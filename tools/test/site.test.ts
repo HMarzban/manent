@@ -552,7 +552,12 @@ test("index.html and compare.html reflect Stage 5 and Ghost Follow capabilities"
   const [indexMain = ""] = await textOf(index, "main");
   const [compareMain = ""] = await textOf(compare, "main");
 
-  expect(page.measured.length).toBe(3);
+  expect(page.measured.length).toBe(1);
+  expect(indexMain).toContain("200 times in a row");
+  expect(indexMain).toContain("D-small");
+  expect(index).not.toContain("/tree/main/bench");
+  expect(compare).not.toContain("/tree/main/bench");
+  expect(notFound).not.toContain("/tree/main/bench");
 
   for (const needle of [
     "MOS 2.8.5",
