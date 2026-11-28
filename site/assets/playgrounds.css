@@ -207,13 +207,13 @@ html[data-site-switching] *::after {
 /* ---------- Studio Instrument shell (authentic Manent window chrome) ---------- */
 
 .inst {
-  border: 1px solid var(--line);
+  border: 1px solid var(--frame-border);
   border-radius: 8px;
   overflow: hidden;
   background: var(--desk);
   color: var(--fg);
   font-family: var(--sans);
-  box-shadow: var(--m-elev-1);
+  box-shadow: var(--frame-shadow);
 }
 
 .inst-bar {
@@ -647,7 +647,7 @@ html[data-site-switching] *::after {
 
 .inst-rev-sheet {
   padding: 1rem 1.15rem;
-  border-radius: 2px;
+  border-radius: 0;
   border: 1px solid var(--line);
   border-inline-start: 3px solid var(--rev-edge, var(--accent));
   background: var(--rev-bg, var(--paper));
@@ -813,6 +813,34 @@ html[data-site-switching] *::after {
   margin: 0 0 0.55rem;
 }
 
+.inst-hist-sheet p[data-diff="add"] {
+  padding: 0.2rem 0.45rem;
+  margin-inline: -0.45rem;
+  border-inline-start: 2px solid var(--ok);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--ok) 9%, transparent);
+}
+
+.inst-hist-sheet p[data-diff="del"] {
+  padding: 0.2rem 0.45rem;
+  margin-inline: -0.45rem;
+  border-inline-start: 2px solid var(--attention);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--attention) 10%, transparent);
+}
+
+.inst-diff-stat {
+  font-variant-numeric: tabular-nums;
+}
+
+.inst-diff-stat[data-tone="add"] {
+  color: var(--ok);
+}
+
+.inst-diff-stat[data-tone="del"] {
+  color: var(--attention);
+}
+
 .inst-hist-sheet p:last-child {
   margin-bottom: 0;
 }
@@ -895,7 +923,7 @@ html[data-site-switching] *::after {
   padding: 0.48rem 0.6rem;
   border: 1px solid transparent;
   border-inline-start: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: 0;
   background: transparent;
   color: var(--fg);
   font-family: var(--sans);
@@ -1026,6 +1054,7 @@ html[data-site-switching] *::after {
   font-family: var(--sans);
   font-size: 0.86rem;
   line-height: 1.55;
+  border-radius: 0;
   border-inline-start: 3px solid var(--accent);
 }
 
@@ -1217,7 +1246,7 @@ dialog.pg-palette::backdrop {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.42rem 0.65rem;
-  border-radius: 6px;
+  border-radius: 0;
   border-inline-start: 2px solid transparent;
   cursor: pointer;
   font-size: 0.86rem;

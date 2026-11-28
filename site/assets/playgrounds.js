@@ -253,11 +253,9 @@
     } catch {}
   };
 
-  let activeScheme =
-    readStore(SCHEME_KEY) ||
-    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  let activePalette = readStore(PALETTE_KEY) || "studio";
-  if (!PALETTES.some((p) => p.id === activePalette)) activePalette = "studio";
+  let activeScheme = readStore(SCHEME_KEY) || "dark";
+  let activePalette = readStore(PALETTE_KEY) || "newsdesk";
+  if (!PALETTES.some((p) => p.id === activePalette)) activePalette = "newsdesk";
 
   const onThemeChangeListeners = [];
 
@@ -836,8 +834,10 @@
       {
         id: "1140",
         title: "Today 11:40",
-        meta: "DR, SO · 2 changes · 1 scene",
-        changes: 2,
+        meta: "DR, SO · 1 change · 1 scene",
+        changes: 1,
+        removed: 0,
+        added: 1,
         map: [0, 0, 0, 0, 1, 0, 0, 0],
         asWas: [
           { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
@@ -853,6 +853,38 @@
           { cls: "inst-hist-ch", text: "IDA" },
           { cls: "inst-hist-di", text: "Then I'll be the first." },
         ],
+        sideLeft: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          { cls: "inst-hist-di", html: "Then I'll be the first." },
+        ],
+        sideRight: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            html: "IDA folds the tide table and puts it away. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            diff: "add",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
         diff: [
           { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
           {
@@ -867,6 +899,7 @@
           { cls: "inst-hist-ch", html: "IDA" },
           {
             cls: "inst-hist-di",
+            diff: "add",
             html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
           },
         ],
@@ -874,8 +907,10 @@
       {
         id: "0902",
         title: "Today 09:02",
-        meta: "SO · 5 changes · 3 scenes",
-        changes: 5,
+        meta: "SO · 2 changes · 2 scenes",
+        changes: 2,
+        removed: 0,
+        added: 2,
         map: [0, 1, 0, 1, 2, 0, 0, 0],
         asWas: [
           { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
@@ -891,10 +926,25 @@
           { cls: "inst-hist-ch", text: "IDA" },
           { cls: "inst-hist-di", text: "Then I'll be the first." },
         ],
-        diff: [
+        sideLeft: [
           { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
           {
             cls: "",
+            html: "IDA folds the tide table. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          { cls: "inst-hist-di", html: "Then I'll be the first." },
+        ],
+        sideRight: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            diff: "add",
             html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
           },
           { cls: "inst-hist-ch", html: "MAREN" },
@@ -905,6 +955,26 @@
           { cls: "inst-hist-ch", html: "IDA" },
           {
             cls: "inst-hist-di",
+            diff: "add",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            diff: "add",
+            html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            html: "Nobody's logged a crossing since the fog came in.",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            diff: "add",
             html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
           },
         ],
@@ -913,7 +983,9 @@
         id: "studio",
         title: "★ Studio",
         meta: "Named by Dana · Mon 16 Nov",
-        changes: 9,
+        changes: 4,
+        removed: 1,
+        added: 3,
         map: [1, 1, 0, 2, 2, 1, 0, 1],
         asWas: [
           { cls: "inst-hist-sh", text: "18 EXT. EAST CHANNEL - NIGHT" },
@@ -929,20 +1001,58 @@
           { cls: "inst-hist-ch", text: "IDA" },
           { cls: "inst-hist-di", text: "Then I'll be the first." },
         ],
-        diff: [
+        sideLeft: [
           { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
           {
             cls: "",
+            html: "IDA folds the tide table. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            diff: "del",
+            html: "<del>No one has crossed since the fog.</del>",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          { cls: "inst-hist-di", html: "Then I'll be the first." },
+        ],
+        sideRight: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            diff: "add",
             html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
           },
           { cls: "inst-hist-ch", html: "MAREN" },
           {
             cls: "inst-hist-di",
+            diff: "add",
+            html: "<ins>Nobody's logged a crossing since the fog came in.</ins>",
+          },
+          { cls: "inst-hist-ch", html: "IDA" },
+          {
+            cls: "inst-hist-di",
+            diff: "add",
+            html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
+          },
+        ],
+        diff: [
+          { cls: "inst-hist-sh", html: "18 EXT. EAST CHANNEL - NIGHT" },
+          {
+            cls: "",
+            diff: "add",
+            html: "IDA folds the tide table <ins>and puts it away</ins>. The fog sits low along the slip.",
+          },
+          { cls: "inst-hist-ch", html: "MAREN" },
+          {
+            cls: "inst-hist-di",
+            diff: "del",
             html: "<del>No one has crossed since the fog.</del> <ins>Nobody's logged a crossing since the fog came in.</ins>",
           },
           { cls: "inst-hist-ch", html: "IDA" },
           {
             cls: "inst-hist-di",
+            diff: "add",
             html: "Then I'll be the first. <ins>Cast off when I say.</ins>",
           },
         ],
@@ -953,7 +1063,7 @@
     let mode = "page";
     let restoredFrom = null;
 
-    const makeSheet = (tagLeft, tagRight, lines, isHtml) => {
+    const makeSheet = (tagLeft, tagRight, lines, isHtml, statTone) => {
       const sheet = doc.createElement("div");
       sheet.className = "inst-hist-sheet";
       const tag = doc.createElement("div");
@@ -961,12 +1071,17 @@
       const l = doc.createElement("span");
       l.textContent = tagLeft;
       const r = doc.createElement("span");
+      if (statTone) {
+        r.className = "inst-diff-stat";
+        r.dataset.tone = statTone;
+      }
       r.textContent = tagRight;
       tag.append(l, r);
       sheet.append(tag);
       for (const line of lines) {
         const p = doc.createElement("p");
         if (line.cls) p.className = line.cls;
+        if (line.diff) p.dataset.diff = line.diff;
         if (isHtml) p.innerHTML = line.html;
         else p.textContent = line.text;
         sheet.append(p);
@@ -1010,9 +1125,24 @@
           ),
         );
       } else if (mode === "side") {
+        const compareSnap = snap.id === "working" ? BASE_SNAPS[1] : snap;
         splitEl.append(
-          makeSheet(snap.title, "Snapshot", snap.asWas, false),
-          makeSheet("Working draft", "Current", BASE_SNAPS[0].asWas, false),
+          makeSheet(
+            compareSnap.title,
+            compareSnap.removed
+              ? `−${compareSnap.removed} removed`
+              : "Snapshot",
+            compareSnap.sideLeft,
+            true,
+            compareSnap.removed ? "del" : null,
+          ),
+          makeSheet(
+            "Working draft",
+            `+${compareSnap.added} added`,
+            compareSnap.sideRight,
+            true,
+            "add",
+          ),
         );
       } else {
         splitEl.append(

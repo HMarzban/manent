@@ -606,7 +606,7 @@ html[data-ds-gems="off"] .ds-gem-only {
 }
 .ds-spec-note {
   padding: 0.5rem 0.65rem;
-  border-radius: 7px;
+  border-radius: 0;
   border: 1px solid var(--line);
   border-inline-start: 3px solid var(--accent);
   background: var(--paper);

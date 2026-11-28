@@ -890,19 +890,14 @@
   } catch (e) {}
   var state = {
     scheme:
-      savedScheme === "dark" || savedScheme === "light"
-        ? savedScheme
-        : window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light",
+      savedScheme === "dark" || savedScheme === "light" ? savedScheme : "dark",
     palette:
       savedPalette &&
       THEMES.some(function (t) {
         return t.id === savedPalette;
       })
         ? savedPalette
-        : "studio",
+        : "newsdesk",
     filter: "all",
     gems: true,
     printProof: false,

@@ -18,17 +18,8 @@
       content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
     />
     <link rel="canonical" href="https://hmarzban.github.io/manent/" />
-    <meta name="color-scheme" content="light dark" />
-    <meta
-      name="theme-color"
-      content="#E9E6E0"
-      media="(prefers-color-scheme: light)"
-    />
-    <meta
-      name="theme-color"
-      content="#1F1D1A"
-      media="(prefers-color-scheme: dark)"
-    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0C0D0F" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=fa800fe7" />
     <link
       rel="icon"
@@ -91,14 +82,14 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="assets/site.css?v=44b5bd7c" />
-    <link rel="stylesheet" href="assets/vignettes.css?v=88d2e731" />
+    <link rel="stylesheet" href="assets/site.css?v=2bd5a172" />
+    <link rel="stylesheet" href="assets/vignettes.css?v=50b3fc21" />
     <link rel="stylesheet" href="assets/motion.css?v=fa62bcd6" />
-    <link rel="stylesheet" href="assets/playgrounds.css?v=81405a8b" />
+    <link rel="stylesheet" href="assets/playgrounds.css?v=e88b88cc" />
     <script src="assets/motion.js?v=d0c4a26b" defer></script>
     <script src="assets/vignettes.js?v=fabb3833" defer></script>
     <script src="assets/site.js?v=548b7530" defer></script>
-    <script src="assets/playgrounds.js?v=5c152f42" defer></script>
+    <script src="assets/playgrounds.js?v=a585b1e7" defer></script>
 
     <script type="application/ld+json">
       {
@@ -2697,7 +2688,12 @@
           </div>
           <ul class="points points-grid-3">
             <li>
-              <h3>Locked pages, scenes &amp; asterisks</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-lock" />
+                </svg>
+                Locked pages, scenes &amp; asterisks
+              </h3>
               <p>
                 12A, 12B and A13 stay identical on every screen; asterisks are
                 computed from what changed since the last issue and clear on
@@ -2705,7 +2701,12 @@
               </p>
             </li>
             <li>
-              <h3>Colours in words, Issue &amp; Recall</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-palette" />
+                </svg>
+                Colours in words, Issue &amp; Recall
+              </h3>
               <p>
                 "Blue Rev." in the header survives a black-and-white photocopy.
                 Freeze, stamp and distribute in one step — or recall within 24
@@ -2713,7 +2714,12 @@
               </p>
             </li>
             <li>
-              <h3>Omitted scenes, sides &amp; copy preview</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-scissors" />
+                </svg>
+                Omitted scenes, sides &amp; copy preview
+              </h3>
               <p>
                 OMITTED keeps its number. Export <b>Sides PDF</b> for any scene
                 range with other scenes struck through, or test locks on a copy
@@ -2942,7 +2948,12 @@
           </div>
           <ul class="points">
             <li>
-              <h3>In</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-file-input" />
+                </svg>
+                In
+              </h3>
               <p>
                 Final Draft <code>.fdx</code> and Fountain with notes, dual
                 dialogue, scene numbers and revision marks; text-based PDF, Word
@@ -2952,7 +2963,12 @@
               </p>
             </li>
             <li>
-              <h3>Out</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-file-output" />
+                </svg>
+                Out
+              </h3>
               <p>
                 PDF, Sides PDF, EPUB 3 (<code>.epub</code>), Word
                 (<code>.docx</code>), Markdown (<code>.md</code>),
@@ -2965,7 +2981,12 @@
               </p>
             </li>
             <li>
-              <h3>Paste and go</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-clipboard-paste" />
+                </svg>
+                Paste and go
+              </h3>
               <p>
                 Paste Fountain or plain text and it becomes script elements,
                 with one undo back. On desktop,
@@ -2992,17 +3013,26 @@
           </div>
           <figure class="shot-frame" data-reveal>
             <img
-              src="media/command-palette.png?v=8cee11aa"
+              class="shot-dark"
+              src="media/command-palette-dark.png?v=3fdb8b3e"
               width="1200"
               height="760"
               loading="lazy"
-              alt="Manent's smart Command Palette open over a screenplay dialogue line, showing All, Commands, Settings, Go to and Scripts scope filters, Suggested here actions, Jump to MARA's next line, live On/Off Settings here switches and Last used commands."
+              alt="Manent's smart Command Palette open in Dateline Dark over a screenplay dialogue line, showing All, Commands, Settings, Go to and Scripts scope filters, Suggested here actions, Jump to MARA's next line, and live On/Off Settings here switches."
+            />
+            <img
+              class="shot-light"
+              src="media/command-palette-light.png?v=33fe3332"
+              width="1200"
+              height="760"
+              loading="lazy"
+              alt="Manent's smart Command Palette open in Dateline Light over a screenplay dialogue line, showing All, Commands, Settings, Go to and Scripts scope filters, Suggested here actions, Jump to MARA's next line, and live On/Off Settings here switches."
             />
             <figcaption class="figure-note">
               Screenshot of the demo: pressing
               <kbd data-shortcut="Ctrl+K">⌘K</kbd> while editing dialogue
               surfaces contextual actions, Jump to the speaker's next line, live
-              setting switches and Last used commands.
+              setting switches and menus — matching your studio theme.
             </figcaption>
           </figure>
           <p class="quiet-line">
@@ -3018,7 +3048,12 @@
           </p>
           <ul class="points points-grid-2">
             <li>
-              <h3>Full-text search, folders &amp; 30-day Trash</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-library" />
+                </svg>
+                Full-text search, folders &amp; 30-day Trash
+              </h3>
               <p>
                 Search every script from the Library or
                 <kbd data-shortcut="Ctrl+K">⌘K</kbd> with <code>type:</code>,
@@ -3028,7 +3063,12 @@
               </p>
             </li>
             <li>
-              <h3>Smart ⌘K palette &amp; writing tools</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-keyboard" />
+                </svg>
+                Smart ⌘K palette &amp; writing tools
+              </h3>
               <p>
                 Run contextual actions, inline numeric prompts (<code
                   >lines 52</code
@@ -3039,7 +3079,12 @@
               </p>
             </li>
             <li>
-              <h3>Roles, templates &amp; "Can also" capabilities</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-lock" />
+                </svg>
+                Roles, templates &amp; "Can also" capabilities
+              </h3>
               <p>
                 Manage workspace members, Broadcast <b>MOS 2.8.5</b> /
                 <b>Autoscript WinPlus-IP</b> targets and reusable Show and News
@@ -3050,7 +3095,12 @@
               </p>
             </li>
             <li>
-              <h3>Public REST API, notifications &amp; local relay</h3>
+              <h3>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=16c5fddf#i-code-xml" />
+                </svg>
+                Public REST API, notifications &amp; local relay
+              </h3>
               <p>
                 Issue revocable read-only <code>mk_</code> keys for
                 <code>/api/v1/</code> (never exposing Private or Trash), send
@@ -3078,51 +3128,101 @@
               key, and no one can take it away from you.
             </p>
           </div>
-          <ul class="points">
-            <li>
-              <h3>Every line in the open</h3>
-              <p>
-                If the project stopped tomorrow, your copy would keep working.
+          <div class="yours-grid">
+            <div>
+              <ul class="yours-principles">
+                <li>
+                  <span class="yours-icon" aria-hidden="true">
+                    <svg class="m-icon">
+                      <use href="assets/icons.svg?v=16c5fddf#i-code" />
+                    </svg>
+                  </span>
+                  <h3>Every line in the open</h3>
+                  <p>
+                    If the project stopped tomorrow, your copy would keep
+                    working — source, formats and desktop installers all under
+                    Apache License 2.0.
+                  </p>
+                </li>
+                <li>
+                  <span class="yours-icon" aria-hidden="true">
+                    <svg class="m-icon">
+                      <use href="assets/icons.svg?v=16c5fddf#i-user-x" />
+                    </svg>
+                  </span>
+                  <h3>Page 1, not a sign-up form</h3>
+                  <p>
+                    Choose <b>Start in a clean workspace</b> for an empty
+                    Library on page 1, or explore the six-person writers' room
+                    demo — with zero telemetry and 24 calm
+                    <a href="design-system.html#themes">studio themes</a>.
+                  </p>
+                </li>
+                <li>
+                  <span class="yours-icon" aria-hidden="true">
+                    <svg class="m-icon">
+                      <use href="assets/icons.svg?v=16c5fddf#i-hard-drive" />
+                    </svg>
+                  </span>
+                  <h3>On your own disk</h3>
+                  <p>
+                    Every script lives durably on your device until you choose
+                    to share it, with one-click full local backup at any time.
+                  </p>
+                </li>
+              </ul>
+              <p class="quiet-line">
+                <a href="https://github.com/HMarzban/manent"
+                  >Read the source on GitHub</a
+                >
+                ·
+                <a href="https://github.com/HMarzban/manent/blob/main/LICENSE"
+                  >Read the licence</a
+                >
               </p>
-            </li>
-            <li>
-              <h3>Page 1, not a sign-up form</h3>
-              <p>
-                Choose <b>Start in a clean workspace</b> for an empty Library on
-                page 1, or step into the six-person writers' room demo — with
-                zero telemetry and 24 calm
-                <a href="design-system.html#themes">studio themes</a>.
-              </p>
-            </li>
-            <li>
-              <h3>On your own disk</h3>
-              <p>
-                Your scripts stay on your device until you choose to share them.
-              </p>
-            </li>
-          </ul>
-          <blockquote class="pledge" id="pledge">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=16c5fddf#i-shield-check" />
-            </svg>
-            <p>
-              Manent has no features that write for you: it generates no scenes,
-              lines, summaries or suggestions. Your scripts are never used to
-              train AI, by Manent or by anyone Manent works with.
-            </p>
-            <footer>
-              As written in Manent, under Preferences → This device → About.
-            </footer>
-          </blockquote>
-          <p class="quiet-line">
-            <a href="https://github.com/HMarzban/manent"
-              >Read the source on GitHub</a
-            >
-            ·
-            <a href="https://github.com/HMarzban/manent/blob/main/LICENSE"
-              >Read the licence</a
-            >
-          </p>
+            </div>
+            <blockquote class="pledge" id="pledge">
+              <div>
+                <div class="pledge-head">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="assets/icons.svg?v=16c5fddf#i-shield-check" />
+                  </svg>
+                  <span>AI &amp; Privacy Pledge</span>
+                </div>
+                <p>
+                  Manent has no features that write for you: it generates no
+                  scenes, lines, summaries or suggestions. Your scripts are
+                  never used to train AI, by Manent or by anyone Manent works
+                  with.
+                </p>
+              </div>
+              <div>
+                <ul class="pledge-meta" aria-label="Ownership guarantees">
+                  <li>
+                    <svg class="m-icon" aria-hidden="true">
+                      <use href="assets/icons.svg?v=16c5fddf#i-scale" />
+                    </svg>
+                    Apache 2.0
+                  </li>
+                  <li>
+                    <svg class="m-icon" aria-hidden="true">
+                      <use href="assets/icons.svg?v=16c5fddf#i-eye-off" />
+                    </svg>
+                    Zero telemetry
+                  </li>
+                  <li>
+                    <svg class="m-icon" aria-hidden="true">
+                      <use href="assets/icons.svg?v=16c5fddf#i-hard-drive" />
+                    </svg>
+                    Local disk first
+                  </li>
+                </ul>
+                <footer>
+                  As written in Manent, under Preferences → This device → About.
+                </footer>
+              </div>
+            </blockquote>
+          </div>
 
           <div class="compare" id="compare">
             <p class="eyebrow">How it compares</p>
