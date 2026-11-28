@@ -1940,10 +1940,9 @@ div.m-note-card p + p {
 }
 
 .closing {
-  background: var(--code-bg);
-  color: var(--code-fg);
-  --fg: var(--code-fg);
-  --fg-muted: var(--code-muted);
+  background: var(--raised);
+  color: var(--fg);
+  border-top: 1px solid var(--line);
 }
 
 .closing .wrap {
@@ -1966,56 +1965,24 @@ div.m-note-card p + p {
 }
 
 .closing .sub {
-  color: var(--code-muted);
+  color: var(--fg-muted);
 }
 
 .closing .actions {
   margin-top: 2rem;
 }
 
-.closing .button {
-  --fill: var(--code-accent);
-  color: #121211;
-}
-
-.closing .button-quiet {
-  background: transparent;
-  border-color: var(--code-line);
-  color: var(--code-fg);
-}
-
-.closing .button-quiet:hover {
-  background: color-mix(in srgb, var(--code-fg) 8%, transparent);
-}
-
-.closing a:not(.button) {
-  color: var(--code-accent);
-}
-
 .closing .quiet-line {
-  color: var(--code-muted);
+  color: var(--fg-muted);
 }
 
-.closing :is(.eyebrow, .disclosure summary),
+.closing .disclosure summary,
 .closing .platforms[data-found] > .button-quiet {
-  color: var(--code-accent);
-}
-
-.closing .code {
-  border: 1px solid var(--code-line);
-}
-
-.closing .steps > li::before {
-  background: color-mix(in srgb, var(--code-accent) 18%, transparent);
-  color: var(--code-accent);
+  color: var(--accent);
 }
 
 .closing .disclosure {
   margin-top: 1.25rem;
-}
-
-.closing :focus-visible {
-  outline-color: var(--code-accent);
 }
 
 /* ---------- footer: 4-column archival colophon ---------- */
