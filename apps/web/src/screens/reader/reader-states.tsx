@@ -102,10 +102,9 @@ export function readerBarLines(options: {
 
 export function ReaderRefusalView(props: {
   readonly reason: ReaderRefusal;
-  readonly standalone: boolean;
   onRetry?(): void;
 }): ReactNode {
-  const { reason, standalone, onRetry } = props;
+  const { reason, onRetry } = props;
   const Icon =
     reason === "not_sent"
       ? LockIcon
@@ -113,9 +112,7 @@ export function ReaderRefusalView(props: {
         ? WifiOffIcon
         : Link2OffIcon;
   return (
-    <div
-      className={`z-10 flex overflow-y-auto bg-chrome p-6 text-fg ${standalone ? "h-dvh" : "min-h-0 flex-1"}`}
-    >
+    <div className="relative z-10 flex min-h-0 flex-1 overflow-y-auto overscroll-contain bg-chrome p-6 text-fg">
       <div className="flex min-h-full w-full flex-col items-center justify-center">
         <EmptyHeroCard
           icon={<Icon aria-hidden="true" className="size-5" />}

@@ -299,7 +299,7 @@ export function HistoryScriptCanvas(props: {
               <div
                 ref={olderRef}
                 tabIndex={-1}
-                className="mn-desk min-h-0 flex-1 overflow-auto p-3! outline-none [&>.mn-zoom]:mx-auto"
+                className="mn-desk relative min-h-0 flex-1 overflow-auto overscroll-contain p-3! outline-none [&>.mn-zoom]:mx-auto"
               />
             </section>
             <section
@@ -314,7 +314,7 @@ export function HistoryScriptCanvas(props: {
                 data-history-canvas={docId}
                 data-tour="page"
                 tabIndex={-1}
-                className="mn-desk min-h-0 flex-1 overflow-auto p-3! outline-none [&>.mn-zoom]:mx-auto"
+                className="mn-desk relative min-h-0 flex-1 overflow-auto overscroll-contain p-3! outline-none [&>.mn-zoom]:mx-auto"
               />
             </section>
           </div>
@@ -327,7 +327,7 @@ export function HistoryScriptCanvas(props: {
             aria-label={
               baseline === null ? HISTORY_WORDS.workingPreview : olderLabel
             }
-            className="mn-desk min-h-0 flex-1 overflow-auto p-3! outline-none [&>.mn-zoom]:mx-auto"
+            className="mn-desk relative min-h-0 flex-1 overflow-auto overscroll-contain p-3! outline-none [&>.mn-zoom]:mx-auto"
           />
         )}
       </div>

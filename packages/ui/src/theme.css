@@ -1677,6 +1677,10 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
    -------------------------------------------------------------------------- */
 @layer base {
   html {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     font-size: 100%;
     font-family: var(--face-ui);
     font-optical-sizing: auto;
@@ -1698,8 +1702,17 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
   }
   body {
     @apply bg-background text-foreground;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     font-size: var(--type-ui);
     line-height: var(--lh-ui);
+  }
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
   }
   /* colour is inherited as a computed value, so a nested scheme or palette must restate it */
   :where([data-theme], [data-surface], [data-palette]) {
@@ -6461,6 +6474,13 @@ html[data-gems="off"] .mn-gem-only {
   margin: 10mm;
 }
 @media print {
+  html,
+  body,
+  #root {
+    height: auto;
+    width: auto;
+    overflow: visible;
+  }
   .mn-app-gem,
   .mn-gem-popover {
     display: none;

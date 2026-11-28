@@ -134,7 +134,7 @@ export function EditableGrid(props: EditableGridProps): ReactNode {
         data-grid-scroll=""
         data-scrolled-y={scrolledY ? "true" : undefined}
         data-ring="inset"
-        className="h-full overflow-auto bg-raised text-ui text-fg"
+        className="relative h-full overflow-auto overscroll-contain bg-raised text-ui text-fg"
         onScroll={(event) => {
           const next = event.currentTarget.scrollTop > 0;
           setScrolledY((prev) => (prev === next ? prev : next));

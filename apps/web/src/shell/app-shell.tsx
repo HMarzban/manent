@@ -78,6 +78,10 @@ const SCREEN_AREA: CSSProperties = Object.freeze({
   gridRow: "titlebar-start / statusbar-end",
   gridColumn: "1 / -1",
 });
+const SCREEN_CLASS =
+  "relative flex min-h-0 min-w-0 flex-col overflow-auto overscroll-contain";
+const SHELL_CLASS =
+  "relative grid h-dvh w-full overflow-hidden overscroll-none bg-chrome text-fg";
 
 /** The row of SHELL_SCREENS for the route shown; a route with none shows the Library's screen id, covered. */
 export function useShellScreen(): ShellScreen {
@@ -156,10 +160,9 @@ function useStandInDocId(standIn: boolean): string | null {
 
 /** Where the route's screen draws: over the frame while it is not a document; a document draws its parts in their own areas. */
 export function ScreenArea(props: { children: ReactNode }): ReactNode {
-  const { page } = useShellRoute();
-  if (page !== "covered") return props.children;
+  if (useShellRoute().page !== "covered") return props.children;
   return (
-    <div className="flex min-h-0 flex-col overflow-auto" style={SCREEN_AREA}>
+    <div className={SCREEN_CLASS} style={SCREEN_AREA}>
       {props.children}
     </div>
   );
@@ -258,12 +261,11 @@ function ShellPage(props: {
     }),
     [writers, services, docId, guard, bare],
   );
-  // covered, the page is inert, and a region that scrolls with nothing a key can reach is out of the keyboard's reach;
-  // hidden, unlike clip, keeps the scroll offset for the way back
+  // covered, the page is inert and hidden keeps the scroll offset for the way back
   return (
     <ShellRegion
       region="page"
-      className={covered ? "min-h-0 overflow-hidden" : "min-h-0 overflow-auto"}
+      className={`relative min-h-0 min-w-0 ${covered ? "overflow-hidden" : "overflow-auto overscroll-contain"}`}
     >
       <EditorHost
         docId={docId}
@@ -334,15 +336,14 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
     [facts, outline],
   );
   const paletteOpen = usePaletteOpen() !== null;
-  const closePalette = (): void => {
-    paletteActions.close();
-    dom.restoreFocus();
-  };
+  const closePalette = (): void => (paletteActions.close(), dom.restoreFocus());
   usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
   useMenuChoiceFocus();
   useWebPwa();
   const drop = useFileDrop();
+  const shellClass =
+    where.shell === "web" ? `mn-wco ${SHELL_CLASS}` : SHELL_CLASS;
   return (
     <SettingsProvider store={services.settings}>
       <ProjectPaletteBridge docId={docId} covered={covered} />
@@ -356,11 +357,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
             <OutlineContext value={outline.selectors}>
               <PeopleContext value={people.selectors}>
                 <div
-                  className={
-                    where.shell === "web"
-                      ? "mn-wco grid h-dvh overflow-x-clip bg-chrome text-fg"
-                      : "grid h-dvh overflow-x-clip bg-chrome text-fg"
-                  }
+                  className={shellClass}
                   style={GRID}
                   {...(screen === "reader" ? {} : drop)}
                 >

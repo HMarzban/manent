@@ -42,3 +42,26 @@ test("theme.css defines demo neutral avatar tokens, calm active toggle fill, and
   expect(css).toContain("@media (width < 40rem)");
   expect(css).toContain("padding-inline-start: clamp(");
 });
+
+test("theme.css locks html, body and #root to the viewport and restores flow for print", async () => {
+  const css = await Bun.file(
+    join(import.meta.dir, "../../../packages/ui/src/theme.css"),
+  ).text();
+  const baseBlock = css.slice(
+    css.indexOf("@layer base {"),
+    css.indexOf("STOCK CORRECTIONS"),
+  );
+  const printBlock = css.slice(css.indexOf("@media print {"));
+  expect({
+    htmlLocked:
+      baseBlock.includes("overflow: hidden;") &&
+      baseBlock.includes("overscroll-behavior: none;") &&
+      baseBlock.includes("height: 100%;") &&
+      baseBlock.includes("width: 100%;"),
+    rootLocked: baseBlock.includes("#root {"),
+    printRestored:
+      printBlock.includes("html,\n  body,\n  #root {") &&
+      printBlock.includes("height: auto;") &&
+      printBlock.includes("overflow: visible;"),
+  }).toEqual({ htmlLocked: true, rootLocked: true, printRestored: true });
+});

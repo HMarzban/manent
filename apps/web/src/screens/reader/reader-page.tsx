@@ -189,8 +189,8 @@ export function ReaderPage(props: {
                 ? "mn-reader-page [&_[data-id]]:cursor-pointer"
                 : "mn-reader-page"
               : tappable
-                ? "mn-desk mn-reader-page h-full overflow-auto [&>.mn-zoom]:mx-auto [&_[data-id]]:cursor-pointer"
-                : "mn-desk mn-reader-page h-full overflow-auto [&>.mn-zoom]:mx-auto"
+                ? "mn-desk mn-reader-page relative h-full overflow-auto overscroll-contain [&>.mn-zoom]:mx-auto [&_[data-id]]:cursor-pointer"
+                : "mn-desk mn-reader-page relative h-full overflow-auto overscroll-contain [&>.mn-zoom]:mx-auto"
           }
           style={
             scaled

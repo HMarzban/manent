@@ -276,7 +276,7 @@ export function SettingRow(props: {
     <div
       data-tour={`setting:${settingKey}`}
       className={cn(
-        "flex gap-x-4 gap-y-2",
+        "relative flex gap-x-4 gap-y-2",
         cardRow ? "px-4 py-3" : "py-1",
         stacked ? "flex-col" : "flex-wrap items-center justify-between",
         def.description === null && !explained.modified

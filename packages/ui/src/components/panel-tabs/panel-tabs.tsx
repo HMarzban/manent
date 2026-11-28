@@ -50,7 +50,7 @@ export function PanelTabs({
       <TabsContent
         key={current}
         value={current}
-        className="min-h-0 overflow-auto animate-in fade-in-0 duration-(--dur-fast) ease-out"
+        className="relative min-h-0 overflow-auto overscroll-contain animate-in fade-in-0 duration-(--dur-fast) ease-out"
       >
         {children}
       </TabsContent>

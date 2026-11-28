@@ -97,7 +97,7 @@ export function HistoryRundownCanvas(props: {
         ref={scrollerRef}
         data-rundown-page=""
         data-history-canvas={docId}
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-chrome"
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-contain bg-chrome"
       >
         {baselineRundown !== null && baselineTitle !== null ? (
           <RundownHistoryOverlay

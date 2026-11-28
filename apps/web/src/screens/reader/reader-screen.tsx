@@ -283,14 +283,10 @@ export function ReaderScreen(props: {
   }
 
   const frameClass =
-    services === null
-      ? "z-10 flex h-dvh min-h-0 flex-col bg-desk text-fg"
-      : "z-10 flex min-h-0 flex-1 flex-col bg-desk text-fg";
+    "relative z-10 flex min-h-0 flex-1 flex-col bg-desk text-fg";
 
   if (state.kind === "refused") {
-    return (
-      <ReaderRefusalView reason={state.reason} standalone={services === null} />
-    );
+    return <ReaderRefusalView reason={state.reason} />;
   }
 
   if (state.kind === "loading") {

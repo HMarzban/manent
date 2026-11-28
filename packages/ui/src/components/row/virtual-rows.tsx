@@ -298,7 +298,7 @@ export function VirtualRows({
       aria-label={label}
       // the list scrolls, so a ring drawn outside a row would be cut off
       data-ring="inset"
-      className="h-full overflow-auto"
+      className="relative h-full overflow-auto overscroll-contain"
       onKeyDown={onKeyDown}
       onFocus={(event) => {
         focusInsideRef.current = true;

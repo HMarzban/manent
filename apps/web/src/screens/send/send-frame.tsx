@@ -140,7 +140,7 @@ export function SendNoticeFrame(props: {
         </>,
         titleBar,
       )}
-      <main className="flex min-h-0 flex-1 overflow-y-auto bg-chrome p-6">
+      <main className="relative flex min-h-0 flex-1 overflow-y-auto overscroll-contain bg-chrome p-6">
         <div className="flex min-h-full w-full flex-col items-center justify-center">
           {props.children}
         </div>
@@ -223,7 +223,7 @@ export function SendFrame(props: {
         </>,
         titleBar,
       )}
-      <main className="@container min-h-0 flex-1 overflow-auto bg-chrome">
+      <main className="@container relative min-h-0 flex-1 overflow-auto overscroll-contain bg-chrome">
         <div className={SEND_PAIR_CLASS}>
           <div className="@container flex w-content max-w-full min-w-0 flex-col rounded-surface border border-line bg-raised">
             {props.checksPending ? (

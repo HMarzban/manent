@@ -42,7 +42,7 @@ Keep `html`, `body` and `#root` locked to the viewport (`height: 100%; width: 10
 
 ### Enforced by
 
-`packages/ui/src/theme.css`, `apps/web/src/shell/app-shell.tsx`, `apps/web/src/root-layout.tsx`, `apps/web/src/settings-shell/settings-shell.tsx`, `packages/ui/src/settings-react/setting-row.tsx`, `apps/web/test/shell-narrow.test.ts`, `apps/web/test/settings-unify.dom.test.tsx`, and `e2e/interface/preferences.e2e.ts`.
+`packages/ui/src/theme.css`, `apps/web/src/shell/app-shell.tsx`, `apps/web/src/root-layout.tsx`, `apps/web/src/settings-shell/settings-shell.tsx`, `packages/ui/src/settings-react/setting-row.tsx`, `docs/development/design-system.md`, `apps/web/test/shell-narrow.test.ts`, `apps/web/test/settings-unify.dom.test.tsx`, and `e2e/interface/preferences.e2e.ts`.
 
 ## Keep editor-only helpers off the command-context entry path, send canonical user homes on desktop adopt, and guard Windows tar/hotkeys in CI
 

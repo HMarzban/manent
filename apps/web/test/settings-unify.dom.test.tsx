@@ -121,6 +121,12 @@ describe("SettingsShell", () => {
     expect(currentEls).toHaveLength(1);
     expect(currentEls[0]?.tagName).toBe("A");
     expect(currentEls[0]?.getAttribute("aria-current")).toBe("page");
+    const main = el.querySelector("main");
+    expect(main?.className.includes("relative")).toBe(true);
+    expect(main?.className.includes("overscroll-contain")).toBe(true);
+    const bodyRow = main?.parentElement;
+    expect(bodyRow?.className.includes("relative")).toBe(true);
+    expect(bodyRow?.className.includes("overscroll-contain")).toBe(true);
   });
 });
 

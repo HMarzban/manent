@@ -98,9 +98,9 @@ export function RootLayout(props: {
   if (services === null || resetting)
     return (
       <>
-        <div className="flex min-h-screen flex-col bg-chrome text-fg">
+        <div className="relative flex h-dvh w-full flex-col overflow-hidden overscroll-none bg-chrome text-fg">
           {demoBar}
-          <main className="flex flex-1 flex-col">
+          <main className="relative flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
             {resetting ? <ResettingScreen reseeded={reseeded} /> : <Outlet />}
           </main>
         </div>
