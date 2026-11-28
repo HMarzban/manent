@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en-GB" data-m-sprite="/manent/assets/icons.svg?v=2b7b378f">
+<html lang="en-GB" data-m-sprite="/manent/assets/icons.svg?v=385ca68a">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -22,7 +22,7 @@
     />
     <meta
       name="theme-color"
-      content="#1F1D1A"
+      content="#121211"
       media="(prefers-color-scheme: dark)"
     />
     <!-- GitHub Pages serves this file for any missing path under the site, so links start from the site's root -->
@@ -84,10 +84,12 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="/manent/assets/site.css?v=d39b3441" />
-    <link rel="stylesheet" href="/manent/assets/motion.css?v=6d2ad66b" />
+    <link rel="stylesheet" href="/manent/assets/site.css?v=bca8efa4" />
+    <link rel="stylesheet" href="/manent/assets/motion.css?v=dda9ed6b" />
+    <link rel="stylesheet" href="/manent/assets/playgrounds.css?v=60bd3ee9" />
     <script src="/manent/assets/motion.js?v=7d1f7574" defer></script>
     <script src="/manent/assets/site.js?v=548b7530" defer></script>
+    <script src="/manent/assets/playgrounds.js?v=c350ae2e" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to the page</a>
@@ -113,22 +115,13 @@
             /></svg
           ><span aria-hidden="true">anent</span></a
         >
-        <nav aria-label="Sections">
+        <nav aria-label="Site">
           <ul>
             <li class="section-link">
-              <a class="m-link" href="/manent/#never-lose">Never lose a word</a>
+              <a class="m-link" href="/manent/#write">Formats</a>
             </li>
             <li class="section-link">
-              <a class="m-link" href="/manent/#write">Who it's for</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="/manent/#revisions">Revisions</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="/manent/#compare">Compare</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="/manent/#faq">Questions</a>
+              <a class="m-link" href="/manent/compare.html">Compare</a>
             </li>
             <li class="section-link">
               <a class="m-link" href="/manent/design-system.html"
@@ -142,29 +135,30 @@
             </li>
             <li>
               <a
-                class="button button-small button-quiet m-btn"
-                href="/manent/media/demo-recording.mp4?v=78f586e0"
-                data-watch="watch"
-                aria-haspopup="dialog"
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="/manent/assets/icons.svg?v=2b7b378f#i-play" />
-                </svg>
-                <span class="bar-word">Watch</span
-                ><span class="m-sr"> it in 45 seconds</span>
-              </a>
-            </li>
-            <li>
-              <a
                 class="button button-small m-btn"
                 href="/manent/#download"
                 data-get
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="/manent/assets/icons.svg?v=2b7b378f#i-download" />
+                  <use href="/manent/assets/icons.svg?v=385ca68a#i-download" />
                 </svg>
                 <span data-get-label data-handheld="Get Manent">Download</span>
               </a>
+            </li>
+            <li>
+              <details class="nav-drawer">
+                <summary aria-label="Navigation menu">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="/manent/assets/icons.svg?v=385ca68a#i-menu" />
+                  </svg>
+                </summary>
+                <div class="nav-drawer-panel">
+                  <a href="/manent/#write">Formats</a>
+                  <a href="/manent/compare.html">Compare</a>
+                  <a href="/manent/design-system.html">Design system</a>
+                  <a href="https://github.com/HMarzban/manent">GitHub</a>
+                </div>
+              </details>
             </li>
           </ul>
         </nav>
@@ -174,12 +168,7 @@
     <main id="main">
       <div class="wrap missing">
         <div>
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="/manent/assets/icons.svg?v=2b7b378f#i-scissors" />
-            </svg>
-            Page not found
-          </p>
+          <p class="eyebrow">Page not found</p>
           <h1>This page was cut in an earlier draft.</h1>
           <p class="lede">
             The link may be old, or the address mistyped. The rest of the script
@@ -189,18 +178,12 @@
         <div>
           <div class="actions">
             <a class="button button-large m-btn" href="/manent/">
-              <svg class="m-icon" aria-hidden="true">
-                <use href="/manent/assets/icons.svg?v=2b7b378f#i-file-text" />
-              </svg>
               Back to page one
             </a>
             <a
               class="button button-large button-quiet m-btn"
               href="/manent/compare.html"
             >
-              <svg class="m-icon" aria-hidden="true">
-                <use href="/manent/assets/icons.svg?v=2b7b378f#i-scale" />
-              </svg>
               How it compares
             </a>
           </div>
@@ -215,201 +198,118 @@
 
     <footer class="site-foot">
       <div class="wrap">
-        <a
-          class="brand brand-ligature"
-          href="/manent/"
-          aria-label="Manent, the home page"
-          ><svg viewBox="0 0 41.1 40" fill="none" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M2 0H7.4C8.1 0 8.7 0.35 9.1 0.92L21.5 19.2L30.5 6.0C30.9 5.45 31.7 5.75 31.7 6.4V16.6C31.7 17.1 31.5 17.5 31.2 17.9L23.1 29.4C22.7 29.95 22.1 30.25 21.5 30.25C20.9 30.25 20.3 29.95 19.9 29.4L7.2 11.4V38.2C7.2 39.2 6.4 40 5.4 40H1.8C0.8 40 0 39.2 0 38.2V1.8C0 0.8 0.8 0 1.8 0H2Z"
-            />
-            <rect
-              x="34.3"
-              y="0"
-              width="6.8"
-              height="40"
-              rx="1.6"
-              fill="var(--accent)"
-            /></svg
-          ><span aria-hidden="true">anent</span></a
-        >
-        <ul>
-          <li><a class="m-link" href="/manent/#download">Download</a></li>
-          <li>
+        <div class="foot-cols">
+          <div class="foot-id">
+            <a
+              class="brand brand-ligature"
+              href="/manent/"
+              aria-label="Manent, the home page"
+              ><svg viewBox="0 0 41.1 40" fill="none" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M2 0H7.4C8.1 0 8.7 0.35 9.1 0.92L21.5 19.2L30.5 6.0C30.9 5.45 31.7 5.75 31.7 6.4V16.6C31.7 17.1 31.5 17.5 31.2 17.9L23.1 29.4C22.7 29.95 22.1 30.25 21.5 30.25C20.9 30.25 20.3 29.95 19.9 29.4L7.2 11.4V38.2C7.2 39.2 6.4 40 5.4 40H1.8C0.8 40 0 39.2 0 38.2V1.8C0 0.8 0.8 0 1.8 0H2Z"
+                />
+                <rect
+                  x="34.3"
+                  y="0"
+                  width="6.8"
+                  height="40"
+                  rx="1.6"
+                  fill="var(--accent)"
+                /></svg
+              ><span aria-hidden="true">anent</span></a
+            >
+            <p>
+              Open-source script &amp; book studio. Local-first, invariant
+              pages, no AI writing.
+            </p>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Product</p>
+            <ul>
+              <li><a class="m-link" href="/manent/#download">Download</a></li>
+              <li>
+                <a class="m-link" href="/manent/compare.html"
+                  >How it compares</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="/manent/design-system.html"
+                  >Design system</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Documentation</p>
+            <ul>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
+                  >Documentation</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
+                  >Benchmark report</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/releases"
+                  >Release notes</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
+                  >Changelog</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Open source</p>
+            <ul>
+              <li>
+                <a class="m-link" href="https://github.com/HMarzban/manent"
+                  >Source on GitHub</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/LICENSE"
+                  >Apache License 2.0</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+                  >Copyright notice</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="foot-bar">
+          <p>
+            © 2026 Harvey Marzban
             <a
               class="m-link"
-              href="/manent/media/demo-recording.mp4?v=78f586e0"
-              data-watch="watch"
-              aria-haspopup="dialog"
-              >Watch it in 45 seconds</a
+              href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+              >(copyright notice)</a
             >
-          </li>
-          <li>
-            <a class="m-link" href="https://github.com/HMarzban/manent"
-              >Source on GitHub</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
-              >Documentation</a
-            >
-          </li>
-          <li>
-            <a class="m-link" href="https://github.com/HMarzban/manent/releases"
-              >Release notes</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
-              >Changelog</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
-              >Benchmark report</a
-            >
-          </li>
-          <li>
-            <a class="m-link" href="/manent/compare.html">How it compares</a>
-          </li>
-          <li>
-            <a class="m-link" href="/manent/design-system.html"
-              >Design system</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/LICENSE"
-              >Apache License 2.0</a
-            >
-          </li>
-        </ul>
-        <p>This page sets no cookies and loads nothing from other sites.</p>
-        <p>
-          © 2026 Harvey Marzban
-          <a
-            class="m-link"
-            href="https://github.com/HMarzban/manent/blob/main/NOTICE"
-            >(copyright notice)</a
-          >
-        </p>
+          </p>
+          <p>This page sets no cookies and loads nothing from other sites.</p>
+        </div>
       </div>
     </footer>
-
-    <dialog
-      class="watch"
-      id="watch"
-      aria-labelledby="watch-title"
-      aria-modal="true"
-    >
-      <div class="watch-body">
-        <div class="watch-head">
-          <h2 id="watch-title">Two windows, one script, and no signal</h2>
-          <button
-            class="button button-small button-quiet m-btn"
-            type="button"
-            data-watch-close
-          >
-            Close
-          </button>
-        </div>
-        <video
-          controls
-          muted
-          playsinline
-          preload="none"
-          poster="/manent/media/demo-recording-poster.webp?v=02beac87"
-          width="1792"
-          height="720"
-          aria-describedby="watch-note"
-        >
-          <source
-            src="/manent/media/demo-recording.webm?v=67a8729d"
-            type="video/webm"
-          />
-          <source
-            src="/manent/media/demo-recording.mp4?v=78f586e0"
-            type="video/mp4"
-          />
-          <track
-            kind="captions"
-            src="/manent/media/demo-recording.vtt?v=b6142d8a"
-            srclang="en-GB"
-            label="English"
-            default
-          />
-        </video>
-        <p class="figure-note" id="watch-note">
-          A real recording, 27 November 2026. Dana Reyes and Sam Okafor write
-          together, one loses network and catches up, followed by locked Blue
-          revisions and a live newsroom rundown. 45 seconds, no sound.
-        </p>
-        <details class="disclosure">
-          <summary>
-            What the recording shows<svg class="m-icon" aria-hidden="true">
-              <use href="/manent/assets/icons.svg?v=2b7b378f#i-chevron-down" />
-            </svg>
-          </summary>
-          <ol>
-            <li>
-              Two windows are open on 204 The Ferry: Dana Reyes on the left and
-              Sam Okafor on the right. Both read Saved · Synced.
-            </li>
-            <li>
-              Dana writes a line of action and dialogue for CALLUM, then selects
-              a phrase and leaves a comment for Sam. Every letter and the
-              comment badge appear live in Sam's window.
-            </li>
-            <li>
-              Sam's network is cut. He keeps writing on his own device, and his
-              status reads Saved · Offline, 3 waiting. Dana does not have those
-              lines yet.
-            </li>
-            <li>
-              Sam's network comes back. His status returns to Saved · Synced,
-              and Dana's window holds every line he wrote offline.
-            </li>
-            <li>
-              On The Long Night, locked pages show Blue revision marks and Ghost
-              Follow tracks the scene on screen with Back to Sc. 1.
-            </li>
-            <li>
-              On Lannick One News, the rundown tracks Air, Target and Under
-              times live, holding edits inside the air window until Send to
-              prompter is chosen.
-            </li>
-          </ol>
-        </details>
-        <div class="actions">
-          <a
-            class="button button-large button-download m-btn"
-            href="https://github.com/HMarzban/manent/releases"
-            data-get
-          >
-            <svg class="m-icon" aria-hidden="true">
-              <use href="/manent/assets/icons.svg?v=2b7b378f#i-download" />
-            </svg>
-            <span
-              ><span data-get-label data-handheld="Get Manent for your computer"
-                >Download</span
-              >
-              <small
-                data-system
-                data-handheld="A desktop app for Mac, Windows and Linux"
-                >for Mac, Windows or Linux</small
-              ></span
-            >
-          </a>
-        </div>
-      </div>
-    </dialog>
   </body>
 </html>

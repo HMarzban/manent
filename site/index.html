@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en-GB" data-m-sprite="assets/icons.svg?v=2b7b378f">
+<html lang="en-GB" data-m-sprite="assets/icons.svg?v=385ca68a">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -91,14 +91,14 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="assets/site.css?v=d39b3441" />
-    <link rel="stylesheet" href="assets/vignettes.css?v=310cd264" />
-    <link rel="stylesheet" href="assets/motion.css?v=6d2ad66b" />
-    <link rel="stylesheet" href="assets/playgrounds.css?v=91aa4a1f" />
+    <link rel="stylesheet" href="assets/site.css?v=bca8efa4" />
+    <link rel="stylesheet" href="assets/vignettes.css?v=88d2e731" />
+    <link rel="stylesheet" href="assets/motion.css?v=dda9ed6b" />
+    <link rel="stylesheet" href="assets/playgrounds.css?v=60bd3ee9" />
     <script src="assets/motion.js?v=7d1f7574" defer></script>
     <script src="assets/vignettes.js?v=fabb3833" defer></script>
     <script src="assets/site.js?v=548b7530" defer></script>
-    <script src="assets/playgrounds.js?v=d6d6278c" defer></script>
+    <script src="assets/playgrounds.js?v=c350ae2e" defer></script>
 
     <script type="application/ld+json">
       {
@@ -385,22 +385,13 @@
             /></svg
           ><span aria-hidden="true">anent</span></a
         >
-        <nav aria-label="Sections" data-spy>
+        <nav aria-label="Site">
           <ul>
             <li class="section-link">
-              <a class="m-link" href="#never-lose">Never lose a word</a>
+              <a class="m-link" href="#write">Formats</a>
             </li>
             <li class="section-link">
-              <a class="m-link" href="#write">Who it's for</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="#revisions">Revisions</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="#compare">Compare</a>
-            </li>
-            <li class="section-link">
-              <a class="m-link" href="#faq">Questions</a>
+              <a class="m-link" href="compare.html">Compare</a>
             </li>
             <li class="section-link">
               <a class="m-link" href="design-system.html">Design system</a>
@@ -419,7 +410,6 @@
                 aria-label="Choose studio theme and colour scheme"
               >
                 <span class="pg-theme-dot" aria-hidden="true"></span>
-                <span class="pg-theme-label">Studio</span>
               </button>
               <div class="pg-theme-pop" hidden>
                 <div class="pg-theme-pop-head">
@@ -455,28 +445,6 @@
               </div>
             </li>
             <li>
-              <a
-                class="button button-small button-quiet m-btn"
-                href="media/demo-recording.mp4?v=78f586e0"
-                data-watch="watch"
-                aria-haspopup="dialog"
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
-                </svg>
-                <span class="bar-word">Watch</span
-                ><span class="m-sr"> it in 45 seconds</span>
-              </a>
-            </li>
-            <li>
-              <a class="button button-small m-btn" href="#download" data-get>
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" />
-                </svg>
-                <span data-get-label data-handheld="Get Manent">Download</span>
-              </a>
-            </li>
-            <li>
               <button
                 class="m-motion-toggle"
                 type="button"
@@ -484,12 +452,37 @@
                 aria-pressed="false"
                 hidden
               >
-                <span class="m-pause-glyph" aria-hidden="true"></span>
+                <svg class="m-icon m-pause-glyph" aria-hidden="true">
+                  <use href="assets/icons.svg?v=385ca68a#i-pause" />
+                </svg>
                 <svg class="m-icon m-play-glyph" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
+                  <use href="assets/icons.svg?v=385ca68a#i-play" />
                 </svg>
                 <span class="m-sr">Pause animations</span>
               </button>
+            </li>
+            <li>
+              <a class="button button-small m-btn" href="#download" data-get>
+                <svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg?v=385ca68a#i-download" />
+                </svg>
+                <span data-get-label data-handheld="Get Manent">Download</span>
+              </a>
+            </li>
+            <li>
+              <details class="nav-drawer">
+                <summary aria-label="Navigation menu">
+                  <svg class="m-icon" aria-hidden="true">
+                    <use href="assets/icons.svg?v=385ca68a#i-menu" />
+                  </svg>
+                </summary>
+                <div class="nav-drawer-panel">
+                  <a href="#write">Formats</a>
+                  <a href="compare.html">Compare</a>
+                  <a href="design-system.html">Design system</a>
+                  <a href="https://github.com/HMarzban/manent">GitHub</a>
+                </div>
+              </details>
             </li>
           </ul>
         </nav>
@@ -505,13 +498,7 @@
       >
         <div class="wrap">
           <div>
-            <p class="eyebrow">
-              The script writing app for <a href="#write-film">film</a>,
-              <a href="#write-tv">TV</a>, <a href="#write-stage">the stage</a>,
-              <a href="#write-books">books</a>,
-              <a href="#write-games">games</a> and
-              <a href="#write-news">the newsroom</a>.
-            </p>
+            <p class="eyebrow">Film · TV · Stage · Books · Games · Newsroom</p>
             <h1 id="hero-title">
               <span>Write anywhere.</span>
               <span
@@ -520,7 +507,7 @@
             </h1>
             <p class="lede">
               Write alone or with your whole room — online, or on a train with
-              no signal. Every word is saved on your device first, every page
+              no signal. Every word saves to your device first, every page
               matches the PDF, and your scripts stay yours.
             </p>
             <div class="actions">
@@ -530,7 +517,7 @@
                 data-get
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" />
+                  <use href="assets/icons.svg?v=385ca68a#i-download" />
                 </svg>
                 <span
                   ><span
@@ -552,9 +539,9 @@
                 aria-haspopup="dialog"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
+                  <use href="assets/icons.svg?v=385ca68a#i-play" />
                 </svg>
-                Watch it in 45 seconds
+                Watch in 45 seconds
               </a>
             </div>
             <p class="quiet-line" data-also hidden>
@@ -565,40 +552,8 @@
               or read any shared draft on your phone.
             </p>
             <p class="quiet-line">
-              Free and open source · No account · No AI writing · Desktop app
-              &amp; installable offline web app (localhost or self-hosted HTTPS)
-            </p>
-            <ul class="hero-proof" aria-label="Key guarantees">
-              <li>
-                <strong>0 changes lost</strong>
-                <span>200 server kills on D-small</span>
-              </li>
-              <li>
-                <strong>8 formats + rundowns</strong>
-                <span>Film, TV, books, games &amp; news</span>
-              </li>
-              <li>
-                <strong>24 studio themes</strong>
-                <span>Light &amp; dark · eye-health floor</span>
-              </li>
-              <li>
-                <strong>Apache 2.0 · No AI</strong>
-                <span>Free, open source, local-first</span>
-              </li>
-            </ul>
-            <p class="quiet-line handoff">
-              <a href="#never-lose">See how nothing gets lost ↓</a>
-              <button
-                type="button"
-                class="pg-pill-btn"
-                data-pg-palette-open
-                hidden
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
-                </svg>
-                Try ⌘K palette
-              </button>
+              Apache 2.0 · Local-first · 0 changes lost in 200 server kills · No
+              account · No AI writing
             </p>
           </div>
 
@@ -756,12 +711,7 @@
         <div class="wrap">
           <div class="split">
             <div>
-              <p class="eyebrow">
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-shield-check" />
-                </svg>
-                Never lose a word
-              </p>
+              <p class="eyebrow">Never lose a word</p>
               <p class="problem">
                 A crash, a dropped connection or a cleared browser still costs
                 writers whole scenes.
@@ -781,7 +731,7 @@
                 </p>
                 <p class="receipt">
                   <svg class="m-icon" aria-hidden="true">
-                    <use href="assets/icons.svg?v=2b7b378f#i-cloud-check" />
+                    <use href="assets/icons.svg?v=385ca68a#i-cloud-check" />
                   </svg>
                   340 changes synced · 2 passages overlap — review
                 </p>
@@ -919,96 +869,18 @@
           </div>
           <ul class="points points-compact">
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-hard-drive" /></svg
-              ></span>
               <h3>Saved</h3>
               <p>On this device, before anything is sent.</p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-cloud-check" /></svg
-              ></span>
               <h3>Synced</h3>
               <p>The room has it.</p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-git-merge" /></svg
-              ></span>
               <h3>To review</h3>
               <p>Two versions of one line, and your call.</p>
             </li>
           </ul>
-          <div
-            class="playground"
-            role="region"
-            aria-labelledby="pg-offline-title"
-            data-pg-offline
-            hidden
-          >
-            <div class="pg-head">
-              <div>
-                <span class="pg-kicker">
-                  <svg class="m-icon" aria-hidden="true">
-                    <use href="assets/icons.svg?v=2b7b378f#i-wifi-off" />
-                  </svg>
-                  Interactive sandbox
-                </span>
-                <p class="pg-title" id="pg-offline-title">
-                  Cut the signal, write a few lines, then reconnect
-                </p>
-              </div>
-              <div class="pg-controls">
-                <button
-                  type="button"
-                  class="pg-pill-btn"
-                  data-tone="warn"
-                  data-off-toggle
-                  aria-pressed="false"
-                >
-                  Cut signal
-                </button>
-                <button type="button" class="pg-pill-btn" data-off-add>
-                  Add sample line
-                </button>
-                <button type="button" class="pg-pill-btn" data-off-reset>
-                  Reset
-                </button>
-              </div>
-            </div>
-            <div class="pg-body">
-              <div class="pg-off-lines" data-off-lines></div>
-              <form class="pg-off-form" data-off-form>
-                <label class="m-sr" for="pg-off-input"
-                  >Type a line of action or dialogue</label
-                >
-                <input
-                  id="pg-off-input"
-                  class="pg-input"
-                  type="text"
-                  maxlength="110"
-                  placeholder="Type a line of dialogue or action and press Enter…"
-                  data-off-input
-                />
-                <button type="submit" class="pg-pill-btn">Add line</button>
-              </form>
-              <div class="pg-status-line" aria-live="polite">
-                <span class="pg-badge" data-off-badge data-state="synced"
-                  >Saved · Synced</span
-                >
-                <span data-off-receipt></span>
-              </div>
-            </div>
-          </div>
-          <p class="quiet-line handoff">
-            <a href="#together"
-              >Writing with others? Watch their words arrive ↓</a
-            >
-          </p>
         </div>
       </section>
 
@@ -1020,12 +892,7 @@
         <div class="wrap">
           <div class="split split-flip">
             <div>
-              <p class="eyebrow">
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-users" />
-                </svg>
-                Write together
-              </p>
+              <p class="eyebrow">Write together</p>
               <div class="section-head">
                 <h2 id="together-title">
                   The whole room in one script, as it's typed.
@@ -1156,28 +1023,18 @@
               </figcaption>
             </figure>
           </div>
-          <ul class="points">
+          <ul class="points points-grid-2">
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-users" /></svg
-              ></span>
-              <h3>Names on every caret</h3>
+              <h3>Names on every caret &amp; Ghost Follow</h3>
               <p>
-                See who is where: on the page, in the margin initials and in the
-                Scenes List or Cards view — with Writer assignment, Progress,
-                and passive <b>Ghost Follow</b> tracking your viewport with a
-                dashed ghost rail and a one-click <b>Back to …</b> strip.
+                See who is where on the page, in margin initials, and in Scenes
+                List or Cards — with Writer assignment, Progress, and passive
+                <b>Ghost Follow</b> tracking your viewport with a dashed ghost
+                rail and a one-click <b>Back to …</b> strip.
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use
-                    href="assets/icons.svg?v=2b7b378f#i-messages-square"
-                  /></svg
-              ></span>
-              <h3>Comments, rounds and Writers-only Notes</h3>
+              <h3>Comments, rounds &amp; Writers-only Notes</h3>
               <p>
                 Keep shared Comments with <code>@mentions</code> in named review
                 rounds, separate from private <code>[[</code> Writers-only
@@ -1185,10 +1042,6 @@
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-eye-off" /></svg
-              ></span>
               <h3>Write privately, then Hand in</h3>
               <p>
                 Take a private copy across your devices and merge it back in one
@@ -1197,11 +1050,7 @@
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-presentation" /></svg
-              ></span>
-              <h3>Room window and watermarked readers</h3>
+              <h3>Room window &amp; watermarked readers</h3>
               <p>
                 Put the script on the room's big screen with <b>Take keys</b>
                 and an ambient Mini-Map, or send watermarked reader links that
@@ -1209,22 +1058,12 @@
               </p>
             </li>
           </ul>
-          <p class="quiet-line handoff">
-            <a href="#same-page"
-              >And the room sees the same pages, down to the line ↓</a
-            >
-          </p>
         </div>
       </section>
 
       <section class="section" id="same-page" aria-labelledby="same-page-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-file-text" />
-            </svg>
-            The same page everywhere
-          </p>
+          <p class="eyebrow">The same page everywhere</p>
           <div class="section-head">
             <h2 id="same-page-title">Page 47 is page&nbsp;47. Everywhere.</h2>
           </div>
@@ -1390,7 +1229,7 @@
             </p>
             <p class="receipt">
               <svg class="m-icon" aria-hidden="true">
-                <use href="assets/icons.svg?v=2b7b378f#i-file-text" />
+                <use href="assets/icons.svg?v=385ca68a#i-file-text" />
               </svg>
               Sam changed paper size to A4 · 12 → 11 pages
             </p>
@@ -1399,57 +1238,12 @@
               12 pt Courier · standard margins · six lines to the inch
             </p>
           </div>
-          <div class="cta">
-            <p class="cta-title">See it on your own script.</p>
-            <div class="actions">
-              <a
-                class="button button-large button-download m-btn"
-                href="https://github.com/HMarzban/manent/releases"
-                data-get
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" />
-                </svg>
-                <span
-                  ><span
-                    data-get-label
-                    data-handheld="Get Manent for your computer"
-                    >Download</span
-                  >
-                  <small
-                    data-system
-                    data-handheld="A desktop app for Mac, Windows and Linux"
-                    >for Mac, Windows or Linux</small
-                  ></span
-                >
-              </a>
-              <a
-                class="button button-large button-quiet m-btn"
-                href="media/demo-recording.mp4?v=78f586e0"
-                data-watch="watch"
-                aria-haspopup="dialog"
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
-                </svg>
-                Watch it in 45 seconds
-              </a>
-            </div>
-            <p class="quiet-line handoff">
-              <a href="#write">Or first, find your kind of writing ↓</a>
-            </p>
-          </div>
         </div>
       </section>
 
       <section class="section band" id="write" aria-labelledby="write-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-users" />
-            </svg>
-            Who it's for
-          </p>
+          <p class="eyebrow">Who it's for</p>
           <div class="section-head">
             <h2 id="write-title">What do you write?</h2>
             <p class="sub">Pick yours, and see your day in Manent.</p>
@@ -1469,7 +1263,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-film" />
+                  <use href="assets/icons.svg?v=385ca68a#i-film" />
                 </svg>
                 Film
               </button>
@@ -1480,7 +1274,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-tv" />
+                  <use href="assets/icons.svg?v=385ca68a#i-tv" />
                 </svg>
                 TV and writers' rooms
               </button>
@@ -1491,7 +1285,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-radio" />
+                  <use href="assets/icons.svg?v=385ca68a#i-radio" />
                 </svg>
                 News and live
               </button>
@@ -1502,7 +1296,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-drama" />
+                  <use href="assets/icons.svg?v=385ca68a#i-drama" />
                 </svg>
                 Stage
               </button>
@@ -1513,7 +1307,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-book-open" />
+                  <use href="assets/icons.svg?v=385ca68a#i-book-open" />
                 </svg>
                 Books
               </button>
@@ -1524,7 +1318,7 @@
                 type="button"
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-gamepad-2" />
+                  <use href="assets/icons.svg?v=385ca68a#i-gamepad-2" />
                 </svg>
                 Games and animation
               </button>
@@ -1683,12 +1477,6 @@
               <div class="uses">
                 <ul class="points points-compact">
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-keyboard"
-                        /></svg
-                    ></span>
                     <h4>Tab and Enter</h4>
                     <p>
                       Scene heading, action, character, dialogue — plus
@@ -1696,10 +1484,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-send" /></svg
-                    ></span>
                     <h4>Send a draft</h4>
                     <p>
                       PDF, FDX or a watermarked reader link, with a record in
@@ -1707,12 +1491,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-scroll-text"
-                        /></svg
-                    ></span>
                     <h4>Numbers and reports</h4>
                     <p>
                       Scene counts, estimated runtime, eighths when locked, and
@@ -1935,12 +1713,6 @@
               <div class="uses">
                 <ul class="points points-compact">
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-library"
-                        /></svg
-                    ></span>
                     <h4>One season, one index</h4>
                     <p>
                       Every episode with its writer, stage, due date, open
@@ -1949,12 +1721,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-presentation"
-                        /></svg
-                    ></span>
                     <h4>Room window and Take keys</h4>
                     <p>
                       Bare big-screen view with a Mini-Map outline; one driver
@@ -1962,12 +1728,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-messages-square"
-                        /></svg
-                    ></span>
                     <h4>Rounds, Notes and Checks</h4>
                     <p>
                       Studio, Network and Table read rounds pinned to each line,
@@ -1991,47 +1751,25 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>17:20</b> Start a Show or News <b>rundown</b> from a
-                    reusable template (<b>Save template…</b> as project default
-                    or shared workspace template, cleanly stripped of dates,
-                    timings, previous values, comments and revision marks, with
-                    fresh IDs minted on <b>New rundown</b> /
-                    <b>New script</b> and managed in
-                    <b>Project settings → Templates</b>). Open each story
-                    <b>Beside</b> the grid, drop in inline graphics and
-                    broadcast chyrons (<code>Image</code>,
-                    <code>Lower third</code>, <code>Over the shoulder</code>,
-                    <code>Full screen</code>) with editable on-page captions and
-                    offline-first asset storage, and time scripts live from
-                    <b>Read rate</b> plus <code>T=m:ss</code> brackets.
+                    <b>17:20</b> Start a Show or News rundown from a reusable
+                    template, open each story <b>Beside</b> the grid, drop in
+                    inline graphics and broadcast chyrons, and time scripts live
+                    from <b>Read rate</b> and <code>T=m:ss</code> brackets.
                   </li>
                   <li>
-                    <b>17:58</b> Rewrite A3 while directors and researchers
-                    follow live in read-only <b>Can view</b> or
-                    <b>Can comment</b> rundown grids. Server-computed
-                    <code>Dur</code>, <code>Cume</code>, <code>Start</code>,
-                    <code>Back</code> and over/under update live, every cell
-                    keeps its <b>Previous value</b>, full
-                    <b>Rundown History</b> compares <b>In the grid</b>,
-                    <b>Side by side</b> or <b>As it was</b> with non-colour diff
-                    badges and single-row or whole-rundown restore (keeping a
-                    <code>'Before restore'</code> backup), and edited rows read
-                    "Changed — not on prompter" until sent.
+                    <b>17:58</b> Rewrite A3 while directors follow live in
+                    read-only <b>Can view</b> or <b>Can comment</b> grids.
+                    <code>Dur</code>, <code>Start</code>, <code>Back</code> and
+                    over/under update live, every cell keeps its
+                    <b>Previous value</b>, and edited rows hold off the prompter
+                    until sent.
                   </li>
                   <li>
                     <b>18:06</b> Inside the air window, the remote-scrolled
-                    <b>Prompter window</b> (with server-arbitrated operator
-                    scroll leases — <b>Take control</b>, <b>Take over</b>,
-                    <b>Stop controlling</b> — a docked rundown transport strip,
-                    <b>Follow</b> / <b>Free scroll</b>, clean pause on 3-second
-                    <code>Feed lost</code>, Text size, Dark and Mirror) changes
-                    only when someone clicks <b>Send to prompter</b>, with
-                    one-click <b>Send previous</b>. Direct external prompter
-                    output speaks <b>MOS 2.8.5</b> and
-                    <b>Autoscript WinPlus-IP</b> via Workspace settings →
-                    Broadcast or the <b>Desktop LAN MOS relay</b> (verified
-                    against a deterministic mock MOS prompter; physical studio
-                    hardware not yet tested).
+                    <b>Prompter window</b> changes only when someone clicks
+                    <b>Send to prompter</b> — with one-click
+                    <b>Send previous</b>, operator scroll leases, and direct
+                    external prompter output.
                   </li>
                 </ol>
               </div>
@@ -2275,54 +2013,35 @@
               <div class="uses">
                 <ul class="points points-compact">
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-list-ordered"
-                        /></svg
-                    ></span>
-                    <h4>Templates, chyrons &amp; six exports</h4>
+                    <h4>Templates, chyrons &amp; exports</h4>
                     <p>
-                      Reusable Show and News templates, inline
-                      <code>Image</code> / <code>Lower third</code> /
-                      <code>Over the shoulder</code> /
-                      <code>Full screen</code> blocks, read-rate timing,
-                      <code>T=m:ss</code> brackets, live <b>Can view</b> grids,
-                      plus Rundown PDF, Two-column Variety PDF, All scripts PDF,
-                      Prompter text, Brackets list and JSON.
+                      <b>Save template…</b> and
+                      <b>Project settings → Templates</b>, inline
+                      <code>Image</code>, <code>Lower third</code>,
+                      <code>Over the shoulder</code> and
+                      <code>Full screen</code> blocks, read-rate timing, live
+                      <b>Can view</b> grids, plus Rundown PDF, Two-column
+                      Variety PDF, Prompter text and JSON.
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-monitor-play"
-                        /></svg
-                    ></span>
-                    <h4>Remote-scrolled prompter &amp; air window</h4>
+                    <h4>Remote-scrolled prompter</h4>
                     <p>
                       Manual sends inside the air window, <b>Send previous</b>,
-                      server-arbitrated scroll leases (<b>Take control</b> /
-                      <b>Take over</b> / <b>Stop controlling</b>), docked
-                      transport strip, <b>Follow</b> / <b>Free scroll</b>,
-                      feed-loss pause, Mirror, Dark and a 1-second heartbeat.
+                      scroll leases (<b>Take control</b>, <b>Take over</b>,
+                      <b>Stop controlling</b>), docked transport strip,
+                      <b>Follow</b> / <b>Free scroll</b>, feed-loss pause,
+                      Mirror and Dark.
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-hard-drive"
-                        /></svg
-                    ></span>
                     <h4>MOS 2.8.5, WinPlus-IP &amp; local files</h4>
                     <p>
                       Direct <b>MOS 2.8.5</b> and
                       <b>Autoscript WinPlus-IP</b> bridge plus
                       <b>Desktop LAN MOS relay</b> (verified against a
-                      deterministic mock MOS prompter; studio hardware not yet
-                      tested), and local <code>run-order.txt</code> /
-                      <code>NN-&lt;slug&gt;.txt</code> files when networks drop.
+                      deterministic mock MOS prompter; physical studio hardware
+                      not yet tested), and local prompter folders offline.
                     </p>
                   </li>
                 </ul>
@@ -2461,10 +2180,6 @@
               <div class="uses">
                 <ul class="points points-compact">
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-drama" /></svg
-                    ></span>
                     <h4>A real play format</h4>
                     <p>
                       Acts, scenes and centred names, with directions set by the
@@ -2472,22 +2187,12 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-git-compare"
-                        /></svg
-                    ></span>
                     <h4>Today's new pages</h4>
                     <p>
                       Changes since yesterday's draft, marked for the company.
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-send" /></svg
-                    ></span>
                     <h4>A PDF any theatre opens</h4>
                     <p>With a record of which draft went where.</p>
                   </li>
@@ -2505,229 +2210,37 @@
                 </p>
                 <ol class="beats">
                   <li>
-                    <b>Every day</b> Write the whole book in one document (or
-                    compile multiple parts), in standard manuscript layout or
-                    opt-in <b>Book layout</b> (bundled <b>Source Serif 4</b>,
-                    paperback trims, mirrored margins, right-hand chapters and
-                    Table of Contents), with the chapter list beside the page,
-                    in-editor cover and front/back matter, and a floating
-                    <b>Book Format Bar</b> for styles, chapter openings, inline
-                    footnotes and page layout.
+                    <b>Every day</b> Write the whole book in one document or
+                    compile multiple parts, in standard manuscript layout or
+                    opt-in <b>Book layout</b> with bundled
+                    <b>Source Serif 4</b>, paperback trims, mirrored margins and
+                    a floating <b>Book Format Bar</b>.
                   </li>
                   <li>
                     <b>On the train</b> No connection, no difference.
-                    <b>Focus mode</b> hides both panels and remembers your
-                    preference per device; <b>daily goals</b>,
-                    <b>timed sprints</b>, per-chapter <b>word targets</b> and
-                    <b>Book checks</b> keep long drafts on track quietly.
+                    <b>Focus mode</b> clears both panels, while daily goals,
+                    timed sprints, per-chapter word targets and
+                    <b>Book checks</b> keep long drafts on track.
                   </li>
                   <li>
-                    <b>Ready to publish</b> Open last spring's chapter twelve as
-                    it was, restore a chapter or hear a passage back with
-                    <b>Read aloud</b>, proof two-up <b>facing spreads</b>, and
-                    export print-ready <b>PDF</b>, <b>EPUB 3</b>, <b>Word</b> or
-                    lossless <b>Markdown</b> offline.
+                    <b>Ready to publish</b> Proof two-up <b>facing spreads</b>,
+                    generate a <b>Table of Contents</b>, hear a passage back
+                    with <b>Read aloud</b>, and export print-ready <b>PDF</b>,
+                    <b>EPUB 3</b>, <b>Word</b> or lossless <b>Markdown</b>
+                    offline.
                   </li>
                 </ol>
               </div>
-              <figure>
-                <div class="stage">
-                  <div
-                    class="mv mv-book"
-                    data-cycle="10"
-                    role="img"
-                    aria-label="The novel The Salt Road in Manent: the chapter list on the left with each chapter's length, and chapter twelve, The Weir, opening on a new page in standard manuscript layout, double-spaced with first lines indented. A sentence is typed and the count reads Chapter 12 · 4,210 words."
-                  >
-                    <div class="mv-crop">
-                      <div class="mv-stage">
-                        <div class="mv-win">
-                          <div class="mv-tb">
-                            <span>‹ Library</span
-                            ><span class="mv-title">The Salt Road</span
-                            ><span class="mv-status"
-                              ><span class="mv-dev">Saved</span
-                              ><span class="mv-srv"
-                                ><span>Synced</span></span
-                              ></span
-                            >
-                          </div>
-                          <div class="mv-long-body">
-                            <div class="mv-lp">
-                              <div class="mv-lp-tabs">
-                                <span class="mv-lp-on">Chapters</span
-                                ><span>Pages</span>
-                              </div>
-                              <ol class="mv-chapters">
-                                <li class="mv-chap-far">
-                                  <span>8 The Ferryman</span><span>4,406</span>
-                                </li>
-                                <li class="mv-chap-far">
-                                  <span>9 Salt Pans</span><span>3,771</span>
-                                </li>
-                                <li class="mv-chap-far">
-                                  <span>10 Kell Street</span><span>4,038</span>
-                                </li>
-                                <li>
-                                  <span>11 Tide Tables</span><span>3,655</span>
-                                </li>
-                                <li class="mv-chap-on">
-                                  <span>12 The Weir</span
-                                  ><span
-                                    data-count-from="4198"
-                                    data-count-to="4210"
-                                    data-at="0.8"
-                                    data-dur="2.4"
-                                    >4,210</span
-                                  >
-                                </li>
-                                <li>
-                                  <span>13 Night Crossing</span
-                                  ><span>3,980</span>
-                                </li>
-                                <li class="mv-chap-far">
-                                  <span>14 The Estuary</span><span>4,122</span>
-                                </li>
-                                <li class="mv-chap-far">
-                                  <span>15 Spring Tide</span><span>3,507</span>
-                                </li>
-                                <li class="mv-chap-far">
-                                  <span>16 Home Water</span><span>—</span>
-                                </li>
-                              </ol>
-                            </div>
-                            <div class="mv-desk">
-                              <div class="mv-sheet">
-                                <div class="mv-head">
-                                  <span></span
-                                  ><span>Lund / The Salt Road / 187</span>
-                                </div>
-                                <p class="chap">Chapter Twelve</p>
-                                <p class="chap">The Weir</p>
-                                <p>
-                                  The river was lower than Nell had ever seen
-                                  it. Below the weir the stones stood out of the
-                                  water like the backs of sheep, and the mill
-                                  race ran thin and brown.
-                                </p>
-                                <p>
-                                  She left the bicycle against the parapet and
-                                  climbed down to the sluice. Somebody had been
-                                  there before her. The wheel was greased, and
-                                  the chain was new.
-                                </p>
-                                <p>
-                                  <span
-                                    class="mv-type"
-                                    data-n="31"
-                                    data-key="75ms"
-                                    data-at="0.8"
-                                    >She sat on the wall and waited.</span
-                                  ><span class="mv-caret mv-blink"></span>
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="mv-bar">
-                            <span class="mv-menu">Body</span
-                            ><span class="mv-book-page">Page 187 of 412</span
-                            ><span
-                              >Chapter 12 ·
-                              <span
-                                data-count-from="4198"
-                                data-count-to="4210"
-                                data-at="0.8"
-                                data-dur="2.4"
-                                >4,210</span
-                              >
-                              words</span
-                            >
-                            <span class="mv-msg"></span>
-                            <span class="mv-menu">View</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <figcaption class="figure-note">
-                  Chapter twelve opens on a new page, with every chapter and its
-                  length beside it.
-                </figcaption>
-                <p class="number-band">
-                  Page 1,788 of 2,000 — and
-                  <span data-placeholder="measured">it types like</span> page 1.
-                  <a
-                    href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
-                    >How it was measured →</a
-                  >
-                </p>
-              </figure>
-              <div class="uses">
-                <ul class="points points-compact">
-                  <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-book-open"
-                        /></svg
-                    ></span>
-                    <h4>Manuscript &amp; book publishing</h4>
-                    <p>
-                      Double-spaced Courier or opt-in Source Serif 4 book trims
-                      with mirrored margins, cover &amp; front/back matter,
-                      Table of Contents, facing spreads, footnotes, and PDF,
-                      EPUB 3 (<code>.epub</code>), Word (<code>.docx</code>) or
-                      Markdown (<code>.md</code>) export (single or multi-part).
-                    </p>
-                  </li>
-                  <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-list" /></svg
-                    ></span>
-                    <h4>Chapters beside the page</h4>
-                    <p>
-                      Jump, reorder, see each chapter's length, and track your
-                      reading position with passive <b>Ghost Follow</b> and its
-                      <b>Back to …</b> strip.
-                    </p>
-                  </li>
-                  <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-history"
-                        /></svg
-                    ></span>
-                    <h4>Every version kept</h4>
-                    <p>
-                      Restore a chapter, a scene or the whole book, with daily
-                      goals, sprints, per-chapter word targets, footnotes and
-                      Book checks in Details.
-                    </p>
-                  </li>
-                </ul>
+              <div class="stage-frame">
                 <div
-                  class="playground"
+                  class="inst"
                   role="region"
-                  aria-labelledby="pg-book-title"
-                  data-pg-book
-                  hidden
+                  aria-label="Interactive Book Engine 3 preview for The Salt Road"
+                  data-inst-book
                 >
-                  <div class="pg-head">
-                    <div>
-                      <span class="pg-kicker">
-                        <svg class="m-icon" aria-hidden="true">
-                          <use href="assets/icons.svg?v=2b7b378f#i-book-open" />
-                        </svg>
-                        Book publishing studio
-                      </span>
-                      <p class="pg-title" id="pg-book-title">
-                        Switch trims, facing spreads, chapter openings and
-                        footnotes
-                      </p>
-                    </div>
-                    <div class="pg-controls">
+                  <div class="inst-bar">
+                    <span class="inst-title">The Salt Road · Ch. 12</span>
+                    <div class="inst-controls">
                       <div
                         class="pg-seg"
                         role="group"
@@ -2738,7 +2251,7 @@
                           data-book-engine="v2"
                           aria-pressed="false"
                         >
-                          Manuscript (Engine 2)
+                          Manuscript
                         </button>
                         <button
                           type="button"
@@ -2784,13 +2297,13 @@
                           data-book-view="spread"
                           aria-pressed="true"
                         >
-                          Facing spread
+                          Spread
                         </button>
                       </div>
                       <div
                         class="pg-seg"
                         role="group"
-                        aria-label="Chapter opening style"
+                        aria-label="Chapter opening"
                       >
                         <button
                           type="button"
@@ -2804,7 +2317,7 @@
                           data-book-open="raised_cap"
                           aria-pressed="false"
                         >
-                          Raised cap
+                          Raised
                         </button>
                         <button
                           type="button"
@@ -2816,39 +2329,35 @@
                       </div>
                     </div>
                   </div>
-                  <div class="pg-body">
+                  <div class="inst-desk">
                     <div
-                      class="pg-book-stage"
+                      class="inst-book-stage"
                       data-book-stage
                       data-engine="v3"
                       data-trim="55x85"
                       data-view="spread"
                     >
                       <div
-                        class="pg-book-sheet pg-verso-blank"
+                        class="inst-book-sheet inst-verso-blank"
                         data-side="verso"
                         data-book-verso
                       >
-                        <div>
-                          <div class="pg-book-runhead">
-                            <span>186</span><span>The Salt Road</span>
-                          </div>
-                          <p>
-                            Verso kept blank so Chapter Twelve opens on a
-                            right-hand (recto) page.
-                          </p>
+                        <div class="inst-book-runhead">
+                          <span>186</span><span>The Salt Road</span>
                         </div>
+                        <p class="inst-verso-note">
+                          Verso kept blank so Chapter Twelve opens on a
+                          right-hand page.
+                        </p>
                       </div>
-                      <div class="pg-book-sheet" data-side="recto">
-                        <div class="pg-book-runhead">
-                          <span data-book-recto-head
-                            >Chapter opening — running head suppressed</span
-                          >
+                      <div class="inst-book-sheet" data-side="recto">
+                        <div class="inst-book-runhead">
+                          <span data-book-recto-head>Chapter opening</span>
                           <span>187</span>
                         </div>
-                        <p class="pg-book-chap">Chapter Twelve · The Weir</p>
+                        <p class="inst-book-chap">Chapter Twelve · The Weir</p>
                         <p
-                          class="pg-book-p"
+                          class="inst-book-p"
                           data-book-opening
                           data-open="drop_cap"
                         >
@@ -2857,7 +2366,7 @@
                           backs of sheep, and the mill race ran thin and
                           brown.<button
                             type="button"
-                            class="pg-fn-btn"
+                            class="inst-fn-btn"
                             data-book-fn-btn
                             aria-expanded="false"
                             aria-label="Toggle footnote 1"
@@ -2865,22 +2374,65 @@
                             1
                           </button>
                         </p>
-                        <p class="pg-book-p">
+                        <p class="inst-book-p">
                           She left the bicycle against the parapet and climbed
-                          down to the sluice.
+                          down to the sluice. The wheel was greased, and the
+                          chain was new.
                         </p>
-                        <div class="pg-fn-note" data-book-fn-note hidden>
-                          <strong>Footnote 1:</strong> Rendered at the foot of
-                          the page in PDF and as a linked back-reference in EPUB
-                          3.
-                        </div>
+                        <p class="inst-fn-note" data-book-fn-note hidden>
+                          1. Placed at the foot of the page in PDF and as a
+                          linked back-reference in EPUB 3.
+                        </p>
                       </div>
                     </div>
-                    <div class="pg-status-line" aria-live="polite">
-                      <span data-book-readout></span>
-                    </div>
+                  </div>
+                  <div class="inst-foot" aria-live="polite">
+                    <span data-book-readout></span>
+                    <span>Chapter 12 · 4,210 words</span>
                   </div>
                 </div>
+                <p class="figure-note">
+                  Switch trims, spreads, chapter openings and footnote [1] right
+                  on the page.
+                </p>
+                <p class="number-band">
+                  Page 1,788 of 2,000 — and
+                  <span data-placeholder="measured">it types like</span> page 1.
+                  <a
+                    href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
+                    >How it was measured →</a
+                  >
+                </p>
+              </div>
+              <div class="uses">
+                <ul class="points points-compact">
+                  <li>
+                    <h4>Manuscript &amp; book publishing</h4>
+                    <p>
+                      Double-spaced Courier or opt-in Source Serif 4 trims with
+                      mirrored margins, cover &amp; front/back matter, Table of
+                      Contents, facing spreads, footnotes, and PDF, EPUB 3
+                      (<code>.epub</code>), Word (<code>.docx</code>) or
+                      Markdown (<code>.md</code>) export.
+                    </p>
+                  </li>
+                  <li>
+                    <h4>Chapters beside the page</h4>
+                    <p>
+                      Jump, reorder, see each chapter's length, and track your
+                      reading position with passive <b>Ghost Follow</b> and its
+                      <b>Back to …</b> strip.
+                    </p>
+                  </li>
+                  <li>
+                    <h4>Every version kept</h4>
+                    <p>
+                      Restore a chapter, a scene or the whole book, with daily
+                      goals, sprints, per-chapter word targets, footnotes and
+                      Book checks in Details.
+                    </p>
+                  </li>
+                </ul>
               </div>
             </div>
 
@@ -2903,193 +2455,102 @@
                   <li>
                     <b>Testing</b> Play through choices live with
                     <b>Play Beside</b> in both Game Script and Ink — pick
-                    branches, replay paths, see visited gutter marks and edit
-                    <b>Variables</b> live, while Ink compiles in a Web Worker
-                    with inline problem underlines as you type. Share a playable
+                    branches, see visited gutter marks and edit <b>Variables</b>
+                    live while Ink compiles in a Web Worker. Share a zero-login
                     <b>Ink Reader Player</b> link
-                    (<code>/r/&lt;token&gt;</code>) for zero-login playtesting.
+                    (<code>/r/&lt;token&gt;</code>).
                   </li>
                   <li>
                     <b>Shipping</b> Export Game Script line data as
                     <b>JSON or XML</b> with stable block IDs, export
-                    whole-project <code>.ink</code> or compiled Ink JSON, or —
-                    for animation — move through Record, Animatic and Conformed
-                    and export <b>Pickup lines CSV</b>.
+                    whole-project <code>.ink</code> or compiled Ink JSON, or
+                    move animation drafts through Record, Animatic and Conformed
+                    to export <b>Pickup lines CSV</b>.
                   </li>
                 </ol>
               </div>
-              <figure>
-                <div class="stage">
-                  <div
-                    class="mv mv-ink"
-                    data-cycle="10"
-                    role="img"
-                    aria-label="The Keeper's Logbook.ink open in Manent with its Web Worker compiler reporting 0 problems and the live Ink Player open Beside. Choice 1, Trim the wick, is selected; the visited mark lights up in the source gutter, the story advances, and the oil variable updates from 3 to 2 in the Variables drawer."
-                  >
-                    <div class="mv-crop">
-                      <div class="mv-stage">
-                        <div class="mv-win">
-                          <div class="mv-tb">
-                            <span>‹ Library</span
-                            ><span class="mv-title"
-                              >The Keeper's Logbook.ink</span
-                            ><span class="mv-status"
-                              ><span class="mv-dev">Saved</span
-                              ><span class="mv-srv"
-                                ><span>Synced</span></span
-                              ></span
-                            ><span class="mv-film-draft mv-push"
-                              >Compiled · 0 problems</span
-                            >
-                          </div>
-                          <div class="mv-ink-split">
-                            <div class="mv-ink-src" aria-hidden="true">
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">1</span
-                                ><span
-                                  ><span class="mv-ink-kw">VAR</span> oil =
-                                  3</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">2</span
-                                ><span>&nbsp;</span>
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter"
-                                  ><i class="mv-ink-dot" data-at="0.6"></i
-                                  >3</span
-                                ><span class="mv-ink-knot"
-                                  >=== night_watch ===</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">4</span
-                                ><span
-                                  >The lamp gutters. The log lies open.</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter"
-                                  ><i class="mv-ink-dot" data-at="3.6"></i
-                                  >5</span
-                                ><span class="mv-ink-choice"
-                                  >* [Trim the wick]</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">6</span
-                                ><span class="mv-ink-ind"
-                                  ><span class="mv-ink-kw">~</span> oil = oil -
-                                  1</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">7</span
-                                ><span class="mv-ink-ind"
-                                  ><span class="mv-ink-kw">-&gt;</span>
-                                  trimmed</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">8</span
-                                ><span class="mv-ink-choice"
-                                  >* [Write the time in the log]</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">9</span
-                                ><span class="mv-ink-ind mv-ink-cmt"
-                                  >// the keeper's hand is steady</span
-                                >
-                              </div>
-                              <div class="mv-ink-line">
-                                <span class="mv-ink-gutter">10</span
-                                ><span class="mv-ink-ind"
-                                  ><span class="mv-ink-kw">-&gt;</span>
-                                  logged</span
-                                >
-                              </div>
-                            </div>
-                            <div class="mv-ink-side" aria-hidden="true">
-                              <div class="mv-ink-head">
-                                <b>Player</b><span>Replay</span
-                                ><span class="mv-push">Variables</span>
-                              </div>
-                              <div class="mv-ink-out">
-                                <p>The lamp gutters. The log lies open.</p>
-                                <div
-                                  class="mv-ink-choices mv-gone"
-                                  data-off="3.6"
-                                >
-                                  <span
-                                    class="mv-ink-btn mv-press"
-                                    data-at="3.2"
-                                    data-off="3.6"
-                                    >1. Trim the wick</span
-                                  >
-                                  <span class="mv-ink-btn"
-                                    >2. Write the time in the log</span
-                                  >
-                                </div>
-                                <p class="mv-fade mv-gone" data-at="3.6">
-                                  The flame steadies. One notch lower on the
-                                  glass.
-                                </p>
-                                <div
-                                  class="mv-ink-choices mv-gone"
-                                  data-at="3.6"
-                                >
-                                  <span class="mv-ink-btn"
-                                    >1. Check the harbour bell</span
-                                  >
-                                </div>
-                              </div>
-                              <div class="mv-ink-vars">
-                                <span>Variables</span>
-                                <span
-                                  class="mv-ink-var-val mv-gone"
-                                  data-off="3.6"
-                                  >oil = 3</span
-                                >
-                                <span
-                                  class="mv-ink-var-val mv-flash mv-gone"
-                                  data-at="3.6"
-                                  >oil = 2</span
-                                >
-                              </div>
-                            </div>
-                          </div>
-                          <div class="mv-bar">
-                            <span>Ink · 0 problems</span
-                            ><span class="mv-stack"
-                              ><span class="mv-cut" data-off="3.6"
-                                >Visited: 2 knots</span
-                              ><span class="mv-cut" data-at="3.6"
-                                >Visited: 3 knots</span
-                              ></span
-                            ><span class="mv-push">Export .ink / JSON</span>
-                          </div>
-                        </div>
-                      </div>
+              <div class="stage-frame">
+                <div
+                  class="inst"
+                  data-inst-ink
+                  role="region"
+                  aria-label="Interactive Ink and Game Script Play Beside"
+                >
+                  <div class="inst-bar">
+                    <span class="inst-title"
+                      ><span class="inst-dot" aria-hidden="true"></span>The
+                      Keeper's Logbook.ink · Compiled · 0 problems</span
+                    >
+                    <div class="inst-controls">
+                      <button type="button" class="inst-btn" data-ink-back>
+                        Back
+                      </button>
+                      <button type="button" class="inst-btn" data-ink-restart>
+                        Restart
+                      </button>
                     </div>
                   </div>
+                  <div class="inst-ink-split">
+                    <div class="inst-ink-code" aria-label="Ink script source">
+                      <div class="inst-ink-row" data-ink-line="1">
+                        <span class="inst-ink-ln">1</span
+                        ><span>VAR oil = 1, logged = false, bell = false</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="3">
+                        <span class="inst-ink-ln">3</span
+                        ><span>=== harbour_sill ===</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="5">
+                        <span class="inst-ink-ln">5</span
+                        ><span>* &#123;oil &gt; 0&#125; [Trim the wick]</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="6">
+                        <span class="inst-ink-ln">6</span
+                        ><span>&nbsp;&nbsp;~ oil = oil - 1 -&gt; trimmed</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="8">
+                        <span class="inst-ink-ln">8</span
+                        ><span>+ [Write the time in the log]</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="9">
+                        <span class="inst-ink-ln">9</span
+                        ><span>&nbsp;&nbsp;~ logged = true -&gt; logged</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="10">
+                        <span class="inst-ink-ln">10</span
+                        ><span>+ [Sound the harbour bell]</span>
+                      </div>
+                      <div class="inst-ink-row" data-ink-line="11">
+                        <span class="inst-ink-ln">11</span
+                        ><span>&nbsp;&nbsp;~ bell = true -&gt; bell</span>
+                      </div>
+                    </div>
+                    <div class="inst-ink-player">
+                      <div class="inst-ink-log" data-ink-log aria-live="polite">
+                        The lamp gutters on the harbour sill. The watch log lies
+                        open beside the brass bell.
+                      </div>
+                      <div class="inst-ink-choices" data-ink-choices></div>
+                      <div
+                        class="inst-vars"
+                        data-ink-vars
+                        aria-label="Live Ink variables"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="inst-foot" aria-live="polite">
+                    <span data-ink-visited>1 lines visited</span>
+                    <span>Pick a branch or press 1–3 · Export .ink / JSON</span>
+                  </div>
                 </div>
-                <figcaption class="figure-note">
-                  Compiles in a Web Worker as you type: pick a choice in the
-                  player Beside, watch visited marks light up and Variables
-                  update.
-                </figcaption>
-              </figure>
+                <p class="figure-note">
+                  Compiles in a Web Worker as you type: pick a branch to light
+                  visited gutter rails and watch Variables update live.
+                </p>
+              </div>
               <div class="uses">
                 <ul class="points points-compact">
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use
-                          href="assets/icons.svg?v=2b7b378f#i-git-branch"
-                        /></svg
-                    ></span>
                     <h4>Branching lines &amp; animation pickups</h4>
                     <p>
                       Choices, gathers, conditions and tags recognised as you
@@ -3098,10 +2559,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-play" /></svg
-                    ></span>
                     <h4>Ink compiler &amp; live player Beside</h4>
                     <p>
                       Web Worker compile with inline problems, replayable
@@ -3109,10 +2566,6 @@
                     </p>
                   </li>
                   <li>
-                    <span class="m-card-icon"
-                      ><svg class="m-icon" aria-hidden="true">
-                        <use href="assets/icons.svg?v=2b7b378f#i-braces" /></svg
-                    ></span>
                     <h4>Line data with stable IDs</h4>
                     <p>
                       Game Script JSON and XML, whole-project <code>.ink</code>
@@ -3121,103 +2574,6 @@
                     </p>
                   </li>
                 </ul>
-                <div
-                  class="playground"
-                  role="region"
-                  aria-labelledby="pg-ink-title"
-                  data-pg-ink
-                  hidden
-                >
-                  <div class="pg-head">
-                    <div>
-                      <span class="pg-kicker">
-                        <svg class="m-icon" aria-hidden="true">
-                          <use href="assets/icons.svg?v=2b7b378f#i-gamepad-2" />
-                        </svg>
-                        Interactive Ink &amp; Game Script player
-                      </span>
-                      <p class="pg-title" id="pg-ink-title">
-                        Pick a branch (or press 1–3) to light visited lines and
-                        update variables
-                      </p>
-                    </div>
-                    <div class="pg-controls">
-                      <button type="button" class="pg-pill-btn" data-ink-back>
-                        Back
-                      </button>
-                      <button
-                        type="button"
-                        class="pg-pill-btn"
-                        data-ink-restart
-                      >
-                        Restart
-                      </button>
-                    </div>
-                  </div>
-                  <div class="pg-body">
-                    <div class="pg-ink-grid">
-                      <div class="pg-ink-code" aria-label="Ink script source">
-                        <div class="pg-ink-row" data-ink-line="1">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>1</span
-                          ><span
-                            >VAR oil = 1, logged = false, bell = false</span
-                          >
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="3">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>3</span
-                          ><span>=== harbour_sill ===</span>
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="5">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>5</span
-                          ><span>* &#123;oil &gt; 0&#125; [Trim the wick]</span>
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="6">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>6</span
-                          ><span
-                            >&nbsp;&nbsp;~ oil = oil - 1 -&gt; trimmed</span
-                          >
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="8">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>8</span
-                          ><span>+ [Write the time in the log]</span>
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="9">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>9</span
-                          ><span>&nbsp;&nbsp;~ logged = true -&gt; logged</span>
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="10">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>10</span
-                          ><span>+ [Sound the harbour bell]</span>
-                        </div>
-                        <div class="pg-ink-row" data-ink-line="11">
-                          <span class="pg-ink-ln"
-                            ><i class="pg-ink-dot"></i>11</span
-                          ><span>&nbsp;&nbsp;~ bell = true -&gt; bell</span>
-                        </div>
-                      </div>
-                      <div class="pg-ink-player">
-                        <div
-                          class="pg-ink-log"
-                          data-ink-log
-                          aria-live="polite"
-                        ></div>
-                        <div class="pg-ink-choices" data-ink-choices></div>
-                        <div
-                          class="pg-vars"
-                          data-ink-vars
-                          aria-label="Live Ink variables"
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -3227,48 +2583,6 @@
             play, manuscript, animation, variety and podcasts, game script and
             Ink, plus news rundowns.
           </p>
-          <div class="cta">
-            <p class="cta-title">Found yours? Start writing it tonight.</p>
-            <div class="actions">
-              <a
-                class="button button-large button-download m-btn"
-                href="https://github.com/HMarzban/manent/releases"
-                data-get
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" />
-                </svg>
-                <span
-                  ><span
-                    data-get-label
-                    data-handheld="Get Manent for your computer"
-                    >Download</span
-                  >
-                  <small
-                    data-system
-                    data-handheld="A desktop app for Mac, Windows and Linux"
-                    >for Mac, Windows or Linux</small
-                  ></span
-                >
-              </a>
-              <a
-                class="button button-large button-quiet m-btn"
-                href="media/demo-recording.mp4?v=78f586e0"
-                data-watch="watch"
-                aria-haspopup="dialog"
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
-                </svg>
-                Watch it in 45 seconds
-              </a>
-            </div>
-            <p class="quiet-line handoff">
-              <a href="#revisions"
-                >Writing for production? See how revisions work ↓</a
-              >
-            </p>
-          </div>
         </div>
       </section>
 
@@ -3278,12 +2592,7 @@
         aria-labelledby="revisions-title"
       >
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-palette" />
-            </svg>
-            Production revisions
-          </p>
+          <p class="eyebrow">Production revisions</p>
           <div class="section-head">
             <h2 id="revisions-title">
               Lock the pages. Issue Blue. Keep writing.
@@ -3294,363 +2603,130 @@
               script.
             </p>
           </div>
-          <figure data-reveal>
-            <div class="stage">
-              <div
-                class="mv mv-rev"
-                data-cycle="12"
-                role="img"
-                aria-label="Page 12 of The Long Night, whose page numbers are locked. A line is added; an asterisk appears in the margin, the page takes the header Blue Rev. (16 Nov 2026) and the blue band, and the speech that no longer fits moves to a new page, 12A."
-              >
-                <div class="mv-crop">
-                  <div class="mv-stage">
-                    <div class="mv-win">
-                      <div class="mv-tb">
-                        <span>‹ Library</span
-                        ><span class="mv-title">The Long Night</span>
-                        <span class="mv-status"
-                          ><span class="mv-dev">Saved</span
-                          ><span class="mv-srv"><span>Synced</span></span></span
-                        >
-                        <span class="mv-people mv-push"
-                          ><span class="mv-av" data-who="2">DR</span
-                          ><span class="mv-av" data-who="1">SO</span></span
-                        >
-                      </div>
-                      <div class="mv-sb">
-                        <span class="mv-rev-line"
-                          ><span class="mv-chip" data-rev="blue"></span>
-                          <span class="mv-srv"
-                            ><span class="mv-cut" data-off="2" data-still="off"
-                              >BLUE revision · started 16 Nov 2026 · 13 pages
-                              revised</span
-                            ><span class="mv-cut" data-at="2"
-                              >BLUE revision · started 16 Nov 2026 · 14 pages
-                              revised</span
-                            ></span
-                          >
-                          <span class="mv-btn">Issue Blue…</span></span
-                        >
-                      </div>
-                      <div class="mv-desk">
-                        <div
-                          class="mv-pages"
-                          data-at="4.2"
-                          data-off="9.2"
-                          data-still
-                        >
-                          <div class="mv-sheet mv-p12">
-                            <span class="mv-band mv-fade" data-at="2"></span>
-                            <div class="mv-head">
-                              <span class="mv-cut" data-at="2"
-                                >Blue Rev. (16 Nov 2026)</span
-                              ><span>12.</span>
-                            </div>
-                            <p class="sh">
-                              <b class="sn">18</b>EXT. EAST CHANNEL - NIGHT<b
-                                class="sn sn-r"
-                                >18</b
-                              >
-                            </p>
-                            <p>
-                              The Marguerite noses into the fog. Her lamps make
-                              a room of light and nothing outside it.
-                            </p>
-                            <p class="ch">CAL</p>
-                            <p class="di">
-                              Ida. That's the Bar. We're on top of it.
-                            </p>
-                            <p class="ch">IDA</p>
-                            <p class="di">
-                              Then I'll be the first.<span
-                                class="mv-caret mv-blink mv-cut"
-                                data-at="0.6"
-                                data-off="1.8"
-                              ></span
-                              ><span class="mv-gone" data-at="1.8"
-                                ><br /><span
-                                  class="mv-type"
-                                  data-n="16"
-                                  data-key="90ms"
-                                  data-at="1.8"
-                                  >Somebody has to.</span
-                                ><span
-                                  class="mv-caret mv-blink mv-cut"
-                                  data-at="1.8"
-                                  data-off="4.2"
-                                ></span
-                                ><span class="mv-ast mv-cut" data-at="1.9"
-                                  >*</span
-                                ></span
-                              >
-                            </p>
-                            <p class="ch">PIKE (O.S.)</p>
-                            <p class="di">Four fathoms!</p>
-                            <p>
-                              The hull shudders. Somewhere below, the port shaft
-                              knocks twice and goes quiet.
-                            </p>
-                            <p class="ch">IDA</p>
-                            <p class="di">Nobody move. Let her drift.</p>
-                            <p>
-                              For a long moment the only sound is water along
-                              the hull. Then, far off, a bell.
-                            </p>
-                            <p class="ch">CAL</p>
-                            <p class="di">That's the Ardle buoy.</p>
-                            <p class="ch">IDA</p>
-                            <p class="pa">(quietly)</p>
-                            <p class="di">No. The Ardle buoy rings twice.</p>
-                            <p>
-                              She kills the engine. In the silence, the bell
-                              rings again. Once.
-                            </p>
-                            <p class="ch">PIKE (O.S.)</p>
-                            <p class="di">
-                              There's a boat out there. No lights.
-                            </p>
-                            <p class="ch">CAL</p>
-                            <p class="di">
-                              Nobody's out tonight. Nobody but us.
-                            </p>
-                            <p>
-                              PIKE comes aft fast, wet to the knees, and points
-                              into the white.
-                            </p>
-                            <p class="ch">PIKE</p>
-                            <p class="di">There. Port side.</p>
-                            <p>
-                              A shape in the fog: a hull, low and dark, drifting
-                              stern first. No one at the wheel.
-                            </p>
-                            <div class="mv-gone" data-off="1.8">
-                              <p class="ch">IDA</p>
-                              <p class="pa">(to Cal)</p>
-                              <p class="di">Get the boat hook.</p>
-                            </div>
-                          </div>
-                          <span
-                            class="mv-lock"
-                            title="Page numbers are locked. You can still edit; extra text goes to 12A."
-                          ></span>
-                          <div class="mv-sheet mv-p12a" data-at="1.8">
-                            <span class="mv-band"></span>
-                            <div class="mv-head">
-                              <span>Blue Rev. (16 Nov 2026)</span
-                              ><span>12A.</span>
-                            </div>
-                            <p class="ch">IDA</p>
-                            <p class="pa">(to Cal)</p>
-                            <p class="di">Get the boat hook.</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="mv-bar">
-                        <span class="mv-menu">Dialogue</span>
-                        <span class="mv-srv mv-readout"
-                          ><span class="mv-cut" data-off="2"
-                            >Page 12 of 104</span
-                          ><span
-                            class="mv-cut"
-                            data-at="2"
-                            data-off="5"
-                            data-still
-                            >Page 12 · Blue (12 of 105)</span
-                          ><span class="mv-cut" data-at="5" data-off="9.6"
-                            >Page 12A · Blue (13 of 105)</span
-                          ><span class="mv-cut" data-at="9.6" data-still="off"
-                            >Page 12 · Blue (12 of 105)</span
-                          ></span
-                        >
-                        <span>Scene 18</span>
-                        <span class="mv-msg"></span>
-                        <span class="mv-menu">View</span
-                        ><span>Commands <span class="mv-kbd">⌘K</span></span>
-                      </div>
+          <div class="stage-frame" data-reveal>
+            <div
+              class="inst"
+              data-inst-rev
+              role="region"
+              aria-label="Locked page and revision colour preview"
+            >
+              <div class="inst-bar">
+                <span class="inst-title" data-rev-banner
+                  >The Long Night · BLUE revision · 14 pages revised</span
+                >
+                <div class="inst-controls">
+                  <button
+                    type="button"
+                    class="inst-btn"
+                    data-rev-overflow
+                    aria-pressed="true"
+                  >
+                    Undo added line
+                  </button>
+                </div>
+              </div>
+              <div class="inst-desk">
+                <div class="inst-rev-pages">
+                  <div class="inst-rev-sheet" data-rev-p12>
+                    <div class="inst-rev-head">
+                      <span data-rev-head12>Blue Rev. (28 Nov 2026)</span>
+                      <span>12.</span>
                     </div>
+                    <p><b>18 EXT. EAST CHANNEL - NIGHT</b></p>
+                    <p>IDA: Then I'll be the first.</p>
+                    <p class="inst-rev-line" data-rev-added>
+                      <span>IDA: Somebody has to.</span
+                      ><span class="inst-rev-ast">*</span>
+                    </p>
+                    <p>PIKE (O.S.): Four fathoms!</p>
+                  </div>
+                  <div class="inst-rev-sheet" data-rev-p12a>
+                    <div class="inst-rev-head">
+                      <span data-rev-head12a>Blue Rev. (28 Nov 2026)</span>
+                      <span>12A.</span>
+                    </div>
+                    <p>IDA (to Cal): Get the boat hook.</p>
+                    <p>
+                      <small>(Overflow kept on 12A; Page 13 stays 13.)</small>
+                    </p>
                   </div>
                 </div>
               </div>
+              <div class="inst-foot" aria-live="polite">
+                <span data-rev-readout></span>
+                <span>Page 13 stays 13</span>
+              </div>
             </div>
-            <figcaption class="figure-note">
-              Add a line to locked page 12: an asterisk, a Blue stamp, and the
-              overflow becomes 12A.
-            </figcaption>
-          </figure>
+            <ul
+              class="colours"
+              data-rev-chips
+              aria-label="The standard order of revision colours"
+            >
+              <li data-chip="white">White</li>
+              <li data-chip="blue">Blue</li>
+              <li data-chip="pink">Pink</li>
+              <li data-chip="yellow">Yellow</li>
+              <li data-chip="green">Green</li>
+              <li data-chip="goldenrod">Goldenrod</li>
+              <li data-chip="buff">Buff</li>
+              <li data-chip="salmon">Salmon</li>
+              <li data-chip="cherry">Cherry</li>
+            </ul>
+            <p class="figure-note">
+              Pick any colour in the standard order — or undo the added line —
+              to see locked page 12 and 12A respond live.
+            </p>
+          </div>
           <div class="prose after-figure">
             <p>
-              Not ready to commit? <b>Try it on a copy first</b> previews your
-              page locks and colour order beside the original without touching
-              it, and <b>Update layout engine</b> lets you opt in to pagination
-              updates explicitly before locking. Once locked, text that
-              overflows page 12 makes 12A and 12B, and a new scene between 12
-              and 13 becomes 12A. Every changed line gets its asterisk, and
-              loses it again if you undo. Issue Blue and Manent stamps every
-              revised page, records who got it and starts Pink. Anyone offline
+              <b>Try it on a copy first</b> previews your page locks and colour
+              order beside the original without touching it, and
+              <b>Update layout engine</b> lets you opt in to pagination updates
+              before locking. Once locked, overflow from page 12 makes 12A and
+              12B, every changed line gets its asterisk, and issuing Blue stamps
+              revised pages, records who got it and starts Pink. Anyone offline
               is told when they're back:
             </p>
             <p class="receipt">
               <svg class="m-icon" aria-hidden="true">
-                <use href="assets/icons.svg?v=2b7b378f#i-info" />
+                <use href="assets/icons.svg?v=385ca68a#i-info" />
               </svg>
               While you were offline, Priya issued Blue. Your changes since then
               are marked Pink.
             </p>
           </div>
-          <ul
-            class="colours"
-            data-rev-chips
-            aria-label="The standard order of revision colours"
-          >
-            <li data-chip="white">White</li>
-            <li data-chip="blue">Blue</li>
-            <li data-chip="pink">Pink</li>
-            <li data-chip="yellow">Yellow</li>
-            <li data-chip="green">Green</li>
-            <li data-chip="goldenrod">Goldenrod</li>
-            <li data-chip="buff">Buff</li>
-            <li data-chip="salmon">Salmon</li>
-            <li data-chip="cherry">Cherry</li>
-          </ul>
-          <p class="small-print">
-            The standard order, or your own. Pick any colour to preview the
-            locked page stamp below.
-          </p>
-          <div
-            class="playground"
-            role="region"
-            aria-labelledby="pg-rev-title"
-            data-pg-rev
-            hidden
-          >
-            <div class="pg-head">
-              <div>
-                <span class="pg-kicker">
-                  <svg class="m-icon" aria-hidden="true">
-                    <use href="assets/icons.svg?v=2b7b378f#i-lock" />
-                  </svg>
-                  Locked page &amp; 12A sandbox
-                </span>
-                <p class="pg-title" id="pg-rev-title">
-                  Add or undo a line on locked Page 12 — Page 13 never moves
-                </p>
-              </div>
-              <div class="pg-controls">
-                <button
-                  type="button"
-                  class="pg-pill-btn"
-                  data-rev-overflow
-                  aria-pressed="true"
-                >
-                  Undo added line (remove 12A)
-                </button>
-              </div>
-            </div>
-            <div class="pg-body">
-              <div class="pg-rev-pages">
-                <div class="pg-rev-sheet" data-rev-p12>
-                  <div class="pg-rev-sheet-head">
-                    <span data-rev-head12>Blue Rev. (28 Nov 2026)</span>
-                    <strong>12.</strong>
-                  </div>
-                  <p>18 EXT. EAST CHANNEL - NIGHT</p>
-                  <p>IDA: Then I'll be the first.</p>
-                  <p data-rev-added>
-                    <span class="pg-rev-ast">*</span>IDA: Somebody has to.
-                  </p>
-                  <p>PIKE (O.S.): Four fathoms!</p>
-                </div>
-                <div class="pg-rev-sheet" data-rev-p12a>
-                  <div class="pg-rev-sheet-head">
-                    <span data-rev-head12a>Blue Rev. (28 Nov 2026)</span>
-                    <strong>12A.</strong>
-                  </div>
-                  <p>IDA (to Cal): Get the boat hook.</p>
-                  <p>
-                    <small>(Overflow kept on 12A; Page 13 stays 13.)</small>
-                  </p>
-                </div>
-              </div>
-              <div class="pg-status-line" aria-live="polite">
-                <span data-rev-readout></span>
-              </div>
-            </div>
-          </div>
           <ul class="points points-grid-3">
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-lock" /></svg
-              ></span>
-              <h3>Locked pages and scenes</h3>
-              <p>12A, 12B and A13, the same on every screen.</p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-asterisk" /></svg
-              ></span>
-              <h3>Asterisks that keep up</h3>
-              <p>Worked out from what changed since the last issue.</p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-palette" /></svg
-              ></span>
-              <h3>Colours in words</h3>
-              <p>"Blue Rev." in the header survives a black-and-white copy.</p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-send" /></svg
-              ></span>
-              <h3>Issue and Recall</h3>
-              <p>Freeze, stamp and send in one step; recall within 24 hours.</p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-scissors" /></svg
-              ></span>
-              <h3>Omitted scenes and sides</h3>
+              <h3>Locked pages, scenes &amp; asterisks</h3>
               <p>
-                OMITTED keeps its number. Pick any scene range and export
-                <b>Sides PDF</b> — whole locked pages with other scenes' lines
-                struck through.
+                12A, 12B and A13 stay identical on every screen; asterisks are
+                computed from what changed since the last issue and clear on
+                undo.
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-copy" /></svg
-              ></span>
-              <h3>Try lock on a copy first</h3>
+              <h3>Colours in words, Issue &amp; Recall</h3>
               <p>
-                Preview locked page breaks and revision colours beside the live
-                script before locking the real one.
+                "Blue Rev." in the header survives a black-and-white photocopy.
+                Freeze, stamp and distribute in one step — or recall within 24
+                hours.
+              </p>
+            </li>
+            <li>
+              <h3>Omitted scenes, sides &amp; copy preview</h3>
+              <p>
+                OMITTED keeps its number. Export <b>Sides PDF</b> for any scene
+                range with other scenes struck through, or test locks on a copy
+                first.
               </p>
             </li>
           </ul>
-          <p class="quiet-line handoff">
-            <a href="https://github.com/HMarzban/manent/releases" data-get
-              >Download and issue your first Blue</a
-            >
-            ·
-            <a href="#history">Every issue stays in History ↓</a>
-          </p>
         </div>
       </section>
 
       <section class="section" id="history" aria-labelledby="history-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-history" />
-            </svg>
-            History and drafts
-          </p>
+          <p class="eyebrow">History and drafts</p>
           <div class="section-head">
             <h2 id="history-title">Every draft kept. Any of them back.</h2>
           </div>
@@ -3890,121 +2966,22 @@
           </figure>
           <div class="prose after-figure">
             <p>
-              Every session, every named draft and every issue opens in a
-              dedicated read-only <b>Version History</b> screen with a
-              change-aware <b>Minimap</b> so your live editor stays clean and
-              untouched. Name a draft with
-              <kbd data-shortcut="Ctrl+Shift+S">⌘⇧S</kbd>, compare
-              <b>On the page</b>, <b>Side by side</b>, <b>As it was</b> or
-              <b>Asterisks only</b>, and bring back one scene or the whole
-              script. A restore can always be undone, and "Who wrote this?"
-              answers for any line. Show and News rundowns keep full
-              <b>Rundown History</b> too — compare <b>In the grid</b>,
-              <b>Side by side</b> or <b>As it was</b> with non-colour diff
-              badges, and restore a single row or the whole rundown with an
-              automatic <code>'Before restore'</code> backup and air-window
-              safety.
+              Every session, named draft (<kbd data-shortcut="Ctrl+Shift+S"
+                >⌘⇧S</kbd
+              >) and issue opens in a dedicated read-only
+              <b>Version History</b> screen with a change-aware <b>Minimap</b>.
+              Compare <b>On the page</b>, <b>Side by side</b>,
+              <b>As it was</b> or <b>Asterisks only</b>, and restore a single
+              scene or the whole script — today's draft is kept automatically as
+              <code>'Before restore'</code>.
+            </p>
+            <p>
+              Show and News rundowns keep full <b>Rundown History</b> too:
+              compare <b>In the grid</b>, <b>Side by side</b> or
+              <b>As it was</b> with non-colour diff badges, and restore a single
+              row or the whole rundown with air-window safety.
             </p>
           </div>
-          <div
-            class="playground"
-            role="region"
-            aria-labelledby="pg-hist-title"
-            data-pg-hist
-            hidden
-          >
-            <div class="pg-head">
-              <div>
-                <span class="pg-kicker">
-                  <svg class="m-icon" aria-hidden="true">
-                    <use href="assets/icons.svg?v=2b7b378f#i-history" />
-                  </svg>
-                  Dedicated Version History &amp; Minimap
-                </span>
-                <p class="pg-title" id="pg-hist-title">
-                  Scrub drafts, switch compare modes and inspect changed-scene
-                  ticks
-                </p>
-              </div>
-              <div class="pg-controls">
-                <div class="pg-seg" role="group" aria-label="Snapshot">
-                  <button
-                    type="button"
-                    data-hist-snap="now"
-                    aria-pressed="false"
-                  >
-                    Now
-                  </button>
-                  <button
-                    type="button"
-                    data-hist-snap="morning"
-                    aria-pressed="false"
-                  >
-                    Today 11:40
-                  </button>
-                  <button
-                    type="button"
-                    data-hist-snap="studio"
-                    aria-pressed="true"
-                  >
-                    ★ Studio
-                  </button>
-                </div>
-                <div class="pg-seg" role="group" aria-label="Compare mode">
-                  <button
-                    type="button"
-                    data-hist-mode="page"
-                    aria-pressed="true"
-                  >
-                    On the page
-                  </button>
-                  <button
-                    type="button"
-                    data-hist-mode="side"
-                    aria-pressed="false"
-                  >
-                    Side by side
-                  </button>
-                  <button
-                    type="button"
-                    data-hist-mode="aswas"
-                    aria-pressed="false"
-                  >
-                    As it was
-                  </button>
-                  <button
-                    type="button"
-                    data-hist-mode="asterisks"
-                    aria-pressed="false"
-                  >
-                    Asterisks only
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="pg-body">
-              <div class="pg-hist-wrap">
-                <div
-                  class="pg-hist-sheet"
-                  data-hist-sheet
-                  aria-live="polite"
-                ></div>
-                <div
-                  class="pg-minimap"
-                  data-hist-map
-                  aria-label="Change-aware Minimap scene ticks"
-                ></div>
-              </div>
-              <div class="pg-status-line" aria-live="polite">
-                <span data-hist-readout></span>
-              </div>
-            </div>
-          </div>
-          <p class="quiet-line handoff">
-            <a href="#files"
-              >Already have scripts somewhere else? Bring them ↓</a
-            >
-          </p>
         </div>
       </section>
 
@@ -4012,12 +2989,7 @@
         <div class="wrap">
           <div class="split split-flip">
             <div>
-              <p class="eyebrow">
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-file-input" />
-                </svg>
-                Bring your scripts
-              </p>
+              <p class="eyebrow">Bring your scripts</p>
               <div class="section-head">
                 <h2 id="files-title">
                   Bring your scripts. Take them with you.
@@ -4210,44 +3182,29 @@
           </div>
           <ul class="points">
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-file-input" /></svg
-              ></span>
               <h3>In</h3>
               <p>
                 Final Draft <code>.fdx</code> and Fountain with notes, dual
                 dialogue, scene numbers and revision marks; text-based PDF, Word
                 (<code>.docx</code>), Markdown (<code>.md</code>) and plain text
-                too — all offline. Older <code>.fdr</code> files are recognised
-                with steps to convert via <code>.fdx</code>.
+                offline. Older <code>.fdr</code> files are recognised with clear
+                steps to save as <code>.fdx</code>.
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-file-output" /></svg
-              ></span>
               <h3>Out</h3>
               <p>
                 PDF, Sides PDF, EPUB 3 (<code>.epub</code>), Word
                 (<code>.docx</code>), Markdown (<code>.md</code>),
-                <code>.fdx</code>, Fountain, Game Script JSON and XML, Ink
-                (<code>.ink</code> and compiled JSON), CSV and PDF reports, or a
-                whole Project Archive (<code>.zip</code>) — carrying inline
-                images, book covers, front/back matter, footnotes and broadcast
-                chyrons (with adjustable line height, editable on-page captions,
-                zero-dialog picking and offline-first project asset storage)
+                <code>.fdx</code>, Fountain, Game Script JSON/XML, Ink (<code
+                  >.ink</code
+                >
+                and compiled JSON), CSV/PDF reports and full Project Archive
+                (<code>.zip</code>) with covers, footnotes and inline media —
                 offline, whenever you like.
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use
-                    href="assets/icons.svg?v=2b7b378f#i-clipboard-paste"
-                  /></svg
-              ></span>
               <h3>Paste and go</h3>
               <p>
                 Paste Fountain or plain text and it becomes script elements,
@@ -4257,137 +3214,22 @@
               </p>
             </li>
           </ul>
-          <p class="quiet-line handoff">
-            <a href="#teams">Running a studio or busy room? See team tools ↓</a>
-          </p>
         </div>
       </section>
 
       <section class="section" id="teams" aria-labelledby="teams-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-server" />
-            </svg>
-            Teams, library and pipelines
-          </p>
+          <p class="eyebrow">Teams, library and pipelines</p>
           <div class="section-head">
             <h2 id="teams-title">
               Built for busy rooms — and the tools around them.
             </h2>
             <p class="sub">
-              Find a line across forty projects in a second, give each colleague
-              only the permissions they need, and wire your workspace straight
-              into studio tools.
+              Find a line across forty projects in a second, grant exact
+              per-project capabilities, and connect your workspace to studio
+              pipelines without leaving the keyboard.
             </p>
           </div>
-          <ul class="points points-grid-3">
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-library" /></svg
-              ></span>
-              <h3>Full-text search, folders and 30-day Trash</h3>
-              <p>
-                Search every script from the Library or <code>⌘K</code> with
-                <code>type:</code>, <code>folder:</code>, <code>after:</code>,
-                <code>before:</code> and quoted phrases — including offline on
-                the desktop local node. Organise into nested folders, personal
-                Favourites, a Private folder and 30-day recoverable Trash.
-              </p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-pen-line" /></svg
-              ></span>
-              <h3>Smart ⌘K palette and writing tools</h3>
-              <p>
-                Press <code>⌘K</code> anywhere for contextual actions,
-                <b>Jump to</b> links, live in-place setting switches, inline
-                numeric prompts (<b>Lines per page</b>, <b>Read rate</b>,
-                <b>Target length</b> — or type <code>lines 52</code> /
-                <code>target 110</code> straight in), exact
-                <code>page 12</code> / <code>scene 4</code> jumps and direct
-                shortcuts to panels, <b>Checks</b>, <b>Board</b> or Preferences
-                — alongside single-undo <b>Rename character</b>,
-                <b>Focus mode</b>, <b>Read aloud</b>, daily goals, timed sprints
-                and CSV/PDF character, scene, location and Animation pickup
-                reports.
-              </p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-lock" /></svg
-              ></span>
-              <h3>Workspace settings, templates and "Can also"</h3>
-              <p>
-                Manage workspace members, owners, defaults and Broadcast MOS
-                2.8.5 / Autoscript WinPlus-IP settings in one place, alongside
-                reusable Show and News templates in
-                <b>Project settings → Templates</b>. Grant live read-only
-                <b>Can view</b> / <b>Can comment</b> rundown access or
-                per-project <b>Can also</b> capabilities — issuing revisions,
-                locking page numbers, editing rundowns, sending to the prompter
-                or deleting — without handing over full ownership.
-              </p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-code-xml" /></svg
-              ></span>
-              <h3>Read-only Public REST API (/api/v1/)</h3>
-              <p>
-                Issue revocable <code>mk_</code> workspace API keys (stored only
-                as SHA-256 hashes, scoped strictly to live workspace scripts —
-                never Private or Trash) to read folders, script lines,
-                <code>.fdx</code> exports and compiled Ink JSON over HTTP.
-              </p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-send" /></svg
-              ></span>
-              <h3>Webhook, Slack and email notifications</h3>
-              <p>
-                Outbox-backed comment and <code>@mention</code> notifications
-                with automatic retries to any custom HTTP webhook, Slack
-                incoming webhook or Resend email address — never firing for
-                Private scripts.
-              </p>
-            </li>
-            <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-archive" /></svg
-              ></span>
-              <h3>Desktop links, LAN MOS relay and full local backup</h3>
-              <p>
-                Open scripts directly from <code>manent://</code> links on
-                macOS, bridge local studio prompters with the
-                <b>Desktop LAN MOS relay</b>, write local Prompter folders when
-                networks drop, and run
-                <b>Export everything on this device…</b> at any time to save
-                every local script to disk.
-              </p>
-            </li>
-          </ul>
-          <p class="quiet-line">
-            <button
-              type="button"
-              class="pg-pill-btn"
-              data-pg-palette-open
-              hidden
-            >
-              <svg class="m-icon" aria-hidden="true">
-                <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
-              </svg>
-              Open live ⌘K Command Palette (or press ⌘K / Ctrl+K)
-            </button>
-          </p>
           <figure class="shot-frame" data-reveal>
             <img
               src="media/command-palette.png?v=8cee11aa"
@@ -4397,31 +3239,78 @@
               alt="Manent's smart Command Palette open over a screenplay dialogue line, showing All, Commands, Settings, Go to and Scripts scope filters, Suggested here actions, Jump to MARA's next line, live On/Off Settings here switches and Last used commands."
             />
             <figcaption class="figure-note">
-              Screenshot of the demo: pressing <code>⌘K</code> while editing
-              dialogue surfaces Suggested here actions, Jump to the speaker's
-              next line, live in-place Settings here switches and persisted Last
-              used commands without leaving the keyboard.
+              Screenshot of the demo: pressing
+              <kbd data-shortcut="Ctrl+K">⌘K</kbd> while editing dialogue
+              surfaces contextual actions, Jump to the speaker's next line, live
+              setting switches and Last used commands.
             </figcaption>
           </figure>
-          <p class="quiet-line handoff">
-            <a
-              href="https://github.com/HMarzban/manent/blob/main/docs/guide/api.md"
-              >Read the Public API &amp; notifications guide →</a
+          <p class="quiet-line">
+            <button
+              type="button"
+              class="quiet-trigger"
+              data-pg-palette-open
+              hidden
             >
-            ·
-            <a href="#yours">And whatever you write stays yours ↓</a>
+              Try the live <kbd data-shortcut="Ctrl+K">⌘K</kbd> Command Palette
+              preview →
+            </button>
           </p>
+          <ul class="points points-grid-2">
+            <li>
+              <h3>Full-text search, folders &amp; 30-day Trash</h3>
+              <p>
+                Search every script from the Library or
+                <kbd data-shortcut="Ctrl+K">⌘K</kbd> with <code>type:</code>,
+                <code>folder:</code>, <code>after:</code> and quoted phrases —
+                offline on desktop. Organise into nested folders, Favourites, a
+                Private folder and 30-day recoverable Trash.
+              </p>
+            </li>
+            <li>
+              <h3>Smart ⌘K palette &amp; writing tools</h3>
+              <p>
+                Run contextual actions, inline numeric prompts (<code
+                  >lines 52</code
+                >, <code>target 110</code>) and exact <code>page 12</code> /
+                <code>scene 4</code> jumps alongside single-undo
+                <b>Rename character</b>, <b>Focus mode</b>, <b>Read aloud</b>,
+                daily goals, sprints and CSV/PDF reports.
+              </p>
+            </li>
+            <li>
+              <h3>Roles, templates &amp; "Can also" capabilities</h3>
+              <p>
+                Manage workspace members, Broadcast <b>MOS 2.8.5</b> /
+                <b>Autoscript WinPlus-IP</b> targets and reusable Show and News
+                templates in <b>Project settings → Templates</b>. Grant live
+                read-only <b>Can view</b> / <b>Can comment</b> rundown access or
+                per-project <b>Can also</b> permissions without handing over
+                ownership.
+              </p>
+            </li>
+            <li>
+              <h3>Public REST API, notifications &amp; local relay</h3>
+              <p>
+                Issue revocable read-only <code>mk_</code> keys for
+                <code>/api/v1/</code> (never exposing Private or Trash), send
+                outbox-backed webhook, Slack or Resend email alerts on
+                <code>@mentions</code>, open scripts via
+                <code>manent://</code> links on macOS and bridge studio
+                prompters with the <b>Desktop LAN MOS relay</b>.
+                <a
+                  href="https://github.com/HMarzban/manent/blob/main/docs/guide/api.md"
+                  >Read the API guide →</a
+                >
+              </p>
+            </li>
+          </ul>
         </div>
       </section>
 
       <section class="section band" id="yours" aria-labelledby="yours-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-scale" />
-            </svg>
-            Yours to keep
-          </p>
+          <p class="eyebrow">Yours to keep</p>
           <div class="section-head">
             <h2 id="yours-title">Free, open source, and yours.</h2>
             <p class="sub">
@@ -4431,20 +3320,12 @@
           </div>
           <ul class="points">
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-code" /></svg
-              ></span>
               <h3>Every line in the open</h3>
               <p>
                 If the project stopped tomorrow, your copy would keep working.
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-user-x" /></svg
-              ></span>
               <h3>Page 1, not a sign-up form</h3>
               <p>
                 Choose <b>Start in a clean workspace</b> for an empty Library on
@@ -4454,10 +3335,6 @@
               </p>
             </li>
             <li>
-              <span class="m-card-icon"
-                ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-hard-drive" /></svg
-              ></span>
               <h3>On your own disk</h3>
               <p>
                 Your scripts stay on your device until you choose to share them.
@@ -4466,7 +3343,7 @@
           </ul>
           <blockquote class="pledge" id="pledge">
             <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-shield-check" />
+              <use href="assets/icons.svg?v=385ca68a#i-shield-check" />
             </svg>
             <p>
               Manent has no features that write for you: it generates no scenes,
@@ -4488,12 +3365,7 @@
           </p>
 
           <div class="compare" id="compare">
-            <p class="eyebrow">
-              <svg class="m-icon" aria-hidden="true">
-                <use href="assets/icons.svg?v=2b7b378f#i-scale" />
-              </svg>
-              How it compares
-            </p>
+            <p class="eyebrow">How it compares</p>
             <h3 id="compare-title">
               Desktop apps keep you offline. Browser apps let you write
               together. Manent does both.
@@ -4597,20 +3469,12 @@
               >
             </p>
           </div>
-          <p class="quiet-line handoff">
-            <a href="#faq">Still deciding? Questions writers ask ↓</a>
-          </p>
         </div>
       </section>
 
       <section class="section" id="faq" aria-labelledby="faq-title">
         <div class="wrap">
-          <p class="eyebrow">
-            <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-info" />
-            </svg>
-            Questions
-          </p>
+          <p class="eyebrow">Questions</p>
           <div class="section-head">
             <h2 id="faq-title">Questions writers ask</h2>
           </div>
@@ -4621,7 +3485,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4637,13 +3501,13 @@
                 full local archive.
               </p>
             </details>
-            <details open>
+            <details>
               <summary>
                 What happens if two of us change the same line?<svg
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4653,13 +3517,13 @@
                 can't be placed is kept as Recovered text.
               </p>
             </details>
-            <details open>
+            <details>
               <summary>
                 Will my page count match the app I use now?<svg
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4674,7 +3538,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4694,7 +3558,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4710,7 +3574,7 @@
             <details>
               <summary>
                 What won't Manent do?<svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <ul>
@@ -4740,7 +3604,7 @@
               <summary>
                 How do I move my scripts from Final Draft, Fountain, Word or
                 PDF?<svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4766,7 +3630,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4792,7 +3656,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4810,7 +3674,7 @@
               <summary>
                 Can I start with a clean empty workspace instead of the
                 demo?<svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -4822,9 +3686,6 @@
               </p>
             </details>
           </div>
-          <p class="quiet-line handoff">
-            <a href="#download">Ready when you are. Get Manent ↓</a>
-          </p>
         </div>
       </section>
 
@@ -4835,20 +3696,13 @@
       >
         <div class="wrap">
           <div>
-            <p class="eyebrow">
-              <svg class="m-icon" aria-hidden="true">
-                <use href="assets/icons.svg?v=2b7b378f#i-download" />
-              </svg>
-              Get Manent
-            </p>
+            <p class="eyebrow">Get Manent</p>
             <h2 id="download-title">Write your first page tonight.</h2>
             <p class="sub">
               For Mac, Windows and Linux, in a custom theme-matched desktop
-              window. Every script lives on your own disk, with Clean workspace
-              mode, offline full-text search, Desktop LAN MOS relay, Prompter
-              folder output, <code>manent://</code> links on macOS and
-              <b>Export everything on this device…</b> — everything works with
-              no network.
+              window. Every script stays durably on your own disk, with Clean
+              workspace mode, offline search and full local backup — nothing
+              requires a network.
             </p>
             <div class="get-phone" data-get-phone hidden>
               <button
@@ -4857,7 +3711,7 @@
                 data-share
               >
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-send" />
+                  <use href="assets/icons.svg?v=385ca68a#i-send" />
                 </svg>
                 Send this page to my computer
               </button>
@@ -4873,7 +3727,7 @@
                 data-download="mac"
                 href="https://github.com/HMarzban/manent/releases"
                 ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" /></svg
+                  <use href="assets/icons.svg?v=385ca68a#i-download" /></svg
                 >Download for Mac</a
               >
               <a
@@ -4881,7 +3735,7 @@
                 data-download="windows"
                 href="https://github.com/HMarzban/manent/releases"
                 ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" /></svg
+                  <use href="assets/icons.svg?v=385ca68a#i-download" /></svg
                 >Download for Windows</a
               >
               <a
@@ -4889,22 +3743,9 @@
                 data-download="linux"
                 href="https://github.com/HMarzban/manent/releases"
                 ><svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-download" /></svg
+                  <use href="assets/icons.svg?v=385ca68a#i-download" /></svg
                 >Download for Linux</a
               >
-            </div>
-            <div class="actions">
-              <a
-                class="button button-large button-quiet m-btn"
-                href="media/demo-recording.mp4?v=78f586e0"
-                data-watch="watch"
-                aria-haspopup="dialog"
-              >
-                <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-play" />
-                </svg>
-                Watch it in 45 seconds
-              </a>
             </div>
             <p class="quiet-line">
               Prefer the browser? Running Manent on <code>localhost</code> or
@@ -4924,7 +3765,7 @@
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <ul>
@@ -4959,13 +3800,13 @@
             <details class="disclosure developers">
               <summary>
                 <svg class="m-icon" aria-hidden="true">
-                  <use href="assets/icons.svg?v=2b7b378f#i-square-terminal" />
+                  <use href="assets/icons.svg?v=385ca68a#i-square-terminal" />
                 </svg>
                 For developers: run Manent from source<svg
                   class="m-icon"
                   aria-hidden="true"
                 >
-                  <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+                  <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
                 </svg>
               </summary>
               <p>
@@ -5005,7 +3846,7 @@ bun run demo</pre>
                             data-for="idle"
                           >
                             <use
-                              href="assets/icons.svg?v=2b7b378f#i-copy"
+                              href="assets/icons.svg?v=385ca68a#i-copy"
                             /></svg
                           ><svg
                             class="m-icon"
@@ -5013,7 +3854,7 @@ bun run demo</pre>
                             data-for="busy"
                           >
                             <use
-                              href="assets/icons.svg?v=2b7b378f#i-loader-circle"
+                              href="assets/icons.svg?v=385ca68a#i-loader-circle"
                             /></svg
                           ><svg
                             class="m-icon"
@@ -5021,7 +3862,7 @@ bun run demo</pre>
                             data-for="done"
                           >
                             <use
-                              href="assets/icons.svg?v=2b7b378f#i-check"
+                              href="assets/icons.svg?v=385ca68a#i-check"
                             /></svg
                           ><svg
                             class="m-icon"
@@ -5029,7 +3870,7 @@ bun run demo</pre>
                             data-for="problem"
                           >
                             <use
-                              href="assets/icons.svg?v=2b7b378f#i-circle-alert"
+                              href="assets/icons.svg?v=385ca68a#i-circle-alert"
                             /></svg
                         ></span>
                         Copy the commands
@@ -5058,7 +3899,7 @@ bun run demo</pre>
                 <ul>
                   <li>
                     <svg class="m-icon" aria-hidden="true">
-                      <use href="assets/icons.svg?v=2b7b378f#i-check" /></svg
+                      <use href="assets/icons.svg?v=385ca68a#i-check" /></svg
                     ><span
                       >Open the address in two windows, pick Dana Reyes in one
                       and Sam Okafor in the other, and type in both.</span
@@ -5066,14 +3907,14 @@ bun run demo</pre>
                   </li>
                   <li>
                     <svg class="m-icon" aria-hidden="true">
-                      <use href="assets/icons.svg?v=2b7b378f#i-check" /></svg
+                      <use href="assets/icons.svg?v=385ca68a#i-check" /></svg
                     ><span
                       >Choose Offline, keep writing and watch the count.</span
                     >
                   </li>
                   <li>
                     <svg class="m-icon" aria-hidden="true">
-                      <use href="assets/icons.svg?v=2b7b378f#i-check" /></svg
+                      <use href="assets/icons.svg?v=385ca68a#i-check" /></svg
                     ><span
                       >Open <i>The Long Night</i> as Priya Nair and issue
                       Pink.</span
@@ -5193,7 +4034,7 @@ bun run demo</pre>
         <details class="disclosure">
           <summary>
             What the recording shows<svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-chevron-down" />
+              <use href="assets/icons.svg?v=385ca68a#i-chevron-down" />
             </svg>
           </summary>
           <ol>
@@ -5233,7 +4074,7 @@ bun run demo</pre>
             data-get
           >
             <svg class="m-icon" aria-hidden="true">
-              <use href="assets/icons.svg?v=2b7b378f#i-download" />
+              <use href="assets/icons.svg?v=385ca68a#i-download" />
             </svg>
             <span
               ><span data-get-label data-handheld="Get Manent for your computer"
@@ -5252,90 +4093,125 @@ bun run demo</pre>
 
     <footer class="site-foot">
       <div class="wrap">
-        <a
-          class="brand brand-ligature"
-          href="#top"
-          aria-label="Manent, to the top"
-          ><svg viewBox="0 0 41.1 40" fill="none" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M2 0H7.4C8.1 0 8.7 0.35 9.1 0.92L21.5 19.2L30.5 6.0C30.9 5.45 31.7 5.75 31.7 6.4V16.6C31.7 17.1 31.5 17.5 31.2 17.9L23.1 29.4C22.7 29.95 22.1 30.25 21.5 30.25C20.9 30.25 20.3 29.95 19.9 29.4L7.2 11.4V38.2C7.2 39.2 6.4 40 5.4 40H1.8C0.8 40 0 39.2 0 38.2V1.8C0 0.8 0.8 0 1.8 0H2Z"
-            />
-            <rect
-              x="34.3"
-              y="0"
-              width="6.8"
-              height="40"
-              rx="1.6"
-              fill="var(--accent)"
-            /></svg
-          ><span aria-hidden="true">anent</span></a
-        >
-        <ul>
-          <li><a class="m-link" href="#download">Download</a></li>
-          <li>
+        <div class="foot-cols">
+          <div class="foot-id">
+            <a
+              class="brand brand-ligature"
+              href="#top"
+              aria-label="Manent, to the top"
+              ><svg viewBox="0 0 41.1 40" fill="none" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M2 0H7.4C8.1 0 8.7 0.35 9.1 0.92L21.5 19.2L30.5 6.0C30.9 5.45 31.7 5.75 31.7 6.4V16.6C31.7 17.1 31.5 17.5 31.2 17.9L23.1 29.4C22.7 29.95 22.1 30.25 21.5 30.25C20.9 30.25 20.3 29.95 19.9 29.4L7.2 11.4V38.2C7.2 39.2 6.4 40 5.4 40H1.8C0.8 40 0 39.2 0 38.2V1.8C0 0.8 0.8 0 1.8 0H2Z"
+                />
+                <rect
+                  x="34.3"
+                  y="0"
+                  width="6.8"
+                  height="40"
+                  rx="1.6"
+                  fill="var(--accent)"
+                /></svg
+              ><span aria-hidden="true">anent</span></a
+            >
+            <p>
+              Open-source script &amp; book studio. Local-first, invariant
+              pages, no AI writing.
+            </p>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Product</p>
+            <ul>
+              <li><a class="m-link" href="#download">Download</a></li>
+              <li>
+                <a
+                  class="m-link"
+                  href="media/demo-recording.mp4?v=78f586e0"
+                  data-watch="watch"
+                  aria-haspopup="dialog"
+                  >Watch it in 45 seconds</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="compare.html">How it compares</a>
+              </li>
+              <li>
+                <a class="m-link" href="design-system.html">Design system</a>
+              </li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Documentation</p>
+            <ul>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
+                  >Documentation</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
+                  >Benchmark report</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/releases"
+                  >Release notes</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
+                  >Changelog</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <p class="foot-col-head">Open source</p>
+            <ul>
+              <li>
+                <a class="m-link" href="https://github.com/HMarzban/manent"
+                  >Source on GitHub</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/LICENSE"
+                  >Apache License 2.0</a
+                >
+              </li>
+              <li>
+                <a
+                  class="m-link"
+                  href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+                  >Copyright notice</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="foot-bar">
+          <p>
+            © 2026 Harvey Marzban
             <a
               class="m-link"
-              href="media/demo-recording.mp4?v=78f586e0"
-              data-watch="watch"
-              aria-haspopup="dialog"
-              >Watch it in 45 seconds</a
+              href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+              >(copyright notice)</a
             >
-          </li>
-          <li>
-            <a class="m-link" href="https://github.com/HMarzban/manent"
-              >Source on GitHub</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/docs/README.md"
-              >Documentation</a
-            >
-          </li>
-          <li>
-            <a class="m-link" href="https://github.com/HMarzban/manent/releases"
-              >Release notes</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
-              >Changelog</a
-            >
-          </li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/docs/benchmark/report.md"
-              >Benchmark report</a
-            >
-          </li>
-          <li><a class="m-link" href="compare.html">How it compares</a></li>
-          <li><a class="m-link" href="design-system.html">Design system</a></li>
-          <li>
-            <a
-              class="m-link"
-              href="https://github.com/HMarzban/manent/blob/main/LICENSE"
-              >Apache License 2.0</a
-            >
-          </li>
-        </ul>
-        <p>
-          This page sets no cookies, loads nothing from other sites, and
-          remembers only your tab, studio theme and animation choice, in this
-          browser.
-        </p>
-        <p>
-          © 2026 Harvey Marzban
-          <a
-            class="m-link"
-            href="https://github.com/HMarzban/manent/blob/main/NOTICE"
-            >(copyright notice)</a
-          >
-        </p>
+          </p>
+          <p>
+            Sets no cookies, loads nothing from other sites, and remembers only
+            your tab, studio theme and animation choice in this browser.
+          </p>
+        </div>
       </div>
     </footer>
 
@@ -5345,28 +4221,8 @@ bun run demo</pre>
       aria-labelledby="pg-pal-title"
       aria-modal="true"
     >
-      <div class="pg-pal-head">
-        <svg class="m-icon" aria-hidden="true">
-          <use href="assets/icons.svg?v=2b7b378f#i-keyboard" />
-        </svg>
-        <label class="m-sr" id="pg-pal-title" for="pg-pal-input"
-          >Interactive Command Palette preview</label
-        >
-        <input
-          id="pg-pal-input"
-          class="pg-pal-input"
-          type="text"
-          autocomplete="off"
-          placeholder="Try 'lines 52', 'page 12', 'dark', or pick a context below…"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="pg-pal-list"
-          aria-autocomplete="list"
-          data-pal-input
-        />
-        <button type="button" class="pg-pill-btn" data-pal-close>Close</button>
-      </div>
-      <div class="pg-pal-strip">
+      <div class="pg-pal-ctx-bar">
+        <span>Preview context</span>
         <div
           class="pg-pal-contexts"
           role="group"
@@ -5405,6 +4261,36 @@ bun run demo</pre>
             Rundown
           </button>
         </div>
+      </div>
+      <div class="pg-pal-head">
+        <svg class="m-icon" aria-hidden="true">
+          <use href="assets/icons.svg?v=385ca68a#i-keyboard" />
+        </svg>
+        <label class="m-sr" id="pg-pal-title" for="pg-pal-input"
+          >Interactive Command Palette preview</label
+        >
+        <input
+          id="pg-pal-input"
+          class="pg-pal-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Try 'lines 52', 'page 12', 'dark', or switch context above…"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="pg-pal-list"
+          aria-autocomplete="list"
+          data-pal-input
+        />
+        <button
+          type="button"
+          class="pg-pal-close"
+          data-pal-close
+          aria-label="Close Command Palette"
+        >
+          <kbd>Esc</kbd>
+        </button>
+      </div>
+      <div class="pg-pal-strip">
         <div class="pg-pal-scopes" role="tablist" aria-label="Command scope">
           <button
             type="button"
@@ -5462,7 +4348,7 @@ bun run demo</pre>
       ></ul>
       <div class="pg-pal-foot">
         <span data-pal-status aria-live="polite"></span>
-        <span>↑↓ move · Tab cycle scope · Enter run · Esc close</span>
+        <span>↑↓ move · Tab cycle scope · Enter run</span>
       </div>
     </dialog>
   </body>

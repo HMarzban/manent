@@ -61,12 +61,32 @@
   text-align: left;
 }
 [data-theme="light"] .mv,
-.mv[data-theme="light"] {
+.mv[data-theme="light"],
+html[data-site-theme="light"] .mv,
+html[data-ds-theme="light"] .mv {
   color-scheme: light;
 }
 [data-theme="dark"] .mv,
-.mv[data-theme="dark"] {
+.mv[data-theme="dark"],
+html[data-site-theme="dark"] .mv,
+html[data-ds-theme="dark"] .mv {
   color-scheme: dark;
+}
+html[data-site-theme] .mv {
+  --bg-desk: var(--desk);
+  --bg-chrome: var(--raised);
+  --bg-raised: var(--paper);
+  --bg-selected: var(--accent-soft);
+  --bg-accent: var(--accent);
+  --fg: var(--fg);
+  --fg-muted: var(--fg-muted);
+  --fg-on-accent: var(--on-accent);
+  --line: var(--line);
+  --line-strong: var(--line-strong);
+  --page-paper: var(--paper);
+  --page-ink: var(--fg);
+  --page-ink-muted: var(--fg-muted);
+  --page-edge: var(--line);
 }
 /* The stage is drawn at its design size and scaled to fill the column, never past --zmax.
    Below 492 px (where 600 px would take 11 px text under 9 px) the scene switches to its

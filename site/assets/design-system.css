@@ -5,17 +5,27 @@ html[data-ds-theme="light"] {
 }
 html[data-ds-theme="dark"] {
   color-scheme: dark;
-  --desk: #1f1d1a;
+  --desk: #121211;
   --desk-deep: #1a1918;
-  --raised: #272523;
+  --raised: #1f1d1a;
   --paper: #2a2826;
   --fg: #efece6;
   --fg-muted: #b8b2a7;
-  --line: #423f3a;
-  --line-strong: #7d7870;
+  --line: #34322e;
+  --line-strong: #6b665f;
   --accent: #8daeff;
   --accent-soft: #25324f;
   --on-accent: #121211;
+}
+
+.ds-switcher-panel,
+.ds-specimen-grid,
+.ds-contrast-card,
+.ds-credits-table,
+.ds-scale-strip,
+.ds-brand-grid,
+.ds-rules-grid {
+  font-family: var(--sans);
 }
 
 html[data-ds-switching] *,
@@ -41,6 +51,7 @@ html[data-ds-switching] *::after {
   display: inline-flex;
   align-items: baseline;
   gap: 0;
+  font-family: var(--sans);
   font-weight: 600;
   letter-spacing: -0.032em;
 }
@@ -64,6 +75,7 @@ html[data-ds-switching] *::after {
 .ds-section {
   padding: clamp(3rem, 6vw, 4.75rem) 0;
   border-bottom: 1px solid var(--line);
+  scroll-margin-top: calc(var(--m-bar-h) * 2 + 1.5rem);
 }
 .ds-section-head {
   max-width: 44rem;
@@ -121,11 +133,13 @@ html[data-ds-switching] *::after {
   gap: 0.45rem;
 }
 .ds-stacked-name {
+  font-family: var(--sans);
   font-weight: 600;
   font-size: 1.125rem;
   letter-spacing: -0.032em;
 }
 .ds-stacked-motto {
+  font-family: var(--sans);
   font-size: 0.625rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;

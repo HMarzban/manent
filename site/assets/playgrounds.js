@@ -1,4 +1,5 @@
-// Manent site: interactive playgrounds, site-wide studio theme switcher, compare filters and scroll rail.
+// Manent site: Studio Instruments (Book Engine 3, Ink Play Beside, Revisions 12A),
+// compact studio theme switcher, contextual ⌘K palette dialog, compare filter and scroll rail.
 // Progressive enhancement only: zero external dependencies, strict CSP, full keyboard & reduced-motion parity.
 (() => {
   const doc = document;
@@ -9,7 +10,7 @@
     matchMedia("(prefers-reduced-motion: reduce)").matches ||
     matchMedia("(forced-colors: active)").matches;
 
-  // ---------- 1. Scroll-progress reading rail ----------
+  // ---------- 1. Subtle scroll-progress reading rail ----------
   const bar = doc.querySelector("[data-topbar]");
   if (bar && !bar.querySelector(".m-scroll-rail")) {
     const rail = doc.createElement("span");
@@ -38,7 +39,22 @@
     paint();
   }
 
-  // ---------- 2. Site-wide Studio Theme & Polarity Switcher ----------
+  // Close mobile nav drawer when a link is chosen or Escape is pressed
+  for (const drawer of all(".nav-drawer")) {
+    for (const link of all("a", drawer)) {
+      link.addEventListener("click", () => {
+        drawer.open = false;
+      });
+    }
+    doc.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && drawer.open) drawer.open = false;
+    });
+    doc.addEventListener("click", (e) => {
+      if (drawer.open && !drawer.contains(e.target)) drawer.open = false;
+    });
+  }
+
+  // ---------- 2. Compact Studio Theme & Polarity Switcher ----------
   const SCHEME_KEY = "manent.site.scheme";
   const PALETTE_KEY = "manent.site.palette";
   const PALETTES = [
@@ -59,14 +75,14 @@
         oa: "#ffffff",
       },
       k: {
-        d: "#1f1d1a",
+        d: "#121211",
         dd: "#1a1918",
-        r: "#272523",
+        r: "#1f1d1a",
         p: "#2a2826",
         f: "#efece6",
         m: "#b8b2a7",
-        ln: "#423f3a",
-        ls: "#7d7870",
+        ln: "#34322e",
+        ls: "#6b665f",
         a: "#8daeff",
         s: "#25324f",
         oa: "#121211",
@@ -136,30 +152,30 @@
       id: "clothbound",
       name: "Clothbound",
       l: {
-        d: "#e6e0d5",
-        dd: "#dbd3c5",
-        r: "#f4efe7",
+        d: "#e8e3d9",
+        dd: "#dcd5c8",
+        r: "#f6f3ec",
         p: "#fdfbf6",
-        f: "#1f1a15",
-        m: "#595148",
-        ln: "#d3cab9",
+        f: "#1b1d21",
+        m: "#52565e",
+        ln: "#d4cec3",
         ls: "#857b6d",
-        a: "#2e5c3e",
-        s: "#dcebe0",
+        a: "#1a4875",
+        s: "#dee8f2",
         oa: "#ffffff",
       },
       k: {
-        d: "#12100d",
-        dd: "#0d0b09",
-        r: "#1a1713",
-        p: "#26221d",
-        f: "#efe9df",
-        m: "#b8afa2",
-        ln: "#3d372e",
-        ls: "#756d61",
-        a: "#7ec896",
-        s: "#1d3525",
-        oa: "#12100d",
+        d: "#0f141c",
+        dd: "#0a0e14",
+        r: "#151b26",
+        p: "#232a36",
+        f: "#efede6",
+        m: "#adb5c4",
+        ln: "#344054",
+        ls: "#65748c",
+        a: "#d8ca9c",
+        s: "#24344c",
+        oa: "#0f141c",
       },
     },
     {
@@ -243,8 +259,9 @@
   let activePalette = readStore(PALETTE_KEY) || "studio";
   if (!PALETTES.some((p) => p.id === activePalette)) activePalette = "studio";
 
+  const onThemeChangeListeners = [];
+
   const applyThemeTokens = () => {
-    // design-system.html manages its full 24-palette set via design-system.js
     if (doc.getElementById("ds-theme-grid")) return;
     const pal = PALETTES.find((p) => p.id === activePalette) || PALETTES[0];
     const t = activeScheme === "dark" ? pal.k : pal.l;
@@ -268,6 +285,7 @@
       else root.style.setProperty(k, v);
     }
     syncThemeUI();
+    for (const fn of onThemeChangeListeners) fn();
   };
 
   const transitionTheme = (originEl, kind, mutate) => {
@@ -347,8 +365,7 @@
   const syncThemeUI = () => {
     if (!themePop || !themeTrigger) return;
     const pal = PALETTES.find((p) => p.id === activePalette) || PALETTES[0];
-    const lbl = themeTrigger.querySelector(".pg-theme-label");
-    if (lbl) lbl.textContent = pal.name;
+    themeTrigger.title = `Theme: ${pal.name} (${activeScheme})`;
     for (const btn of all("[data-pg-scheme]", themePop))
       btn.setAttribute(
         "aria-pressed",
@@ -420,157 +437,9 @@
     else syncThemeUI();
   }
 
-  // ---------- 3. Per-vignette pause/play micro-control ----------
-  for (const stage of all(".stage")) {
-    const mv = stage.querySelector(".mv[data-cycle]");
-    if (!mv) continue;
-    const ctl = doc.createElement("button");
-    ctl.type = "button";
-    ctl.className = "pg-vignette-ctl";
-    ctl.setAttribute("aria-pressed", "false");
-    ctl.textContent = "Pause";
-    ctl.addEventListener("click", () => {
-      const frozen = ctl.getAttribute("aria-pressed") === "true";
-      const next = !frozen;
-      ctl.setAttribute("aria-pressed", String(next));
-      ctl.textContent = next ? "Play" : "Pause";
-      mv.toggleAttribute("data-paused", next);
-    });
-    stage.prepend(ctl);
-  }
-
-  // ---------- 4. Playground 1: Cut the signal (Offline & Reconnect) ----------
-  const offRoot = doc.querySelector("[data-pg-offline]");
-  if (offRoot) {
-    offRoot.hidden = false;
-    const toggle = offRoot.querySelector("[data-off-toggle]");
-    const addBtn = offRoot.querySelector("[data-off-add]");
-    const resetBtn = offRoot.querySelector("[data-off-reset]");
-    const form = offRoot.querySelector("[data-off-form]");
-    const input = offRoot.querySelector("[data-off-input]");
-    const list = offRoot.querySelector("[data-off-lines]");
-    const badge = offRoot.querySelector("[data-off-badge]");
-    const receipt = offRoot.querySelector("[data-off-receipt]");
-
-    const SAMPLES = [
-      "IDA: Hold the stern line. The mist is thickening.",
-      "CAL: Engine room says two minutes to pressure.",
-      "The harbour lantern blinks once across the black water.",
-      "IDA: Cast off. We're not waiting for the ferry.",
-    ];
-    let offline = false;
-    let sampleIdx = 0;
-    let lines = [
-      { text: "EXT. ARDLE SLIP - BEFORE DAWN", waiting: false },
-      {
-        text: "Fog sits on the water. One lamp swings over the ramp chain.",
-        waiting: false,
-      },
-    ];
-
-    const renderOff = (msg) => {
-      list.innerHTML = "";
-      for (const row of lines) {
-        const el = doc.createElement("div");
-        el.className = "pg-off-line";
-        const span = doc.createElement("span");
-        span.textContent = row.text;
-        const tag = doc.createElement("span");
-        tag.className = "pg-off-tag";
-        if (row.waiting) {
-          tag.setAttribute("data-wait", "");
-          tag.textContent = "Saved · Waiting";
-        } else {
-          tag.textContent = "Synced";
-        }
-        el.append(span, tag);
-        list.append(el);
-      }
-      const waiting = lines.filter((l) => l.waiting).length;
-      toggle.setAttribute("aria-pressed", String(offline));
-      toggle.textContent = offline ? "Reconnect signal" : "Cut signal";
-      if (offline) {
-        badge.dataset.state = "offline";
-        badge.textContent =
-          waiting > 0
-            ? `Saved · Offline, ${waiting} waiting`
-            : "Saved · Offline";
-      } else {
-        badge.dataset.state = "synced";
-        badge.textContent = "Saved · Synced";
-      }
-      if (msg !== undefined) receipt.textContent = msg;
-    };
-
-    const appendLine = (text) => {
-      const clean = text.trim();
-      if (!clean) return;
-      lines.push({ text: clean, waiting: offline });
-      if (lines.length > 6) lines = lines.slice(-6);
-      renderOff(
-        offline
-          ? "Stored on this device first — waiting to sync when signal returns."
-          : "Saved locally and confirmed by the server.",
-      );
-    };
-
-    toggle.addEventListener("click", () => {
-      if (!offline) {
-        offline = true;
-        renderOff(
-          "Signal cut. Keep writing — every line stays saved on your device.",
-        );
-        return;
-      }
-      offline = false;
-      const waiting = lines.filter((l) => l.waiting).length;
-      if (waiting === 0) {
-        renderOff("Back online. Everything is already up to date.");
-        return;
-      }
-      badge.dataset.state = "syncing";
-      badge.textContent = "Saved · Syncing…";
-      const finish = () => {
-        lines = lines.map((l) => ({ ...l, waiting: false }));
-        const plural = waiting === 1 ? "change" : "changes";
-        renderOff(`${waiting} ${plural} synced · 0 lost.`);
-        window.ManentMotion?.toast(`${waiting} ${plural} synced`);
-      };
-      if (reduced()) finish();
-      else setTimeout(finish, 380);
-    });
-
-    addBtn.addEventListener("click", () => {
-      appendLine(SAMPLES[sampleIdx % SAMPLES.length]);
-      sampleIdx++;
-    });
-
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      appendLine(input.value || SAMPLES[sampleIdx++ % SAMPLES.length]);
-      input.value = "";
-    });
-
-    resetBtn.addEventListener("click", () => {
-      offline = false;
-      sampleIdx = 0;
-      lines = [
-        { text: "EXT. ARDLE SLIP - BEFORE DAWN", waiting: false },
-        {
-          text: "Fog sits on the water. One lamp swings over the ramp chain.",
-          waiting: false,
-        },
-      ];
-      renderOff("Try cutting the signal, adding lines, then reconnecting.");
-    });
-
-    renderOff("Try cutting the signal, adding lines, then reconnecting.");
-  }
-
-  // ---------- 5. Playground 2: Book Publishing Engine 3 Studio ----------
-  const bookRoot = doc.querySelector("[data-pg-book]");
+  // ---------- 3. Instrument 1: Book Engine 3 Studio (replaces static vignette in #write-books) ----------
+  const bookRoot = doc.querySelector("[data-inst-book]");
   if (bookRoot) {
-    bookRoot.hidden = false;
     const stage = bookRoot.querySelector("[data-book-stage]");
     const verso = bookRoot.querySelector("[data-book-verso]");
     const rectoHead = bookRoot.querySelector("[data-book-recto-head]");
@@ -586,7 +455,7 @@
     let fnOpen = false;
 
     const TRIM_LABELS = {
-      letter: "US Letter · 8.5×11″",
+      letter: "US Letter",
       "5x8": "5×8″ paperback",
       "55x85": "5.5×8.5″ digest",
       "6x9": "6×9″ trade",
@@ -598,9 +467,7 @@
       stage.dataset.view = engine === "v3" ? view : "single";
       verso.hidden = !(engine === "v3" && view === "spread");
       rectoHead.textContent =
-        engine === "v3"
-          ? "Chapter opening — running head suppressed"
-          : "Lund / The Salt Almanac / 187";
+        engine === "v3" ? "Chapter opening" : "Lund / The Salt Road / 187";
       openingP.dataset.open = opening;
       fnNote.hidden = !fnOpen;
       fnBtn.setAttribute("aria-expanded", String(fnOpen));
@@ -618,8 +485,8 @@
         b.setAttribute("aria-pressed", String(b.dataset.bookOpen === opening));
       readout.textContent =
         engine === "v3"
-          ? `Engine 3 · Source Serif 4 · ${TRIM_LABELS[trim]} · Mirrored gutters · ${view === "spread" ? "Facing spreads" : "Single page"}`
-          : "Engine 2 · Courier Prime · US Letter · Double-spaced manuscript";
+          ? `Engine 3 · Source Serif 4 · ${TRIM_LABELS[trim]} · ${view === "spread" ? "Facing spreads" : "Single page"}`
+          : "Engine 2 · Courier Prime · US Letter manuscript";
     };
 
     for (const b of all("[data-book-engine]", bookRoot))
@@ -649,15 +516,15 @@
     renderBook();
   }
 
-  // ---------- 6. Playground 3: Interactive Game Script & Ink Runner ----------
-  const inkRoot = doc.querySelector("[data-pg-ink]");
+  // ---------- 4. Instrument 2: Interactive Ink & Game Script Studio (replaces static vignette in #write-games) ----------
+  const inkRoot = doc.querySelector("[data-inst-ink]");
   if (inkRoot) {
-    inkRoot.hidden = false;
     const logEl = inkRoot.querySelector("[data-ink-log]");
     const choicesEl = inkRoot.querySelector("[data-ink-choices]");
     const varsEl = inkRoot.querySelector("[data-ink-vars]");
     const backBtn = inkRoot.querySelector("[data-ink-back]");
     const restartBtn = inkRoot.querySelector("[data-ink-restart]");
+    const countEl = inkRoot.querySelector("[data-ink-visited]");
     const rows = all("[data-ink-line]", inkRoot);
 
     const NODES = {
@@ -668,7 +535,7 @@
           {
             label: "Trim the wick",
             gate: (s) => s.oil > 0,
-            gateHint: "Requires {oil > 0}",
+            gateHint: "{oil > 0}",
             line: 5,
             run: (s) => ({
               ...s,
@@ -733,7 +600,7 @@
       },
       bell: {
         line: 11,
-        text: "A single brass stroke carries into the fog. Seconds later, a distant foghorn answers twice.",
+        text: "A single brass stroke carries into the fog. A moment later, a distant foghorn answers twice.",
         choices: [
           {
             label: "Return to the sill",
@@ -763,12 +630,13 @@
         const ln = Number(r.dataset.inkLine);
         r.dataset.visited = String(s.visited.includes(ln));
       }
+      if (countEl) countEl.textContent = `${s.visited.length} lines visited`;
       choicesEl.innerHTML = "";
       def.choices.forEach((c, idx) => {
         const allowed = c.gate ? c.gate(s) : true;
         const btn = doc.createElement("button");
         btn.type = "button";
-        btn.className = "pg-choice-btn";
+        btn.className = "inst-choice-btn";
         btn.disabled = !allowed;
         const left = doc.createElement("span");
         left.textContent = `${idx + 1}. ${c.label}`;
@@ -796,11 +664,11 @@
         ["logged", s.logged],
         ["bell", s.bell],
       ]) {
-        const chip = doc.createElement("span");
-        chip.className = "pg-var-chip";
-        if (s.flash === k) chip.dataset.flash = "true";
-        chip.textContent = `${k} = ${v}`;
-        varsEl.append(chip);
+        const item = doc.createElement("span");
+        item.className = "inst-var-item";
+        if (s.flash === k) item.dataset.flash = "true";
+        item.textContent = `${k}=${v}`;
+        varsEl.append(item);
       }
     };
 
@@ -823,11 +691,10 @@
     renderInk();
   }
 
-  // ---------- 7. Playground 4: Revision Colour & 12A Lock Sandbox ----------
-  const revRoot = doc.querySelector("[data-pg-rev]");
+  // ---------- 5. Instrument 3: Locked Page & Revision Colour Studio (sole stage in #revisions) ----------
+  const revRoot = doc.querySelector("[data-inst-rev]");
   const colourList = doc.querySelector(".colours[data-rev-chips]");
   if (revRoot && colourList) {
-    revRoot.hidden = false;
     const REVS = [
       { id: "white", name: "White", bg: "#ffffff", edge: "#878178" },
       { id: "blue", name: "Blue", bg: "#e7f1fc", edge: "#1f63b5" },
@@ -847,6 +714,7 @@
     const head12 = revRoot.querySelector("[data-rev-head12]");
     const head12a = revRoot.querySelector("[data-rev-head12a]");
     const addedLine = revRoot.querySelector("[data-rev-added]");
+    const banner = revRoot.querySelector("[data-rev-banner]");
     const toggleBtn = revRoot.querySelector("[data-rev-overflow]");
     const readout = revRoot.querySelector("[data-rev-readout]");
 
@@ -859,11 +727,11 @@
       li.innerHTML = "";
       const btn = doc.createElement("button");
       btn.type = "button";
-      btn.className = "pg-rev-chip";
+      btn.className = "inst-rev-chip";
       btn.setAttribute("role", "radio");
       btn.dataset.revId = r.id;
       const dot = doc.createElement("span");
-      dot.className = "pg-rev-swatch";
+      dot.className = "inst-rev-swatch";
       dot.style.setProperty("--rc", r.bg);
       dot.setAttribute("aria-hidden", "true");
       const lbl = doc.createElement("span");
@@ -887,14 +755,14 @@
           String(b.dataset.revId === activeRev.id),
         );
       const stamp = `${activeRev.name} Rev. (28 Nov 2026)`;
+      if (banner)
+        banner.textContent = `The Long Night · ${activeRev.name.toUpperCase()} revision · ${overflow ? "14" : "13"} pages revised`;
       head12.textContent = overflow ? stamp : "White Production Draft";
       head12a.textContent = stamp;
       addedLine.hidden = !overflow;
       sheet12a.hidden = !overflow;
       toggleBtn.setAttribute("aria-pressed", String(overflow));
-      toggleBtn.textContent = overflow
-        ? "Undo added line (remove 12A)"
-        : "Add line to locked Page 12";
+      toggleBtn.textContent = overflow ? "Undo added line" : "Add line → 12A";
       for (const s of [sheet12, sheet12a]) {
         s.style.setProperty("--rev-edge", activeRev.edge);
         if (dark) s.style.removeProperty("--rev-bg");
@@ -902,112 +770,19 @@
           s.style.setProperty("--rev-bg", overflow ? activeRev.bg : "#ffffff");
       }
       readout.textContent = overflow
-        ? `Page 12 revised (${activeRev.name}) → overflow pushed to 12A · Page 13 stays 13.`
-        : "Undone: asterisk cleared and 12A removed · Page 13 stays 13.";
+        ? `Page 12 · ${activeRev.name} → overflow pushed to 12A`
+        : "Undone · Asterisk cleared, 12A removed";
     };
 
     toggleBtn.addEventListener("click", () => {
       overflow = !overflow;
       renderRev();
     });
+    onThemeChangeListeners.push(renderRev);
     renderRev();
   }
 
-  // ---------- 8. Playground 5: Dedicated Version History & Minimap Scrubber ----------
-  const histRoot = doc.querySelector("[data-pg-hist]");
-  if (histRoot) {
-    histRoot.hidden = false;
-    const sheet = histRoot.querySelector("[data-hist-sheet]");
-    const map = histRoot.querySelector("[data-hist-map]");
-    const readout = histRoot.querySelector("[data-hist-readout]");
-
-    const SNAPS = {
-      now: {
-        label: "Working · Now",
-        changed: [],
-        was: "IDA: Then I'll be the first. Cast off when I say.",
-        now: "IDA: Then I'll be the first. Cast off when I say.",
-        summary:
-          "Read-only preview of Working · Now — live editor stays preserved underneath.",
-      },
-      morning: {
-        label: "Today 11:40",
-        changed: [2, 5],
-        was: "IDA: Then I'll be the first.",
-        now: "IDA: Then I'll be the first. Cast off when I say.",
-        summary:
-          "2 scenes changed since Today 11:40 — green Minimap ticks jump straight to each edit.",
-      },
-      studio: {
-        label: "★ Studio",
-        changed: [1, 2, 4, 5, 7],
-        was: "MAREN: No one has crossed since the fog.  IDA: Then I'll be the first.",
-        now: "MAREN: Nobody's logged a crossing since the fog came in.  IDA: Then I'll be the first. Cast off when I say.",
-        summary:
-          "5 scenes changed since ★ Studio — Restore saves today's script first as 'Before restore'.",
-      },
-    };
-    let snapKey = "studio";
-    let mode = "page";
-
-    const renderHist = () => {
-      const s = SNAPS[snapKey];
-      for (const b of all("[data-hist-snap]", histRoot))
-        b.setAttribute("aria-pressed", String(b.dataset.histSnap === snapKey));
-      for (const b of all("[data-hist-mode]", histRoot))
-        b.setAttribute("aria-pressed", String(b.dataset.histMode === mode));
-
-      sheet.innerHTML = "";
-      if (mode === "side") {
-        const split = doc.createElement("div");
-        split.className = "pg-hist-split";
-        const a = doc.createElement("div");
-        a.innerHTML = `<strong>${s.label}</strong><p>${s.was}</p>`;
-        const b = doc.createElement("div");
-        b.innerHTML = `<strong>Working · Now</strong><p>${s.now}</p>`;
-        split.append(a, b);
-        sheet.append(split);
-      } else if (mode === "aswas") {
-        sheet.innerHTML = `<strong>${s.label} (read-only)</strong><p>${s.was}</p>`;
-      } else if (mode === "asterisks") {
-        const mark =
-          s.changed.length > 0 ? '<span class="pg-rev-ast">*</span>' : "";
-        sheet.innerHTML = `<strong>Asterisks only</strong><p>${mark}${s.now}</p>`;
-      } else if (snapKey === "now") {
-        sheet.innerHTML = `<strong>On the page</strong><p>${s.now}</p>`;
-      } else if (snapKey === "morning") {
-        sheet.innerHTML =
-          '<strong>On the page</strong><p>IDA: Then I\'ll be the first. <span class="pg-diff-add">Cast off when I say.</span></p>';
-      } else {
-        sheet.innerHTML =
-          '<strong>On the page</strong><p>MAREN: <span class="pg-diff-del">No one has crossed since the fog.</span> <span class="pg-diff-add">Nobody\'s logged a crossing since the fog came in.</span> IDA: Then I\'ll be the first. <span class="pg-diff-add">Cast off when I say.</span></p>';
-      }
-
-      map.innerHTML = "";
-      for (let i = 1; i <= 8; i++) {
-        const tick = doc.createElement("span");
-        tick.className = "pg-tick";
-        if (i === 1 || i === 5) tick.dataset.wide = "true";
-        if (s.changed.includes(i)) tick.dataset.changed = "true";
-        map.append(tick);
-      }
-      readout.textContent = s.summary;
-    };
-
-    for (const b of all("[data-hist-snap]", histRoot))
-      b.addEventListener("click", () => {
-        snapKey = b.dataset.histSnap;
-        renderHist();
-      });
-    for (const b of all("[data-hist-mode]", histRoot))
-      b.addEventListener("click", () => {
-        mode = b.dataset.histMode;
-        renderHist();
-      });
-    renderHist();
-  }
-
-  // ---------- 9. Playground 6: Live Contextual ⌘K Command Palette Dialog ----------
+  // ---------- 6. Contextual ⌘K Command Palette Dialog ----------
   const palDialog = doc.getElementById("pg-palette-dialog");
   if (palDialog) {
     const openers = all("[data-pg-palette-open]");
@@ -1186,7 +961,7 @@
           id: "set-dark",
           group: "Settings here",
           scope: "settings",
-          label: "Dark mode (live on this page)",
+          label: "Dark mode",
           toggle: activeScheme === "dark",
           run: () => {
             setSiteTheme(
@@ -1201,7 +976,7 @@
           id: "set-pal",
           group: "Settings here",
           scope: "settings",
-          label: "Cycle Studio palette (live on this page)",
+          label: "Cycle Studio palette",
           hint: PALETTES.find((p) => p.id === activePalette)?.name || "Studio",
           run: () => {
             const idx = PALETTES.findIndex((p) => p.id === activePalette);
@@ -1215,7 +990,7 @@
           group: "Settings here",
           scope: "settings",
           label: "Lines per page",
-          hint: "Try typing: lines 52",
+          hint: "Try: lines 52",
           keywords: "lines 52 54 55",
           run: (val) => toastPal(`Lines per page set to ${val || 54} · Undo`),
         },
@@ -1224,32 +999,16 @@
           group: "Settings here",
           scope: "settings",
           label: "Target length",
-          hint: "Try typing: target 110",
+          hint: "Try: target 110",
           keywords: "target 110 pages",
           run: (val) =>
             toastPal(`Target length set to ${val || 110} pages · Undo`),
         },
         {
-          id: "go-offline",
-          group: "Go to",
-          scope: "goto",
-          label: "Jump to: Never lose a word (Offline)",
-          hint: "#never-lose",
-          run: () => jumpSection("#never-lose"),
-        },
-        {
-          id: "go-books",
-          group: "Go to",
-          scope: "goto",
-          label: "Jump to: Book publishing (Engine 3)",
-          hint: "#write-books",
-          run: () => jumpSection("#write-books"),
-        },
-        {
           id: "go-compare",
           group: "Go to",
           scope: "goto",
-          label: "Open: Compare 11 script tools",
+          label: "Compare 11 script tools",
           hint: "compare.html",
           run: () => (location.href = "compare.html"),
         },
@@ -1257,7 +1016,7 @@
           id: "go-ds",
           group: "Go to",
           scope: "goto",
-          label: "Open: Design system & 24 themes",
+          label: "Design system & 24 studio themes",
           hint: "design-system.html",
           run: () => (location.href = "design-system.html"),
         },
@@ -1273,13 +1032,12 @@
           id: "scr-2",
           group: "Scripts",
           scope: "scripts",
-          label: "The Salt Almanac (Book · Engine 3)",
+          label: "The Salt Road (Book · Engine 3)",
           hint: "412 pp.",
           run: () => jumpSection("#write-books"),
         },
       ];
 
-      // Power-user trailing numeric prefill (e.g. "lines 52", "target 110")
       const numMatch = /^(lines|target)\s+(\d+)$/i.exec(q);
       if (numMatch) {
         const [, kind, num] = numMatch;
@@ -1292,7 +1050,7 @@
             label: isLines
               ? `Set Lines per page to ${num}`
               : `Set Target length to ${num} pages`,
-            hint: "Press Enter · Undoable",
+            hint: "Enter · Undoable",
             run: () => {
               palDialog.close();
               toastPal(
@@ -1305,7 +1063,6 @@
         ];
       }
 
-      // Exact page / scene jumps ("page 12", "scene 4")
       const jumpMatch = /^(page|p|scene|sc)\s+(\d+)$/i.exec(q);
       if (jumpMatch) {
         const [, kind, num] = jumpMatch;
@@ -1468,13 +1225,13 @@
     });
   }
 
-  // ---------- 10. Compare.html progressive filter & expand-notes toolbar ----------
-  const cmpTools = doc.querySelector("[data-cmp-tools]");
-  if (cmpTools) {
-    cmpTools.hidden = false;
-    const search = cmpTools.querySelector("[data-cmp-search]");
-    const diffBtn = cmpTools.querySelector("[data-cmp-diff]");
-    const countEl = cmpTools.querySelector("[data-cmp-count]");
+  // ---------- 7. compare.html static filter bar & quiet section-head note toggles ----------
+  const cmpBar = doc.querySelector("[data-cmp-bar]");
+  if (cmpBar) {
+    cmpBar.hidden = false;
+    const search = cmpBar.querySelector("[data-cmp-search]");
+    const diffBtn = cmpBar.querySelector("[data-cmp-diff]");
+    const countEl = cmpBar.querySelector("[data-cmp-count]");
     const tables = all(".compare-table");
     let diffOnly = false;
 
@@ -1505,7 +1262,7 @@
       diffBtn.setAttribute("aria-pressed", String(diffOnly));
       countEl.textContent =
         shown === total
-          ? `${total} feature rows across 5 categories`
+          ? `${total} rows across 5 categories`
           : `Showing ${shown} of ${total} rows`;
     };
 
@@ -1516,25 +1273,22 @@
     });
 
     for (const section of all("section.named")) {
-      const sheet = section.querySelector(".sheet-table");
-      if (!sheet) continue;
-      const barWrap = doc.createElement("div");
-      barWrap.className = "cmp-table-bar";
+      const head = section.querySelector(".section-head");
+      if (!head) continue;
       const btn = doc.createElement("button");
       btn.type = "button";
-      btn.className = "pg-pill-btn";
+      btn.className = "cmp-notes-toggle";
       btn.setAttribute("aria-pressed", "false");
-      btn.textContent = "Show all notes in this table";
+      btn.textContent = "Expand all notes in this table";
       btn.addEventListener("click", () => {
         const open = btn.getAttribute("aria-pressed") !== "true";
         btn.setAttribute("aria-pressed", String(open));
         btn.textContent = open
-          ? "Hide notes in this table"
-          : "Show all notes in this table";
+          ? "Collapse notes in this table"
+          : "Expand all notes in this table";
         for (const d of all("details.m-note", section)) d.open = open;
       });
-      barWrap.append(btn);
-      sheet.before(barWrap);
+      head.append(btn);
     }
 
     filterRows();
