@@ -3,6 +3,7 @@ import { ENGINE_VERSION } from "@manent/pagination";
 import type { UpdateState } from "@manent/sync-protocol";
 import {
   APPEARANCE_STUDIO_WORDS,
+  BRAND_WORDS,
   BusyButton,
   Button,
   DESKTOP_WORDS,
@@ -13,6 +14,7 @@ import {
 } from "@manent/ui";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useCleanWorkspace } from "../../demo/demo-mode.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DesktopDevice } from "./desktop-device.tsx";
 import { Fact, Group } from "./device-group.tsx";
@@ -155,11 +157,14 @@ export function About(props: { desktop: DesktopDevice | null }): ReactNode {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const pledgeId = useId();
   const creditsId = useId();
+  const cleanWorkspace = useCleanWorkspace();
   const version =
     typeof MANENT_VERSION === "undefined" ? UNVERSIONED : MANENT_VERSION;
   const versionLine =
     version === UNVERSIONED
-      ? PREFERENCES_WORDS.unversioned
+      ? cleanWorkspace
+        ? BRAND_WORDS.name
+        : PREFERENCES_WORDS.unversioned
       : PREFERENCES_WORDS.version(version);
   return (
     <Group heading={PREFERENCES_WORDS.about}>

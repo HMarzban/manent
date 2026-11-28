@@ -19,6 +19,7 @@ export function bootScript(values: {
   global: DesktopGlobal;
   boot: readonly FirstPaintWrite[];
   session: string | null;
+  demoDismissed?: boolean;
 }): string {
   const lines = [
     `window.manentDesktop = Object.freeze(${literal(values.global)});`,
@@ -27,6 +28,10 @@ export function bootScript(values: {
   if (values.session !== null)
     lines.push(
       `try { window.sessionStorage.setItem("manent.demo.session", ${literal(values.session)}); } catch (_) {}`,
+    );
+  if (values.demoDismissed === true)
+    lines.push(
+      'try { window.localStorage.setItem("manent.workspace.clean", "1"); } catch (_) {}',
     );
   return lines.join("\n");
 }

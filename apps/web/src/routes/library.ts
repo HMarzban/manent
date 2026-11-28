@@ -9,6 +9,7 @@ import {
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
 import type { MeResult } from "../api.ts";
+import { useCleanWorkspace } from "../demo/demo-mode.ts";
 import { readNodeCloud } from "../desktop/node-cloud.ts";
 import { firstRunPath, loadScreen } from "../router.tsx";
 import { ChooseRoutePending } from "../screens/choose/choose-skeleton.tsx";
@@ -134,11 +135,12 @@ export function libraryRoutes(
     },
     component: function Library() {
       const person = usePerson((s) => s.person);
+      const cleanWorkspace = useCleanWorkspace();
       const desktop = deps.desktop === true;
       return createElement(
         Fragment,
         null,
-        person !== null && (desktop || person.token === null)
+        person !== null && !cleanWorkspace && (desktop || person.token === null)
           ? createElement(FirstRun, {
               desktop,
               fetch: deps.fetch,

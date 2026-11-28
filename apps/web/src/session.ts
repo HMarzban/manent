@@ -8,6 +8,10 @@ import { isStandalone } from "./platform.ts";
 export const SESSION_KEY = "manent.demo.session";
 export const LAST_PERSON_KEY = "manent.last.session";
 export const SIGN_IN_CHOICES_KEY = "manent.sign-in.choices";
+export const CLEAN_WORKSPACE_KEY = "manent.workspace.clean";
+const SEED_KEY = "manent.seed";
+const DEMO_CONNECTION_KEY = "manent.demo.connection";
+const TOUR_ACTIVE_STORAGE_KEY = "manent.demo.tour.active";
 
 export interface TabPerson {
   /** Null for a person who has not signed in. */
@@ -189,6 +193,64 @@ export function writeCachedChoices(
   } catch {
     // storage refused: best effort
   }
+}
+
+/** True when the writer dismissed Demo and Tour to work in a clean workspace. */
+export function readCleanWorkspaceFlag(storage?: TabStorage | null): boolean {
+  const source = storage !== undefined ? storage : safeLocalStorage();
+  try {
+    return source?.getItem(CLEAN_WORKSPACE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Persists or clears the clean-workspace choice in localStorage. */
+export function writeCleanWorkspaceFlag(
+  enabled: boolean,
+  storage?: TabStorage | null,
+): void {
+  const target = storage !== undefined ? storage : safeLocalStorage();
+  try {
+    if (enabled) target?.setItem(CLEAN_WORKSPACE_KEY, "1");
+    else target?.removeItem(CLEAN_WORKSPACE_KEY);
+  } catch {
+    // storage refused: keep for this page load only
+  }
+}
+
+/** Clears remembered demo seed and tab connection throttle when leaving Demo mode. */
+export function clearDemoStorageState(options?: {
+  local?: TabStorage | null;
+  session?: TabStorage | null;
+}): void {
+  const local =
+    options?.local !== undefined ? options.local : safeLocalStorage();
+  const session =
+    options?.session !== undefined ? options.session : tabStorage();
+  try {
+    local?.removeItem(SEED_KEY);
+  } catch {
+    // storage refused
+  }
+  try {
+    session?.removeItem(DEMO_CONNECTION_KEY);
+    session?.removeItem(TOUR_ACTIVE_STORAGE_KEY);
+  } catch {
+    // storage refused
+  }
+}
+
+/** Subscribes to cross-tab changes of the clean-workspace flag in localStorage. */
+export function subscribeCleanWorkspaceStorage(
+  listener: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (event: StorageEvent): void => {
+    if (event.key === null || event.key === CLEAN_WORKSPACE_KEY) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
 }
 
 /** The person this tab still is: only the server saying no signs a tab out; one who never signed in is not asked about. */

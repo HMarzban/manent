@@ -3,6 +3,7 @@ import type { SignInChoice } from "@manent/sync-protocol";
 import {
   ActivePaletteGem,
   CHOOSE_WORDS,
+  cleanSpotlightFor,
   pillarsFor,
   tourTipFor,
 } from "@manent/ui";
@@ -39,11 +40,12 @@ function MiniatureSheet(props: {
   choice: SignInChoice;
   copy: ChooseSpotlightCopy;
   coWriters: readonly string[];
+  blankOverride?: boolean;
 }): ReactNode {
-  const { choice, copy, coWriters } = props;
+  const { choice, copy, coWriters, blankOverride = false } = props;
   const id = choice.userId;
 
-  if (id === "ana") {
+  if (!blankOverride && id === "ana") {
     return (
       <div className="mn-choose-sheet">
         <div className="mn-choose-sheet-top">
@@ -71,7 +73,7 @@ function MiniatureSheet(props: {
     );
   }
 
-  if (!choice.registered || id === "you") {
+  if (blankOverride || !choice.registered || id === "you") {
     return (
       <div className="mn-choose-sheet" data-blank="true">
         <div className="mn-choose-sheet-top">
@@ -148,10 +150,16 @@ function MiniatureSheet(props: {
 export function PersonaSpotlight(props: {
   choice: SignInChoice;
   choices: readonly SignInChoice[];
+  cleanSpotlight?: boolean;
 }): ReactNode {
-  const { choice, choices } = props;
-  const copy = copyFor(choice);
-  const rev = revisionFor(choice.userId);
+  const { choice, choices, cleanSpotlight = false } = props;
+  const onDesktop = useEnvironment().where.shell === "desktop";
+  const copy = cleanSpotlight ? cleanSpotlightFor(onDesktop) : copyFor(choice);
+  const rev = cleanSpotlight ? "white" : revisionFor(choice.userId);
+  const spotlightKey = cleanSpotlight ? "__clean__" : choice.userId;
+  const spotlightName = cleanSpotlight
+    ? CHOOSE_WORDS.cleanWorkspaceName
+    : choice.name;
   const coWriters = choices
     .filter((c) => c.registered)
     .slice(0, 2)
@@ -187,7 +195,7 @@ export function PersonaSpotlight(props: {
         <div className="mn-choose-desk" aria-hidden="true">
           <div className="mn-pages">
             <div
-              key={choice.userId}
+              key={spotlightKey}
               className="mn-choose-stack animate-in fade-in-0 slide-in-from-bottom-1 duration-(--dur-fast) ease-out"
             >
               <div className="mn-choose-sheet-back-2" />
@@ -196,18 +204,19 @@ export function PersonaSpotlight(props: {
                 choice={choice}
                 copy={copy}
                 coWriters={coWriters}
+                blankOverride={cleanSpotlight}
               />
             </div>
           </div>
         </div>
 
         <div
-          key={choice.userId}
+          key={spotlightKey}
           className="flex flex-col gap-2.5 border-t border-line bg-raised px-4 py-3.5 animate-in fade-in-0 duration-(--dur-fast) ease-out"
         >
           <div className="flex items-baseline justify-between gap-2">
             <span className="truncate text-ui font-semibold text-fg">
-              {choice.name}
+              {spotlightName}
             </span>
             <span className="shrink-0 text-micro text-fg-muted">
               {copy.workspaceSummary}

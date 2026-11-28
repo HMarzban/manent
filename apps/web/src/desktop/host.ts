@@ -20,6 +20,8 @@ export interface DesktopHost {
     mode: "online" | "offline" | "slow",
     delayMs: number,
   ): Promise<void>;
+  /** POST /api/local/demo-mode: persists whether Demo and Tour are dismissed across restarts. */
+  setDemoMode?(dismissed: boolean): Promise<void>;
   /** GET /api/local/storage; null when the node does not answer. */
   storage(): Promise<{ scripts: number; bytes: number } | null>;
 }
@@ -99,6 +101,9 @@ export function readDesktopHost(
     openFiles: () => send({ v: 1, t: "open_files" }),
     async setConnection(mode, delayMs) {
       await post("/api/local/connection", { mode, delayMs });
+    },
+    async setDemoMode(dismissed) {
+      await post("/api/local/demo-mode", { dismissed });
     },
     async storage() {
       try {

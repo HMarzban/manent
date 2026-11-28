@@ -86,7 +86,7 @@ export function createReseed(options: {
   let queuedSeed: string | null = null;
 
   async function perform(seedId: string): Promise<void> {
-    if (records.seedId() === seedId) return;
+    if (records.demoDismissed() || records.seedId() === seedId) return;
     const { directory } = storage;
     const docIds: string[] = [];
     for (const home of directory.homes())
@@ -136,6 +136,7 @@ export function createReseed(options: {
 
   async function check(): Promise<void> {
     await wait();
+    if (records.demoDismissed()) return;
     let seedId: string | null;
     try {
       ({ seedId } = await cloud.demo());

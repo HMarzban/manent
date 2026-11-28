@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "./api.ts";
 import { DemoBar } from "./demo/demo-bar.tsx";
+import { clearTourUiState, useCleanWorkspace } from "./demo/demo-mode.ts";
 import { ResettingScreen, useResetting } from "./demo/resetting-screen.tsx";
 import { useDemo, useServerState } from "./demo/use-demo.ts";
 import { DesktopTitleBar } from "./desktop/desktop-title-bar.tsx";
@@ -33,11 +34,19 @@ export function RootLayout(props: {
   const person = usePerson((s) => s.person);
   const router = useRouter();
   const location = useRouterState({ select: (s) => s.location });
-  const { demo, control } = useDemo({ api, fetch: props.fetch });
+  const cleanWorkspace = useCleanWorkspace();
+  const { demo, control } = useDemo({
+    api,
+    fetch: props.fetch,
+    disabled: cleanWorkspace,
+  });
   const { resetting, reseeded } = useResetting(
     useServerState(control),
     demo?.seedId ?? null,
   );
+  useEffect(() => {
+    if (cleanWorkspace) clearTourUiState();
+  }, [cleanWorkspace]);
   const isAbout = location.pathname === "/about";
   const bare = useShellScreen().page === "bare" || isAbout;
   const navigation = useMemo(

@@ -1,12 +1,11 @@
 // The node's records in records.sqlite: one statement per question, every change of two rows in one transaction.
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import type { RecoveredItem } from "@manent/sync-client";
 import { HANDOFF_REFUSALS } from "@manent/sync-client";
+import { RECORDS_VERSION, openRecordsFile } from "./open.ts";
 import type { Handoff, NodeDocState, NodeRecords, Person } from "./ports.ts";
-import { SCHEMA } from "./schema.ts";
 
-/** `PRAGMA user_version` of records.sqlite. */
-export const RECORDS_VERSION = 1;
+export { RECORDS_VERSION };
 
 const SECRET_BYTES = 32;
 
@@ -97,29 +96,6 @@ const toRecovered = (row: RecoveredRow): RecoveredItem => ({
   theirs: null,
   otherClientIds: [],
 });
-
-/** The connection settings of every store file; a file from a newer version is closed untouched first. */
-function openRecordsFile(path: string): Database {
-  const db = new Database(path, { create: true, strict: true });
-  const version =
-    db.query<{ user_version: number }, []>("PRAGMA user_version").get()
-      ?.user_version ?? 0;
-  if (version > RECORDS_VERSION) {
-    db.close();
-    throw new RangeError("records from a newer version");
-  }
-  db.run("PRAGMA journal_mode = WAL");
-  db.run("PRAGMA synchronous = FULL");
-  if (process.platform === "darwin") db.run("PRAGMA fullfsync = 1");
-  db.run("PRAGMA foreign_keys = ON");
-  db.run("PRAGMA busy_timeout = 5000");
-  if (version < RECORDS_VERSION)
-    db.transaction(() => {
-      for (const statement of SCHEMA) db.run(statement);
-      db.run(`PRAGMA user_version = ${RECORDS_VERSION}`);
-    }).immediate();
-  return db;
-}
 
 /** Every statement the records run, prepared once per connection. */
 function prepare(db: Database) {
@@ -229,6 +205,12 @@ function prepare(db: Database) {
     setSeedId: db.query<never, [string | null]>(
       "INSERT INTO cloud (id, seed_id) VALUES (1, ?1) ON CONFLICT (id) DO UPDATE SET seed_id = excluded.seed_id",
     ),
+    demoDismissed: db.query<{ demoDismissed: number }, []>(
+      "SELECT demo_dismissed AS demoDismissed FROM cloud WHERE id = 1",
+    ),
+    setDemoDismissed: db.query<never, [number]>(
+      "INSERT INTO cloud (id, demo_dismissed) VALUES (1, ?1) ON CONFLICT (id) DO UPDATE SET demo_dismissed = excluded.demo_dismissed",
+    ),
   };
 }
 
@@ -247,6 +229,8 @@ function peopleRecords(
   | "setCurrent"
   | "seedId"
   | "setSeedId"
+  | "demoDismissed"
+  | "setDemoDismissed"
 > {
   return {
     secret() {
@@ -276,6 +260,10 @@ function peopleRecords(
     seedId: () => sql.seedId.get()?.seedId ?? null,
     setSeedId(seedId) {
       sql.setSeedId.run(seedId);
+    },
+    demoDismissed: () => sql.demoDismissed.get()?.demoDismissed === 1,
+    setDemoDismissed(dismissed) {
+      sql.setDemoDismissed.run(dismissed ? 1 : 0);
     },
   };
 }

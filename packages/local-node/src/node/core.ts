@@ -275,6 +275,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     reseed.check().catch(() => {});
   }
   function recover(): void {
+    if (records.demoDismissed()) return;
     rawRelay.reconnect();
     resumeCloudPeople({
       records,
@@ -307,6 +308,12 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     },
     storeUsage: options.storeUsage,
     setConnection,
+    async setDemoMode(dismissed) {
+      records.setDemoDismissed(dismissed);
+      if (!dismissed) return;
+      records.setSeedId(null);
+      await rawRelay.close();
+    },
   });
 
   const inner: ManentServer = {
@@ -334,19 +341,22 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   };
 
   const boot = options.boot;
-  resumeCloudPeople({
-    records,
-    onlyWantingCloud: false,
-    choose: cloudSessions.chosen,
-    handOver,
-  });
-  void cloudStatus.probe();
+  if (!records.demoDismissed()) {
+    resumeCloudPeople({
+      records,
+      onlyWantingCloud: false,
+      choose: cloudSessions.chosen,
+      handOver,
+    });
+    void cloudStatus.probe();
+  }
 
   const stopWake = createWakeWatch({
     clock,
     tickMs: WAKE_TICK_MS,
     gapMs: WAKE_GAP_MS,
     onWake: () => {
+      if (records.demoDismissed()) return;
       relay.reconnect();
       void cloudStatus.probe();
     },
@@ -363,6 +373,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
               bootScript({
                 ...boot(),
                 session: currentSessionJson(records),
+                demoDismissed: records.demoDismissed(),
               }),
     }),
     shell: shell.shell,

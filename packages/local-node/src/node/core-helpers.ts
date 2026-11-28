@@ -80,11 +80,25 @@ export function resumeCloudPeople(options: {
   choose: (person: Person) => void;
   handOver: (userId: string) => void;
 }): void {
+  if (options.records.demoDismissed()) return;
   for (const person of options.records.people()) {
     if (options.onlyWantingCloud && !person.wantsCloud) continue;
     if (person.wantsCloud && person.cloudToken === null) options.choose(person);
     else options.handOver(person.userId);
   }
+}
+
+export function dismissedDemoResponse(
+  request: Request,
+  records: Pick<NodeRecords, "demoDismissed">,
+): Response | null {
+  if (
+    records.demoDismissed() &&
+    request.method === "GET" &&
+    new URL(request.url).pathname === "/api/demo"
+  )
+    return Response.json({ error: "not_found" }, { status: 404 });
+  return null;
 }
 
 export async function closeNodeParts(parts: {
@@ -126,7 +140,9 @@ export function createNodeFetch(options: {
 }): ManentServer["fetch"] {
   return async (request, context) => {
     const handled =
-      (await options.routes(request)) ?? (await options.forward(request));
+      dismissedDemoResponse(request, options.records) ??
+      (await options.routes(request)) ??
+      (await options.forward(request));
     if (handled !== null) return handled;
     await options.beforeFetch(request);
     const named = await options.workspaceNamed(request);

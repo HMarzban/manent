@@ -4,6 +4,7 @@
 import type { DocHandle } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
+import { isCleanWorkspace } from "../../demo/demo-mode.ts";
 import {
   followDemoSeed,
   readDemoCached,
@@ -140,6 +141,7 @@ export async function followSeed(
   options: Pick<CommandsOptions, "api" | "storage">,
   beforeClear?: () => Promise<void>,
 ): Promise<void> {
+  if (isCleanWorkspace()) return;
   const device = await import("./device-memory.ts");
   await followDemoSeed({
     demo: () => readDemoCached(options.api),

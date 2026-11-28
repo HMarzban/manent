@@ -53,7 +53,7 @@ make demo        # without make: bun run demo
 
 It opens `http://localhost:4747`, where you will see:
 
-1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You**: You is a new person who is not signed in, so nothing syncs.
+1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You** to try live sync (**You** is local only). Or click **Start in a clean workspace** beneath the cards to remove the Demo bar and Tour and start directly in an empty personal Library (you can turn Demo and Tour back on any time in **Preferences**).
 2. **The Library.** Sam opens on his own desk, which holds four seeded projects; the others open on the Writers' room, which all five share. Click **New script**.
 3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 

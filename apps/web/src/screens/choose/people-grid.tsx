@@ -42,6 +42,7 @@ export function PeopleGrid(props: {
   chosenUserId: string | null;
   spotlightUserId: string | null;
   pendingUserId: string | null;
+  dimAll?: boolean;
   disabled: boolean;
   compact: boolean;
   onChoose(choice: SignInChoice): void;
@@ -52,6 +53,7 @@ export function PeopleGrid(props: {
     chosenUserId,
     spotlightUserId,
     pendingUserId,
+    dimAll = false,
     disabled,
     compact,
     onChoose,
@@ -70,9 +72,11 @@ export function PeopleGrid(props: {
       {choices.map((choice) => {
         const chosen = chosenUserId === choice.userId;
         const pending = pendingUserId === choice.userId;
-        const dimmed = pendingUserId !== null && !pending;
+        const dimmed = dimAll || (pendingUserId !== null && !pending);
         const spotlight =
-          spotlightUserId === choice.userId && pendingUserId === null;
+          !dimAll &&
+          spotlightUserId === choice.userId &&
+          pendingUserId === null;
         return (
           <li key={choice.userId} className="flex">
             <button

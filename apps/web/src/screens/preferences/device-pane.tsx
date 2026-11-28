@@ -24,6 +24,7 @@ import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { Environment } from "../../services/ports.ts";
 import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { DesktopGroups } from "./desktop-device.tsx";
+import { DemoRestoreGroup } from "./demo-restore-group.tsx";
 import { About } from "./device-about.tsx";
 import { Fact, Group } from "./device-group.tsx";
 import { InstallGroup } from "./device-install.tsx";
@@ -356,6 +357,7 @@ export function DevicePane(props: {
         <>
           <StoredHere standalone={standalone} hint={hint} />
           <InstallGroup standalone={standalone} hint={hint} />
+          <DemoRestoreGroup />
           <About desktop={null} />
         </>
       ) : (

@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Persist desktop-wide preferences in `local-node` rather than `localStorage` alone, and shield local workspaces from demo resets
+
+- Date: 2026-11-28
+
+### What happened
+
+During the architectural audit for Clean workspace mode (ADR 0090), two non-obvious failure modes surfaced across Web and Desktop: (1) Desktop binds `local-node` to `127.0.0.1:0` (an ephemeral loopback port per launch), so any WebView `localStorage`-only preference is lost on every Desktop restart; and (2) both Web (`followDemoSeed` in `device-trust.ts`) and Desktop (`createReseed` in `packages/local-node/src/node/reseed.ts`) wiped local storage whenever a remote demo server's `seedId` changed — which would have destroyed local-only scripts written by `You` after leaving Demo mode.
+
+### How it was caught
+
+Caught during the pre-implementation Head of Engineering and Senior Staff Engineer architecture review of `apps/desktop/src/shell/main.ts`, `packages/local-node/src/node/reseed.ts`, and `apps/web/src/services/sync/device-trust.ts`.
+
+### Rule
+
+Any preference that must survive Desktop restarts belongs in `local-node`'s `records.sqlite` (with a local route behind `createLaunchGuard` and frame-0 injection in `bootScript`) alongside `localStorage` for Web/PWA. Whenever a writer dismisses Demo mode to work locally, gate both Web `followSeed` and Desktop `createReseed` / `resumeCloudPeople` so a remote demo seed change can never wipe local user scripts.
+
+### Enforced by
+
+`packages/local-node/src/records/open.ts`, `packages/local-node/src/http/boot-script.ts`, `packages/local-node/src/http/local-routes.ts`, `packages/local-node/src/node/reseed.ts`, `apps/web/src/services/sync/device-trust.ts`, `packages/local-node/test/clean-workspace.test.ts`, and `apps/web/test/clean-workspace.dom.test.tsx`.
+
 ## Mount required UI providers inside standalone routes, avoid negative margins under `overflow-auto`, and close SSE streams on node shutdown
 
 - Date: 2026-11-28

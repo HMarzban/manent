@@ -63,5 +63,7 @@ export interface NodeRecords {
   finishHandoff(docId: string, generation: number): void;
   seedId(): string | null;
   setSeedId(seedId: string | null): void;
+  demoDismissed(): boolean;
+  setDemoDismissed(dismissed: boolean): void;
   close(): void;
 }

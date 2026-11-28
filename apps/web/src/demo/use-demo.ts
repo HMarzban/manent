@@ -71,15 +71,21 @@ export interface DemoControl {
   client: ServerControl;
 }
 
-/** Null `demo` outside demo mode or until the server answers; resets every query but the demo bar's own when the seed changes. */
-export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
+/** Null `demo` outside demo mode, while clean workspace is active, or until the server answers; resets every query but the demo bar's own when the seed changes. */
+export function useDemo(deps: {
+  api: Api;
+  fetch: typeof fetch;
+  disabled?: boolean;
+}): {
   demo: DemoResponse | null;
   control: DemoControl | null;
 } {
+  const disabled = deps.disabled === true;
   const queryClient = useQueryClient();
   const demo = useQuery({
     queryKey: [DEMO_QUERY],
     queryFn: () => readDemoCached(deps.api),
+    enabled: !disabled,
     refetchInterval: (query) => (query.state.data === null ? false : POLL_MS),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -115,7 +121,9 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
     [controlUrl, controlToken, fetchFn],
   );
 
-  return { demo: demo ?? null, control };
+  return disabled
+    ? { demo: null, control: null }
+    : { demo: demo ?? null, control };
 }
 
 /** The server's state as its control last answered, asked every POLL_MS; null without a control and before the first answer. */

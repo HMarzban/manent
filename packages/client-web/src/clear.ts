@@ -8,8 +8,8 @@ const DATABASE_PREFIX = localDatabaseName("");
 
 const KEY_PREFIX = "manent.";
 
-// the device's identity outlives a clear, so the device can still be told what it held
-const DEVICE_ID_KEY = "manent.device.id";
+// keys that outlive a browser clear: device identity and the writer's clean-workspace choice
+const KEPT_KEYS = new Set(["manent.device.id", "manent.workspace.clean"]);
 
 /** Answers null when there is no IndexedDB or the browser cannot list its databases; never opens one. */
 export async function hasLocalDatabase(
@@ -66,7 +66,7 @@ function clearKeys(storage: Storage): void {
     storage.key(index),
   );
   for (const key of keys)
-    if (key?.startsWith(KEY_PREFIX) && key !== DEVICE_ID_KEY)
+    if (key?.startsWith(KEY_PREFIX) && !KEPT_KEYS.has(key))
       storage.removeItem(key);
 }
 

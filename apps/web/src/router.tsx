@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { getActiveWebUpdate } from "./boot/sw-lifecycle.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
+import { isCleanWorkspace, setCleanWorkspace } from "./demo/demo-mode.ts";
 import { EmptyHeroCard } from "./empty-hero-card.tsx";
 import { RootLayout } from "./root-layout.tsx";
 import { ROUTE_GROUPS } from "./routes/index.ts";
@@ -204,7 +205,7 @@ export function CloseBlocker(): null {
 
 // the code the frame draws apart from the entry, deferred until idle so it never competes with first paint
 function preloadShell(): void {
-  preloadDemoBarControls();
+  if (!isCleanWorkspace()) preloadDemoBarControls();
   preloadShellPalette();
 }
 
@@ -229,6 +230,20 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
           (m) => m.routeId === "/choose" || m.routeId === "/r/$token",
         );
         if (anonymous || usePerson.getState().person !== null) return;
+        if (isCleanWorkspace()) {
+          if (deps.desktop) {
+            const signed = await api.signIn("you").catch(() => null);
+            if (signed?.ok) {
+              usePerson.getState().setPerson(signed.person);
+              return;
+            }
+          } else {
+            usePerson
+              .getState()
+              .setPerson({ token: null, userId: "you", name: "You" });
+            return;
+          }
+        }
         throw redirect({ href: chooseUrl(location.href), replace: true });
       }
       // a server that cannot be reached leaves the tab who it was
@@ -239,7 +254,10 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
           ? await api.signIn(choice.userId)
           : await choosePerson(choice, api)
         : null;
-      if (result?.ok) usePerson.getState().setPerson(result.person);
+      if (result?.ok) {
+        if (choice?.registered) setCleanWorkspace(false);
+        usePerson.getState().setPerson(result.person);
+      }
       closingPanels = params.get("panels") === "closed";
       if (closingPanels) tourActions.suppress();
       params.delete("person");

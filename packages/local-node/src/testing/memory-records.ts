@@ -19,6 +19,7 @@ interface State {
   handoffs: Map<string, Handoff>;
   recovered: Map<string, RecoveredItem[]>;
   seedId: string | null;
+  demoDismissed: boolean;
 }
 
 /** Replaced whole by `restore`, so every method reads `held.state` when it runs. */
@@ -37,6 +38,7 @@ const emptyState = (): State => ({
   handoffs: new Map(),
   recovered: new Map(),
   seedId: null,
+  demoDismissed: false,
 });
 
 const copyHandoff = (handoff: Handoff): Handoff => ({
@@ -61,6 +63,8 @@ function peopleRecords(
   | "setCurrent"
   | "seedId"
   | "setSeedId"
+  | "demoDismissed"
+  | "setDemoDismissed"
 > {
   return {
     secret() {
@@ -86,6 +90,10 @@ function peopleRecords(
     seedId: () => held.state.seedId,
     setSeedId(seedId) {
       held.state.seedId = seedId;
+    },
+    demoDismissed: () => held.state.demoDismissed,
+    setDemoDismissed(dismissed) {
+      held.state.demoDismissed = dismissed;
     },
   };
 }

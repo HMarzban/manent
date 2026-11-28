@@ -5104,6 +5104,66 @@ html[data-gems="off"] .mn-gem-only {
   color: var(--fg);
 }
 
+/* Primary Clean Workspace CTA on Choose who you are */
+.mn-choose-clean-cta {
+  position: relative;
+  min-height: 5.25rem;
+  border-radius: var(--shape-surface);
+  border: 1px solid var(--bg-accent);
+  background-color: var(--bg-accent);
+  color: var(--fg-on-accent);
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+.mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled) {
+  background-color: color-mix(in srgb, var(--bg-accent) 90%, var(--fg));
+  border-color: color-mix(in srgb, var(--bg-accent) 90%, var(--fg));
+  transform: translateY(-2px);
+}
+.mn-choose-clean-cta:not(:disabled):active {
+  transform: translateY(0) scale(0.99);
+}
+.mn-choose-clean-cta[data-dimmed="true"] {
+  opacity: 0.55;
+}
+.mn-choose-clean-cta-icon {
+  background-color: color-mix(in srgb, var(--fg-on-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fg-on-accent) 28%, transparent);
+  color: var(--fg-on-accent);
+}
+.mn-choose-clean-cta-arrow {
+  color: var(--fg-on-accent);
+  transform: translateX(0);
+  transition:
+    transform var(--dur-base) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+.mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled)
+  .mn-choose-clean-cta-arrow {
+  transform: translateX(3px);
+}
+[dir="rtl"] .mn-choose-clean-cta-arrow {
+  transform: scaleX(-1);
+}
+[dir="rtl"]
+  .mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled)
+  .mn-choose-clean-cta-arrow {
+  transform: translateX(-3px) scaleX(-1);
+}
+@media (hover: none) {
+  .mn-choose-clean-cta-arrow {
+    transform: none;
+  }
+  [dir="rtl"] .mn-choose-clean-cta-arrow {
+    transform: scaleX(-1);
+  }
+}
+
 /* Studio Desk Live Folio Preview */
 .mn-choose-folio {
   border-radius: var(--shape-surface);
@@ -5910,10 +5970,12 @@ html[data-gems="off"] .mn-gem-only {
     display: none;
   }
   .mn-choose-card:is(:hover, :focus-visible):not(:disabled),
+  .mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled),
   .mn-choose-link:is(:hover, :focus-visible) {
     border-color: var(--fg);
   }
-  .mn-choose-card[data-dimmed="true"] {
+  .mn-choose-card[data-dimmed="true"],
+  .mn-choose-clean-cta[data-dimmed="true"] {
     opacity: 0.72;
   }
   .mn-choose-desk {
@@ -5939,6 +6001,8 @@ html[data-gems="off"] .mn-gem-only {
   .mn-choose-link,
   .mn-choose-link-arrow,
   .mn-choose-card,
+  .mn-choose-clean-cta,
+  .mn-choose-clean-cta-arrow,
   .mn-choose-rail,
   .mn-choose-card .mn-avatar,
   .mn-choose-card[data-new] .mn-avatar svg,
@@ -5989,6 +6053,10 @@ html[data-gems="off"] .mn-gem-only {
   .mn-choose-link:is(:hover, :focus-visible) .mn-choose-link-arrow,
   .mn-choose-card:is(:hover, :focus-visible):not(:disabled),
   .mn-choose-card:not(:disabled):active,
+  .mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled),
+  .mn-choose-clean-cta:not(:disabled):active,
+  .mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled)
+    .mn-choose-clean-cta-arrow,
   .mn-choose-card:is(:hover, :focus-visible):not(:disabled) .mn-avatar,
   .mn-choose-card[data-new]:is(:hover, :focus-visible):not(:disabled)
     .mn-avatar
@@ -6003,6 +6071,11 @@ html[data-gems="off"] .mn-gem-only {
   }
   [dir="rtl"] .mn-palette-row[data-highlighted] .mn-palette-chevron {
     transform: rotate(180deg) !important;
+  }
+  [dir="rtl"]
+    .mn-choose-clean-cta:is(:hover, :focus-visible):not(:disabled)
+    .mn-choose-clean-cta-arrow {
+    transform: scaleX(-1) !important;
   }
 }
 
@@ -6340,6 +6413,26 @@ html[data-gems="off"] .mn-gem-only {
   .mn-choose-card[data-pending="true"] {
     border-color: Highlight;
     outline: 2px solid Highlight;
+  }
+  .mn-choose-clean-cta {
+    forced-color-adjust: none;
+    background-color: ButtonFace;
+    color: ButtonText;
+    border: 2px solid Highlight;
+  }
+  .mn-choose-clean-cta:is(:hover, :focus-visible, [data-pending="true"]):not(
+      :disabled
+    ) {
+    background-color: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  .mn-choose-clean-cta:is(:hover, :focus-visible, [data-pending="true"]):not(
+      :disabled
+    )
+    :is(.mn-choose-clean-cta-icon, .mn-choose-clean-cta-arrow) {
+    color: HighlightText;
+    border-color: HighlightText;
   }
   .mn-choose-sheet {
     background-color: Canvas;

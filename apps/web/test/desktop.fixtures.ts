@@ -30,6 +30,7 @@ export function fakeHost(overrides: Partial<DesktopHost> = {}): FakeHost {
     openInBrowser: () => sent.push({ v: 1, t: "open_in_browser" }),
     openFiles: () => sent.push({ v: 1, t: "open_files" }),
     setConnection: async () => {},
+    setDemoMode: async () => {},
     storage: async () => null,
     ...overrides,
     sent,

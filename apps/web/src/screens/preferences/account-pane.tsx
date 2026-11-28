@@ -21,6 +21,7 @@ import {
   SettingsCard,
   SettingsNotice,
 } from "../../settings-shell/settings-card.tsx";
+import { DemoRestoreCard } from "./demo-restore-group.tsx";
 
 /** In the demo, the person and their title, read-only, with Switch person. */
 function DemoPerson(): ReactNode {
@@ -130,6 +131,7 @@ export function AccountPane(props: {
         </SettingsNotice>
       ) : null}
       <WorkspacesCard onOpenWorkspace={props.onOpenWorkspace} />
+      <DemoRestoreCard />
       <SignOutDialogHost />
     </>
   );

@@ -37,6 +37,14 @@ function readConnection(
   return { mode: known, delayMs };
 }
 
+function readDemoMode(body: unknown): { dismissed: boolean } | null {
+  if (typeof body !== "object" || body === null || !("dismissed" in body))
+    return null;
+  return typeof body.dismissed === "boolean"
+    ? { dismissed: body.dismissed }
+    : null;
+}
+
 /** What each entry of `LOCAL_ROUTES` is given. */
 export interface LocalRouteContext {
   records: NodeRecords;
@@ -48,6 +56,7 @@ export interface LocalRouteContext {
   onFocus(): void;
   storeUsage(): { scripts: number; bytes: number };
   setConnection(mode: "online" | "offline" | "slow", delayMs: number): void;
+  setDemoMode?(dismissed: boolean): Promise<void> | void;
   cloudStatus(): LocalCloudStatus;
   probeCloud?(): Promise<void>;
   clientOf(userId: string): SyncClient | null;
@@ -112,6 +121,19 @@ const connectionRoutes = (
   },
 });
 
+const demoModeRoutes = (
+  context: LocalRouteContext,
+): Record<string, LocalRoute> => ({
+  async "POST /api/local/demo-mode"(request) {
+    const parsed = readDemoMode(await request.json().catch(() => null));
+    if (parsed === null) return failure("bad_request", 400);
+    if (context.setDemoMode !== undefined)
+      await context.setDemoMode(parsed.dismissed);
+    else context.records.setDemoDismissed(parsed.dismissed);
+    return noContent();
+  },
+});
+
 /** The node's own routes, one entry per feature, each keyed `<METHOD> <path>`. */
 export const LOCAL_ROUTES: readonly ((
   context: LocalRouteContext,
@@ -120,6 +142,7 @@ export const LOCAL_ROUTES: readonly ((
   focusRoutes,
   storageRoutes,
   connectionRoutes,
+  demoModeRoutes,
   prompterFilesRoutes,
   mosLanRelayRoutes,
   exportFilesRoutes,

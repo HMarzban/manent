@@ -14,6 +14,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { Api } from "../api.ts";
 import { AiPledge } from "../account/ai-pledge.tsx";
+import { enterCleanWorkspace, restoreDemoMode } from "../demo/demo-mode.ts";
 import { focusHeading } from "../focus.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { CloseGuard } from "../services/sync/close-guard.ts";
@@ -23,6 +24,7 @@ import { FactsContext } from "../state/bridge-contexts.ts";
 import type { TabPerson } from "../session.ts";
 import { TEXT, chooseHintFor, pageTitle } from "../text.ts";
 import { ChooseBodySkeleton } from "./choose/choose-skeleton.tsx";
+import { CleanWorkspaceCta } from "./choose/clean-workspace-cta.tsx";
 import { PeopleGrid } from "./choose/people-grid.tsx";
 import {
   PersonaSpotlight,
@@ -99,7 +101,7 @@ function useChooser(
   guard: RefObject<CloseGuard | null>,
 ) {
   const navigate = useNavigate();
-  const { where } = useEnvironment();
+  const { where, desktop } = useEnvironment();
   const [unreachable, setUnreachable] = useState(false);
 
   const choices = useQuery({
@@ -114,19 +116,37 @@ function useChooser(
       where.shell === "desktop"
         ? api.signIn(choice.userId)
         : choosePerson(choice, api),
-    onSuccess: async (result) => {
+    onSuccess: async (result, choice) => {
       setUnreachable(!result.ok && result.reason === "unreachable");
       if (!result.ok) {
         if (result.reason === "unknown_user") await choices.refetch();
         return;
       }
       if (!(await mayLeave(guard.current))) return;
+      if (choice.registered) restoreDemoMode(desktop);
       setPerson(result.person);
       await navigate({ href: next });
     },
   });
 
-  return { choices, choose, unreachable };
+  const clean = useMutation({
+    mutationFn: (choice: SignInChoice) =>
+      enterCleanWorkspace({
+        choice,
+        api,
+        desktop: where.shell === "desktop" ? desktop : null,
+        mayLeave: () => mayLeave(guard.current),
+        setPerson,
+        navigateHome: () => navigate({ href: "/", replace: true }),
+      }),
+    onSuccess: async (result) => {
+      setUnreachable(!result.ok && result.reason === "unreachable");
+      if (!result.ok && result.reason === "unknown_user")
+        await choices.refetch();
+    },
+  });
+
+  return { choices, choose, clean, unreachable };
 }
 
 export function ChooseScreen(props: {
@@ -143,8 +163,9 @@ export function ChooseScreen(props: {
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const [loadingSince] = useState(now);
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
+  const [cleanSpotlight, setCleanSpotlight] = useState(false);
   const guard = useRef<CloseGuard | null>(null);
-  const { choices, choose, unreachable } = useChooser(
+  const { choices, choose, clean, unreachable } = useChooser(
     api,
     setPerson,
     next,
@@ -168,9 +189,11 @@ export function ChooseScreen(props: {
     list.find((c) => c.userId === (hoveredUserId ?? person?.userId)) ??
     list[0] ??
     null;
+  const youChoice = list.find((c) => !c.registered);
   const pendingUserId = choose.isPending
     ? (choose.variables?.userId ?? null)
     : null;
+  const busy = choose.isPending || clean.isPending;
   const showStudio =
     !compact && state.kind === "ready" && activeChoice !== null;
 
@@ -190,15 +213,36 @@ export function ChooseScreen(props: {
             chosenUserId={person?.userId ?? null}
             spotlightUserId={hoveredUserId}
             pendingUserId={pendingUserId}
-            disabled={choose.isPending}
+            dimAll={clean.isPending}
+            disabled={busy}
             compact={compact}
             onChoose={(choice) => choose.mutate(choice)}
-            onSpotlight={setHoveredUserId}
+            onSpotlight={(userId) => {
+              setHoveredUserId(userId);
+              if (userId !== null) setCleanSpotlight(false);
+            }}
           />
+          {!compact && youChoice !== undefined && (
+            <CleanWorkspaceCta
+              onDesktop={onDesktop}
+              pending={clean.isPending}
+              dimmed={choose.isPending}
+              disabled={busy}
+              onEnter={() => clean.mutate(youChoice)}
+              onSpotlight={(active) => {
+                setCleanSpotlight(active);
+                if (active) setHoveredUserId(null);
+              }}
+            />
+          )}
           {!compact && person === null && <StudioPillars />}
         </div>
         {showStudio && (
-          <PersonaSpotlight choice={activeChoice} choices={list} />
+          <PersonaSpotlight
+            choice={activeChoice}
+            choices={list}
+            cleanSpotlight={cleanSpotlight}
+          />
         )}
       </div>
     ),

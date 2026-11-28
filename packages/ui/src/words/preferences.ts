@@ -64,6 +64,10 @@ export const PREFERENCES_WORDS = {
       : "Saved on this device · Waiting to sync",
   accountNotSignedIn:
     "Not signed in. Your preferences are kept on this device.",
+  demoAndTourGroup: "Demo and Tour",
+  demoAndTourOffBody:
+    "Demo and Tour are turned off. Turn them back on to try the demo workspaces, live writers and the Tour. Your own scripts stay where they are.",
+  restoreDemoAndTour: "Turn Demo and Tour back on",
   signIn: "Sign in to sync",
   switchPerson: "Switch person",
   fromSystem: "From your system",

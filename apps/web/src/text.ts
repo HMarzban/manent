@@ -1,7 +1,8 @@
 // Every sentence the web app shows, in one place.
 
-import { DEMO_WORDS } from "@manent/ui";
+import { BRAND_WORDS, DEMO_WORDS } from "@manent/ui";
 import type { ControlState } from "./api.ts";
+import { isCleanWorkspace } from "./demo/demo-mode.ts";
 
 export const TEXT = {
   appName: "Manent demo",
@@ -50,7 +51,8 @@ export function chooseHintFor(desktop: boolean): string {
 
 /** The tab title: the screen, the person when there is one, and the app. */
 export function pageTitle(screen: string, personName: string | null): string {
-  return [screen, personName, TEXT.appName]
+  const appName = isCleanWorkspace() ? BRAND_WORDS.name : TEXT.appName;
+  return [screen, personName, appName]
     .filter((part) => part !== null)
     .join(" — ");
 }

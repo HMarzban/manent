@@ -54,6 +54,13 @@ export const CHOOSE_WORDS = Object.freeze({
   rundownTotal: "04:30",
   rundownBadge: "On prompter",
   blankOpening: "INT. STUDIO DESK - DAY",
+  cleanWorkspaceTitle: "Start in a clean workspace",
+  cleanWorkspaceName: "Clean workspace",
+  cleanWorkspaceBodyWeb:
+    "Removes the Demo bar and Tour — an empty workspace kept in this browser.",
+  cleanWorkspaceBodyDesktop:
+    "Removes the Demo bar and Tour — an empty workspace kept on this device.",
+  cleanWorkspaceOpening: "Opening your workspace…",
   fallback: {
     deskTitle: "Studio desk",
     revisionLabel: "White draft",
@@ -174,4 +181,35 @@ export function pillarsFor(desktop: boolean): readonly ChoosePillar[] {
 
 export function tourTipFor(desktop: boolean): string {
   return desktop ? DESKTOP_TOUR_TIP : CHOOSE_WORDS.tourTip;
+}
+
+export function cleanWorkspaceBodyFor(desktop: boolean): string {
+  return desktop
+    ? CHOOSE_WORDS.cleanWorkspaceBodyDesktop
+    : CHOOSE_WORDS.cleanWorkspaceBodyWeb;
+}
+
+const CLEAN_SPOTLIGHT_DESKTOP: ChooseSpotlightCopy = Object.freeze({
+  deskTitle: "Your desk · Clean workspace",
+  revisionLabel: "Blank workspace",
+  workspaceSummary: "Empty · No Demo bar or Tour",
+  craftLine:
+    "A quiet desk with no Demo bar, no Tour and no demo scripts. Turn Demo and Tour back on any time in Preferences.",
+  tags: ["No Demo bar", "No Tour", "On this device"],
+  sheetPage: "1.",
+  sheetHeading: "INT. STUDIO DESK - DAY",
+  sheetLine: "A clean page on your own desk. Nothing leaves this device.",
+  sheetSpeaker: "",
+  sheetDialogue: "",
+  sheetNote: "",
+});
+
+const CLEAN_SPOTLIGHT_WEB: ChooseSpotlightCopy = Object.freeze({
+  ...CLEAN_SPOTLIGHT_DESKTOP,
+  tags: ["No Demo bar", "No Tour", "In this browser"],
+  sheetLine: "A clean page on your own desk, kept in this browser.",
+});
+
+export function cleanSpotlightFor(desktop: boolean): ChooseSpotlightCopy {
+  return desktop ? CLEAN_SPOTLIGHT_DESKTOP : CLEAN_SPOTLIGHT_WEB;
 }

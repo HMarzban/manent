@@ -9,6 +9,7 @@ import {
 } from "@manent/ui";
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
+import { useCleanWorkspace } from "../demo/demo-mode.ts";
 import { useEnvironment } from "../services/context.tsx";
 import { useDesktopCloudOnline } from "./desktop-offline.ts";
 import type { DesktopHost } from "./host.ts";
@@ -150,7 +151,9 @@ export function DesktopTitleBar(props: {
   const windowKey = windowKeyForPath(pathname);
   const state = useWindowChromeState(active ? desktop : null);
   const rawTitle = useDocumentTitleText();
-  const cloudOnline = useDesktopCloudOnline(active ? desktop : null);
+  const cleanWorkspace = useCleanWorkspace();
+  const rawCloudOnline = useDesktopCloudOnline(active ? desktop : null);
+  const cloudOnline = cleanWorkspace || rawCloudOnline;
   const updateState = useSubscribable(updateSource);
   const lastTitleRef = useRef<{ desktop: DesktopHost; title: string } | null>(
     null,

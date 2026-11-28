@@ -19,6 +19,7 @@ import { exportEverythingOnDevice } from "../../desktop/export-everything.ts";
 import type { DesktopHost } from "../../desktop/host.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readPerson } from "../../session.ts";
+import { DemoRestoreGroup } from "./demo-restore-group.tsx";
 import { About } from "./device-about.tsx";
 import { Group } from "./device-group.tsx";
 
@@ -343,6 +344,7 @@ export function DesktopGroups(props: { host: DesktopHost }): ReactNode {
     <>
       <DesktopConnection device={device} />
       <DesktopStoredHere device={device} />
+      <DemoRestoreGroup />
       <About desktop={device} />
     </>
   );

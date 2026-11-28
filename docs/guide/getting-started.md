@@ -46,6 +46,8 @@ The demo has no passwords. You choose a person with one click:
 
 **You** is not signed in, so nothing You writes is sent to the server; choose anyone else to see syncing.
 
+If you want to skip the demo altogether and use Manent as a quiet personal writing studio, click **Start in a clean workspace** directly beneath the cards. It removes the Demo bar, the Tour and demo commands, opens an empty local **Your desk** Library without creating a placeholder script, remembers your choice across reloads, new tabs and desktop restarts, and shields your local scripts from demo resets. Your existing scripts in **You** are kept untouched, and you can turn Demo and Tour back on at any time from **Preferences → This browser** (**This device** in the desktop app) or **Preferences → Account**.
+
 Hovering or moving keyboard focus across the cards updates the live desk view beside them with each person's workspace, format and capabilities. You can switch between **Light** and **Dark** themes from the top right before signing in, or use the footer cards to get the desktop app, install Manent as an offline web app, or open the public repository on GitHub.
 
 On a first visit in a browser on a secure address (`localhost` or HTTPS), a quiet **Offline status** card appears at the bottom left while Manent prepares offline tools in the background, confirms **Ready offline** once complete, and stays silent on later visits.

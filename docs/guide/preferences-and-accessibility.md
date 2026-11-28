@@ -30,7 +30,7 @@ Every command and its key. Click a key to change it: "Press the new shortcut. Es
 
 ## Account
 
-Who you are in the demo, and **Switch person**.
+Who you are in the demo, **Switch person**, your workspaces and sign-out controls. While Clean workspace mode is active, a quiet **Demo and Tour** section lets you **Turn Demo and Tour back on** without touching your own scripts.
 
 ## This browser
 
@@ -38,6 +38,7 @@ Who you are in the demo, and **Switch person**.
 - **From your system:** the motion and contrast settings Manent reads from your system. They are shown, not set here.
 - **Stored here:** **Ask the browser to keep it** asks the browser not to clear Manent's storage when space runs low; **Offline** shows whether offline tools are ready, preparing, paused on Data Saver or online only in this browser (on a first visit, a calm bottom-left **Offline status** card also tracks background preparation across screens and confirms **Ready offline** once complete, staying silent on repeat visits); **Space used** shows current browser storage usage when available; Safari tabs show a note about installing to avoid seven-day storage clearing; and **Back up everything in this browser** downloads one `.zip` archive of every cached project on this device.
 - **Install:** shown on the web when Manent is not already running as an installed app, offering **Install Manent** on browsers that support install prompts or concise **Add to Dock** / **Add to Home Screen** steps in Safari.
+- **Demo and Tour:** shown only while Clean workspace mode is active, offering **Turn Demo and Tour back on** to restore the Demo bar, sample workspaces and Tour while keeping all of your own scripts intact.
 - **About:** the version, **Check for updates** (and **Reload to update** once a newer build is waiting in the background), the layout engine, "Manent sends no usage data.", the AI pledge (Manent has no features that write for you, and your scripts are never used to train AI) and Hidden Gem icon credits.
 
 **Reset** returns one preference to its default, and **Reset all preferences** returns them all.
