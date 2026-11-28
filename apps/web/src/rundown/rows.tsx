@@ -143,8 +143,9 @@ export function RowMenu(props: RowMenuProps): ReactNode {
       unavailableTitle = PROMPTER_CONTROL_WORDS.jumpHereUnavailable;
     }
     if (id === "rundown.openBeside" && row.kind !== "script") enabled = false;
-    if (id === "rundown.moveUp" && isFirst) enabled = false;
-    if (id === "rundown.moveDown" && isLast) enabled = false;
+    if (id === "rundown.moveUp") enabled = !isFirst;
+    if (id === "rundown.moveDown") enabled = !isLast;
+    if (id === "rundown.previousValue") enabled = previousCol !== null;
 
     entries.push({ id, label: state.label, enabled, unavailableTitle });
   }

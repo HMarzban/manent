@@ -6,7 +6,7 @@ import { HISTORY_WORDS } from "@manent/ui";
 const NO_LADDER: readonly string[] = Object.freeze([]);
 
 /** Each template's own ladder, in use until the project sets one. */
-const TEMPLATE_LADDERS: Readonly<
+export const TEMPLATE_LADDERS: Readonly<
   Record<SettingValue<"project.template">, readonly string[]>
 > = Object.freeze({
   screenplay: NO_LADDER,

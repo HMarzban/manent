@@ -15,6 +15,26 @@ const SCRIPT_ROW_SELECTED: Need = {
   reason: () => "needs a script row selected",
 };
 
+const CAN_MOVE_UP: Need = {
+  holds: (ctx) => ctx.rundown?.canMoveUp !== false,
+  reason: () => "isn't available on the first row",
+};
+
+const CAN_MOVE_DOWN: Need = {
+  holds: (ctx) => ctx.rundown?.canMoveDown !== false,
+  reason: () => "isn't available on the last row",
+};
+
+const HAS_CLIPBOARD: Need = {
+  holds: (ctx) => ctx.rundown?.hasClipboard !== false,
+  reason: () => "needs rows copied from a rundown",
+};
+
+const HAS_PREVIOUS_VALUE: Need = {
+  holds: (ctx) => ctx.rundown?.hasPreviousValue !== false,
+  reason: () => "needs a cell with a previous value",
+};
+
 const WORKSPACE_WRITABLE: Need = {
   holds: isWorkspaceWritable,
   reason: workspaceReason,
@@ -89,11 +109,13 @@ export const RUNDOWN_COMMANDS = defineCommands([
   }),
   rundownCommand("rundown.moveUp", "Move up", {
     keys: same("Alt+ArrowUp"),
+    need: CAN_MOVE_UP,
     passThrough: editingCell,
     palette: { keywords: ["rundown", "reorder", "row"] },
   }),
   rundownCommand("rundown.moveDown", "Move down", {
     keys: same("Alt+ArrowDown"),
+    need: CAN_MOVE_DOWN,
     passThrough: editingCell,
     palette: { keywords: ["rundown", "reorder", "row"] },
   }),
@@ -102,6 +124,7 @@ export const RUNDOWN_COMMANDS = defineCommands([
     palette: { keywords: ["rundown", "row"] },
   }),
   rundownCommand("rundown.pasteRows", "Paste", {
+    need: HAS_CLIPBOARD,
     palette: { keywords: ["rundown", "row"] },
   }),
   rundownCommand("rundown.openBeside", "Open beside", {
@@ -125,6 +148,7 @@ export const RUNDOWN_COMMANDS = defineCommands([
   }),
   rundownCommand("rundown.previousValue", "Previous value", {
     visible: onRundown,
+    need: HAS_PREVIOUS_VALUE,
     opens: { surface: "cell_popover", focus: "first" },
     palette: { keywords: ["rundown", "cell", "history"] },
   }),

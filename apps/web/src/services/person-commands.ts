@@ -1,7 +1,6 @@
 // One person's command service: the context a command sees, the handlers it runs and what makes it look again.
 import { COMMANDS, createCommandService } from "@manent/commands";
 import type {
-  CommandContext,
   CommandService,
   Resolved,
   RunSource,
@@ -21,6 +20,7 @@ import type { EditorControl } from "../editor-host/control.ts";
 import { zoomAnnouncement } from "../editor-host/zoom.ts";
 import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
+import { subscribeDriver } from "../room/driver.ts";
 import { focusModeActions } from "../state/focus-mode.store.ts";
 import { formattingBarActions } from "../state/formatting-bar.store.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
@@ -37,6 +37,8 @@ import { trashActions } from "../state/trash.store.ts";
 import { workspaceActions } from "../state/workspace.store.ts";
 import { writingActions } from "../state/writing.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
+import { buildCommandContext } from "./command-context.ts";
+import type { Access } from "./command-context.ts";
 import type {
   DocumentSource,
   Environment,
@@ -66,78 +68,6 @@ interface CommandsParts {
   /** The open document's status, whose access sets the person's role in it. */
   documents: DocumentSource;
   onCommandRan?: (id: string, source: RunSource) => void;
-}
-
-type Access = StatusFacts["access"];
-
-const ROLE_OF: Readonly<Record<Access, CommandContext["role"]>> = Object.freeze(
-  { edit: "editor", comment: "commenter", view: "viewer", too_old: "editor" },
-);
-const EMPTY_DOC_CONTEXT = Object.freeze({
-  docKind: null,
-  projectKind: null,
-  outlineStart: false,
-  writing: null,
-  material: null,
-  rundown: null,
-  prompter: null,
-  inTrash: false,
-  canDelete: false,
-});
-
-function documentContext(
-  docId: string | null,
-  library: CommandsParts["library"],
-) {
-  if (docId === null) return EMPTY_DOC_CONTEXT;
-  return {
-    docKind: library.docKindOf(docId).get(),
-    projectKind: library.documentKind(docId).get(),
-    outlineStart: outlineStartActions.get(docId),
-    writing: writingActions.get(docId),
-    material: materialActions.get(docId),
-    rundown: rundownActions.context(docId),
-    prompter: prompterActions.get(docId),
-    ...trashActions.get(docId),
-  };
-}
-
-/** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
-function commandContext(
-  options: CommandsOptions,
-  parts: CommandsParts,
-  signedIn: boolean,
-  accessOf: (docId: string) => Access,
-): CommandContext {
-  const { docId, screen, panels, historyPresent, spaceBeforeSet } =
-    options.shellState.get();
-  return {
-    screen,
-    focus: options.dom.focusKind(),
-    docOpen: docId !== null,
-    role: docId === null ? null : ROLE_OF[accessOf(docId)],
-    online: parts.network.get(),
-    platform: options.where.platform,
-    shell: options.where.shell,
-    demo: options.demo.get(),
-    signedIn,
-    workspace: workspaceActions.get(),
-    panelOpen: { left: panels.left !== null, side: panels.side !== null },
-    historyPresent,
-    format:
-      docId === null ? null : parts.openScriptStore(docId).get("script.format"),
-    rulerShown: rulerActions.get(),
-    formattingBarShown: formattingBarActions.get(),
-    layoutView: layoutViewActions.get(),
-    spaceBeforeSet,
-    zoom: docId === null ? null : zoomActions.get(),
-    zoomPercent: docId === null ? null : parts.control.zoomPercent(),
-    production: docId === null ? null : productionContextActions.get(docId),
-    ...documentContext(docId, parts.library),
-    focusMode: focusModeActions.get(),
-    readingAloud: readAloudActions.get(),
-    sprintRunning: sprintActions.get(),
-  };
 }
 
 // a zoom chosen in a menu shows there as checked; one chosen by a key or in the palette is said
@@ -173,12 +103,13 @@ function followShown<T>(
   };
 }
 
-/** Calls `notify` whenever the open script's format, or the kind of the open document or its project, changes. */
+/** Calls `notify` whenever the open script's format, kinds, or room driver change. */
 function followDocument(
-  shellState: Subscribable<ShellState>,
+  options: CommandsOptions,
   parts: CommandsParts,
   notify: () => void,
 ): () => void {
+  const { shellState, usePerson } = options;
   const stopFormat = followShown(shellState, parts.openScriptStore, (store) =>
     store.subscribe("script.format", notify),
   );
@@ -190,9 +121,13 @@ function followDocument(
       const stopProjectKind = parts.library
         .documentKind(docId)
         .subscribe(notify);
+      const userId = usePerson.getState().person?.userId ?? null;
+      const stopDriver =
+        userId === null ? noop : subscribeDriver(userId, docId, notify);
       return () => {
         stopDocKind();
         stopProjectKind();
+        stopDriver();
       };
     },
   );
@@ -325,7 +260,7 @@ export function createCommands(
     commands: COMMANDS,
     handlers,
     context: () =>
-      commandContext(
+      buildCommandContext(
         options,
         parts,
         isSignedIn(options, nodeCloud),
@@ -367,7 +302,7 @@ export function createCommands(
     focusModeActions.subscribe(service.notify),
     readAloudActions.subscribe(service.notify),
     sprintActions.subscribe(service.notify),
-    followDocument(options.shellState, parts, service.notify),
+    followDocument(options, parts, service.notify),
     access.stop,
   ];
   if (nodeCloud !== null)

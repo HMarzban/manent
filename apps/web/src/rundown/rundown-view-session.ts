@@ -12,6 +12,7 @@ import { RUNDOWN_WORDS } from "@manent/ui";
 import type { GridCellCoord, StatusFacts } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
 import { rundownActions } from "../state/rundown.store.ts";
+import { buildRundownCommandContext } from "./command-context.ts";
 import { registerRundownUndo, registerUndoRecorder } from "./handlers.ts";
 import type { RundownUndoEntry } from "./handlers.ts";
 import {
@@ -83,22 +84,16 @@ export function publishRundownSnapshot(options: {
     selectedRowIds: options.selectedRowIds,
     editingCell: options.editingCell,
   });
-  const activeRowId = options.activeCell?.rowId ?? null;
-  const scriptRowSelected =
-    rundown !== null &&
-    rundown.rows.some(
-      (row) =>
-        row.kind === "script" &&
-        (options.selectedRowIds.size > 0
-          ? options.selectedRowIds.has(row.id)
-          : row.id === activeRowId),
-    );
-  rundownActions.setContext(docId, {
-    canEdit: access === "edit",
-    selectedRows: options.selectedRowIds.size,
-    scriptRowSelected,
-    editingCell: options.editingCell,
-  });
+  rundownActions.setContext(
+    docId,
+    buildRundownCommandContext({
+      canEdit: access === "edit",
+      rundown,
+      activeCell: options.activeCell,
+      selectedRowIds: options.selectedRowIds,
+      editingCell: options.editingCell,
+    }),
+  );
 }
 
 /** Tracks which script docIds linked in a rundown are currently held on this device. */

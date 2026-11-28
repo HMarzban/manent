@@ -90,6 +90,17 @@ export interface CommandContext {
     selection: boolean;
     cuts: number;
   } | null;
+  /** The room's current driver for the open script; null or omitted when no driver state is known. */
+  driver?: {
+    /** Someone is currently presenting/driving this script in the room. */
+    active: boolean;
+    /** This person is the current driver. */
+    isSelf: boolean;
+    /** The current driver's first name for pitch reasons, or null when none. */
+    name?: string | null;
+    /** True when the current driver's caret is in a speech (for Pitch). */
+    caretInSpeech?: boolean;
+  } | null;
   /** The open rundown; null off a rundown. */
   rundown: {
     canEdit: boolean;
@@ -98,6 +109,14 @@ export interface CommandContext {
     scriptRowSelected: boolean;
     /** A cell is being edited. */
     editingCell: boolean;
+    /** The selected/active row(s) can move up by one position. */
+    canMoveUp?: boolean;
+    /** The selected/active row(s) can move down by one position. */
+    canMoveDown?: boolean;
+    /** Rundown rows are currently on the clipboard ready to paste. */
+    hasClipboard?: boolean;
+    /** The focused cell has a previous value to inspect. */
+    hasPreviousValue?: boolean;
   } | null;
   /** A rundown, or a story open beside its rundown; null otherwise. */
   prompter: {

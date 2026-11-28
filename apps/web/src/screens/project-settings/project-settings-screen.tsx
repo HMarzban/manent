@@ -2,13 +2,10 @@
 import { readEpisodes } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { DEMO_PEOPLE } from "@manent/demo";
-import { SETTINGS } from "@manent/settings";
-import type { ProjectGroup, SettingKey } from "@manent/settings";
 import {
   PROJECT_WORDS,
   SEND_WORDS,
   SHOW_TEMPLATE_WORDS,
-  SettingRow,
   SettingsProvider,
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
@@ -46,36 +43,17 @@ import {
   useProjectIndex,
   useProjectItem,
 } from "./project-data.ts";
-import { PROJECT_SETTING_ROWS } from "./project-setting-rows.ts";
+import {
+  FormatAndStyleCards,
+  ProjectRow,
+  projectGroupKeys,
+} from "./project-format-cards.tsx";
 import { createProjectStore } from "./project-store.ts";
+import { useRemoteProjectSettingMessages } from "./remote-project-messages.ts";
 
 const route = getRouteApi("/p/$projectId/settings");
 
-/** The settings `group` draws, in their order. */
-const keysOf = (group: ProjectGroup): readonly SettingKey[] =>
-  SETTINGS.all
-    .flatMap((def) =>
-      def.surfaces.flatMap((surface) =>
-        surface.in === "projectSettings" && surface.group === group
-          ? [{ key: def.key, order: surface.order }]
-          : [],
-      ),
-    )
-    .toSorted((a, b) => a.order - b.order)
-    .map(({ key }) => key);
-
-const FORMAT_KEYS = Object.freeze(keysOf("format_style"));
-const DRAFT_KEYS = Object.freeze(keysOf("drafts"));
-
-const HEADER_FOOTER_KEYS: ReadonlySet<SettingKey> = new Set([
-  "project.header",
-  "project.footer",
-]);
-
-const STANDALONE_CARD_KEYS: ReadonlySet<SettingKey> = new Set([
-  "project.style",
-  "project.titlePage",
-]);
+const DRAFT_KEYS = Object.freeze(projectGroupKeys("drafts"));
 
 /** How many of the project's episodes have their page numbers locked, of how many. */
 const lockCount = (doc: CrdtDoc): { locked: number; total: number } => {
@@ -85,28 +63,6 @@ const lockCount = (doc: CrdtDoc): { locked: number; total: number } => {
     total: episodes.length,
   };
 };
-
-/** One setting row inside a card: a custom feature row, else SettingRow with card-row padding. */
-function ProjectRow(props: {
-  settingKey: SettingKey;
-  projectId: string;
-}): ReactNode {
-  const { settingKey, projectId } = props;
-  const own = PROJECT_SETTING_ROWS.find((row) => row.settingKey === settingKey);
-  if (own !== undefined) {
-    if (HEADER_FOOTER_KEYS.has(settingKey)) {
-      return (
-        <div className="px-4 py-3">
-          <own.Row settingKey={settingKey} projectId={projectId} />
-        </div>
-      );
-    }
-    return <own.Row settingKey={settingKey} projectId={projectId} />;
-  }
-  return (
-    <SettingRow cardRow settingKey={settingKey} deviceName={null} persisted />
-  );
-}
 
 function SectionFrame(props: {
   title: string;
@@ -135,50 +91,6 @@ function SectionFrame(props: {
       </div>
       <div className="flex flex-col gap-5">{children}</div>
     </section>
-  );
-}
-
-/** Organises Format and style cleanly into calm sibling cards: Template, Element style, Title page, Header & footer, and defaults. */
-function FormatAndStyleCards(props: { projectId: string }): ReactNode {
-  const { projectId } = props;
-  const templateKey = FORMAT_KEYS.find((k) => k === "project.template");
-  const styleKey = FORMAT_KEYS.find((k) => k === "project.style");
-  const titlePageKey = FORMAT_KEYS.find((k) => k === "project.titlePage");
-  const headerFooterKeys = FORMAT_KEYS.filter((k) => HEADER_FOOTER_KEYS.has(k));
-  const otherKeys = FORMAT_KEYS.filter(
-    (k) =>
-      k !== "project.template" &&
-      !STANDALONE_CARD_KEYS.has(k) &&
-      !HEADER_FOOTER_KEYS.has(k),
-  );
-  return (
-    <>
-      {templateKey === undefined ? null : (
-        <SettingsCard divided>
-          <ProjectRow settingKey={templateKey} projectId={projectId} />
-        </SettingsCard>
-      )}
-      {styleKey === undefined ? null : (
-        <ProjectRow settingKey={styleKey} projectId={projectId} />
-      )}
-      {titlePageKey === undefined ? null : (
-        <ProjectRow settingKey={titlePageKey} projectId={projectId} />
-      )}
-      {headerFooterKeys.length === 0 ? null : (
-        <SettingsCard divided>
-          {headerFooterKeys.map((key) => (
-            <ProjectRow key={key} settingKey={key} projectId={projectId} />
-          ))}
-        </SettingsCard>
-      )}
-      {otherKeys.length === 0 ? null : (
-        <SettingsCard divided>
-          {otherKeys.map((key) => (
-            <ProjectRow key={key} settingKey={key} projectId={projectId} />
-          ))}
-        </SettingsCard>
-      )}
-    </>
   );
 }
 
@@ -238,7 +150,7 @@ export function ProjectSettingsScreen(): ReactNode {
   const { from, section }: { from: string; section: ProjectSection } =
     route.useSearch();
   const services = useServices();
-  const { guard } = useEnvironment();
+  const { guard, now } = useEnvironment();
   const navigate = useNavigate();
   const placeName = usePlaceName(from);
   const index = useProjectIndex(projectId);
@@ -247,7 +159,10 @@ export function ProjectSettingsScreen(): ReactNode {
   const locks = useIndexRead(index, "episodes", lockCount);
   const owner = access?.owner ?? true;
   const editor = access?.editor ?? true;
-  const bag = useMemo(() => createProjectSettingsBag({ index }), [index]);
+  const bag = useMemo(
+    () => createProjectSettingsBag({ index, userId: services.userId, now }),
+    [index, services.userId, now],
+  );
   const store = useMemo(
     () =>
       announcing(
@@ -256,6 +171,14 @@ export function ProjectSettingsScreen(): ReactNode {
       ),
     [bag, owner, guard, services],
   );
+  useRemoteProjectSettingMessages({
+    bag,
+    projectTitle: project?.title ?? null,
+    projectKind: project?.kind ?? null,
+    people,
+    userId: services.userId,
+    messages: services.messages,
+  });
   const showTemplates = project !== null && isTemplateProjectKind(project.kind);
   const activeSection: ProjectSection =
     section === "templates" && !showTemplates ? "format_style" : section;
@@ -307,7 +230,7 @@ export function ProjectSettingsScreen(): ReactNode {
               owner,
             )}
           >
-            <FormatAndStyleCards projectId={projectId} />
+            <FormatAndStyleCards projectId={projectId} people={people} />
           </SectionFrame>
         ) : activeSection === "names_facts" ? (
           <SectionFrame
@@ -344,7 +267,12 @@ export function ProjectSettingsScreen(): ReactNode {
           >
             <SettingsCard divided>
               {DRAFT_KEYS.map((key) => (
-                <ProjectRow key={key} settingKey={key} projectId={projectId} />
+                <ProjectRow
+                  key={key}
+                  settingKey={key}
+                  projectId={projectId}
+                  people={people}
+                />
               ))}
             </SettingsCard>
           </SectionFrame>

@@ -8,6 +8,7 @@ import { useEnvironment, useServices } from "../services/context.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { readPerson } from "../session.ts";
 import { rundownActions } from "../state/rundown.store.ts";
+import { subscribeClipboard } from "./clipboard.ts";
 import type { RundownUndoEntry } from "./handlers.ts";
 import {
   EMPTY_PEOPLE,
@@ -163,6 +164,7 @@ export function useRundownSession(
       redoLabels: redoLabelsRef,
     });
     const stopStatus = doc.status.subscribe(() => readHandle());
+    const stopClipboard = subscribeClipboard(() => republishCurrent());
 
     const person = readPerson(tabStorage);
     const token = person?.userId === services.userId ? person.token : null;
@@ -187,6 +189,7 @@ export function useRundownSession(
       live = false;
       stopUndo();
       stopStatus();
+      stopClipboard();
       sessionHandle.stop();
       stopProject();
       rundownActions.setContext(docId, null);

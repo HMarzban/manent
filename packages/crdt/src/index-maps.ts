@@ -40,6 +40,7 @@ export const PROJECT_INDEX_MAPS = Object.freeze([
   "ladder",
   "source",
   "can_also",
+  "settings_meta",
 ] as const);
 
 /** The maps of a script's comments document. */

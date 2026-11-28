@@ -42,6 +42,19 @@ interface CachedClipboard {
 }
 
 let cachedClipboard: CachedClipboard | null = null;
+const clipboardListeners = new Set<() => void>();
+
+function notifyClipboard(): void {
+  for (const listener of clipboardListeners) listener();
+}
+
+/** Subscribes to in-memory rundown clipboard updates so Paste command state stays current. */
+export function subscribeClipboard(listener: () => void): () => void {
+  clipboardListeners.add(listener);
+  return () => {
+    clipboardListeners.delete(listener);
+  };
+}
 
 /** Stores the most recently copied rundown rows for row-menu Paste and fallback matching. */
 export function rememberCopiedRows(
@@ -49,6 +62,7 @@ export function rememberCopiedRows(
   tsv: string,
 ): void {
   cachedClipboard = { data, tsv };
+  notifyClipboard();
 }
 
 /** Reads the in-memory clipboard rows, optionally checking that plain text still matches. */
@@ -69,6 +83,7 @@ export function readCopiedRows(
 /** Clears the in-memory clipboard cache (for test isolation). */
 export function clearCopiedRows(): void {
   cachedClipboard = null;
+  notifyClipboard();
 }
 
 function sanitiseTsvCell(text: string): string {

@@ -3,7 +3,7 @@
 import { writeProjectKey } from "@manent/crdt";
 import type { JsonMapView, ProjectIndexMap } from "@manent/crdt";
 import { SETTINGS, UNSET } from "@manent/settings";
-import type { Bag, SettingValue } from "@manent/settings";
+import type { Bag, Provenance, SettingValue } from "@manent/settings";
 import type { SyncClient } from "@manent/sync-client";
 import { indexDocId, projectHome } from "@manent/sync-protocol";
 import type { LibraryIndex, ProjectKind } from "../services/ports.ts";
@@ -19,7 +19,9 @@ const SETTINGS_MAPS = [
   "ladder",
 ] as const satisfies readonly ProjectIndexMap[];
 type SettingsMap = (typeof SETTINGS_MAPS)[number];
-type Views = Readonly<Record<SettingsMap, JsonMapView>>;
+type Views = Readonly<Record<SettingsMap, JsonMapView>> & {
+  readonly settings_meta: JsonMapView;
+};
 
 const OWN_MAPS: Readonly<Record<string, SettingsMap>> = Object.freeze({
   "project.style": "style",
@@ -27,10 +29,24 @@ const OWN_MAPS: Readonly<Record<string, SettingsMap>> = Object.freeze({
 });
 const mapOf = (key: string): SettingsMap => OWN_MAPS[key] ?? "template";
 
-const PROJECT_KEYS: readonly string[] = Object.freeze(
+/** Every registered project setting key, emitted together on initial bag hydration. */
+export const PROJECT_SETTING_KEYS: readonly string[] = Object.freeze(
   SETTINGS.byScope("project").map((def) => def.key),
 );
 const NOTHING: Readonly<Record<string, unknown>> = Object.freeze({});
+
+function parseProvenance(stored: unknown): Provenance | null {
+  if (typeof stored !== "object" || stored === null || !("replaced" in stored))
+    return null;
+  if (!("userId" in stored) || typeof stored.userId !== "string") return null;
+  if (!("setAt" in stored) || typeof stored.setAt !== "number") return null;
+  return {
+    at: stored.setAt,
+    on: null,
+    byUserId: stored.userId,
+    was: stored.replaced,
+  };
+}
 
 /**
  * The project settings of the script `docId`, following `library.documentProject(docId)` and opening that
@@ -40,8 +56,10 @@ export function projectSettingsBag(options: {
   docId: string;
   client: Promise<SyncClient>;
   library: LibraryIndex;
+  userId?: string | null;
+  now?: () => number;
 }): Bag {
-  const { docId, client, library } = options;
+  const { docId, client, library, userId, now } = options;
   const projectSub = library.documentProject(docId);
   const listeners = new Set<Listener>();
   let currentId: string | null = null;
@@ -66,12 +84,12 @@ export function projectSettingsBag(options: {
     closeHeld();
     if (nextId !== null) {
       const index = openProjectIndex({ client, projectId: nextId });
-      const bag = createProjectSettingsBag({ index });
+      const bag = createProjectSettingsBag({ index, userId, now });
       const stopBag = bag.subscribe((keys, origin) => tell(keys, origin));
       held = { index, bag, stopBag };
       currentId = nextId;
     }
-    if (notify) tell(PROJECT_KEYS, "remote");
+    if (notify) tell(PROJECT_SETTING_KEYS, "remote");
   };
 
   return Object.freeze({
@@ -117,12 +135,14 @@ function valuesOf(views: Views): Readonly<Record<string, unknown>> {
 /**
  * The project settings kept in `index`. It holds no value and refuses every write until the index's maps are read,
  * then tells every project setting as changed from elsewhere. A key holds a value only once it has been set, so a
- * setting the project never set reads its default. The maps record no one, so `provenance` is null.
+ * setting the project never set reads its default. Writes with `userId` record additive provenance in `settings_meta`.
  */
 export function createProjectSettingsBag(options: {
   index: ProjectIndex;
+  userId?: string | null;
+  now?: () => number;
 }): Bag {
-  const { index } = options;
+  const { index, userId = null, now = Date.now } = options;
   const listeners = new Set<Listener>();
   let views: Views | null = null;
   let values = NOTHING;
@@ -141,13 +161,14 @@ export function createProjectSettingsBag(options: {
     index.map("template"),
     index.map("style"),
     index.map("ladder"),
+    index.map("settings_meta"),
   ]).then(
-    ([template, style, ladder]) => {
-      const held: Views = { template, style, ladder };
+    ([template, style, ladder, settings_meta]) => {
+      const held: Views = { template, style, ladder, settings_meta };
       views = held;
       values = valuesOf(held);
       follow(held);
-      tell(PROJECT_KEYS, "remote");
+      tell(PROJECT_SETTING_KEYS, "remote");
     },
     () => {
       // an index that cannot be opened leaves every project setting at its default, and none can be written
@@ -155,11 +176,18 @@ export function createProjectSettingsBag(options: {
   );
   return Object.freeze({
     read: () => values,
-    provenance: () => null,
+    provenance: (key: string) =>
+      views === null ? null : parseProvenance(views.settings_meta.get(key)),
     write(patch: Readonly<Record<string, unknown>>): void {
       if (views === null) return;
+      const setAt = now();
       for (const [key, value] of Object.entries(patch)) {
         const view = views[mapOf(key)];
+        const replaced = view.get(key) ?? null;
+        // Write provenance before the value so synchronous observers read the new actor and replaced value immediately.
+        if (userId !== null && userId !== "") {
+          views.settings_meta.set(key, { userId, setAt, replaced });
+        }
         if (value === UNSET) view.delete(key);
         else view.set(key, value);
       }

@@ -5,6 +5,7 @@ import { ElementStyleRow } from "../../project/style-editor.tsx";
 import { ReadRateRow } from "../../timing/read-rate-row.tsx";
 import { HeaderFooterRow } from "../document/header-footer-row.tsx";
 import { ActsRow, LadderRow } from "./label-list-row.tsx";
+import { TemplateRow } from "./template-row.tsx";
 import { TitlePageRow } from "./title-page-row.tsx";
 
 export interface ProjectSettingRowProps {
@@ -18,6 +19,7 @@ export interface ProjectSettingRow {
 }
 
 export const PROJECT_SETTING_ROWS: readonly ProjectSettingRow[] = [
+  { settingKey: "project.template", Row: TemplateRow },
   { settingKey: "project.style", Row: ElementStyleRow },
   { settingKey: "project.titlePage", Row: TitlePageRow },
   { settingKey: "project.acts", Row: ActsRow },

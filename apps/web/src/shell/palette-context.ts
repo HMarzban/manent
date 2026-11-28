@@ -9,6 +9,7 @@ import type {
 import { SETTINGS } from "@manent/settings";
 import { PALETTE_WORDS } from "@manent/ui";
 import { currentBeside } from "../beside/open-beside.ts";
+import { driverCommandContext } from "../room/driver-context.ts";
 import type { Environment, PersonServices } from "../services/ports.ts";
 import type { FactsSelectors } from "../state/facts.store.ts";
 import { focusModeActions } from "../state/focus-mode.store.ts";
@@ -128,6 +129,10 @@ export function snapshotPaletteSignals(options: {
       activeDocId === null ? false : outlineStartActions.get(activeDocId),
     writing: activeDocId === null ? null : writingActions.get(activeDocId),
     material: activeDocId === null ? null : materialActions.get(activeDocId),
+    driver:
+      activeDocId === null
+        ? null
+        : driverCommandContext(services.userId, activeDocId),
     rundown: activeDocId === null ? null : rundownActions.context(activeDocId),
     prompter: activeDocId === null ? null : prompterActions.get(activeDocId),
     inTrash: trash.inTrash,

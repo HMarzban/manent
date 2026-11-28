@@ -47,8 +47,16 @@ export const ROOM_COMMANDS = defineCommands([
     scope: "global",
     keys: { mac: [], windows: [], linux: [] },
     keysFixed: false,
-    when: (ctx) => ctx.online,
-    whyNot: () => "needs a connection",
+    when: (ctx) =>
+      ctx.online &&
+      (ctx.driver === undefined ||
+        (ctx.driver !== null && ctx.driver.active && !ctx.driver.isSelf)),
+    whyNot: (ctx) => {
+      if (!ctx.online) return "needs a connection";
+      if (ctx.driver?.isSelf === true)
+        return "works when someone else is driving";
+      return "needs someone presenting to the room";
+    },
     visible: canEditScript,
     checked: null,
     passThrough: null,
@@ -66,8 +74,26 @@ export const ROOM_COMMANDS = defineCommands([
     scope: "global",
     keys: { mac: [], windows: [], linux: [] },
     keysFixed: false,
-    when: (ctx) => ctx.online,
-    whyNot: () => "needs a connection",
+    when: (ctx) => {
+      if (!ctx.online) return false;
+      if (ctx.driver === undefined) return true;
+      if (ctx.driver === null || !ctx.driver.active || ctx.driver.isSelf)
+        return false;
+      if (ctx.driver.caretInSpeech !== undefined)
+        return ctx.driver.caretInSpeech;
+      return ctx.material === null || ctx.material.caretInSpeech;
+    },
+    whyNot: (ctx) => {
+      if (!ctx.online) return "needs a connection";
+      if (ctx.driver === null || ctx.driver?.active === false)
+        return "needs someone driving";
+      if (ctx.driver?.isSelf === true)
+        return "works when someone else is driving";
+      const name = ctx.driver?.name;
+      return name
+        ? `needs ${name}'s caret in a speech`
+        : "needs the driver's caret in a speech";
+    },
     visible: canEditScript,
     checked: null,
     passThrough: null,

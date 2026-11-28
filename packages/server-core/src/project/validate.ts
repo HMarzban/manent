@@ -21,6 +21,7 @@ const PROJECT_KEY_WRITERS: Readonly<
   ladder: "owners",
   source: "editors",
   can_also: "owners",
+  settings_meta: "owners",
 });
 
 const MAY_WRITE: Readonly<
