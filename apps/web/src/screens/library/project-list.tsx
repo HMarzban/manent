@@ -8,7 +8,7 @@ import type { ProjectItem } from "../../services/ports.ts";
 import { EDITED_COLUMN, KIND_COLUMN, ProjectRow } from "./project-row.tsx";
 import { PROJECT_VIEWS } from "./project-views.ts";
 import type { ProjectViewProps } from "./project-views.ts";
-import { PLACE_COLUMN, PLACE_HEAD } from "./row-place.tsx";
+import { PLACE_COLUMN, PLACE_HEAD, PLACE_MENU_OFFSET } from "./row-place.tsx";
 
 export { ProjectRow };
 
@@ -57,15 +57,19 @@ function PlainTable(props: {
       )}
     >
       <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
-        <h2 className="min-w-0 flex-1">{LIBRARY_WORDS.projectsHeading}</h2>
+        <h2 className="min-w-0 flex-1 truncate">
+          {LIBRARY_WORDS.projectsHeading}
+        </h2>
         <span className={KIND_COLUMN}>{LIBRARY_WORDS.kindColumn}</span>
         <span className={EDITED_COLUMN}>{LIBRARY_WORDS.lastEditedColumn}</span>
         <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
+        <span aria-hidden="true" className="w-6 shrink-0" />
       </div>
       <div
         className={cn(
           sole ? "min-h-0 flex-1 overflow-hidden" : undefined,
           PLACE_COLUMN,
+          PLACE_MENU_OFFSET,
         )}
       >
         <VirtualRows
@@ -139,7 +143,7 @@ export function ProjectList(props: {
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col",
-          sole ? undefined : "gap-3 overflow-auto",
+          sole ? undefined : "gap-6 overflow-auto",
         )}
       >
         {segments.map((segment, i) =>

@@ -23,6 +23,7 @@ import { KindIcon, kindLabel } from "./project-kind.tsx";
 import { NoProjects, ProjectList } from "./project-list.tsx";
 import {
   PLACE_COLUMN,
+  PLACE_MENU_OFFSET,
   RowContextMenu,
   RowMenu,
   placeProps,
@@ -154,7 +155,13 @@ export function ContinueList(props: {
           {LIBRARY_FILES_WORDS.continueNote}
         </span>
       </div>
-      <div className={cn("mn-table mn-continue-table min-h-0", PLACE_COLUMN)}>
+      <div
+        className={cn(
+          "mn-table mn-continue-table min-h-0",
+          PLACE_COLUMN,
+          PLACE_MENU_OFFSET,
+        )}
+      >
         <VirtualRows
           count={items.length}
           rowHeight="two"

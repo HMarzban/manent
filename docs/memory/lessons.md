@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep custom `.mn-table` rows on the shared `px-3` rail, budget fixed columns below each `@container` breakpoint, and never style status cells via `span:last-child`
+
+- Date: 2026-11-28
+
+### What happened
+
+Reviewing the Library's Series, Projects, Continue and Rundowns tables with side panels open surfaced four compounding CSS layout defects: (1) refactoring `EpisodeRow` onto a custom `.mn-row` div omitted `flex` and `px-3`, leaving episode numbers and status labels flush against the card border and shifted relative to `.mn-table-head`; (2) fixed `shrink-0` episode columns revealed at `@2xl` (`672 px`) summed to `828 px`, crushing `flex-1` `Title` to `0 px` so `TITLE` painted over `WRITER` and the locked-pages icon collided with the writer avatar; (3) `PagesCell` switched `.mn-num` (`justify-content: flex-end`) to `flex-col` without `items-end`, left-aligning numeric page counts while `PAGES` and `—` rows stayed right-aligned; and (4) `PLACE_COLUMN` targeted `.mn-row > span:last-child`, which hit `Row`'s trailing `[data-menu-spacer]` whenever a row carried a menu (widening the menu spacer to `168 px` and shifting `PlainTable` columns out of alignment with its header, which also lacked a trailing `w-6` spacer).
+
+### How it was caught
+
+Reported by the project owner with a dark-mode screenshot of the Library's Series tables with the Tour panel open, then audited across every `.mn-table` view and confirmed with real-browser bounding-box measurements in Chromium, Firefox and WebKit.
+
+### Rule
+
+Every custom `.mn-row` inside `.mn-table` must carry `flex` and `px-3` matching `.mn-table-head`, and the sum of fixed column widths, padding and gaps enabled at any `@container` breakpoint must leave comfortable width for the `flex-1` primary column (at least `120 px` on desktop and `90 px` on narrow mobile), with `truncate` on flex-1 header labels. Whenever a `.mn-num` cell stacks content vertically with `flex-col`, pair it with `items-end` so numbers and bars stay on the same right rail as the header and `—` placeholders. Target status cells on `Row` explicitly via `[data-trailing]` and `[data-unavailable]` (never `span:last-child`), and reserve a matching trailing `w-6` spacer in `.mn-table-head` (and `PLACE_MENU_OFFSET` on unavailable rows) whenever sibling rows render a row menu.
+
+### Enforced by
+
+`packages/ui/src/components/row/row.tsx`, `apps/web/src/screens/library/row-place.tsx`, `apps/web/src/screens/library/project-list.tsx`, `apps/web/src/screens/library/project-row.tsx`, `apps/web/src/screens/library/series/episode-cells.tsx`, `apps/web/src/screens/library/series/episode-row.tsx`, `apps/web/src/screens/library/series/season-section.tsx`, `packages/ui/test/row.dom.test.tsx`, `apps/web/test/series-overview.dom.test.tsx`, `apps/web/test/library.dom.test.tsx`, and `e2e/series/episode-table.e2e.ts`.
+
 ## Persist desktop-wide preferences in `local-node` rather than `localStorage` alone, and shield local workspaces from demo resets
 
 - Date: 2026-11-28

@@ -7,12 +7,12 @@ import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
 import { RowContextMenu, RowMenu, placeProps } from "./row-place.tsx";
 import { useActiveDragWorkspace, useProjectDrag } from "./folder-dnd.ts";
 
-export const KIND_COLUMN = "hidden w-col-kind shrink-0 truncate @lg:block";
-export const EDITED_COLUMN = "hidden w-col-edited shrink-0 truncate @lg:block";
+export const KIND_COLUMN = "hidden w-col-kind shrink-0 truncate @2xl:block";
+export const EDITED_COLUMN = "hidden w-col-edited shrink-0 truncate @xl:block";
 const ROW_CELLS =
-  "grid grid-cols-1 py-1 @lg:grid-cols-[minmax(0,1fr)_auto_auto] @lg:gap-x-2 @lg:py-0";
+  "grid grid-cols-1 py-1 @xl:grid-cols-[minmax(0,1fr)_auto] @xl:gap-x-2 @xl:py-0 @2xl:grid-cols-[minmax(0,1fr)_auto_auto]";
 const EDITED_CELL =
-  "truncate tabular-nums @max-lg:text-meta @max-lg:text-fg-muted @lg:w-col-edited";
+  "truncate tabular-nums @max-xl:text-meta @max-xl:text-fg-muted @xl:w-col-edited";
 
 function lastEdited(edited: ProjectItem["lastEdited"], now: number): string {
   if ("changedSinceOpened" in edited) return LIBRARY_WORDS.changedSinceOpened;

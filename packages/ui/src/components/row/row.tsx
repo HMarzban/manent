@@ -147,7 +147,10 @@ export function Row({
         </span>
       )}
       {unavailable === undefined ? null : (
-        <span className="shrink-0 whitespace-nowrap text-meta">
+        <span
+          data-unavailable=""
+          className="shrink-0 whitespace-nowrap text-meta"
+        >
           {unavailable}
         </span>
       )}

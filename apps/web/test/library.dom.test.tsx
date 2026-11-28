@@ -352,6 +352,16 @@ test("Continue comes first, then the projects with their kind, last edit and pla
     ["The Long Night", "Film", "Synced"],
   ]);
   const [night, game] = rowsOf(projects);
+  const head = projects.querySelector<HTMLElement>(".mn-table-head");
+  expect([...(head?.children ?? [])].map((el) => el.textContent)).toEqual([
+    LIBRARY_WORDS.projectsHeading,
+    LIBRARY_WORDS.kindColumn,
+    LIBRARY_WORDS.lastEditedColumn,
+    LIBRARY_WORDS.statusColumn,
+    "",
+  ]);
+  expect(head?.lastElementChild?.classList.contains("w-6")).toBe(true);
+  expect(projects.querySelector('[class*="span:last-child"]')).toBeNull();
   expect([night, game].map((row) => (row ? rowWords(row) : []))).toEqual([
     ["The Long Night", "Film", "Priya, 14 min ago", "Synced"],
     ["Game samples", "Game", "Dana, Mon", "Not on this device"],

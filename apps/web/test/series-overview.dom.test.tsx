@@ -1,7 +1,7 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import type { EpisodeEntry } from "@manent/crdt";
-import { SERIES_WORDS } from "@manent/ui";
+import { LIBRARY_WORDS, SERIES_WORDS } from "@manent/ui";
 import {
   RouterProvider,
   createMemoryHistory,
@@ -302,6 +302,80 @@ test("SeasonSection collapses empty past seasons when defaultCollapsed is true",
   )!;
   act(() => expandBtn.click());
   expect(host.textContent).toContain(SERIES_WORDS.empty);
+
+  cleanup();
+});
+
+test("episode table rows share head horizontal padding, right-aligned pages, status header, and trailing row menu rail", async () => {
+  const episodes = makeEpisodes();
+  const { host, cleanup } = await mountInRouter(
+    <SeasonSection
+      projectId="harbour"
+      projectTitle="Harbour Lights"
+      season={{ id: "s2", number: 2, title: null }}
+      episodes={episodes}
+      targetPages={58}
+      ladder={["Writer's First", "Studio", "Network", "White", "Blue"]}
+      boardCardCount={22}
+      collapsible={true}
+      hideNewSeasonButton={true}
+      canEdit={true}
+      creating={false}
+      people={[
+        { userId: "sam", name: "Sam Okafor" },
+        { userId: "dana", name: "Dana Reyes" },
+      ]}
+      lastEditedByDoc={
+        new Map([["doc-201", { byName: "Sam", at: NOW - 3 * DAY }]])
+      }
+      placeByDoc={new Map([["doc-201", { kind: "on_server" }]])}
+      shell="web"
+      now={NOW}
+      open={() => {}}
+      onSaveEpisode={() => {}}
+      onNewEpisode={() => {}}
+    />,
+  );
+
+  const head = host.querySelector<HTMLElement>(".mn-table-head")!;
+  const headCells = [...head.children];
+  expect(head.classList.contains("px-3")).toBe(true);
+  expect(headCells.map((el) => el.textContent)).toEqual([
+    SERIES_WORDS.columns.ep,
+    SERIES_WORDS.columns.title,
+    SERIES_WORDS.columns.writer,
+    SERIES_WORDS.columns.stage,
+    SERIES_WORDS.columns.due,
+    SERIES_WORDS.columns.pages,
+    SERIES_WORDS.columns.lastEdited,
+    LIBRARY_WORDS.statusColumn,
+    "",
+  ]);
+  expect(headCells[1]?.classList.contains("truncate")).toBe(true);
+  expect(headCells[8]?.classList.contains("w-6")).toBe(true);
+
+  const rows = [...host.querySelectorAll<HTMLElement>(".mn-row")];
+  expect(rows.length).toBe(6);
+  for (const row of rows) {
+    expect(row.classList.contains("flex")).toBe(true);
+    expect(row.classList.contains("px-3")).toBe(true);
+  }
+
+  // First row (58 pages): numeric PagesCell right-aligns via items-end on flex-col
+  const firstRowMain = rows[0]?.firstElementChild as HTMLElement;
+  const cells = [...firstRowMain.children];
+  expect(cells.length).toBe(9);
+  const pagesCell = cells[5] as HTMLElement;
+  expect(pagesCell.classList.contains("mn-num")).toBe(true);
+  expect(pagesCell.classList.contains("items-end")).toBe(true);
+
+  // Status cell precedes the trailing w-6 menu wrapper (matching Row / PlainTable)
+  const statusCell = cells[7] as HTMLElement;
+  const menuCell = cells[8] as HTMLElement;
+  expect(statusCell.textContent).toContain(LIBRARY_WORDS.onServer);
+  expect(statusCell.classList.contains("justify-start")).toBe(true);
+  expect(menuCell.classList.contains("w-6")).toBe(true);
+  expect(menuCell.querySelector("button")).not.toBeNull();
 
   cleanup();
 });

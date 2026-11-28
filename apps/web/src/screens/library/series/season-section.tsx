@@ -1,6 +1,12 @@
 // One season of a series: collapsible heading, summary strip, filter bar and episode table.
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
-import { Button, SERIES_WORDS, VirtualRows } from "@manent/ui";
+import {
+  Button,
+  LIBRARY_WORDS,
+  SERIES_WORDS,
+  VirtualRows,
+  cn,
+} from "@manent/ui";
 import { FilmIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -11,6 +17,7 @@ import {
   COL_DUE,
   COL_EDITED,
   COL_EP,
+  COL_MENU,
   COL_PAGES,
   COL_PLACE,
   COL_STAGE,
@@ -265,18 +272,28 @@ export function SeasonSection(props: {
             <div data-tour="episode_table" className="mn-table flex flex-col">
               <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
                 <span className={COL_EP}>{SERIES_WORDS.columns.ep}</span>
-                <span className={COL_TITLE}>{SERIES_WORDS.columns.title}</span>
-                <span className={COL_WRITER}>
+                <span className={cn(COL_TITLE, "truncate")}>
+                  {SERIES_WORDS.columns.title}
+                </span>
+                <span className={cn(COL_WRITER, "items-center")}>
                   {SERIES_WORDS.columns.writer}
                 </span>
-                <span className={COL_STAGE}>{SERIES_WORDS.columns.stage}</span>
-                <span className={COL_DUE}>{SERIES_WORDS.columns.due}</span>
-                <span className={COL_PAGES}>{SERIES_WORDS.columns.pages}</span>
-                <span className={COL_EDITED}>
+                <span className={cn(COL_STAGE, "items-center")}>
+                  {SERIES_WORDS.columns.stage}
+                </span>
+                <span className={cn(COL_DUE, "items-center")}>
+                  {SERIES_WORDS.columns.due}
+                </span>
+                <span className={cn(COL_PAGES, "items-center")}>
+                  {SERIES_WORDS.columns.pages}
+                </span>
+                <span className={cn(COL_EDITED, "items-center")}>
                   {SERIES_WORDS.columns.lastEdited}
                 </span>
-                <span aria-hidden="true" className="w-6 shrink-0" />
-                <span aria-hidden="true" className={COL_PLACE} />
+                <span className={cn(COL_PLACE, "truncate")}>
+                  {LIBRARY_WORDS.statusColumn}
+                </span>
+                <span aria-hidden="true" className={COL_MENU} />
               </div>
               <div
                 className={

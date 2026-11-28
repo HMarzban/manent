@@ -45,7 +45,7 @@ const VIRTUAL_LIMIT = 100;
 const COL_AIR = "w-16 shrink-0 tabular-nums";
 const COL_ROWS = "hidden w-20 shrink-0 tabular-nums @lg:block";
 const COL_STORY_ROW = "hidden w-20 shrink-0 tabular-nums @lg:block";
-const COL_EDITED = "hidden w-col-edited shrink-0 truncate @xl:block";
+const COL_EDITED = "hidden w-col-edited shrink-0 truncate @2xl:block";
 const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((i) =>
   i.targets.includes("project"),
 );
@@ -330,7 +330,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
             <span className={COL_EDITED}>
               {RUNDOWN_WORDS.libraryLastEdited}
             </span>
-            <span aria-hidden="true" className={PLACE_HEAD} />
+            <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
           </div>
           <div
             className={flatRows.length > VIRTUAL_LIMIT ? "h-96" : "shrink-0"}

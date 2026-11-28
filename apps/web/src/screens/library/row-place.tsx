@@ -23,14 +23,18 @@ import type { ReactNode, SyntheticEvent } from "react";
 import type { RowPlace } from "../../services/ports.ts";
 
 /**
- * Row draws a row's place, or the word saying it is not on this device, as its last cell; a list of rows inside a
- * container gives that cell the status column's width, so that every row's place starts on one line.
+ * Row draws a row's place (`[data-trailing]`), or the word saying it is not on this device (`[data-unavailable]`),
+ * before any trailing row-menu spacer; a list of rows gives that status cell one shared column width so every row's
+ * status starts on one vertical rail.
  */
 export const PLACE_COLUMN =
-  "[&_.mn-row>span:last-child]:w-col-kind [&_.mn-row>span:last-child]:shrink-0 @lg:[&_.mn-row>span:last-child]:w-col-edited";
+  "[&_.mn-row>[data-trailing]]:w-col-kind [&_.mn-row>[data-trailing]]:shrink-0 @3xl:[&_.mn-row>[data-trailing]]:w-col-edited [&_.mn-row>[data-unavailable]]:w-col-kind [&_.mn-row>[data-unavailable]]:shrink-0 @3xl:[&_.mn-row>[data-unavailable]]:w-col-edited";
+
+/** Reserves the trailing `w-6` + `gap-2` row-menu slot on unavailable rows in tables whose sibling rows carry menus. */
+export const PLACE_MENU_OFFSET = "[&_.mn-row>[data-unavailable]]:me-8";
 
 /** The head's cell over the status column. */
-export const PLACE_HEAD = "w-col-kind shrink-0 @lg:w-col-edited";
+export const PLACE_HEAD = "w-col-kind shrink-0 truncate @3xl:w-col-edited";
 
 /** A row's place in words with its icon; null when it has no word of its own. */
 function placeOf(
@@ -87,7 +91,7 @@ export function placeProps(
   return {
     trailing: [
       <span className="flex min-w-0 items-center gap-1 tabular-nums">
-        <Icon aria-hidden="true" className="shrink-0" />
+        <Icon aria-hidden="true" className="size-icon shrink-0" />
         <span className="truncate">{word}</span>
       </span>,
     ],

@@ -8,6 +8,7 @@ import { fullNameOf } from "../../../services/sync/index-entries.ts";
 import { DOCUMENT_ROW_LINES } from "../document-row-lines.ts";
 import { WithRowMenu, placeProps } from "../row-place.tsx";
 import {
+  COL_MENU,
   COL_PLACE,
   LastEditedCell,
   PagesCell,
@@ -107,7 +108,7 @@ export function EpisodeRow(props: {
           data-row-menu
           aria-busy={busy ? "true" : undefined}
           className={cn(
-            "mn-row min-h-row-2 flex-col justify-center gap-0.5 py-1.5",
+            "mn-row flex min-h-row-2 flex-col justify-center gap-0.5 px-3 py-1.5 text-ui hover:bg-subtle",
             busy ? "text-fg-muted" : undefined,
           )}
         >
@@ -148,22 +149,24 @@ export function EpisodeRow(props: {
             />
             <PagesCell episode={episode} targetPages={targetPages} />
             <LastEditedCell edited={lastEdited} now={now} />
-            {menu}
             <span
               className={cn(
                 COL_PLACE,
-                "flex items-center justify-end text-meta text-fg-muted",
+                "flex items-center justify-start text-meta text-fg-muted",
               )}
             >
               {unavailable ?? trailing[0] ?? null}
             </span>
+            <span className={cn(COL_MENU, "flex items-center justify-end")}>
+              {menu}
+            </span>
           </div>
           {rowLine !== null ? (
-            <span className="truncate ps-13 text-meta text-fg-muted">
+            <span className="truncate ps-12 text-meta text-fg-muted">
               {rowLine}
             </span>
           ) : compactMeta !== "" ? (
-            <span className="truncate ps-13 text-meta text-fg-muted @2xl:hidden">
+            <span className="truncate ps-12 text-meta text-fg-muted @2xl:hidden">
               {compactMeta}
             </span>
           ) : null}

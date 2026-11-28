@@ -84,7 +84,7 @@ export function WriterCell(props: {
         title={writerName ?? undefined}
         className={cn(
           COL_WRITER,
-          "items-center gap-1.5 truncate text-meta text-fg-muted",
+          "items-center gap-1.5 text-meta text-fg-muted",
         )}
       >
         {inner}

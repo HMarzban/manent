@@ -21,15 +21,15 @@ import { CheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { EpisodeLastEdited } from "./series-facts.ts";
 
-export const COL_EP = "w-11 shrink-0 tabular-nums";
+export const COL_EP = "w-10 shrink-0 tabular-nums";
 export const COL_TITLE = "min-w-0 flex-1";
-export const COL_WRITER = "hidden w-32 shrink-0 @2xl:flex";
-export const COL_STAGE = "hidden w-32 shrink-0 @xl:flex";
-export const COL_DUE = "hidden w-20 shrink-0 tabular-nums @2xl:flex";
-export const COL_PAGES = "hidden w-20 shrink-0 pe-2 mn-num @lg:flex";
-export const COL_EDITED = "hidden w-36 shrink-0 @2xl:flex";
+export const COL_WRITER = "hidden w-28 shrink-0 @2xl:flex";
+export const COL_STAGE = "hidden w-28 shrink-0 @lg:flex";
+export const COL_DUE = "hidden w-15 shrink-0 tabular-nums @3xl:flex";
+export const COL_PAGES = "hidden w-16 shrink-0 pe-2 mn-num @xl:flex";
+export const COL_EDITED = "hidden w-28 shrink-0 @[52rem]:flex";
 export const COL_PLACE = "w-28 shrink-0";
-export const SERIES_PLACE_COLUMN = "";
+export const COL_MENU = "w-6 shrink-0";
 
 const DEFAULT_STAGES: readonly string[] = [
   SERIES_WORDS.stages.outline,
@@ -98,9 +98,10 @@ export function StageCell(props: {
   if (!canEdit || onSave === undefined) {
     return (
       <span
+        title={text}
         className={cn(
           COL_STAGE,
-          "items-center gap-1.5 truncate text-meta text-fg-muted",
+          "items-center gap-1.5 text-meta text-fg-muted",
         )}
       >
         {content}
@@ -198,8 +199,10 @@ export function PagesCell(props: {
       : null;
 
   const cell = (
-    <span className={cn(COL_PAGES, "flex-col justify-center gap-0.5")}>
-      <span className="flex items-center gap-1 text-meta text-fg">
+    <span
+      className={cn(COL_PAGES, "flex-col items-end justify-center gap-0.5")}
+    >
+      <span className="flex items-center justify-end gap-1 text-meta text-fg">
         <span>{formatCount(episode.pages)}</span>
         {over > 0 ? (
           <span className="text-attention">
@@ -246,8 +249,14 @@ export function LastEditedCell(props: {
         : LIBRARY_WORDS.edited(edited.byName, formatWhen(edited.at, now));
   }
   return (
-    <span className={cn(COL_EDITED, "truncate text-meta text-fg-muted")}>
-      {text}
+    <span
+      title={text}
+      className={cn(
+        COL_EDITED,
+        "items-center text-meta text-fg-muted tabular-nums",
+      )}
+    >
+      <span className="truncate">{text}</span>
     </span>
   );
 }

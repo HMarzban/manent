@@ -71,14 +71,16 @@ export function EpCell(props: {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={onKeyDown}
-          className="h-control-sm w-11 px-1 tabular-nums"
+          className="h-control-sm w-10 px-1 text-meta tabular-nums"
         />
       </span>
     );
   }
   if (!canEdit) {
     return (
-      <span className={cn(COL_EP, "text-fg-muted")}>{episode.number}</span>
+      <span className={cn(COL_EP, "text-meta text-fg-muted")}>
+        {episode.number}
+      </span>
     );
   }
   return (
@@ -90,7 +92,7 @@ export function EpCell(props: {
           e.stopPropagation();
           onEditingChange(true);
         }}
-        className={cn(cellButtonClass, "text-fg-muted tabular-nums")}
+        className={cn(cellButtonClass, "text-meta text-fg-muted tabular-nums")}
       >
         {episode.number}
       </button>

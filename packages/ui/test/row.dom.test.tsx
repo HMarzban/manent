@@ -78,10 +78,11 @@ test("an unavailable row shows its word and cannot be activated", () => {
   );
   press(el, "Enter");
   act(() => el.click());
-  expect([activated, el.textContent?.includes("Not on this device")]).toEqual([
-    2,
-    true,
-  ]);
+  expect([
+    activated,
+    el.textContent?.includes("Not on this device"),
+    el.querySelector("[data-unavailable]")?.textContent,
+  ]).toEqual([2, true, "Not on this device"]);
 });
 
 test("a list above 100 rows is virtual and still reports its true size", () => {
