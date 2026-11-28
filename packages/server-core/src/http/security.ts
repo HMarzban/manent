@@ -79,7 +79,7 @@ export function htmlCsp(
   bootScriptHash: string,
   connectOrigins: readonly string[] = [],
 ): string {
-  const connect = ["'self'", "ws:", "wss:", ...connectOrigins].join(" ");
+  const connect = ["'self'", ...connectOrigins].join(" ");
   return `default-src 'none'; script-src 'self' '${bootScriptHash}'; worker-src 'self'; child-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src ${connect}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
 }
 

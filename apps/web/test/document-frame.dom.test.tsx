@@ -64,6 +64,34 @@ test("the tab's title is the document's title and the person", async () => {
   expect(document.title).toBe("The Long Night — You — Manent demo");
 });
 
+test("when a document's real title resolves asynchronously from its fallback, it is announced without stealing focus", async () => {
+  const frame = await renderFrame();
+  expect(frame.announced).toEqual(["Untitled script"]);
+  const backButton = buttonNamed(
+    region(frame.container, "title_bar"),
+    "‹ Library",
+  );
+  act(() => backButton.focus());
+  expect(document.activeElement).toBe(backButton);
+  act(() => frame.services.library.renameDocument(DOC_ID, "The Long Night"));
+  expect(frame.announced).toEqual(["Untitled script", "The Long Night"]);
+  expect(document.activeElement).toBe(backButton);
+});
+
+test("renaming an already-loaded script does not re-announce it or steal focus", async () => {
+  const frame = await renderFrame({ title: "Low Tide" });
+  expect(frame.announced).toEqual(["Low Tide"]);
+  const titleButton = buttonNamed(
+    region(frame.container, "title_bar"),
+    "Low Tide",
+  );
+  act(() => titleButton.focus());
+  expect(document.activeElement).toBe(titleButton);
+  act(() => frame.services.library.renameDocument(DOC_ID, "Slack Water"));
+  expect(frame.announced).toEqual(["Low Tide"]);
+  expect(document.activeElement).toBe(titleButton);
+});
+
 test("a commenter's state bar says so", async () => {
   const frame = await renderFrame({
     status: { ...SYNCED, access: "comment" },

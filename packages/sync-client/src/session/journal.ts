@@ -121,9 +121,9 @@ class StoreJournal implements Journal {
         ? { ...meta, create: options.create }
         : meta;
     this.entries = loaded?.entries ?? [];
-    const seqs = this.entries.map((e) => e.localSeq);
-    const through = loaded?.checkpoint?.throughLocalSeq ?? 0;
-    this.nextLocalSeq = Math.max(through, ...seqs) + 1;
+    let maxSeq = loaded?.checkpoint?.throughLocalSeq ?? 0;
+    for (const e of this.entries) if (e.localSeq > maxSeq) maxSeq = e.localSeq;
+    this.nextLocalSeq = maxSeq + 1;
   }
 
   async open(loaded: LoadedDocument | StoreError | null): Promise<void> {
@@ -281,16 +281,17 @@ class StoreJournal implements Journal {
   }
 
   healSeq(): number {
-    const waitingSettings = this.entries.flatMap((e) =>
-      e.kind === "set" && !e.acked ? [e.localSeq] : [],
-    );
-    return (
-      Math.min(this.nextLocalSeq, ...this.unsettled, ...waitingSettings) - 1
-    );
+    let first = this.nextLocalSeq;
+    for (const seq of this.unsettled) if (seq < first) first = seq;
+    for (const e of this.entries)
+      if (e.kind === "set" && !e.acked && e.localSeq < first)
+        first = e.localSeq;
+    return first - 1;
   }
 
   outbox(afterSeq: number): OutboxItem[] {
-    const first = Math.min(...this.unsettled);
+    let first = Infinity;
+    for (const seq of this.unsettled) if (seq < first) first = seq;
     return planOutbox(
       this.entries.filter((e) => e.localSeq > afterSeq && e.localSeq < first),
     );
@@ -340,10 +341,10 @@ class StoreJournal implements Journal {
     if (++this.sinceCheckpoint < LOCAL_CHECKPOINT_EVERY) return settled;
     this.sinceCheckpoint = 0;
     // the state holds every entry up to the first server update not yet applied
-    const unapplied = this.entries.flatMap((e) =>
-      e.kind === "update" && !e.applied ? [e.localSeq - 1] : [],
-    );
-    const through = Math.min(entry.localSeq, ...unapplied);
+    let through = entry.localSeq;
+    for (const e of this.entries)
+      if (e.kind === "update" && !e.applied && e.localSeq - 1 < through)
+        through = e.localSeq - 1;
     const { state, synced } = this.options.checkpoint();
     void this.persist(() =>
       this.store.checkpoint(this.docId, state, through, synced),

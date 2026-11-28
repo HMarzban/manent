@@ -1,11 +1,8 @@
 // The page's zoom as numbers: where a step and a pinch reach, and what is said when it changes.
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_PRESETS } from "@manent/commands";
 import type { ZoomSetting } from "@manent/editor";
 import { EDITOR_WORDS } from "@manent/ui";
-import { ZOOM_PRESETS } from "../state/zoom-presets.ts";
 
-// the editor's ends, which the presets begin and end at
-const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
-const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
 // a pinch's wheel distance, px, that scales the page by e
 const PINCH_PX = 100;
 

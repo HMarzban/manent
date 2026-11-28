@@ -118,7 +118,7 @@ test("the edges the coming packages need are there, each in its direction", () =
   expect(RULES.workspaces.web!.typesOnly).not.toContain("demo");
 });
 
-test("test code is imported by tests and tooling only, and two zones are fenced", () => {
+test("test code is imported by tests and tooling only, and three zones are fenced", () => {
   expect(RULES.workspaces.testkit!.importable).toBe("tests");
   expect(RULES.workspaces.web!.internal).not.toContain("testkit");
   expect(RULES.workspaces.web!.typesOnly).toEqual([]);
@@ -134,6 +134,12 @@ test("test code is imported by tests and tooling only, and two zones are fenced"
       only: ["src/editor-host/"],
       globals: [],
       values: ["@manent/editor", "@manent/crdt-binding"],
+    },
+    {
+      workspace: "web",
+      only: ["src/demo/", "src/screens/states/"],
+      globals: [],
+      values: ["@manent/demo"],
     },
   ]);
 });

@@ -1,5 +1,4 @@
 // Workspace settings screen: unified left-rail settings shell across People, Notifications, API keys and Broadcast.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { DOC_ROLES, indexDocId } from "@manent/sync-protocol";
 import type { DocRole } from "@manent/sync-protocol";
 import {
@@ -12,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { BellIcon, KeyRoundIcon, RadioIcon, UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { demoPersonName, personTitleName } from "../../demo/demo-bridge.ts";
 import { focusHeading } from "../../focus.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
@@ -204,7 +204,7 @@ export function WorkspaceSettingsScreen(props: {
             const peopleNow = holder.state.get().people;
             const byName =
               peopleNow?.find((p) => p.userId === payload.byUserId)?.name ??
-              DEMO_PEOPLE.find((p) => p.userId === payload.byUserId)?.name ??
+              demoPersonName(payload.byUserId) ??
               payload.byUserId;
             services.messages.push({
               id: "workspace.role_changed_remote",
@@ -237,12 +237,11 @@ export function WorkspaceSettingsScreen(props: {
 
   // Window title and focus heading on arrival
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === services.userId);
     document.title = pageTitle(
       WORKSPACE_WORDS.windowTitle(WORKSPACE_WORDS.groups[activeGroup]),
-      person?.name ?? null,
+      personTitleName(services.userId, services.personName),
     );
-  }, [services.userId, activeGroup]);
+  }, [services.userId, services.personName, activeGroup]);
 
   useEffect(() => {
     focusHeading(document);

@@ -98,10 +98,11 @@ A package is imported by its name, never by a path inside it: `@manent/schema` i
 
 A zone keeps something inside some folders of one workspace. Product code of that workspace outside the folders is refused it.
 
-| Workspace     | Folder             | Outside the folder                                                                                  |
-| ------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
-| `server-core` | `src/http/`        | No code may use the `Bun` global, so only the HTTP edge depends on the Bun runtime                  |
-| `web`         | `src/editor-host/` | No code may import values from `@manent/editor` or `@manent/crdt-binding`; `import type` is allowed |
+| Workspace     | Folder                             | Outside the folder                                                                                  |
+| ------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `server-core` | `src/http/`                        | No code may use the `Bun` global, so only the HTTP edge depends on the Bun runtime                  |
+| `web`         | `src/editor-host/`                 | No code may import values from `@manent/editor` or `@manent/crdt-binding`; `import type` is allowed |
+| `web`         | `src/demo/`, `src/screens/states/` | No code may import values from `@manent/demo`; `import type` is allowed                             |
 
 ## 6. Test code
 

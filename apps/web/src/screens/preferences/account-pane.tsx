@@ -1,5 +1,4 @@
 // Preferences → Account: who you are, where your preferences are kept, your workspaces and Sign out.
-import { DEMO_PEOPLE } from "@manent/demo";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   Avatar,
@@ -14,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { SignOutDialogHost } from "../../account/sign-out-dialog.tsx";
+import { demoPerson } from "../../demo/demo-bridge.ts";
 import { useDesktopCloudOnline } from "../../desktop/desktop-offline.ts";
 import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -26,10 +26,10 @@ import { DemoRestoreCard } from "./demo-restore-group.tsx";
 /** In the demo, the person and their title, read-only, with Switch person. */
 function DemoPerson(): ReactNode {
   const { userId } = useServices();
-  const person = DEMO_PEOPLE.find((p) => p.userId === userId);
+  const person = demoPerson(userId);
   return (
     <div className="flex min-h-row-2 flex-wrap items-center justify-between gap-4 px-4 py-3">
-      {person === undefined ? null : (
+      {person === null ? null : (
         <div className="flex min-w-0 items-center gap-3">
           <Avatar
             name={person.name}

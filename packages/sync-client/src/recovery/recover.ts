@@ -219,7 +219,9 @@ function touchedBy(journal: Journal): Set<string> {
 
 /** The highest `localSeq` of an own update not yet acknowledged; 0 when there is none. */
 function lastWaiting(journal: Journal): number {
-  return Math.max(0, ...journal.waitingUpdates().map((e) => e.localSeq));
+  let max = 0;
+  for (const e of journal.waitingUpdates()) max = Math.max(max, e.localSeq);
+  return max;
 }
 
 /** What a recovery asks of its subscription. */

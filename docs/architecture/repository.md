@@ -78,7 +78,8 @@ apps/
 │       ├── history/, production/, checks/, material/, names/, facts/, numbers/, goals/, writing-tools/   editorial and production workflows
 │       ├── rundown/, prompter/, prompter-files/, templates/, graphics/, timing/   broadcast and media workflows
 │       ├── game/, ink/             Game Script player Beside and Ink Web Worker compiler & player
-│       ├── import/, archive/, desktop/, demo/   file imports, project archives, desktop bridge, Demo Stage & Tour
+│       ├── import/, archive/, desktop/   file imports, project archives, desktop bridge
+│       ├── demo/                   the fenced @manent/demo zone (with test-only screens/states/): demo-bridge.ts, Demo Stage & Tour
 │       └── text.ts                 the web app's own sentences
 ├── server/          the server program: reads environment (env.ts), opens storage, search & checkpoint worker, seeds demo, listens
 └── desktop/         the Electrobun desktop shell (see docs/development/desktop.md)

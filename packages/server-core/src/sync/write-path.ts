@@ -78,10 +78,19 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     const update = appendedBy(item);
     if (update === null) return;
     const { docId } = item.room;
-    heldUpdates.set(docId, [...(heldUpdates.get(docId) ?? []), update]);
+    let updates = heldUpdates.get(docId);
+    if (updates === undefined) {
+      updates = [];
+      heldUpdates.set(docId, updates);
+    }
+    updates.push(update);
     if (shownWhileHeld(item) === null) return;
-    const shown = heldShownUpdates.get(docId) ?? [];
-    heldShownUpdates.set(docId, [...shown, update]);
+    let shown = heldShownUpdates.get(docId);
+    if (shown === undefined) {
+      shown = [];
+      heldShownUpdates.set(docId, shown);
+    }
+    shown.push(update);
   };
 
   const enqueue = (item: QueuedItem): void => {
@@ -140,22 +149,33 @@ export function createWritePath(ports: WritePathPorts): WritePath {
 
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */
   function queuedSetting(peer: Peer, room: Room): number {
-    const theirs = queue.filter((item): item is PeerItem => {
-      if (!("subscription" in item)) return false;
+    let max = 0;
+    for (const item of queue) {
+      if (!("subscription" in item) || item.room !== room || !item.setting)
+        continue;
       const from = item.subscription.peer;
-      const same =
-        from.userId === peer.userId && from.deviceId === peer.deviceId;
-      return item.room === room && item.setting && same;
-    });
-    return Math.max(0, ...theirs.map((item) => item.clientSeq));
+      if (
+        from.userId === peer.userId &&
+        from.deviceId === peer.deviceId &&
+        item.clientSeq > max
+      )
+        max = item.clientSeq;
+    }
+    return max;
   }
 
   function flush(): void {
     const items = queue;
     queue = [];
     const byFile = new Map<DocFile, QueuedItem[]>();
-    for (const item of items)
-      byFile.set(item.room.file, [...(byFile.get(item.room.file) ?? []), item]);
+    for (const item of items) {
+      let list = byFile.get(item.room.file);
+      if (list === undefined) {
+        list = [];
+        byFile.set(item.room.file, list);
+      }
+      list.push(item);
+    }
     const failed = new Set<DocFile>();
     for (const [file, fileItems] of byFile) {
       const failure = heldFiles.get(file) ?? commitFile(file, fileItems, ports);

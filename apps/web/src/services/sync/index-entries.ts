@@ -1,10 +1,10 @@
 // The entries of the index documents' maps as the Library reads them: each value's shape checked, and the rows built from them.
 import type { JsonMapView } from "@manent/crdt";
-import { demoPersonName } from "@manent/demo";
 import type { DocSummary } from "@manent/sync-client";
 import { isDocKind } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import { NEW_PROJECT_CARDS } from "@manent/ui";
+import { demoPersonName } from "../../demo/demo-bridge.ts";
 import { isFields } from "./device-memory.ts";
 import type {
   ContinueItem,

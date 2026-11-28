@@ -1,9 +1,9 @@
 // The rundown screen in the document frame: title bar, timing state bar, grid and surface states, side panel, status bar and Columns menu.
-import { DEMO_PEOPLE } from "@manent/demo";
 import type { RundownColumnId } from "@manent/schema";
 import type { DocKind } from "@manent/sync-protocol";
 import {
   EditableGrid,
+  LIBRARY_WORDS,
   RUNDOWN_WORDS,
   SurfaceState,
   useSubscribable,
@@ -22,12 +22,14 @@ import {
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useBeside } from "../beside/open-beside.ts";
+import { personTitleName } from "../demo/demo-bridge.ts";
 import { focusHeading } from "../focus.ts";
 import { DocumentStateBar } from "../screens/document/document-state-bar.tsx";
 import { SidePanel } from "../screens/document/side-panel.tsx";
 import { StatusBar } from "../screens/document/status-bar.tsx";
 import { STATUS_READOUTS } from "../screens/document/status-readouts.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
+import { useScreenAnnounce } from "../screens/document/use-screen-announce.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { ShareDialog } from "../sharing/share-dialog.tsx";
@@ -139,14 +141,24 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       : dateLabel;
 
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === services.userId);
-    document.title = pageTitle(displayTitle, person?.name ?? null);
-  }, [services.userId, displayTitle]);
+    document.title = pageTitle(
+      displayTitle,
+      personTitleName(services.userId, services.personName),
+    );
+  }, [services.userId, services.personName, displayTitle]);
 
   useEffect(() => {
     if (!paletteSelectors.isOpen()) focusHeading(document);
-    dom.announce(displayTitle);
   }, [docId]);
+  useScreenAnnounce(
+    docId,
+    dom,
+    displayTitle,
+    !view.ready ||
+      view.projectTitle === null ||
+      displayTitle === "" ||
+      displayTitle === LIBRARY_WORDS.untitledScript,
+  );
 
   const [loadingSince] = useState(() => now());
 

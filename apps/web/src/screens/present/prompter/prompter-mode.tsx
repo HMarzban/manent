@@ -1,10 +1,10 @@
 // The prompter window: top bar with feed state and view controls, and the scrollable reading area below.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { PROMPTER_WINDOW_WORDS, useSubscribable } from "@manent/ui";
 import type { SurfaceStateValue } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { personTitleName } from "../../../demo/demo-bridge.ts";
 import { focusHeading } from "../../../focus.ts";
 import type { PrompterFollowMode } from "../../../prompter/remote-scroll.ts";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
@@ -65,7 +65,7 @@ function useProjectTitle(projectId: string | null): string | null {
 }
 
 function usePrompterTitle(docId: string): string {
-  const { library, userId } = useServices();
+  const { library, userId, personName } = useServices();
   const titleSource = useMemo(
     () => library.documentTitle(docId),
     [library, docId],
@@ -90,9 +90,8 @@ function usePrompterTitle(docId: string): string {
   else heading = PROMPTER_WINDOW_WORDS.barLabel;
 
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
-    document.title = pageTitle(heading, person?.name ?? null);
-  }, [heading, userId]);
+    document.title = pageTitle(heading, personTitleName(userId, personName));
+  }, [heading, userId, personName]);
 
   return heading;
 }

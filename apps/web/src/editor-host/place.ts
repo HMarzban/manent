@@ -1,6 +1,12 @@
 // Where each person left each script, the panels, the Ruler, the view of the pages and the zoom as they left them, and
 // the notices they have seen: view state, kept on this device per person and never in the script.
-import { LEFT_TABS, PANEL_IDS, SIDE_TABS } from "@manent/commands";
+import {
+  LEFT_TABS,
+  PANEL_IDS,
+  SIDE_TABS,
+  ZOOM_MAX,
+  ZOOM_MIN,
+} from "@manent/commands";
 import type {
   BlockPlace,
   LayoutView,
@@ -15,7 +21,6 @@ import { panelsActions } from "../state/panels.store.ts";
 import type { PanelsState } from "../state/panels.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { throttle } from "../state/throttle.ts";
-import { ZOOM_PRESETS } from "../state/zoom-presets.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 
 /** The storage key of a person's place state, held in one local map. */
@@ -115,8 +120,8 @@ const isZoomSetting = (value: unknown): value is ZoomSetting =>
   value === "fit_width" ||
   (typeof value === "number" &&
     Number.isInteger(value) &&
-    value >= Math.min(...ZOOM_PRESETS) &&
-    value <= Math.max(...ZOOM_PRESETS));
+    value >= ZOOM_MIN &&
+    value <= ZOOM_MAX);
 
 /** The place state in `map`; `now` stamps each saved place, so the oldest is the one forgotten. */
 export function createPlaceStore(options: {

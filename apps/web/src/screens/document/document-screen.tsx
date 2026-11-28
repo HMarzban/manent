@@ -1,6 +1,5 @@
 // The document screen: the body of the document's kind drawn in the shell's areas around the page, which the shell
 // keeps mounted.
-import { DEMO_PEOPLE } from "@manent/demo";
 import type { DocKind } from "@manent/sync-protocol";
 import {
   Button,
@@ -25,6 +24,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { personTitleName } from "../../demo/demo-bridge.ts";
 import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
@@ -48,6 +48,7 @@ import { SidePanel } from "./side-panel.tsx";
 import { CommandAction, StatusBar } from "./status-bar.tsx";
 import { STATUS_READOUTS } from "./status-readouts.ts";
 import { TitleBar, useDocumentTitle } from "./title-bar.tsx";
+import { useScreenAnnounce } from "./use-screen-announce.ts";
 
 const RundownScreen = lazy(async () => ({
   default: (await import("../../rundown/screen.tsx")).RundownScreen,
@@ -298,12 +299,11 @@ function NoAccess(props: {
 
 /** The tab's title: the document's title, and the person. */
 function useTabTitle(docId: string): void {
-  const { userId } = useServices();
+  const { userId, personName } = useServices();
   const title = useDocumentTitle(docId);
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
-    document.title = pageTitle(title, person?.name ?? null);
-  }, [userId, title]);
+    document.title = pageTitle(title, personTitleName(userId, personName));
+  }, [userId, personName, title]);
 }
 
 /** What a document of `kind` draws around the page. */
@@ -343,10 +343,10 @@ function Frame(props: {
   const { dom } = useEnvironment();
   const title = useDocumentTitle(docId);
   useEffect(() => {
-    // the page takes focus, else its region until the page is shown, and the title is read
+    // the page takes focus, else its region until the page is shown
     if (!paletteSelectors.isOpen() && !dom.focusPage()) focusHeading(document);
-    dom.announce(title);
-  }, [docId]);
+  }, [docId, dom]);
+  useScreenAnnounce(docId, dom, title, title === LIBRARY_WORDS.untitledScript);
   return (
     <>
       <TitleBar docId={docId} doc={doc} />

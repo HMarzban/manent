@@ -5,7 +5,19 @@ import { CODE, isReplayKey } from "@manent/sync-protocol";
 import { blockText, blockView } from "@manent/schema";
 import type { ReplayResponse } from "@manent/sync-protocol";
 import { ConnectError, OVERLAP_WINDOW_MS } from "../src/index.ts";
-import type { DocHandle, StoredUpdate, SyncClient } from "../src/index.ts";
+import type {
+  DocHandle,
+  DocMeta,
+  StoredEntry,
+  StoredUpdate,
+  SyncClient,
+  SyncClientPorts,
+} from "../src/index.ts";
+import { Move } from "../src/move/move.ts";
+import type { MoveHost } from "../src/move/move.ts";
+import { freshMeta } from "../src/session/journal-meta.ts";
+import type { Journal } from "../src/session/journal.ts";
+import type { LocalCopy } from "../src/session/local-copy.ts";
 import {
   B1,
   B2,
@@ -704,4 +716,102 @@ test("a move with nothing waiting is taken up again after a reload", async () =>
     generation: 2,
     moving: null,
   });
+});
+
+test("starting a move scales past spread argument limits for journal entries and waiting updates", async () => {
+  const large = 700_000;
+  const empty = new Uint8Array();
+  const entries: StoredEntry[] = [];
+  const waiting: StoredUpdate[] = [];
+  for (let seq = 1; seq <= large; seq++) {
+    const item: StoredUpdate = {
+      kind: "update",
+      localSeq: seq,
+      update: empty,
+      own: true,
+      acked: false,
+      applied: true,
+      elements: [],
+    };
+    entries.push(item);
+    waiting.push(item);
+  }
+  const makeHost = (withWaiting: StoredUpdate[]) => {
+    const patched: unknown[] = [];
+    const committed: unknown[] = [];
+    const host: MoveHost = {
+      docId: DOC,
+      ports: {
+        random: {
+          bytes: () => new Uint8Array(16).fill(1),
+          clientId: () => 42,
+          next: () => 0.5,
+        },
+        clock: {
+          now: () => 0,
+          schedule: () => () => {},
+        },
+        transport: {
+          replay: () => new Promise(() => {}),
+        },
+      } as unknown as SyncClientPorts,
+      journal: {
+        meta: freshMeta(DOC, null),
+        entries,
+        waitingUpdates: () => withWaiting,
+        freshClientId: () => 42,
+        patch(patch: Partial<DocMeta>) {
+          patched.push(patch);
+        },
+        async commit(patch: Partial<DocMeta>) {
+          committed.push(patch);
+          return true;
+        },
+      } as unknown as Journal,
+      copy: {
+        mine: () => ({ type: "doc", content: [] }),
+        recordVersion: () => ({ id: "v1" }),
+      } as unknown as LocalCopy,
+      connected: () => false,
+      changed() {},
+      subscribe() {},
+      park() {},
+      ended() {},
+      followers: () => [],
+      syncedAt: () => null,
+      leave() {},
+    };
+    return { host, patched, committed };
+  };
+
+  const idle = makeHost([]);
+  const moveIdle = new Move(idle.host, {
+    from: 1,
+    to: 2,
+    key: null,
+    throughLocalSeq: 0,
+  });
+  await moveIdle.begin();
+  expect(idle.patched[0]).toEqual({
+    moving: { from: 1, to: 2, key: null, throughLocalSeq: large },
+  });
+
+  const busy = makeHost(waiting);
+  const moveBusy = new Move(busy.host, {
+    from: 1,
+    to: 2,
+    key: null,
+    throughLocalSeq: 0,
+  });
+  await moveBusy.begin();
+  expect(busy.committed).toEqual([
+    {
+      moving: {
+        from: 1,
+        to: 2,
+        key: "01".repeat(16),
+        throughLocalSeq: large,
+      },
+    },
+  ]);
 });

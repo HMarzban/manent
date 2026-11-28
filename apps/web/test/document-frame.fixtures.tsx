@@ -96,6 +96,8 @@ export interface Frame extends TestDocument {
   clock: ReturnType<typeof createClock>;
   /** The outline the frame's panels read, as the editor's bridge would publish it. */
   outline: Value<readonly OutlineRow[]>;
+  /** Every message passed to `environment.dom.announce`, in call order. */
+  announced: readonly string[];
 }
 
 let mounted: Root | null = null;
@@ -328,9 +330,17 @@ export async function renderFrame(
   const clock = createClock(options.startAt);
   const storage = new MemoryStorage();
   storage.setItem("manent.device.id", DEVICE_ID);
+  const announced: string[] = [];
+  const shellDom = createShellDom(document);
   const environment = testEnvironment({
     storage,
-    dom: createShellDom(document),
+    dom: {
+      ...shellDom,
+      announce(text) {
+        announced.push(text);
+        shellDom.announce(text);
+      },
+    },
     now: clock.now,
     schedule: clock.schedule,
     frame: (fn) => clock.schedule(fn, 16),
@@ -366,7 +376,7 @@ export async function renderFrame(
   await act(() => until(() => environment.shellState.get().docId === DOC_ID));
   // the stand-in publishes its facts at the next frame
   act(() => clock.advance(16));
-  return { ...doc, container, services, clock, outline };
+  return { ...doc, container, services, clock, outline, announced };
 }
 
 /** What a control is called: its label, else its text without what is hidden from assistive technology. */

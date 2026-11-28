@@ -11,7 +11,17 @@ import { blockText, blockView } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import * as entry from "../src/index.ts";
 import { ACK_TIMEOUT_MS, BACKOFF_BASE_MS, HEARTBEAT_MS } from "../src/index.ts";
-import type { DeviceVersion, DocHandle } from "../src/index.ts";
+import type {
+  DeviceVersion,
+  DocHandle,
+  DocMeta,
+  StoredUpdate,
+} from "../src/index.ts";
+import { PushRecovery } from "../src/recovery/recover.ts";
+import type { RecoveryHost } from "../src/recovery/recover.ts";
+import { freshMeta } from "../src/session/journal-meta.ts";
+import type { Journal } from "../src/session/journal.ts";
+import type { LocalCopy } from "../src/session/local-copy.ts";
 import {
   B1,
   B2,
@@ -901,4 +911,49 @@ test("seed 14: a recovery whose own push is refused also files a block written b
 test("the recovery's own workings are not among the package's names", () => {
   const internal = ["PushRecovery", "differingText", "mergeMine"];
   expect(internal.filter((name) => name in entry)).toEqual([]);
+});
+
+test("resuming a replaying recovery scales past spread argument limits for waiting updates", () => {
+  const large = 700_000;
+  const empty = new Uint8Array();
+  const waiting: StoredUpdate[] = [];
+  for (let seq = 1; seq <= large; seq++)
+    waiting.push({
+      kind: "update",
+      localSeq: seq,
+      update: empty,
+      own: true,
+      acked: false,
+      applied: true,
+      elements: [],
+    });
+  const patches: unknown[] = [];
+  const shown: boolean[] = [];
+  const meta = {
+    ...freshMeta(DOC, null),
+    recovering: { versionId: "v1", heal: false, replaying: true },
+  };
+  const host: RecoveryHost = {
+    journal: {
+      meta,
+      waitingUpdates: () => waiting,
+      patch: (patch: Partial<DocMeta>) => {
+        patches.push(patch);
+      },
+    } as unknown as Journal,
+    copy: {} as LocalCopy,
+    freshClientId: () => 99,
+    resubscribe() {},
+    show(recovering) {
+      shown.push(recovering);
+    },
+  };
+  const recovery = new PushRecovery(host);
+  expect(recovery.active).toBe(true);
+  recovery.acknowledged(large - 1);
+  expect(recovery.active).toBe(true);
+  recovery.acknowledged(large);
+  expect(recovery.active).toBe(false);
+  expect(patches).toEqual([{ recovering: null }]);
+  expect(shown).toEqual([false]);
 });

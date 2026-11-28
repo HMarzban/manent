@@ -7,6 +7,7 @@ import {
   jsonMap,
   readRundown,
   setCell,
+  setRundownFields,
   writeDurations,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
@@ -141,11 +142,12 @@ function mockDescribe(
 }
 
 async function mountRundown(options: {
-  rundownDoc: CrdtDoc;
+  rundownDoc: CrdtDoc | Promise<CrdtDoc>;
   privateDoc?: CrdtDoc;
   workspaceIndexDoc?: CrdtDoc;
   projectKind?: ProjectKind;
   projectTitle?: string;
+  initialTitle?: string | null;
   status?: Partial<StatusFacts>;
   onDevice?: ReadonlySet<string>;
   nowMs?: number;
@@ -177,7 +179,8 @@ async function mountRundown(options: {
     },
   };
 
-  const environment = testEnvironment({
+  const announced: string[] = [];
+  const baseEnvironment = testEnvironment({
     now: () => nowMs,
     shellState: createValue({
       ...INITIAL_SHELL_STATE,
@@ -185,6 +188,16 @@ async function mountRundown(options: {
       docId: DOC_ID,
     }),
   });
+  const environment = {
+    ...baseEnvironment,
+    dom: {
+      ...baseEnvironment.dom,
+      announce(text: string) {
+        announced.push(text);
+        baseEnvironment.dom.announce(text);
+      },
+    },
+  };
   bindGuard(environment.guard);
 
   const nav = createNavigation({
@@ -200,18 +213,21 @@ async function mountRundown(options: {
 
   const projectTitle = options.projectTitle ?? "The Late Desk";
   const projectKind = options.projectKind ?? "show";
+  const docTitle = createValue<string | null>(
+    options.initialTitle === undefined ? "Tue 17 Nov" : options.initialTitle,
+  );
   const services = {
     ...baseServices,
     openHandle: async (id: string) =>
       id === DOC_ID
-        ? fakeHandle(DOC_ID, options.rundownDoc)
+        ? fakeHandle(DOC_ID, await options.rundownDoc)
         : id === workspaceIndexId && options.workspaceIndexDoc !== undefined
           ? fakeHandle(id, options.workspaceIndexDoc)
           : fakeHandle(id, privateDoc),
     onDevice: async () => options.onDevice ?? new Set<string>(),
     library: {
       ...baseServices.library,
-      documentTitle: () => createValue("Tue 17 Nov"),
+      documentTitle: () => docTitle,
       documentKind: () => createValue<ProjectKind | null>(projectKind),
       docKindOf: () => createValue("rundown" as const),
       documentProject: () => createValue(PROJECT_ID),
@@ -288,7 +304,7 @@ async function mountRundown(options: {
   await act(async () => {
     mounted!.render(<RouterProvider router={router} />);
   });
-  return { host, services, statusSub, privateDoc };
+  return { host, services, statusSub, privateDoc, announced };
 }
 
 function createSampleShowDoc(): CrdtDoc {
@@ -911,4 +927,50 @@ test("header cell edits emit an undo message and Details field edits stay aligne
   expect(services.messages.current()?.text).toBe(
     RUNDOWN_WORDS.undidCellChange("Dur", 1),
   );
+});
+
+test("rundown announces resolved title when loaded asynchronously without stealing focus, and skips re-announce on date change", async () => {
+  mockDescribe("owner", ["edit_rundowns"]);
+  const rundownDoc = createSampleShowDoc();
+  let resolveDoc!: (doc: CrdtDoc) => void;
+  const deferredDoc = new Promise<CrdtDoc>((resolve) => {
+    resolveDoc = resolve;
+  });
+  const { host, announced } = await mountRundown({
+    rundownDoc: deferredDoc,
+    initialTitle: null,
+    nowMs: new Date(2026, 10, 17, 23, 0, 0).getTime(),
+  });
+  expect(announced).toEqual(["Untitled script"]);
+
+  const backButton = host.querySelector(
+    '[data-region="title_bar"] button',
+  ) as HTMLElement;
+  act(() => backButton.focus());
+  expect(document.activeElement).toBe(backButton);
+
+  await act(async () => {
+    resolveDoc(rundownDoc);
+    await Promise.resolve();
+  });
+  await until(
+    () =>
+      host
+        .querySelector("h1")
+        ?.textContent?.includes("The Late Desk · Tue 17 Nov") ?? false,
+  );
+  expect(announced).toEqual(["Untitled script", "The Late Desk · Tue 17 Nov"]);
+  expect(document.activeElement).toBe(backButton);
+
+  await act(async () => {
+    setRundownFields(rundownDoc, { airDate: "2026-11-19" });
+  });
+  await until(
+    () =>
+      host
+        .querySelector("h1")
+        ?.textContent?.includes("The Late Desk · Thu 19 Nov") ?? false,
+  );
+  expect(announced).toEqual(["Untitled script", "The Late Desk · Tue 17 Nov"]);
+  expect(document.activeElement).toBe(backButton);
 });

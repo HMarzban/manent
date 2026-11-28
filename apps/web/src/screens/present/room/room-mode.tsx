@@ -1,5 +1,4 @@
 // The room window: the document's page held read-only, following the driver's caret with no selections or marks.
-import { DEMO_PEOPLE } from "@manent/demo";
 import type { Identity } from "@manent/sync-protocol";
 import { Button, DOCUMENT_WORDS, PRESENT_WORDS } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
@@ -7,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { LockIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { personTitleName } from "../../../demo/demo-bridge.ts";
 import {
   liveEditor,
   subscribeLiveEditors,
@@ -72,14 +72,13 @@ function useRoomPageClass(): void {
 
 /** The tab's title: the room window's, and the person. */
 function useWindowTitle(title: string): void {
-  const { userId } = useServices();
+  const { userId, personName } = useServices();
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
     document.title = pageTitle(
       PRESENT_WORDS.roomWindowTitle(title),
-      person?.name ?? null,
+      personTitleName(userId, personName),
     );
-  }, [userId, title]);
+  }, [userId, personName, title]);
 }
 
 /** True once the document's server status reports that access was removed or the document was deleted. */

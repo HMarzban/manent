@@ -1,7 +1,6 @@
 // Project settings: unified left-rail settings shell across Format and style, Names and facts, People, Drafts, and Templates.
 import { readEpisodes } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { DEMO_PEOPLE } from "@manent/demo";
 import {
   PROJECT_WORDS,
   SEND_WORDS,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useMemo } from "react";
 import type { ReactNode } from "react";
+import { personTitleName } from "../../demo/demo-bridge.ts";
 import { focusHeading } from "../../focus.ts";
 import { createProjectSettingsBag } from "../../project/settings-bag.ts";
 import type { ProjectSection } from "../../routes/project.ts";
@@ -188,9 +188,11 @@ export function ProjectSettingsScreen(): ReactNode {
     focusHeading(document);
   }, []);
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === services.userId);
-    document.title = pageTitle(PROJECT_WORDS.heading, person?.name ?? null);
-  }, [services.userId]);
+    document.title = pageTitle(
+      PROJECT_WORDS.heading,
+      personTitleName(services.userId, services.personName),
+    );
+  }, [services.userId, services.personName]);
 
   const selectSection = (next: ProjectSection): void => {
     void navigate({

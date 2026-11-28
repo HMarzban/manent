@@ -1,5 +1,4 @@
 // Who last changed a project setting, shown beneath the setting row when set by another person.
-import { demoPersonName } from "@manent/demo";
 import { SETTINGS } from "@manent/settings";
 import type { SettingKey } from "@manent/settings";
 import {
@@ -10,6 +9,7 @@ import {
   useSettingsStore,
 } from "@manent/ui";
 import type { ReactNode } from "react";
+import { demoPersonName } from "../../demo/demo-bridge.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectPerson } from "./project-data.ts";
 

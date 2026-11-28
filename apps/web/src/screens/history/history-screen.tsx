@@ -1,5 +1,4 @@
 // Dedicated Version history page (`/s/$docId/history`): strictly read-only review & comparison with Minimap TOC and timeline rail.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { compareRundowns } from "@manent/revisions";
 import {
   DOCUMENT_WORDS,
@@ -11,6 +10,7 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { HistoryIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
+import { personTitleName } from "../../demo/demo-bridge.ts";
 import { focusHeading } from "../../focus.ts";
 import { rundownOfContent } from "../../history/rundown-source.ts";
 import { columnsForRundown } from "../../rundown/dur-format.ts";
@@ -187,12 +187,11 @@ export function HistoryScreen(): ReactNode {
   };
 
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === services.userId);
     document.title = pageTitle(
       `${title} — ${DOCUMENT_WORDS.versionHistory}`,
-      person?.name ?? null,
+      personTitleName(services.userId, services.personName),
     );
-  }, [services.userId, title]);
+  }, [services.userId, services.personName, title]);
 
   useEffect(() => {
     focusHeading(document);

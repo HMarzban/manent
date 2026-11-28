@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Avoid unbounded `Math.min`/`Math.max` spreads and quadratic queue copies, scope WebSocket CSP to allowed hosts, isolate `@manent/demo` in `apps/web`, and guard async screen-title announcements
+
+- Date: 2026-11-28
+
+### What happened
+
+An architectural review of the repository surfaced five recurring classes of subtle defect across sync, server security and the web shell: (1) `packages/sync-client` (`journal.ts`, `recover.ts`, `move.ts`), `apps/web/src/services/sync/device-trust.ts` and `packages/server-core/src/sync/write-path.ts` spread unbounded entry/queue arrays into `Math.max(...arr)` / `Math.min(...arr)`, which throws `RangeError: Maximum call stack size exceeded` once an offline journal grows large enough, while `write-path.ts` (`keepHeld`, `flush`) copied entire batch arrays on every queued item; (2) `htmlCsp` emitted wildcard `ws: wss:` in `connect-src` instead of host-scoped origins; (3) `tools/boundaries.config.ts` allowed `@manent/demo` anywhere in `apps/web`, letting 14 product screens import `DEMO_PEOPLE`, `demoPersonName` or `TOUR` directly; (4) `DocumentScreen` and `RundownScreen` called `dom.announce(title)` inside `[docId]`-only effects, reading a stale fallback title when metadata arrived asynchronously; and (5) `ZOOM_PRESETS`/`ZOOM_MIN`/`ZOOM_MAX` were recomputed in four separate modules across `@manent/commands` and `apps/web`.
+
+### How it was caught
+
+By a full-repository advisory audit of hot paths, security headers, boundary rules and screen hooks, then verified test-first with 700,000-entry spread-overflow tests, CSP host/HTTPS assertions, boundary checks and async-title DOM tests.
+
+### Rule
+
+Never spread user-scaled or journal-scaled arrays into `Math.min(...)` / `Math.max(...)` or rebuild map-held arrays with `[...prev, item]` inside batch loops — use linear `for` loops and local `.push()`. Never emit bare `ws:`/`wss:` wildcards in HTML CSP: derive host-scoped `ws://<host>` / `wss://<host>` (only `wss://` on `https:`) strictly after `allowedHosts.has(url.host)`. Keep `@manent/demo` confined to `apps/web/src/demo/` (and test-only `src/screens/states/`) via `tools/boundaries.config.ts` zones and a single bridge module (`apps/web/src/demo/demo-bridge.ts`). Separate navigation focus effects (`[docId]`) from guarded async title announcements (`useScreenAnnounce`) so resolved titles are announced without stealing focus or re-announcing on rename, and export shared zoom bounds once from `@manent/commands`.
+
+### Enforced by
+
+`packages/sync-client/test/journal.test.ts`, `packages/sync-client/test/recovery.test.ts`, `packages/sync-client/test/move.test.ts`, `apps/web/test/device-trust.test.ts`, `packages/server-core/test/write-path.test.ts`, `packages/server-core/test/static.test.ts`, `tools/boundaries.config.ts`, `tools/test/rules.test.ts`, `apps/web/src/demo/demo-bridge.ts`, `apps/web/src/screens/document/use-screen-announce.ts`, `apps/web/test/document-frame.dom.test.tsx`, `apps/web/test/rundown-screen.dom.test.tsx`, and `apps/web/test/zoom.test.ts`.
+
 ## Run headless Linux CEF smoke inside `dbus-run-session` with portals and keyring disabled to avoid 25 s D-Bus stalls
 
 - Date: 2026-11-28

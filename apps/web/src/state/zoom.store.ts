@@ -1,13 +1,10 @@
 // The page's zoom: view state, Fit width by default and kept per person; written only by interface events.
 
+import { ZOOM_MAX, ZOOM_MIN } from "@manent/commands";
 import type { ZoomSetting } from "@manent/editor";
 import { useSyncExternalStore } from "react";
 import { createStore } from "zustand";
 import { guardWrite } from "./guard.ts";
-import { ZOOM_PRESETS } from "./zoom-presets.ts";
-
-const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
-const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
 
 const store = createStore<{ zoom: ZoomSetting }>()(() => ({
   zoom: "fit_width",

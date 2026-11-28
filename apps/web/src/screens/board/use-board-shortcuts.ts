@@ -1,10 +1,10 @@
 // Single-key writers' room shortcuts, Mod+P print intercept, and lifecycle effects on the Board screen.
 import type { EpisodeEntry } from "@manent/crdt";
-import { DEMO_PEOPLE } from "@manent/demo";
 import { BOARD_WORDS } from "@manent/ui";
 import { useEffect, useLayoutEffect } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import type { BoardCard, BoardStoryline } from "../../board/model.ts";
+import { personTitleName } from "../../demo/demo-bridge.ts";
 import { focusHeading } from "../../focus.ts";
 import type { PersonServices } from "../../services/ports.ts";
 import { pageTitle } from "../../text.ts";
@@ -60,10 +60,9 @@ export function useBoardLifecycle(args: {
   useEffect(() => {
     if (projectTitle === null) return;
     focusHeading(document);
-    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
     document.title = pageTitle(
       BOARD_WORDS.title(projectTitle),
-      person?.name ?? null,
+      personTitleName(userId),
     );
   }, [projectId, projectTitle, userId]);
 

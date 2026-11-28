@@ -6,9 +6,9 @@ import type {
   JsonMapView,
   SeasonEntry,
 } from "@manent/crdt";
-import { DEMO_PEOPLE } from "@manent/demo";
 import { CODE, indexDocId } from "@manent/sync-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { demoPeopleList } from "../demo/demo-bridge.ts";
 import type { ProjectIndex } from "../project/project-index.ts";
 import {
   askProjectApi,
@@ -53,9 +53,7 @@ export interface BoardData {
   readonly writableBoardMap: () => Promise<JsonMapView | null>;
 }
 
-const FALLBACK_PEOPLE: readonly SeriesPerson[] = Object.freeze(
-  DEMO_PEOPLE.map((p) => ({ userId: p.userId, name: p.name })),
-);
+const FALLBACK_PEOPLE: readonly SeriesPerson[] = demoPeopleList();
 const dedupeBoardDescribe =
   createDocRequestDeduper<Exclude<ServerAccess, "pending">>();
 const dedupeBoardPeople = createDocRequestDeduper<readonly SeriesPerson[]>();

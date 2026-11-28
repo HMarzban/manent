@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import { jsonMap, scriptBody } from "@manent/crdt";
 import { clearManentData } from "@manent/client-web";
 import { STORE_RETRY_MS } from "@manent/sync-client";
+import type { LoadedDocument, StoredUpdate } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import { followDemoSeed } from "../src/demo/use-demo.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
+import { markOpen } from "../src/services/sync/device-trust.ts";
 import type { TabPerson } from "../src/session.ts";
 import { createIndexWorld } from "./index.fixtures.ts";
 import type { IndexWorld, TabServices } from "./index.fixtures.ts";
@@ -188,5 +190,58 @@ test("closing asks only while the device cannot save", async () => {
     refusing: true,
     savingAgain: false,
   });
+  you.dispose();
+});
+
+test("markOpen scales past spread argument limits for stored entries", async () => {
+  const w = await createIndexWorld();
+  const you = await w.personServices({ person: YOU });
+  const docId = "0190f1a0-0000-7000-8000-000000000099";
+  const large = 700_000;
+  const empty = new Uint8Array();
+  const entries: StoredUpdate[] = [];
+  for (let seq = 1; seq <= large; seq++)
+    entries.push({
+      kind: "update",
+      localSeq: seq,
+      update: empty,
+      own: false,
+      acked: true,
+      applied: true,
+      elements: [],
+    });
+  const loaded: LoadedDocument = {
+    meta: {
+      docId,
+      generation: 1,
+      clientIds: [],
+      lastServerSeq: 0,
+      ackedClocks: {},
+      neverSynced: false,
+      create: null,
+      recovering: null,
+      moving: null,
+      parked: null,
+      lastSyncedAt: null,
+      lastDeviceVersionAt: 0,
+    },
+    checkpoint: null,
+    syncedBase: null,
+    entries,
+  };
+  const sync = {
+    ...you.sync,
+    store: {
+      ...you.sync.store,
+      load: async () => loaded,
+    },
+  };
+  const stop = markOpen(sync, { docId, messages: you.messages });
+  await until(() => you.sync.memory.openMarker("you") !== null);
+  expect(you.sync.memory.openMarker("you")).toEqual({
+    docId,
+    fromLocalSeq: large + 1,
+  });
+  stop();
   you.dispose();
 });

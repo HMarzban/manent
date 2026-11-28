@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_PRESETS } from "@manent/commands";
+import {
+  ZOOM_MAX as EDITOR_ZOOM_MAX,
+  ZOOM_MIN as EDITOR_ZOOM_MIN,
+} from "@manent/editor";
 import { createPlaceStore, placeKey } from "../src/editor-host/place.ts";
 import {
   pinchZoom,
@@ -107,4 +112,18 @@ test("a stored zoom of the wrong shape reads as nothing", () => {
       return storeOf(shared, "leo").zoom();
     }),
   ).toEqual([null, null, null, null, null, "fit_width", 75]);
+});
+
+test("command zoom bounds match the editor's zoom bounds", () => {
+  expect([
+    ZOOM_PRESETS[0],
+    ZOOM_PRESETS[ZOOM_PRESETS.length - 1],
+    ZOOM_MIN,
+    ZOOM_MAX,
+  ]).toEqual([
+    EDITOR_ZOOM_MIN,
+    EDITOR_ZOOM_MAX,
+    EDITOR_ZOOM_MIN,
+    EDITOR_ZOOM_MAX,
+  ]);
 });

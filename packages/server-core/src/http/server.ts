@@ -207,6 +207,13 @@ export function createServer(config: ServerConfig): ManentServer {
       const url = new URL(request.url);
       const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
       const connectOrigins: string[] = [];
+      if (allowedHosts.has(url.host)) {
+        if (url.protocol === "https:") {
+          connectOrigins.push(`wss://${url.host}`);
+        } else {
+          connectOrigins.push(`ws://${url.host}`, `wss://${url.host}`);
+        }
+      }
       if (config.demo?.control?.url) {
         try {
           connectOrigins.push(new URL(config.demo.control.url).origin);

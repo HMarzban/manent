@@ -48,7 +48,9 @@ export function markOpen(
       open.messages.push(
         messageFor({ kind: "crash_recovered", count: changed.size }),
       );
-    const last = Math.max(0, ...entries.map((entry) => entry.localSeq));
+    let last = 0;
+    for (const entry of entries)
+      if (entry.localSeq > last) last = entry.localSeq;
     memory.setOpenMarker(userId, { docId, fromLocalSeq: last + 1 });
   })();
   return () => {

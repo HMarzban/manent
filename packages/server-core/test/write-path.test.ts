@@ -735,3 +735,74 @@ test("an authority write whose edit refuses writes nothing", () => {
   expect(room.file.log.get(DOC)!.headSeq).toBe(0);
   expect(textOf(room)).toBe("");
 });
+
+test("queuedSetting scales past spread argument limits for large setting queues", () => {
+  const world = createWorld({ mode: "relay" });
+  const { path, room, subA, clock } = world;
+  const large = 700_000;
+  const value = new TextEncoder().encode(JSON.stringify("a4"));
+  for (let seq = 1; seq <= large; seq++)
+    path.set(room, subA, {
+      clientSeq: seq,
+      key: "script.paper",
+      value,
+      generation: 1,
+    });
+  room.mode = "authority";
+  path.set(room, subA, setOf(large, "script.paper", "a4"));
+  path.set(room, subA, setOf(large + 1, "script.paper", "letter"));
+  expect(world.refusals).toEqual([]);
+  expect(scriptSettings(room.doc!).entries()["script.paper"]).toBe("letter");
+  // Drop the synthetic relay items before flush so the test stays fast and focused on queuedSetting.
+  path.discard(room);
+  clock.runDeferred();
+});
+
+test("flush and keepHeld preserve arrival order across files and full-disk batches", () => {
+  const heldBatches: number[] = [];
+  const world = createWorld({
+    ports: {
+      fullDisk: "hold",
+      held: {
+        hold(items) {
+          heldBatches.push(items.length);
+        },
+        retry() {},
+        size: () => heldBatches.reduce((sum, n) => sum + n, 0),
+        state: "ok",
+      },
+    },
+  });
+  const { path, room, subA, clock, storage, rooms } = world;
+  const own: Home = { kind: "user", id: "sam" };
+  placeScript(storage, { docId: DOC2, home: own });
+  storage.open(own).log.registerClients(DOC2, "sam", [ALICE_CLIENT]);
+  const second = rooms.room(DOC2, own, "private");
+  rooms.load(second);
+  second.editors.set(subA.peer, subA);
+
+  const typingOne = typistFor(ALICE_CLIENT, BLOCK);
+  const typingTwo = typistFor(ALICE_CLIENT, BLOCK2);
+  const batchCount = 200;
+  const expectedUpdates: Uint8Array[] = [];
+  storage.fillDisk(true);
+  for (let n = 1; n <= batchCount; n++) {
+    const u1 = typingOne(String(n));
+    expectedUpdates.push(u1);
+    path.push(room, subA, pushOf(n, u1));
+    path.push(second, subA, pushOf(n, typingTwo(String(n))));
+  }
+  clock.runDeferred();
+
+  expect(heldBatches).toEqual([batchCount, batchCount]);
+  expect(path.heldUpdates(DOC)).toEqual(expectedUpdates);
+  expect(path.heldShownUpdates(DOC)).toEqual(expectedUpdates);
+
+  // Subsequent held flushes append in order to the same document's held arrays.
+  const extra = typingOne("last");
+  expectedUpdates.push(extra);
+  path.push(room, subA, pushOf(batchCount + 1, extra));
+  clock.runDeferred();
+  expect(path.heldUpdates(DOC)).toEqual(expectedUpdates);
+  expect(path.heldShownUpdates(DOC)).toEqual(expectedUpdates);
+});

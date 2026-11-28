@@ -5,6 +5,7 @@ bench/results/*
 !bench/results/.gitkeep
 e2e/test-results/
 e2e/playwright-report/
+e2e/*.log
 .DS_Store
 apps/desktop/.hutch/
 apps/desktop/build/

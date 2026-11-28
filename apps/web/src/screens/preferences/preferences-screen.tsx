@@ -1,5 +1,4 @@
 // Preferences: one screen with no Save button. Every change applies at once, and the changes of this visit can be undone.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { markEnd, markStart } from "@manent/perf";
 import { SECTION_IDS } from "@manent/settings";
 import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
@@ -37,6 +36,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
+import { personTitleName } from "../../demo/demo-bridge.ts";
 import { deviceName as nameOfDevice } from "../../platform.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readDeviceId } from "../../services/device-id.ts";
@@ -108,15 +108,14 @@ function useVisit(deviceName: string | null): Visit {
 
 /** The tab's title: Preferences, the pane shown, and the person. */
 function useTabTitle(pane: SectionId): void {
-  const { userId } = useServices();
+  const { userId, personName } = useServices();
   const { where } = useEnvironment();
   useEffect(() => {
-    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
     document.title = pageTitle(
       `${PREFERENCES_WORDS.title} — ${paneLabels(where.shell)[pane]}`,
-      person?.name ?? null,
+      personTitleName(userId, personName),
     );
-  }, [userId, where, pane]);
+  }, [userId, personName, where, pane]);
 }
 
 function paneIcon(pane: SectionId, desktop: boolean): ReactNode {

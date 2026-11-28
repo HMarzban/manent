@@ -39,7 +39,12 @@ export type { ReservedKey } from "./reserved-keys.ts";
 export { settingCommands } from "./settings-commands.ts";
 export { COMMANDS } from "./definitions/index.ts";
 export type { CommandHandlers, CommandId } from "./definitions/index.ts";
-export { EDITOR_COMMANDS } from "./definitions/editor.ts";
+export {
+  EDITOR_COMMANDS,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_PRESETS,
+} from "./definitions/editor.ts";
 export { waitingReason } from "./definitions/production.ts";
 export type { EditorCommandId } from "./definitions/editor.ts";
 export {

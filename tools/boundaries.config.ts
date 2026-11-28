@@ -380,5 +380,11 @@ export const RULES: BoundaryRules = {
       globals: [],
       values: ["@manent/editor", "@manent/crdt-binding"],
     },
+    {
+      workspace: "web",
+      only: ["src/demo/", "src/screens/states/"],
+      globals: [],
+      values: ["@manent/demo"],
+    },
   ],
 };

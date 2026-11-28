@@ -1,6 +1,5 @@
 // The Library: the workspace switcher, its navigation and the view the address chooses, New script and New project, the
 // person menu and the status bar.
-import { TOUR, isShown } from "@manent/demo";
 import { indexDocId } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
@@ -20,6 +19,7 @@ import { MenuIcon, PlusIcon, UploadIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
+import { hasVisibleTourScenarios } from "../../demo/demo-bridge.ts";
 import { focusHeading } from "../../focus.ts";
 import { storageOfServices } from "../../services/api-cache.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -48,7 +48,7 @@ import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 const NO_ITEMS: Subscribable<readonly never[]> = createValue([]);
 const CACHED: Subscribable<"cached" | "problem"> = createValue("cached");
 // a Tour that lists no scenario is not opened on its own
-const TOUR_EMPTY = !TOUR.scenarios.some(isShown);
+const TOUR_EMPTY = !hasVisibleTourScenarios();
 
 /**
  * The workspace shown: the one in the address, else the person's first, else the person's own desk; null while the

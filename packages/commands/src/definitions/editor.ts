@@ -33,9 +33,9 @@ const capitalised = (word: string): string =>
   word.charAt(0).toUpperCase() + word.slice(1);
 
 // the zooms View ▾ → Zoom offers, percent, as the page's zoom store holds them
-const ZOOM_PRESETS = [50, 75, 100, 125, 150, 200, 300] as const;
-const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
-const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
+export const ZOOM_PRESETS = [50, 75, 100, 125, 150, 200, 300] as const;
+export const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
+export const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
 const percent = (n: number): string => `${n}\u00a0%`;
 // the preset Mod+0 sets: the platform's actual size
 const ACTUAL_SIZE = 100;

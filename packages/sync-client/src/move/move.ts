@@ -178,7 +178,9 @@ export class Move {
   async begin(): Promise<void> {
     const { journal, copy, ports } = this.host;
     const waiting = journal.waitingUpdates();
-    const through = Math.max(0, ...journal.entries.map((e) => e.localSeq));
+    let through = 0;
+    for (const e of journal.entries)
+      if (e.localSeq > through) through = e.localSeq;
     if (waiting.length === 0) {
       this.moving = { ...this.moving, throughLocalSeq: through };
       journal.patch({ moving: this.moving });
@@ -187,7 +189,9 @@ export class Move {
     }
     copy.recordVersion("device", "before_reconnect");
     const key = ports.random.bytes(16).toHex();
-    const throughLocalSeq = Math.max(...waiting.map((e) => e.localSeq));
+    let throughLocalSeq = waiting[0]!.localSeq;
+    for (const e of waiting)
+      if (e.localSeq > throughLocalSeq) throughLocalSeq = e.localSeq;
     const moving = { ...this.moving, key, throughLocalSeq };
     const held = await journal.commit({ moving });
     if (this.stopped) return;
