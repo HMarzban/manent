@@ -4,6 +4,7 @@ export {
   ApplicationMenu,
   BrowserWindow,
   PATHS,
+  Screen,
   Updater,
   Utils,
 } from "electrobun/main";

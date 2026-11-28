@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { NativeMenu, NativeMenuItem } from "@manent/sync-protocol";
-import { menuTemplate } from "../src/menu-template.ts";
+import { ABOUT_ACTION, menuTemplate } from "../src/menu-template.ts";
 
 const item = (
   id: string,
@@ -33,7 +33,11 @@ test("before the page speaks, the menu is the fixed minimum", () => {
   expect(menuTemplate(null, "mac")).toEqual([
     {
       label: "Manent",
-      submenu: [{ role: "about" }, { type: "separator" }, { role: "quit" }],
+      submenu: [
+        { label: "About Manent", action: ABOUT_ACTION, enabled: true },
+        { type: "separator" },
+        { role: "quit" },
+      ],
     },
     edit,
     window,
@@ -74,7 +78,7 @@ test("the page's model becomes the native menu, with Preferences in the right pl
     {
       label: "Manent",
       submenu: [
-        { role: "about" },
+        { label: "About Manent", action: ABOUT_ACTION, enabled: true },
         {
           label: "Preferences",
           action: "app.preferences",

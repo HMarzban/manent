@@ -13,6 +13,7 @@ import {
 } from "@manent/ui";
 import type { ReactNode } from "react";
 import { useEnvironment } from "../../services/context.tsx";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { SettingRows } from "./pane.tsx";
 import { isCommandId, searchPreferences } from "./search-index.ts";
 import type { SearchResult } from "./search-index.ts";
@@ -70,6 +71,7 @@ function ResultRow(props: {
     case "preference":
       return (
         <SettingRows
+          cardRow
           keys={[result.key]}
           deviceName={deviceName}
           persisted={persisted}
@@ -129,33 +131,49 @@ export function PreferencesSearch(props: {
   // the answers follow the preferences, so a word such as "accessibility" finds both
   if (found.preferences.length > 0)
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <p className="text-meta text-fg-muted tabular-nums">
           {PREFERENCES_WORDS.resultsCount(found.preferences.length)}
         </p>
-        {rows(
-          found.preferences.map((key): SearchResult => ({
-            kind: "preference",
-            key,
-          })),
+        <SettingsCard divided>
+          {rows(
+            found.preferences.map((key): SearchResult => ({
+              kind: "preference",
+              key,
+            })),
+          )}
+        </SettingsCard>
+        {answers.length === 0 ? null : (
+          <SettingsCard>
+            <div className="flex flex-col gap-2">{answers}</div>
+          </SettingsCard>
         )}
-        {answers}
       </div>
     );
   if (answers.length > 0)
-    return <div className="flex flex-col gap-2">{answers}</div>;
+    return (
+      <SettingsCard>
+        <div className="flex flex-col gap-2">{answers}</div>
+      </SettingsCard>
+    );
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-3">
       <p className="text-ui">{PREFERENCES_WORDS.noMatch(query.trim())}</p>
-      <h3 className="mn-group-label px-0!">{PREFERENCES_WORDS.elsewhere}</h3>
-      {rows([
-        ...found.elsewhere.map((pointer): SearchResult => ({
-          kind: "pointer",
-          pointer,
-        })),
-        ...found.commands.map((id): SearchResult => ({ kind: "command", id })),
-      ])}
-      <SearchAllCommands query={query.trim()} />
+      <SettingsCard title={PREFERENCES_WORDS.elsewhere}>
+        <div className="flex flex-col gap-2">
+          {rows([
+            ...found.elsewhere.map((pointer): SearchResult => ({
+              kind: "pointer",
+              pointer,
+            })),
+            ...found.commands.map((id): SearchResult => ({
+              kind: "command",
+              id,
+            })),
+          ])}
+          <SearchAllCommands query={query.trim()} />
+        </div>
+      </SettingsCard>
     </div>
   );
 }

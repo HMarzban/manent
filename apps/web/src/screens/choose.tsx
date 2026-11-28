@@ -21,7 +21,7 @@ import { CloseQuestion } from "../services/sync/close-question.tsx";
 import { choosePerson } from "../session.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import type { TabPerson } from "../session.ts";
-import { TEXT, pageTitle } from "../text.ts";
+import { TEXT, chooseHintFor, pageTitle } from "../text.ts";
 import { ChooseBodySkeleton } from "./choose/choose-skeleton.tsx";
 import { PeopleGrid } from "./choose/people-grid.tsx";
 import {
@@ -137,7 +137,8 @@ export function ChooseScreen(props: {
   compact?: boolean;
 }): ReactNode {
   const { api, person, setPerson, next, compact = false } = props;
-  const { now, schedule } = useEnvironment();
+  const { now, schedule, where } = useEnvironment();
+  const onDesktop = where.shell === "desktop";
   // before a person is chosen the chooser is drawn outside the shell, which times every other surface
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const [loadingSince] = useState(now);
@@ -245,7 +246,7 @@ export function ChooseScreen(props: {
           {TEXT.chooseTitle}
         </h1>
         <p className="mt-1.5 max-w-[38rem] text-ui text-fg-muted">
-          {TEXT.chooseHint}
+          {chooseHintFor(onDesktop)}
         </p>
 
         {(choices.isError || unreachable) && (

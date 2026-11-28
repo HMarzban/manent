@@ -74,6 +74,7 @@ test("the routes are the screens of this release", () => {
   // the production flavour
   expect(routePaths()).toEqual([
     "/",
+    "/about",
     "/choose",
     "/join/$token",
     "/p/$projectId/board",
@@ -101,6 +102,7 @@ test("the test build adds the development screens", () => {
       "/__keys",
       "/__stand-in",
       "/__states",
+      "/about",
       "/choose",
       "/join/$token",
       "/p/$projectId/board",
@@ -132,6 +134,7 @@ test("a screen that reads the route is that route's own lazily loaded component"
     .map(([path]) => path)
     .toSorted();
   expect(lazy).toEqual([
+    "/about",
     "/p/$projectId/board",
     "/p/$projectId/settings",
     "/preferences/$pane",

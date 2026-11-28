@@ -7,11 +7,7 @@ import {
   createSignedSessionStore,
   createTicketStore,
 } from "@manent/server-core";
-import type {
-  ManentServer,
-  ServerConfig,
-  SyncService,
-} from "@manent/server-core";
+import type { ManentServer, ServerConfig } from "@manent/server-core";
 import { encodeUpstreamStatus } from "@manent/sync-client";
 import type { UpstreamStatus } from "@manent/sync-client";
 import { createHandover } from "../handoff/handoff.ts";
@@ -25,7 +21,6 @@ import { createCloudSessions, createNodeSignIn } from "../auth/node-sign-in.ts";
 import { createRelayBridge } from "../relay/bridge.ts";
 import type { RelayBridge } from "../relay/bridge.ts";
 import { relayControl } from "../relay/control-relay.ts";
-import { nodeDocOf } from "../relay/follow.ts";
 import {
   createMirror,
   guardSubscribe,
@@ -33,6 +28,19 @@ import {
 } from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
 import { createWakeWatch } from "../relay/wake.ts";
+import { createCloudStatus } from "./cloud-status.ts";
+import type { ConnectionMode } from "./cloud-status.ts";
+import {
+  closeNodeParts,
+  createNodeFetch,
+  currentSessionJson,
+  onDeviceStorageChange,
+  ownerIn,
+  resumeCloudPeople,
+  sendEditorControl,
+  serviceOf,
+  snapshotForHandoff,
+} from "./core-helpers.ts";
 import type { NodeCoreOptions } from "./ports.ts";
 import { createReseed, watchUpstream } from "./reseed.ts";
 import { composeNodeServices } from "./services.ts";
@@ -51,66 +59,65 @@ export interface NodeCore {
   close(): Promise<void>;
 }
 
-function ownerIn(
-  storage: NodeCoreOptions["storage"],
-  docId: string,
-  clientId: number,
-): string | null {
-  const place = storage.directory.placeOf(docId);
-  if (place === null) return null;
-  const ledger = storage.open(place.home).log.ledger(docId);
-  return ledger.get(clientId)?.userId ?? null;
-}
-
-function serviceOf(server: ManentServer): SyncService {
-  if (server.sync === null) throw new TypeError("the node serves no documents");
-  return server.sync;
-}
-
 /** Composes the node's parts, and nothing else. */
 export function createNodeCore(options: NodeCoreOptions): NodeCore {
-  const { storage, records, cloud, clock, defer, random } = options;
+  const { storage, records, clock, defer, random } = options;
   const url = new URL(options.nodeUrl);
   const hosts = [`127.0.0.1:${url.port}`, `localhost:${url.port}`];
   const sessions = createSignedSessionStore({
     secret: records.secret(),
     now: clock.now,
   });
+  const cloudStatus = createCloudStatus({
+    cloud: options.cloud,
+    clock,
+    onOnlineChange: (online) =>
+      shell.shell.send({ v: 1, t: "cloud_state", online }),
+    onRecovered: () => recover(),
+  });
+  const { cloud } = cloudStatus;
+  const currentCloudState = () =>
+    ({ v: 1, t: "cloud_state", online: cloudStatus.status().online }) as const;
+  const shell = createShellChannel({
+    clock,
+    heartbeatMs: SSE_HEARTBEAT_MS,
+    onOpen: (send) => send(currentCloudState()),
+  });
+  shell.shell.onMessage((m) => {
+    if (m.t === "first_frame") shell.shell.send(currentCloudState());
+  });
   const tokenOf = (userId: string): string | null =>
     records.person(userId)?.cloudToken ?? null;
   const focus = new Set<() => void>();
   let device: UpstreamStatus["device"] = "ok";
-  /** People whose hand-off waits until the disk has taken what it held. */
   const afterDisk = new Set<string>();
   const cloudSessions = createCloudSessions({
     cloud,
     records,
     tokenOf,
-    onSignedIn: (userId) => handOver(userId),
+    onSignedIn(userId) {
+      handOver(userId);
+      rawRelay.reconnect();
+    },
   });
   let watched: { editors(): Editor[] } | null = null;
-
-  const control = (
-    docId: string,
-    kind: "upstream_status" | "upstream_refused",
-    data: Uint8Array,
-    userId: string | null,
-  ): void => {
-    for (const editor of watched?.editors() ?? [])
-      if (userId === null || editor.userId === userId)
-        editor.control(docId, kind, data);
-  };
   const sendStatus = (docId: string, status: UpstreamStatus): void =>
-    control(docId, "upstream_status", encodeUpstreamStatus(status), null);
-
+    sendEditorControl(
+      watched?.editors() ?? [],
+      docId,
+      "upstream_status",
+      encodeUpstreamStatus(status),
+      null,
+    );
   const upstream = watchUpstream({
     upstream: options.upstream,
     records,
     reauthenticate: cloudSessions.reauthenticate,
     onConnected: connected,
+    onReachability: (up) =>
+      up ? cloudStatus.reportReachable() : cloudStatus.reportUnreachable(),
   });
-
-  const relay = createRelayBridge({
+  const rawRelay = createRelayBridge({
     storage,
     records,
     upstream,
@@ -120,28 +127,37 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     ownerOf: (docId, clientId) => ownerIn(storage, docId, clientId),
     handoffRefused: (docId) => records.handoff(docId)?.refused ?? null,
     onRefused: (docId, userId, data) =>
-      control(docId, "upstream_refused", data, userId),
+      sendEditorControl(
+        watched?.editors() ?? [],
+        docId,
+        "upstream_refused",
+        data,
+        userId,
+      ),
     onControl: (docId, userId, received) =>
       relayControl(
-        (watched?.editors() ?? []).filter((editor) => editor.userId === userId),
+        (watched?.editors() ?? []).filter((e) => e.userId === userId),
         docId,
         received,
       ),
   });
+  const setConnection = (mode: ConnectionMode, delayMs: number): void => {
+    rawRelay.setConnection(mode, delayMs);
+    cloudStatus.setMode(mode);
+  };
+  const relay: RelayBridge = { ...rawRelay, setConnection };
   relay.onStatus(sendStatus);
-  const shell = createShellChannel({ clock, heartbeatMs: SSE_HEARTBEAT_MS });
-  const clientOf = (userId: string) => relay.clientOf(userId);
   const ids = (): string => random.bytes(16).toHex();
   const composed = composeNodeServices({
     ...options,
+    cloud,
     sessions,
     ids,
     sync: () => serviceOf(server),
     shell: shell.shell,
-    clientOf,
-    reserveClientId: (userId, docId) => relay.reserveClientId(userId, docId),
+    clientOf: relay.clientOf,
+    reserveClientId: relay.reserveClientId,
   });
-
   const sync: NonNullable<ServerConfig["sync"]> = {
     storage,
     clock,
@@ -151,21 +167,20 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     fullDisk: "hold",
     onDeviceStorage(state) {
       device = state;
-      const editors = watched?.editors() ?? [];
-      const held = new Set(
-        editors.flatMap((editor) => [...editor.docs.keys()]),
-      );
-      for (const docId of held) sendStatus(docId, relay.status(docId));
-      if (state === "failing") return;
-      for (const userId of afterDisk) handOver(userId);
-      afterDisk.clear();
+      onDeviceStorageChange({
+        state,
+        editors: watched?.editors() ?? [],
+        afterDisk,
+        statusOf: relay.status,
+        sendStatus,
+        handOver,
+      });
     },
     upstream: relay,
     checkpointer: createInlineCheckpointer({ storage, defer }),
     registry: options.registry,
     ...composed.sync,
   };
-
   const server = createServer({
     http: {
       allowedHosts: hosts,
@@ -194,7 +209,6 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   });
   const service = serviceOf(server);
   relay.attach(service);
-
   const reseed = createReseed({
     storage,
     records,
@@ -205,7 +219,6 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     wipe: options.wipe,
     onWiped: () => composed.config.search?.catchUpNow(),
   });
-
   const mirror = createMirror({
     storage,
     records,
@@ -222,24 +235,11 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     upstream,
     service,
     tokenOf,
+    reauthenticate: reseed.reauthenticate,
     clock,
     random,
-    snapshot(docId) {
-      const place = storage.directory.placeOf(docId);
-      const doc = nodeDocOf(storage, docId);
-      if (place === null || doc === null)
-        throw new RangeError(`the node holds no ${docId}`);
-      const state = doc.encodeState();
-      doc.destroy();
-      const home =
-        place.home.kind === "user"
-          ? "user"
-          : `${place.home.kind}:${place.home.id}`;
-      const workspaceId = records.workspaceOf(docId);
-      return { state, kind: place.kind, home, workspaceId };
-    },
+    snapshot: (docId) => snapshotForHandoff(storage, records, docId),
   });
-
   const guarded = guardSubscribe({
     inner: server.connections,
     storage,
@@ -257,11 +257,8 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         encodeUpstreamStatus(relay.status(docId)),
       );
       const { userId } = editor;
-      if (userId === null || records.docState(docId)?.state !== "synced")
-        return;
-      relay.open(userId, docId).catch(() => {
-        // a line that could not open is forgotten, and opened again at the window's next subscribe or edit
-      });
+      if (userId !== null && records.docState(docId)?.state === "synced")
+        relay.open(userId, docId).catch(() => {});
     },
     acked(docId) {
       if (records.docState(docId)?.state === "synced")
@@ -269,22 +266,23 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     },
   });
   watched = guarded;
-
-  /** Hands the person's scripts over in the background. */
   function handOver(userId: string): void {
-    // a snapshot now would leave out the commits the disk holds, and the cloud would refuse them later as a push
     if (device === "failing") return void afterDisk.add(userId);
-    handover.run(userId).catch(() => {
-      // a run cut short resumes from the key and snapshot it stored, at the person's next connection or launch
-    });
+    handover.run(userId).catch(() => {});
   }
-
-  /** On each connection of a person's upstream: their hand-off, and the demo's seed checked. */
   function connected(userId: string): void {
     handOver(userId);
-    reseed.check().catch(() => {
-      // a reset that could not finish stored no new seed: the next connection runs it again
+    reseed.check().catch(() => {});
+  }
+  function recover(): void {
+    rawRelay.reconnect();
+    resumeCloudPeople({
+      records,
+      onlyWantingCloud: true,
+      choose: cloudSessions.chosen,
+      handOver,
     });
+    reseed.check().catch(() => {});
   }
 
   const closeCallbacks: (() => void)[] = [];
@@ -293,7 +291,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     shell,
     sessions,
     clock,
-    clientOf,
+    clientOf: relay.clientOf,
+    cloudStatus: cloudStatus.status,
+    probeCloud: () => cloudStatus.probe().then(() => undefined),
     onClose: (fn) => void closeCallbacks.push(fn),
     async signInToSync(userId) {
       const person = records.person(userId);
@@ -302,52 +302,54 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       handOver(userId);
       return { ok: true };
     },
-    onFocus() {
+    onFocus: () => {
       for (const listener of focus) listener();
     },
     storeUsage: options.storeUsage,
-    setConnection: (mode, delayMs) => relay.setConnection(mode, delayMs),
+    setConnection,
   });
 
   const inner: ManentServer = {
     sync: service,
     connections: guarded.connections,
-    async fetch(request, context) {
-      const handled =
-        (await routes(request)) ?? (await composed.forward(request));
-      if (handled !== null) return handled;
-      await mirrorBeforeCreate({
-        request,
-        storage,
-        mirror,
-        resolveUser: (t) => sessions.resolve(t)?.userId ?? null,
-        ensureCloudToken: cloudSessions.waitToken,
-        waitReseed: reseed.wait,
-      });
-      const named = await workspaceNamed(request);
-      const answer = await server.fetch(request, context);
-      if (named !== null && answer?.status === 200)
-        records.setWorkspace(named.docId, named.workspaceId);
-      return answer;
-    },
+    fetch: createNodeFetch({
+      records,
+      routes,
+      forward: composed.forward,
+      beforeFetch: (request) =>
+        mirrorBeforeCreate({
+          request,
+          storage,
+          mirror,
+          resolveUser: (t) => sessions.resolve(t)?.userId ?? null,
+          ensureCloudToken: cloudSessions.waitToken,
+          waitReseed: reseed.wait,
+        }),
+      workspaceNamed,
+      serverFetch: server.fetch,
+      isOnline: () => cloudStatus.status().online,
+      sessions,
+      handOver,
+    }),
   };
 
   const boot = options.boot;
-  const session = (): string | null => {
-    const current = records.current();
-    const person = current === null ? null : records.person(current.userId);
-    if (current === null || person === null) return null;
-    const { userId, name } = person;
-    return JSON.stringify({ token: current.nodeToken, userId, name });
-  };
-  // a hand-off a stopped process left goes on at launch: no upstream connects for a script the node still holds as its own
-  for (const { userId } of records.people()) handOver(userId);
+  resumeCloudPeople({
+    records,
+    onlyWantingCloud: false,
+    choose: cloudSessions.chosen,
+    handOver,
+  });
+  void cloudStatus.probe();
 
   const stopWake = createWakeWatch({
     clock,
     tickMs: WAKE_TICK_MS,
     gapMs: WAKE_GAP_MS,
-    onWake: () => relay.reconnect(),
+    onWake: () => {
+      relay.reconnect();
+      void cloudStatus.probe();
+    },
   });
 
   return {
@@ -357,7 +359,11 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       bootScript:
         boot === null
           ? null
-          : () => bootScript({ ...boot(), session: session() }),
+          : () =>
+              bootScript({
+                ...boot(),
+                session: currentSessionJson(records),
+              }),
     }),
     shell: shell.shell,
     relay,
@@ -365,14 +371,18 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       focus.add(listener);
       return () => focus.delete(listener);
     },
-    async close() {
-      stopWake();
-      for (const fn of closeCallbacks.splice(0)) fn();
-      composed.stop();
-      composed.config.search?.stop();
-      composed.config.prompter?.stop();
-      await service.shutdown();
-      await relay.close();
-    },
+    close: () =>
+      closeNodeParts({
+        stopWake,
+        stopCloud: cloudStatus.stop,
+        stopHandover: handover.stop,
+        closeShell: shell.close,
+        closeCallbacks,
+        stopComposed: composed.stop,
+        stopSearch: composed.config.search?.stop,
+        stopPrompter: composed.config.prompter?.stop,
+        shutdownService: () => service.shutdown(),
+        closeRelay: () => rawRelay.close(),
+      }),
   };
 }

@@ -19,9 +19,13 @@ const role = (name: string): MenuEntry => ({ role: name });
 
 // the menus the shell draws before the page has sent its model, labelled as the page labels them
 const APP_LABEL = "Manent";
+const ABOUT_LABEL = "About Manent";
 const EDIT_LABEL = "Edit";
 const WINDOW_LABEL = "Window";
 const WINDOW_ROLES = ["minimize", "zoom"] as const;
+
+/** Menu action id intercepted by the desktop shell to open the bespoke About Manent window. */
+export const ABOUT_ACTION = "shell.about";
 
 function entryOf(item: NativeMenuItem): MenuEntry {
   if (item.role !== null) return { label: item.label, role: item.role };
@@ -69,11 +73,16 @@ function editEntry(menu: NativeMenu | undefined): MenuEntry {
   };
 }
 
-/** On macOS: About, the model's own items of the app menu, then a separator and Quit. */
+/** On macOS: About Manent (custom window), the model's own items of the app menu, then a separator and Quit. */
 function appEntry(menu: NativeMenu | undefined): MenuEntry {
   return {
     label: APP_LABEL,
-    submenu: [role("about"), ...joined(itemsOf(menu)), SEPARATOR, role("quit")],
+    submenu: [
+      { label: ABOUT_LABEL, action: ABOUT_ACTION, enabled: true },
+      ...joined(itemsOf(menu)),
+      SEPARATOR,
+      role("quit"),
+    ],
   };
 }
 

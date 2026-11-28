@@ -4,6 +4,7 @@ import { MENU_IDS } from "@manent/settings";
 import type { MenuId } from "@manent/settings";
 import {
   Button,
+  Input,
   Kbd,
   MENU_WORDS,
   PREFERENCES_WORDS,
@@ -13,11 +14,13 @@ import {
   useCommands,
   useSubscribable,
 } from "@manent/ui";
+import { SearchIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Where } from "../../platform.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { FixedKey } from "../../services/ports.ts";
+import { SettingsCard } from "../../settings-shell/settings-card.tsx";
 import { FindByKeys, ShortcutCapture } from "./shortcut-capture.tsx";
 import {
   readCustomShortcuts,
@@ -215,24 +218,108 @@ const byAttention = (views: readonly ShortcutView[]): ShortcutView[] => [
 export function KeyboardPane(props: {
   deviceName: string | null;
   onShortcuts(changes: readonly ShortcutChange[]): void;
+  onResetShortcuts?: () => void;
 }): ReactNode {
-  const { deviceName, onShortcuts } = props;
+  const { deviceName, onShortcuts, onResetShortcuts } = props;
+  const { where } = useEnvironment();
   const views = useShortcutViews();
   const fixedKeys = useSubscribable(useServices().fixedKeys);
   const [capturing, setCapturing] = useState<string | null>(null);
-  const groups = MENU_IDS.map((menu) => ({
-    menu,
-    label: MENU_LABELS[menu],
-    views: byAttention(views.filter((view) => view.group === menu)),
-  })).filter((group) => group.views.length > 0);
+  const [filter, setFilter] = useState("");
+  const [customOnly, setCustomOnly] = useState(false);
+  const customCount = views.filter((view) => view.custom !== null).length;
+  const activeCustomOnly = customOnly && customCount > 0;
+  const query = filter.trim().toLowerCase();
+  const matchesFilter = (
+    view: ShortcutView,
+    menuLabel: string | null,
+  ): boolean => {
+    if (activeCustomOnly && view.custom === null) return false;
+    if (query === "") return true;
+    if (view.label.toLowerCase().includes(query)) return true;
+    if (menuLabel !== null && menuLabel.toLowerCase().includes(query))
+      return true;
+    return view.keys.some((chord) =>
+      keyLabel(chord, where.platform).toLowerCase().includes(query),
+    );
+  };
+  const groups = MENU_IDS.map((menu) => {
+    const label = MENU_LABELS[menu];
+    return {
+      menu,
+      label,
+      views: byAttention(
+        views.filter(
+          (view) => view.group === menu && matchesFilter(view, label),
+        ),
+      ),
+    };
+  }).filter((group) => group.views.length > 0);
+  const isFiltered = query !== "" || activeCustomOnly;
   return (
     <>
-      <FindByKeys />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex h-control max-w-64 min-w-44 flex-1 items-center">
+          <SearchIcon
+            aria-hidden="true"
+            className="pointer-events-none absolute start-2.5 size-icon text-fg-muted"
+          />
+          <Input
+            type="text"
+            aria-label={PREFERENCES_WORDS.filterShortcutsLabel}
+            placeholder={PREFERENCES_WORDS.filterShortcuts}
+            className="h-control ps-8"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && filter !== "") {
+                event.preventDefault();
+                setFilter("");
+              }
+            }}
+          />
+        </div>
+        <FindByKeys />
+        {customCount === 0 ? null : (
+          <Button
+            variant={activeCustomOnly ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={activeCustomOnly}
+            onClick={() => setCustomOnly((on) => !on)}
+          >
+            {PREFERENCES_WORDS.customOnlyCount(customCount)}
+          </Button>
+        )}
+        {customCount > 0 && onResetShortcuts !== undefined ? (
+          <Button variant="outline" size="sm" onClick={onResetShortcuts}>
+            {PREFERENCES_WORDS.resetShortcuts}
+          </Button>
+        ) : null}
+      </div>
       <div
         role="group"
         aria-label={PREFERENCES_WORDS.shortcutsGroup}
         className="flex flex-col gap-4"
       >
+        {groups.length === 0 && isFiltered ? (
+          <SettingsCard>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-ui text-fg-muted">
+                {PREFERENCES_WORDS.noMatchingShortcuts(filter.trim())}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilter("");
+                  setCustomOnly(false);
+                }}
+              >
+                {PREFERENCES_WORDS.clearFilter}
+              </Button>
+            </div>
+          </SettingsCard>
+        ) : null}
         {groups.map((group) => (
           <ShortcutTable key={group.menu} heading={group.label}>
             {group.views.map((view, index) => (
@@ -249,7 +336,7 @@ export function KeyboardPane(props: {
             ))}
           </ShortcutTable>
         ))}
-        {fixedKeys.length === 0 ? null : (
+        {fixedKeys.length === 0 || isFiltered ? null : (
           <ShortcutTable heading={PREFERENCES_WORDS.writing}>
             {fixedKeys.map((fixed, index) => (
               <FixedRow

@@ -6,17 +6,42 @@ import {
 } from "@manent/sync-protocol";
 import type { FileRefusal, OpenedFile } from "@manent/sync-protocol";
 import { SHELL_WORDS } from "../words.ts";
-import { Utils } from "./sdk.ts";
 
 /** The shell channel carries at most this many files, and as many refusals, in one message. */
 const OPENED_FILES_LIMIT = 32;
+
+export interface OpenedFilesResult {
+  files: OpenedFile[];
+  refused: { name: string; reason: FileRefusal }[];
+}
+
+export interface DialogUtils {
+  showMessageBox(options: {
+    type: "warning";
+    title: string;
+    message: string;
+    buttons: string[];
+    defaultId: number;
+    cancelId: number;
+  }): Promise<{ response: number }>;
+  openExternal(url: string): void;
+  openFileDialog(options: {
+    allowedFileTypes?: string;
+    canChooseFiles: boolean;
+    canChooseDirectory: boolean;
+    allowsMultipleSelection: boolean;
+  }): Promise<string[]>;
+}
 
 /**
  * The alert for a store a newer build wrote: its default button opens the repository's latest
  * release in the system browser. Resolves once the person has answered.
  */
-export async function alertNewerStore(repository: string): Promise<void> {
-  const { response } = await Utils.showMessageBox({
+export async function alertNewerStore(
+  repository: string,
+  utils: DialogUtils,
+): Promise<void> {
+  const { response } = await utils.showMessageBox({
     type: "warning",
     title: SHELL_WORDS.newerStoreTitle,
     message: SHELL_WORDS.newerStoreBody,
@@ -25,7 +50,7 @@ export async function alertNewerStore(repository: string): Promise<void> {
     cancelId: 1,
   });
   if (response === 0)
-    Utils.openExternal(`https://github.com/${repository}/releases/latest`);
+    utils.openExternal(`https://github.com/${repository}/releases/latest`);
 }
 
 const isOpenable = (name: string): boolean =>
@@ -33,41 +58,67 @@ const isOpenable = (name: string): boolean =>
     name.toLowerCase().endsWith(extension),
   );
 
-/** Why the file at `path` is not opened; null when it is. */
-function refusalOf(path: string): FileRefusal | null {
-  if (!isOpenable(path)) return "type";
-  return Bun.file(path).size > OPENED_FILE_LIMIT_BYTES ? "size" : null;
-}
-
-/** Asks the person for files to open; each is read, or refused for its type or its size. */
-export async function chooseFiles(): Promise<{
-  files: OpenedFile[];
-  refused: { name: string; reason: FileRefusal }[];
-}> {
-  const paths = await Utils.openFileDialog({
-    allowedFileTypes: OPENED_FILE_EXTENSIONS.map((e) => e.slice(1)).join(","),
-    canChooseFiles: true,
-    canChooseDirectory: false,
-    allowsMultipleSelection: true,
-  });
+/**
+ * Reads `paths` for the page, applying the shared extension filter, 32 MB limit and 32-file cap.
+ * Used by both the file chooser dialog and OS `file://` open-url events.
+ */
+export async function readOpenedPaths(
+  paths: readonly string[],
+): Promise<OpenedFilesResult> {
   const files: OpenedFile[] = [];
   const refused: { name: string; reason: FileRefusal }[] = [];
   for (const path of paths) {
+    if (path === "") continue;
     const name = basename(path);
-    const reason = refusalOf(path);
-    if (reason !== null) {
-      if (refused.length < OPENED_FILES_LIMIT) refused.push({ name, reason });
-    } else if (files.length < OPENED_FILES_LIMIT) {
-      const bytes = await Bun.file(path).bytes();
-      files.push({ name, bytes: bytes.toBase64() });
+    if (!isOpenable(path)) {
+      if (refused.length < OPENED_FILES_LIMIT)
+        refused.push({ name, reason: "type" });
+      continue;
+    }
+    const file = Bun.file(path);
+    let size: number;
+    try {
+      const info = await file.stat();
+      if (!info.isFile()) continue;
+      size = info.size;
+    } catch {
+      continue;
+    }
+    if (size > OPENED_FILE_LIMIT_BYTES) {
+      if (refused.length < OPENED_FILES_LIMIT)
+        refused.push({ name, reason: "size" });
+      continue;
+    }
+    if (files.length < OPENED_FILES_LIMIT) {
+      try {
+        const bytes = await file.bytes();
+        files.push({ name, bytes: bytes.toBase64() });
+      } catch {
+        continue;
+      }
     }
   }
   return { files, refused };
 }
 
+/** Asks the person for files to open; each is read, or refused for its type or its size. */
+export async function chooseFiles(
+  utils: DialogUtils,
+): Promise<OpenedFilesResult> {
+  const paths = await utils.openFileDialog({
+    allowedFileTypes: OPENED_FILE_EXTENSIONS.map((e) => e.slice(1)).join(","),
+    canChooseFiles: true,
+    canChooseDirectory: false,
+    allowsMultipleSelection: true,
+  });
+  return readOpenedPaths(paths);
+}
+
 /** Asks the person for a folder; null when the dialog is cancelled. */
-export async function chooseDirectory(): Promise<string | null> {
-  const paths = await Utils.openFileDialog({
+export async function chooseDirectory(
+  utils: DialogUtils,
+): Promise<string | null> {
+  const paths = await utils.openFileDialog({
     canChooseFiles: false,
     canChooseDirectory: true,
     allowsMultipleSelection: false,

@@ -80,6 +80,12 @@ function makeFakeWindow(
       calls.push("close");
       fake.emit("close");
     },
+    minimize() {
+      calls.push("minimize");
+    },
+    setTitle(title) {
+      calls.push(`setTitle:${title}`);
+    },
     getFrame() {
       return { ...fake.frame };
     },
@@ -95,6 +101,10 @@ function makeFakeWindow(
     maximize() {
       calls.push("maximize");
       fake.maximised = true;
+    },
+    unmaximize() {
+      calls.push("unmaximize");
+      fake.maximised = false;
     },
     isMaximized() {
       return fake.maximised;
@@ -185,6 +195,7 @@ test("createPresentWindows deduplicates by role and docId, focuses open windows,
       url: `${NODE_URL}/s/${DOC_A}/present?launch=launch-1&person=sam`,
       hidden: false,
       titleBarStyle: "hiddenInset",
+      trafficLightOffset: { x: 6, y: 2 },
       frame: { width: DEFAULT_FRAME.width, height: DEFAULT_FRAME.height },
       renderer: "cef",
     },
@@ -193,6 +204,7 @@ test("createPresentWindows deduplicates by role and docId, focuses open windows,
       url: `${NODE_URL}/s/${DOC_A}/prompter?launch=launch-1&person=sam`,
       hidden: false,
       titleBarStyle: "hiddenInset",
+      trafficLightOffset: { x: 6, y: 2 },
       frame: { width: DEFAULT_FRAME.width, height: DEFAULT_FRAME.height },
       renderer: "cef",
     },
@@ -201,6 +213,7 @@ test("createPresentWindows deduplicates by role and docId, focuses open windows,
       url: `${NODE_URL}/s/${DOC_B}/present?launch=launch-1`,
       hidden: false,
       titleBarStyle: "hiddenInset",
+      trafficLightOffset: { x: 6, y: 2 },
       frame: { width: DEFAULT_FRAME.width, height: DEFAULT_FRAME.height },
       renderer: "cef",
     },
@@ -273,7 +286,7 @@ test("createPresentWindows restores and persists placement per role and falls ba
   // off-screen prompter frame was moved back to centred before applying fullScreen
   expect(created[1]?.calls).toEqual([
     "setFrame:9000,60,1000,700",
-    "setFrame:200,120,1280,800",
+    "setFrame:200,120,1440,940",
     "setFullScreen:true",
   ]);
 
@@ -298,4 +311,20 @@ test("createPresentWindows restores and persists placement per role and falls ba
   created[0]!.emit("close");
   present.open({ role: "room", docId: DOC_A });
   expect(created[2]?.frame).toEqual(movedAgain);
+
+  // per-window title and caption actions route strictly to the targeted secondary window
+  const roomKey = `room:${DOC_A}`;
+  expect(present.setTitle(roomKey, "The Long Night — Room")).toBe(true);
+  expect(present.handleAction(roomKey, "minimize")).toBe(true);
+  expect(present.handleAction(roomKey, "toggle_maximize")).toBe(true);
+  expect(present.handleAction(roomKey, "toggle_maximize")).toBe(true);
+  expect(present.handleAction(roomKey, "close")).toBe(true);
+  expect(present.handleAction(roomKey, "close")).toBe(false);
+  expect(created[2]?.calls.slice(-5)).toEqual([
+    "setTitle:The Long Night — Room",
+    "minimize",
+    "maximize",
+    "unmaximize",
+    "close",
+  ]);
 });

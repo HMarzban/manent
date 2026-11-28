@@ -9,22 +9,48 @@ export function isFields(value: unknown): value is Fields {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** A thrown fetch is ConnectError("unreachable"); `token` null sends no bearer, `body` undefined no body. */
+export const CLOUD_REQUEST_TIMEOUT_MS = 10_000;
+
+/** Runs `fetch` with a bounded timeout so blackholed networks fail fast as ConnectError("unreachable"). */
+export async function fetchWithTimeout(
+  fetch: typeof globalThis.fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs = CLOUD_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (cause) {
+    throw new ConnectError("unreachable", { cause });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A thrown or timed-out fetch is ConnectError("unreachable"); `token` null sends no bearer, `body` undefined no body. */
 export async function call(
   fetch: typeof globalThis.fetch,
   url: string,
-  options: { method: "GET" | "POST"; token: string | null; body?: unknown },
+  options: {
+    method: "GET" | "POST";
+    token: string | null;
+    body?: unknown;
+    timeoutMs?: number;
+  },
 ): Promise<Response> {
-  const { method, token, body } = options;
+  const { method, token, body, timeoutMs } = options;
   const headers: Record<string, string> = {};
   if (token !== null) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const sent = body === undefined ? undefined : JSON.stringify(body);
-  try {
-    return await fetch(url, { method, headers, body: sent });
-  } catch (cause) {
-    throw new ConnectError("unreachable", { cause });
-  }
+  return fetchWithTimeout(
+    fetch,
+    url,
+    { method, headers, body: sent },
+    timeoutMs,
+  );
 }
 
 /** A body that is not JSON is ConnectError("unreachable"). */

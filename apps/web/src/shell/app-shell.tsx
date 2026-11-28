@@ -14,7 +14,6 @@ import type { Subscribable } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { isValidActiveTourStep } from "../demo/tour-highlights.ts";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { useFileDrop } from "../import/file-drop.ts";
@@ -30,7 +29,6 @@ import {
   OutlineContext,
   PeopleContext,
 } from "../state/bridge-contexts.ts";
-import { useOpenDialog } from "../state/dialog.store.ts";
 import { createFactsStore } from "../state/facts.store.ts";
 import type { FactsSelectors, FactsWriter } from "../state/facts.store.ts";
 import { createOutlineStore } from "../state/outline.store.ts";
@@ -38,16 +36,12 @@ import type { OutlineWriter } from "../state/outline.store.ts";
 import { paletteActions, usePaletteOpen } from "../state/palette.store.ts";
 import { usePanel } from "../state/panels.store.ts";
 import { createPeopleStore } from "../state/people.store.ts";
-import { tourActions, useTourActive } from "../state/tour.store.ts";
 import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
 import { useMenuChoiceFocus } from "./menu-focus.ts";
 import { ShellRegion } from "./regions.tsx";
-import {
-  SHELL_SCREENS,
-  isPageCovered,
-  routeHasTourPanel,
-} from "./shell-screens.ts";
+import { SaveTemplateDialogHost, TourFloatingHost } from "./shell-overlays.tsx";
+import { SHELL_SCREENS, isPageCovered } from "./shell-screens.ts";
 import type { ShellScreen } from "./shell-screens.ts";
 import { useProjectPalette } from "./use-project-palette.ts";
 
@@ -62,6 +56,7 @@ const UNLISTED: ShellScreen = Object.freeze({
 
 const GRID: CSSProperties = Object.freeze({
   gridTemplateAreas: [
+    '"windowbar windowbar windowbar"',
     '"demobar demobar demobar"',
     '"titlebar titlebar titlebar"',
     '"statebar statebar statebar"',
@@ -71,7 +66,10 @@ const GRID: CSSProperties = Object.freeze({
     '"statusbar statusbar statusbar"',
   ].join(" "),
   gridTemplateColumns: "auto minmax(0, 1fr) auto",
-  gridTemplateRows: "auto auto auto auto auto minmax(0, 1fr) auto",
+  gridTemplateRows: "auto auto auto auto auto auto minmax(0, 1fr) auto",
+});
+const WINDOW_BAR_AREA: CSSProperties = Object.freeze({
+  gridArea: "windowbar",
 });
 // a screen that is not a document covers everything from the title bar to the status bar, the page included
 const SCREEN_AREA: CSSProperties = Object.freeze({
@@ -176,50 +174,6 @@ const ShellPalette = palette.Component;
 /** Starts loading the palette's code. */
 export const preloadShellPalette = palette.preload;
 
-// the closed-panel floating Tour bar loads only while a Tour scenario is active with the side panel closed
-const tourFloat = loadApart(
-  async () => (await import("../demo/tour-floating-bar.tsx")).TourFloatingBar,
-);
-const TourFloatingBar = tourFloat.Component;
-
-const saveTemplateHost = loadApart(
-  async () =>
-    (await import("../templates/save-template-dialog.tsx")).SaveTemplateHost,
-);
-const SaveTemplateHost = saveTemplateHost.Component;
-
-function SaveTemplateDialogHost(props: {
-  readonly docId: string | null;
-}): ReactNode {
-  const open = useOpenDialog() === "save_template";
-  if (!open) return null;
-  return (
-    <SurfaceBoundary fallback={() => null}>
-      <Suspense fallback={null}>
-        <SaveTemplateHost docId={props.docId} />
-      </Suspense>
-    </SurfaceBoundary>
-  );
-}
-
-function TourFloatingHost(props: { readonly routeId: string }): ReactNode {
-  const { tabStorage } = useEnvironment();
-  const active = useTourActive();
-  const side = usePanel("side").tab;
-  useEffect(() => {
-    tourActions.hydrate(tabStorage, isValidActiveTourStep);
-  }, [tabStorage]);
-  if (active === null || (routeHasTourPanel(props.routeId) && side === "tour"))
-    return null;
-  return (
-    <SurfaceBoundary fallback={() => null}>
-      <Suspense fallback={null}>
-        <TourFloatingBar routeId={props.routeId} />
-      </Suspense>
-    </SurfaceBoundary>
-  );
-}
-
 /** The bridge's stores, made once for the life of the shell. */
 function useBridgeStores() {
   const { guard, frame, schedule } = useEnvironment();
@@ -317,10 +271,14 @@ function ProjectPaletteBridge(props: {
 }
 
 /**
- * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `findbar`, `ruler`, `left`, `page`,
- * `side` and `statusbar`, inside the providers of the person's settings and commands and of the bridge's stores.
+ * The grid every screen sits in, with areas `windowbar`, `demobar`, `titlebar`, `statebar`, `findbar`, `ruler`,
+ * `left`, `page`, `side` and `statusbar`, inside the providers of the person's settings and commands and of the
+ * bridge's stores.
  */
-export function AppShell(props: { children: ReactNode }): ReactNode {
+export function AppShell(props: {
+  windowBar?: ReactNode;
+  children: ReactNode;
+}): ReactNode {
   const services = useServices();
   const { where, now, schedule, dom } = useEnvironment();
   const route = useShellRoute();
@@ -361,6 +319,12 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                   style={GRID}
                   {...(screen === "reader" ? {} : drop)}
                 >
+                  {props.windowBar === undefined ||
+                  props.windowBar === null ? null : (
+                    <div className="min-w-0" style={WINDOW_BAR_AREA}>
+                      {props.windowBar}
+                    </div>
+                  )}
                   <ShellPage
                     docId={docId}
                     covered={covered}

@@ -1,6 +1,11 @@
 // Live Studio Desk folio preview and archival craft pillars for Choose who you are.
 import type { SignInChoice } from "@manent/sync-protocol";
-import { ActivePaletteGem, CHOOSE_WORDS } from "@manent/ui";
+import {
+  ActivePaletteGem,
+  CHOOSE_WORDS,
+  pillarsFor,
+  tourTipFor,
+} from "@manent/ui";
 import type { ChooseSpotlightCopy } from "@manent/ui";
 import {
   CompassIcon,
@@ -10,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../../initials.ts";
+import { useEnvironment } from "../../services/context.tsx";
 
 function copyFor(choice: SignInChoice): ChooseSpotlightCopy {
   return CHOOSE_WORDS.personas[choice.userId] ?? CHOOSE_WORDS.fallback;
@@ -228,13 +234,15 @@ const PILLAR_ICONS = [FileTextIcon, WifiOffIcon, LayersIcon] as const;
 
 /** Scannable archival capability pillars + quiet Tour cue shown on first visit. */
 export function StudioPillars(): ReactNode {
+  const onDesktop = useEnvironment().where.shell === "desktop";
+  const pillars = pillarsFor(onDesktop);
   return (
     <div className="mt-6 flex flex-col gap-3 animate-in fade-in-0 duration-(--dur-fast) ease-out">
       <ul
         aria-label={CHOOSE_WORDS.pillarsLabel}
         className="grid grid-cols-1 gap-2.5 sm:grid-cols-3"
       >
-        {CHOOSE_WORDS.pillars.map((pillar, index) => {
+        {pillars.map((pillar, index) => {
           const Icon = PILLAR_ICONS[index] ?? FileTextIcon;
           return (
             <li
@@ -258,7 +266,7 @@ export function StudioPillars(): ReactNode {
           aria-hidden="true"
           className="size-icon shrink-0 text-fg-accent"
         />
-        <span>{CHOOSE_WORDS.tourTip}</span>
+        <span>{tourTipFor(onDesktop)}</span>
       </p>
     </div>
   );

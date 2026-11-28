@@ -117,3 +117,23 @@ test("a stream the page closed is forgotten", async () => {
   fake.advance(30_000);
   expect(await open.next()).toBe(":");
 });
+
+test("closing the channel ends open streams and cancels their heartbeats", async () => {
+  const fake = createFakeClock(0);
+  const channel = createShellChannel({
+    clock: fake.clock,
+    heartbeatMs: 30_000,
+  });
+  const first = sseReader(
+    (await channel.handle(get("/api/local/shell/events")))!,
+  );
+  const second = sseReader(
+    (await channel.handle(get("/api/local/shell/events")))!,
+  );
+  expect(fake.pending()).toBe(2);
+  channel.close();
+  expect(fake.pending()).toBe(0);
+  await expect(first.next()).rejects.toThrow("the stream ended");
+  await expect(second.next()).rejects.toThrow("the stream ended");
+  channel.shell.send({ v: 1, t: "close_requested" });
+});

@@ -6,6 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  chooseStageHintFor,
 } from "@manent/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,7 +18,10 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { initialsOf } from "../initials.ts";
-import { useEnvironment } from "../services/context.tsx";
+import {
+  useEnvironment,
+  useOptionalEnvironment,
+} from "../services/context.tsx";
 import type { TabPerson } from "../session.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
 import { TEXT, serverStatusText } from "../text.ts";
@@ -138,6 +142,7 @@ export function PreShellControls(props: {
   barRef?: RefObject<HTMLElement | null>;
 }): ReactNode {
   const { person, onPersonClick, control, resetting, barRef } = props;
+  const onDesktop = useOptionalEnvironment()?.where.shell === "desktop";
   return (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2">
       {person !== null ? (
@@ -160,7 +165,7 @@ export function PreShellControls(props: {
         </Button>
       ) : (
         <span className="hidden truncate text-meta text-fg-muted md:inline">
-          {DEMO_WORDS.chooseStageHint}
+          {chooseStageHintFor(onDesktop)}
         </span>
       )}
       {control !== null ? (

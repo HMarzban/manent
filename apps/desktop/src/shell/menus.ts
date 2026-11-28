@@ -1,6 +1,6 @@
 // The application menu: drawn from the page's model, and each click sent back to the page as its command.
 import type { NativeMenu, ShellMessage } from "@manent/sync-protocol";
-import { menuTemplate } from "../menu-template.ts";
+import { ABOUT_ACTION, menuTemplate } from "../menu-template.ts";
 import type { MenuEntry } from "../menu-template.ts";
 import { ApplicationMenu } from "./sdk.ts";
 import type { ApplicationMenuItemConfig } from "./sdk.ts";
@@ -32,6 +32,7 @@ function clicked(event: unknown): string | null {
 export function createNativeMenu(options: {
   platform: "mac" | "windows";
   send(message: ShellMessage): void;
+  onAbout?: () => void;
 }): { draw(menus: readonly NativeMenu[] | null): void } {
   const draw = (menus: readonly NativeMenu[] | null): void =>
     ApplicationMenu.setApplicationMenu(
@@ -39,7 +40,12 @@ export function createNativeMenu(options: {
     );
   ApplicationMenu.on("application-menu-clicked", (event) => {
     const id = clicked(event);
-    if (id !== null) options.send({ v: 1, t: "menu_command", id });
+    if (id === null) return;
+    if (id === ABOUT_ACTION) {
+      options.onAbout?.();
+      return;
+    }
+    options.send({ v: 1, t: "menu_command", id });
   });
   draw(null);
   return { draw };

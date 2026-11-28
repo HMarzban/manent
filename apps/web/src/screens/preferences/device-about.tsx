@@ -114,14 +114,18 @@ function WebVersion(props: { versionLine: string }): ReactNode {
   );
 }
 
-/** The version, its channel and Check for updates, with the check's outcome under it. */
+/** The version, its channel and Check for updates, with Restart to update once ready. */
 function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
-  const { rows, checkForUpdates } = props.device;
+  const { rows, updateReady, checkForUpdates, restartToUpdate } = props.device;
   return (
     <>
       <p className="text-ui">{rows.version}</p>
       <Fact label={DESKTOP_WORDS.channelRow} value={rows.channel} />
-      <div>
+      <Fact
+        label={DESKTOP_WORDS.fileTypesRow}
+        value={DESKTOP_WORDS.fileTypesValue}
+      />
+      <div className="flex flex-wrap items-center gap-2">
         <BusyButton
           variant="outline"
           size="sm"
@@ -131,10 +135,16 @@ function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
           }
           onClick={checkForUpdates}
         />
+        {updateReady ? (
+          <Button variant="default" size="sm" onClick={restartToUpdate}>
+            {DESKTOP_WORDS.restartToUpdate}
+          </Button>
+        ) : null}
       </div>
       {rows.update.line === null ? null : (
         <p className="text-ui">{rows.update.line}</p>
       )}
+      <p className="text-meta text-fg-muted">{DESKTOP_WORDS.updatesSchedule}</p>
     </>
   );
 }

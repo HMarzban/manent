@@ -4,6 +4,7 @@ import { markEnd, markStart } from "@manent/perf";
 import { SECTION_IDS } from "@manent/settings";
 import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
 import {
+  Button,
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
@@ -12,6 +13,7 @@ import {
   SEND_WORDS,
   SettingsProvider,
   formatCount,
+  useSubscribable,
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import {
@@ -22,6 +24,7 @@ import {
   PenLineIcon,
   SearchIcon,
   SlidersHorizontalIcon,
+  Undo2Icon,
   UserIcon,
 } from "lucide-react";
 import {
@@ -211,8 +214,17 @@ function PreferencesBody(props: {
   modified: readonly SettingKey[];
   visit: Visit;
   deviceName: string | null;
+  onOpenWorkspace(workspaceId: string): void;
 }): ReactNode {
-  const { query, setByYouOpen, pane, modified, visit, deviceName } = props;
+  const {
+    query,
+    setByYouOpen,
+    pane,
+    modified,
+    visit,
+    deviceName,
+    onOpenWorkspace,
+  } = props;
   const { persisted } = useServices();
   if (query.trim() !== "")
     return (
@@ -239,6 +251,8 @@ function PreferencesBody(props: {
       deviceName={deviceName}
       persisted={persisted}
       onShortcuts={visit.setShortcuts}
+      onResetShortcuts={visit.resetShortcuts}
+      onOpenWorkspace={onOpenWorkspace}
     />
   );
 }
@@ -258,6 +272,7 @@ export function PreferencesScreen(): ReactNode {
   const search = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLElement>(null);
   const visit = useVisit(deviceName);
+  const undoCount = useSubscribable(visit.undo.count);
   const modified = useModified(services.settings);
   const shortcutCount = useCustomShortcuts(services.keys).size;
 
@@ -270,15 +285,25 @@ export function PreferencesScreen(): ReactNode {
 
   const labels = paneLabels(where.shell);
   const desktop = where.shell === "desktop";
+  const modifiedSet = useMemo(() => new Set(modified), [modified]);
   const navItems: readonly SettingsNavItem<SectionId>[] = useMemo(
     () =>
-      SECTION_IDS.map((id) => ({
-        id,
-        label: labels[id],
-        icon: paneIcon(id, desktop),
-        separatedBefore: id === "device",
-      })),
-    [labels, desktop],
+      SECTION_IDS.map((id) => {
+        const hasChanges =
+          id === "keyboard"
+            ? shortcutCount > 0
+            : paneKeys(id).some((key) => modifiedSet.has(key));
+        return {
+          id,
+          label: labels[id],
+          icon: paneIcon(id, desktop),
+          trailing: hasChanges ? (
+            <span aria-hidden="true" className="mn-setting-dot" />
+          ) : undefined,
+          separatedBefore: id === "device",
+        };
+      }),
+    [labels, desktop, modifiedSet, shortcutCount],
   );
 
   const showPane = (next: SectionId): void => {
@@ -289,9 +314,16 @@ export function PreferencesScreen(): ReactNode {
     });
   };
 
+  const openWorkspaceSettings = (workspaceId: string): void => {
+    void navigate({
+      href: `/w/${encodeURIComponent(workspaceId)}/settings/people?from=${encodeURIComponent(`/preferences/account?from=${encodeURIComponent(from)}`)}`,
+    });
+  };
+
   // Passing null while Set by you or Search is active lets clicking the previously selected tab return to it immediately.
   const activeNavId: SectionId | null =
     setByYouOpen || query.trim() !== "" ? null : pane;
+  const undoHint = where.platform === "mac" ? "⌘Z" : "Ctrl+Z";
 
   return (
     <SettingsProvider store={visit.store}>
@@ -300,6 +332,23 @@ export function PreferencesScreen(): ReactNode {
         backTitle={placeName}
         onBack={() => void navigate({ href: from })}
         title={PREFERENCES_WORDS.title}
+        headerAction={
+          undoCount === 0 ? null : (
+            <Button
+              variant="outline"
+              size="sm"
+              title={PREFERENCES_WORDS.undoVisitTitle(undoHint)}
+              onClick={() => {
+                visit.undo.undo();
+              }}
+            >
+              <Undo2Icon aria-hidden="true" />
+              {undoCount === 1
+                ? PREFERENCES_WORDS.undoVisit
+                : PREFERENCES_WORDS.undoVisitCount(undoCount)}
+            </Button>
+          )
+        }
         navLabel={PREFERENCES_WORDS.title}
         navMode="tabs"
         navItems={navItems}
@@ -328,6 +377,7 @@ export function PreferencesScreen(): ReactNode {
           modified={modified}
           visit={visit}
           deviceName={deviceName}
+          onOpenWorkspace={openWorkspaceSettings}
         />
       </SettingsShell>
     </SettingsProvider>

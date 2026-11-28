@@ -6,6 +6,7 @@ import { readPerson } from "../auth/people.ts";
 import { exportFilesRoutes } from "../export-files/routes.ts";
 import { mosLanRelayRoutes } from "../mos/routes.ts";
 import { prompterFilesRoutes } from "../prompter-files/routes.ts";
+import type { LocalCloudStatus } from "../node/cloud-status.ts";
 import type { NodeRecords } from "../records/ports.ts";
 import type { ShellChannel } from "./shell-channel.ts";
 
@@ -36,6 +37,7 @@ function readConnection(
   return { mode: known, delayMs };
 }
 
+
 /** What each entry of `LOCAL_ROUTES` is given. */
 export interface LocalRouteContext {
   records: NodeRecords;
@@ -47,6 +49,8 @@ export interface LocalRouteContext {
   onFocus(): void;
   storeUsage(): { scripts: number; bytes: number };
   setConnection(mode: "online" | "offline" | "slow", delayMs: number): void;
+  cloudStatus(): LocalCloudStatus;
+  probeCloud?(): Promise<void>;
   clientOf(userId: string): SyncClient | null;
   clock: Clock;
   onClose(fn: () => void): void;
@@ -94,6 +98,12 @@ const storageRoutes = (
 const connectionRoutes = (
   context: LocalRouteContext,
 ): Record<string, LocalRoute> => ({
+  async "GET /api/local/status"(request) {
+    if (new URL(request.url).searchParams.get("probe") === "1") {
+      await context.probeCloud?.();
+    }
+    return Response.json(context.cloudStatus());
+  },
   async "POST /api/local/connection"(request) {
     // A body that is not JSON reads as null, which no connection matches.
     const connection = readConnection(await request.json().catch(() => null));
@@ -102,6 +112,7 @@ const connectionRoutes = (
     return noContent();
   },
 });
+
 
 /** The node's own routes, one entry per feature, each keyed `<METHOD> <path>`. */
 export const LOCAL_ROUTES: readonly ((
@@ -121,11 +132,18 @@ export const LOCAL_ROUTES: readonly ((
  * take the node token as `Authorization: Bearer`; a person is `signed_in` once they chose to sync with the cloud.
  */
 export function localRoutes(
-  options: Omit<LocalRouteContext, "clientOf" | "clock" | "onClose"> &
-    Partial<Pick<LocalRouteContext, "clientOf" | "clock" | "onClose">>,
+  options: Omit<
+    LocalRouteContext,
+    "clientOf" | "clock" | "onClose" | "cloudStatus"
+  > &
+    Partial<
+      Pick<LocalRouteContext, "clientOf" | "clock" | "onClose" | "cloudStatus">
+    >,
 ): (request: Request) => Promise<Response | null> {
   const context: LocalRouteContext = {
     ...options,
+    cloudStatus:
+      options.cloudStatus ?? (() => ({ online: true, mode: "online" })),
     clientOf: options.clientOf ?? (() => null),
     clock: options.clock ?? NO_CLOCK,
     onClose: options.onClose ?? (() => {}),

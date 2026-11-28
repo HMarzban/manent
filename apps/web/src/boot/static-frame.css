@@ -12,6 +12,10 @@
   background: var(--bg-chrome);
 }
 
+html[data-desktop-chrome] .mn-static-titlebar {
+  block-size: calc(var(--windowbar-h) + var(--titlebar-h));
+}
+
 .mn-static-statusbar {
   block-size: var(--statusbar-h);
   background: var(--bg-chrome);

@@ -7,6 +7,7 @@ import {
   NATIVE_ROLES,
   OPENED_FILE_EXTENSIONS,
   UPDATE_STATES,
+  WINDOW_ACTIONS,
   parseDesktopGlobal,
   parsePageMessage,
   parseShellMessage,
@@ -211,6 +212,16 @@ const pageMessage: fc.Arbitrary<PageMessage> = fc.oneof(
     t: fc.constant("close_answer" as const),
     close: fc.boolean(),
   }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("window_action" as const),
+    action: fc.constantFrom(...WINDOW_ACTIONS),
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("window_title" as const),
+    title: text,
+  }),
   fc
     .constantFrom(
       "first_frame",
@@ -218,6 +229,7 @@ const pageMessage: fc.Arbitrary<PageMessage> = fc.oneof(
       "open_files",
       "show_folder",
       "check_for_updates",
+      "restart_to_update",
     )
     .map((t) => ({ v: 1 as const, t })),
 );
@@ -244,6 +256,18 @@ const shellMessage: fc.Arbitrary<ShellMessage> = fc.oneof(
     state: fc.constantFrom(...UPDATE_STATES),
   }),
   fc.constant({ v: 1 as const, t: "close_requested" as const }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("window_state" as const),
+    maximised: fc.boolean(),
+    fullScreen: fc.boolean(),
+    focused: fc.boolean(),
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("cloud_state" as const),
+    online: fc.boolean(),
+  }),
 );
 const desktopGlobal: fc.Arbitrary<DesktopGlobal> = fc.record({
   v: fc.constant(1 as const),
@@ -354,10 +378,29 @@ test("the shell channel's messages are pinned", () => {
       docId: "018f0000-0000-7abc-af01-020304050607",
     },
     { v: 1, t: "choose_directory" },
+    { v: 1, t: "window_action", action: "minimize" },
+    { v: 1, t: "window_action", action: "toggle_maximize" },
+    { v: 1, t: "window_action", action: "close", windowKey: "room:doc-1" },
+    { v: 1, t: "window_title", title: "The Salt Almanac — Manent" },
+    {
+      v: 1,
+      t: "window_title",
+      title: "The Long Night — Room",
+      windowKey: "room:doc-1",
+    },
+    { v: 1, t: "restart_to_update" },
   ];
   for (const m of pages) expect(parsePageMessage(m)).toEqual(m);
   const shells: ShellMessage[] = [
     { v: 1, t: "close_requested" },
+    {
+      v: 1,
+      t: "window_state",
+      maximised: true,
+      fullScreen: false,
+      focused: true,
+    },
+    { v: 1, t: "cloud_state", online: false },
     { v: 1, t: "update_state", state: "ready" },
     {
       v: 1,
@@ -473,6 +516,18 @@ test("anything that is not a message of this version is refused whole", () => {
       t: "files_opened",
       files: [],
       refused: [{ name: "a.txt", reason: "colour" }],
+    }),
+  ).toBeNull();
+  expect(
+    parsePageMessage({ v: 1, t: "window_action", action: "shade" }),
+  ).toBeNull();
+  expect(
+    parseShellMessage({
+      v: 1,
+      t: "window_state",
+      maximised: true,
+      fullScreen: false,
+      focused: "yes",
     }),
   ).toBeNull();
   expect(

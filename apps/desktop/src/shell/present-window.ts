@@ -1,7 +1,9 @@
 // Secondary Present windows: one BrowserWindow per (role, docId), placed from and saved to that role's record,
 // never holding close, and signing in through the local node's launch and person query parameters.
-import { DEFAULT_FRAME, frameToRestore } from "../frames.ts";
+import type { WindowAction } from "@manent/sync-protocol";
+import { frameToRestore, initialFrame } from "../frames.ts";
 import type { Frame } from "../frames.ts";
+import { presentWindowChrome } from "../window-chrome.ts";
 import { readWindowState } from "../window-state.ts";
 import type { WindowRecord, createWindowStateWriter } from "../window-state.ts";
 
@@ -20,6 +22,7 @@ export interface PresentWindowInit {
   url: string;
   hidden: boolean;
   titleBarStyle: "hiddenInset" | "default";
+  trafficLightOffset?: { x: number; y: number };
   frame: { width: number; height: number };
   renderer: "cef";
 }
@@ -28,9 +31,12 @@ export interface PresentBrowserWindow {
   show(): void;
   activate(): void;
   close(): void;
+  minimize?(): void;
+  setTitle?(title: string): void;
   getFrame(): Frame;
   setFrame(x: number, y: number, width: number, height: number): void;
   maximize(): void;
+  unmaximize?(): void;
   isMaximized(): boolean;
   setFullScreen(fullScreen: boolean): void;
   isFullScreen(): boolean;
@@ -45,6 +51,8 @@ export interface PresentWindowRequest {
 
 export interface PresentWindows {
   open(request: PresentWindowRequest): void;
+  handleAction(windowKey: string, action: WindowAction): boolean;
+  setTitle(windowKey: string, title: string): boolean;
   closeAll(): void;
 }
 
@@ -54,6 +62,7 @@ export interface PresentWindowsOptions {
   statePath: string;
   platform: NodeJS.Platform;
   windowState: ReturnType<typeof createWindowStateWriter>;
+  workArea?(): Pick<Frame, "width" | "height"> | null;
   openWindow(init: PresentWindowInit): PresentBrowserWindow;
 }
 
@@ -84,10 +93,17 @@ function place(win: PresentBrowserWindow, saved: WindowRecord): void {
 export function createPresentWindows(
   options: PresentWindowsOptions,
 ): PresentWindows {
-  const { nodeUrl, launchToken, statePath, platform, windowState, openWindow } =
-    options;
+  const {
+    nodeUrl,
+    launchToken,
+    statePath,
+    platform,
+    windowState,
+    workArea,
+    openWindow,
+  } = options;
   const opened = new Map<string, PresentBrowserWindow>();
-  const titleBarStyle = platform === "darwin" ? "hiddenInset" : "default";
+  const chrome = presentWindowChrome(platform);
 
   return {
     open({ role, docId, userId }) {
@@ -109,8 +125,11 @@ export function createPresentWindows(
         title: "Manent",
         url,
         hidden: false,
-        titleBarStyle,
-        frame: { width: DEFAULT_FRAME.width, height: DEFAULT_FRAME.height },
+        titleBarStyle: chrome.titleBarStyle,
+        ...(chrome.trafficLightOffset === undefined
+          ? {}
+          : { trafficLightOffset: { ...chrome.trafficLightOffset } }),
+        frame: initialFrame(workArea?.() ?? null),
         renderer: "cef",
       });
       const saved = readWindowState(statePath).roles[role] ?? null;
@@ -128,6 +147,25 @@ export function createPresentWindows(
         if (opened.get(key) === win) opened.delete(key);
       });
       opened.set(key, win);
+    },
+    handleAction(windowKey, action) {
+      const win = opened.get(windowKey);
+      if (win === undefined) return false;
+      if (action === "minimize") win.minimize?.();
+      else if (action === "toggle_maximize") {
+        if (win.isFullScreen()) win.setFullScreen(false);
+        else if (win.isMaximized()) win.unmaximize?.();
+        else win.maximize();
+      } else {
+        win.close();
+      }
+      return true;
+    },
+    setTitle(windowKey, title) {
+      const win = opened.get(windowKey);
+      if (win === undefined) return false;
+      win.setTitle?.(title);
+      return true;
     },
     closeAll() {
       const windows = [...opened.values()];

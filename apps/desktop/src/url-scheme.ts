@@ -1,7 +1,20 @@
-// Pure parser and URL builders for macOS `manent://` links into the desktop shell.
+// Pure parsers and URL builders for macOS `manent://` and `file://` links into the desktop shell.
+import { fileURLToPath } from "node:url";
 
 const SCHEME_PREFIX = "manent://";
+const FILE_SCHEME_PREFIX = "file://";
 const SCRIPT_PREFIX = "s/";
+
+export type OpenUrlTarget =
+  { kind: "script"; path: string } | { kind: "file"; path: string };
+
+function hasControlChar(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
 
 function hasForbiddenChar(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -69,6 +82,55 @@ export function parseManentUrl(raw: string): string | null {
     return null;
   if (hasTraversalSegment(parsed.pathname)) return null;
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+/**
+ * Maps a local `file://` URL to a filesystem path via `fileURLToPath`.
+ * Returns `null` for non-file URLs, remote hosts, control characters, empty/root paths, or invalid URLs.
+ */
+export function parseFileUrl(raw: string): string | null {
+  if (raw === "" || hasControlChar(raw)) return null;
+  if (
+    raw.slice(0, FILE_SCHEME_PREFIX.length).toLowerCase() !== FILE_SCHEME_PREFIX
+  )
+    return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "file:") return null;
+  if (parsed.hostname !== "" && parsed.hostname.toLowerCase() !== "localhost") {
+    return null;
+  }
+
+  let path: string;
+  try {
+    path = fileURLToPath(parsed);
+  } catch {
+    return null;
+  }
+  if (
+    path === "" ||
+    path === "/" ||
+    path.endsWith("/") ||
+    path.endsWith("\\") ||
+    hasControlChar(path)
+  ) {
+    return null;
+  }
+  return path;
+}
+
+/** Parses either a `manent://s/...` script link or a local `file://...` open-file URL. */
+export function parseOpenUrl(raw: string): OpenUrlTarget | null {
+  const scriptPath = parseManentUrl(raw);
+  if (scriptPath !== null) return { kind: "script", path: scriptPath };
+  const filePath = parseFileUrl(raw);
+  if (filePath !== null) return { kind: "file", path: filePath };
+  return null;
 }
 
 /** Builds the main window's initial URL, preserving any query parameters from `initialPath`. */

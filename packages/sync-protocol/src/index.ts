@@ -187,6 +187,7 @@ export {
   OPENED_FILE_EXTENSIONS,
   OPENED_FILE_LIMIT_BYTES,
   UPDATE_STATES,
+  WINDOW_ACTIONS,
   parseDesktopGlobal,
   parsePageMessage,
   parseShellMessage,
@@ -204,6 +205,7 @@ export type {
   PrompterFilesStatus,
   ShellMessage,
   UpdateState,
+  WindowAction,
 } from "./desktop.ts";
 export type {
   PrompterFeed,

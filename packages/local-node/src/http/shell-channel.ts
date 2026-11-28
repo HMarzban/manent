@@ -21,6 +21,8 @@ export interface ShellChannel {
   readonly shell: ShellEnd;
   /** Null: not a shell route. */
   handle(request: Request): Response | Promise<Response> | null;
+  /** Ends every open event stream and cancels its heartbeat timer. */
+  close(): void;
 }
 
 const MESSAGES_PATH = "/api/local/shell";
@@ -35,6 +37,8 @@ const badRequest = (): Response =>
 export function createShellChannel(options: {
   clock: Clock;
   heartbeatMs: number;
+  /** Optional initial frames sent when a new event stream opens. */
+  onOpen?: (send: (message: ShellMessage) => void) => void;
 }): ShellChannel {
   const listeners = new Set<(message: PageMessage) => void>();
   const streams = new Set<EventStream>();
@@ -47,10 +51,12 @@ export function createShellChannel(options: {
   };
   const open = (): Response => {
     const stream = createEventStream({
-      ...options,
+      clock: options.clock,
+      heartbeatMs: options.heartbeatMs,
       onClose: () => streams.delete(stream),
     });
     streams.add(stream);
+    options.onOpen?.((message) => stream.send(JSON.stringify(message)));
     return stream.response;
   };
   return {
@@ -72,6 +78,10 @@ export function createShellChannel(options: {
         return receive(request);
       if (request.method === "GET" && pathname === EVENTS_PATH) return open();
       return null;
+    },
+    close() {
+      for (const stream of streams) stream.close();
+      streams.clear();
     },
   };
 }

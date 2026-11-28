@@ -19,21 +19,38 @@ export interface ReseedController {
   reauthenticate(userId: string): Promise<string | null>;
 }
 
-/** Wraps `upstream` to notify `onConnected` on each online transition and re-authenticate on `sign_in`. */
+/** Wraps `upstream` to notify `onConnected` on each online transition, report reachability, and re-authenticate on `sign_in`. */
 export function watchUpstream(options: {
   upstream: UpstreamFactory;
   records: Pick<NodeRecords, "person">;
   reauthenticate: (userId: string) => Promise<string | null>;
   onConnected: (userId: string) => void;
+  onReachability?: (reachable: boolean) => void;
 }): UpstreamFactory {
   return {
     create(userId, token) {
       const client = options.upstream.create(userId, token);
       let online = false;
+      let tried = false;
       let needsSignIn = false;
       client.link.subscribe((facts) => {
         const now = facts.state === "online";
-        if (now && !online) options.onConnected(userId);
+        if (now) {
+          options.onReachability?.(true);
+          if (!online) options.onConnected(userId);
+        } else if (
+          facts.state === "connecting" ||
+          facts.state === "authenticating"
+        ) {
+          tried = true;
+        } else if (
+          facts.state === "offline" &&
+          facts.issue === "none" &&
+          (online || tried)
+        ) {
+          tried = false;
+          options.onReachability?.(false);
+        }
         online = now;
         const signIn = facts.issue === "sign_in";
         if (

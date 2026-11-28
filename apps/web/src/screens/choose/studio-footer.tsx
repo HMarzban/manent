@@ -1,6 +1,8 @@
-// Studio resource strip on Choose who you are: Desktop app releases, live PWA install/offline readiness, and GitHub source.
+// Studio resource strip on Choose who you are: Desktop app releases, live PWA install/offline readiness, This device vault, and GitHub source.
 import {
+  Button,
   CHOOSE_WORDS,
+  DESKTOP_WORDS,
   PREFERENCES_WORDS,
   createValue,
   useSubscribable,
@@ -10,12 +12,15 @@ import {
   AppWindowIcon,
   ArrowUpRightIcon,
   CheckCircle2Icon,
+  FolderOpenIcon,
+  HardDriveIcon,
   LoaderCircleIcon,
   MonitorDownIcon,
 } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { OfflineReadinessState } from "../../boot/offline-warm.ts";
+import type { DesktopHost } from "../../desktop/host.ts";
 import { installHint, isStandalone } from "../../platform.ts";
 import { browserInstallStore } from "../../pwa/install.ts";
 import { useEnvironment } from "../../services/context.tsx";
@@ -152,9 +157,40 @@ function PwaInstallCard(): ReactNode {
   );
 }
 
-/** Studio resource links: Desktop app releases, live PWA install/offline readiness, and GitHub source repository. */
+function DesktopVaultCard(props: { desktop: DesktopHost }): ReactNode {
+  return (
+    <div className="flex items-center gap-3 rounded-surface border border-line bg-raised px-3.5 py-3 text-start">
+      <span
+        aria-hidden="true"
+        className="flex size-8 shrink-0 items-center justify-center rounded-control border border-line bg-well text-ok"
+      >
+        <HardDriveIcon className="size-icon-lg" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-ui font-medium text-fg">
+          {DESKTOP_WORDS.deviceVaultTitle}
+        </span>
+        <span className="text-meta text-fg-muted">
+          {DESKTOP_WORDS.deviceVaultBody}
+        </span>
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => props.desktop.send({ v: 1, t: "show_folder" })}
+        className="shrink-0 gap-1.5"
+      >
+        <FolderOpenIcon aria-hidden="true" className="size-icon shrink-0" />
+        <span>{DESKTOP_WORDS.openDataFolder}</span>
+      </Button>
+    </div>
+  );
+}
+
+/** Studio resource links: Desktop app releases, live PWA install/offline readiness, This device vault, and GitHub source repository. */
 export function StudioFooter(): ReactNode {
-  const { where } = useEnvironment();
+  const { where, desktop } = useEnvironment();
   const onWeb = where.shell === "web";
 
   return (
@@ -195,6 +231,8 @@ export function StudioFooter(): ReactNode {
       )}
 
       {onWeb && <PwaInstallCard />}
+
+      {!onWeb && desktop !== null && <DesktopVaultCard desktop={desktop} />}
 
       <a
         href={GITHUB_URL}

@@ -40,6 +40,14 @@ export function serverStatusText(state: ControlState): string {
   return STATUS_TEXT[state];
 }
 
+const CHOOSE_HINT_DESKTOP =
+  "Pick anyone. You can switch at any time, and your work stays saved on this device.";
+
+/** The chooser's subtitle for the desktop app or the browser. */
+export function chooseHintFor(desktop: boolean): string {
+  return desktop ? CHOOSE_HINT_DESKTOP : TEXT.chooseHint;
+}
+
 /** The tab title: the screen, the person when there is one, and the app. */
 export function pageTitle(screen: string, personName: string | null): string {
   return [screen, personName, TEXT.appName]

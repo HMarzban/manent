@@ -107,6 +107,10 @@ test("the node's routes say who is here and pass Sign in to sync on", async () =
     200,
     { scripts: 14, bytes: 23_000_000 },
   ]);
+  expect(await call("GET", "/api/local/status")).toEqual([
+    200,
+    { online: true, mode: "online" },
+  ]);
   expect(
     await call("POST", "/api/local/connection", {
       body: { mode: "slow", delayMs: 800 },

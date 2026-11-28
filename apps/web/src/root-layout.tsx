@@ -8,6 +8,7 @@ import type { Api } from "./api.ts";
 import { DemoBar } from "./demo/demo-bar.tsx";
 import { ResettingScreen, useResetting } from "./demo/resetting-screen.tsx";
 import { useDemo, useServerState } from "./demo/use-demo.ts";
+import { DesktopTitleBar } from "./desktop/desktop-title-bar.tsx";
 import type { Navigation } from "./handlers/index.ts";
 import { OfflineReadinessNotice } from "./pwa/offline-readiness-notice.tsx";
 import { ServicesProvider, usePersonServices } from "./services/context.tsx";
@@ -37,7 +38,8 @@ export function RootLayout(props: {
     useServerState(control),
     demo?.seedId ?? null,
   );
-  const bare = useShellScreen().page === "bare";
+  const isAbout = location.pathname === "/about";
+  const bare = useShellScreen().page === "bare" || isAbout;
   const navigation = useMemo(
     (): Navigation => ({
       navigate(href) {
@@ -95,10 +97,25 @@ export function RootLayout(props: {
     />
   );
 
+  const windowBar = (
+    <DesktopTitleBar bare={bare} pathname={location.pathname} />
+  );
+
+  if (isAbout)
+    return (
+      <div className="relative flex h-dvh w-full flex-col overflow-hidden overscroll-none bg-chrome text-fg">
+        {windowBar}
+        <main className="relative flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
+          <Outlet />
+        </main>
+      </div>
+    );
+
   if (services === null || resetting)
     return (
       <>
         <div className="relative flex h-dvh w-full flex-col overflow-hidden overscroll-none bg-chrome text-fg">
+          {windowBar}
           {demoBar}
           <main className="relative flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
             {resetting ? <ResettingScreen reseeded={reseeded} /> : <Outlet />}
@@ -110,7 +127,7 @@ export function RootLayout(props: {
   return (
     <>
       <ServicesProvider services={services}>
-        <AppShell>
+        <AppShell windowBar={windowBar}>
           {demoBar && (
             <ShellRegion region="demo_bar" className="min-w-0">
               {demoBar}

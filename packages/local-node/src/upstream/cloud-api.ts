@@ -9,7 +9,13 @@ import type {
   DocRole,
 } from "@manent/sync-protocol";
 import type { CloudApi } from "../node/ports.ts";
-import { call, errorCodeOf, isFields, readBody } from "./cloud-requests.ts";
+import {
+  call,
+  errorCodeOf,
+  fetchWithTimeout,
+  isFields,
+  readBody,
+} from "./cloud-requests.ts";
 import type { Fields } from "./cloud-requests.ts";
 
 type DescribeRefusal = Extract<
@@ -126,12 +132,12 @@ export function httpCloudApi(options: {
       if (type !== null) headers["Content-Type"] = type;
       const body =
         request.method === "GET" ? undefined : await request.arrayBuffer();
+      const answer = await fetchWithTimeout(
+        fetch,
+        `${baseUrl}${pathname}${search}`,
+        { method: request.method, headers, body },
+      );
       try {
-        const answer = await fetch(`${baseUrl}${pathname}${search}`, {
-          method: request.method,
-          headers,
-          body,
-        });
         return new Response(await answer.arrayBuffer(), {
           status: answer.status,
           headers: {

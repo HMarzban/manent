@@ -134,3 +134,4 @@ The evidence or event that would reopen this.
 - [0086. Book formatting toolbar and manuscript authoring chrome](0086-book-formatting-toolbar-and-manuscript-authoring.md)
 - [0087. Book authoring Phase 2: craft elements, footnotes, EPUB 3 and opt-in Layout Engine v3](0087-book-phase-2-craft-epub-and-layout-engine-v3.md)
 - [0088. Book Phase 3: front/back matter, cover, Engine 3 spreads, Markdown, book checks and multi-part compile](0088-book-phase-3-publishing-matter-spreads-markdown-and-compile.md)
+- [0089. Custom desktop window chrome, display-aware studio sizing and offline-first cloud reachability](0089-desktop-window-chrome-studio-sizing-and-offline-status.md)

@@ -25,6 +25,7 @@ export interface SettingsNavItem<Id extends string = string> {
   readonly id: Id;
   readonly label: string;
   readonly icon?: ReactNode;
+  readonly trailing?: ReactNode;
   readonly href?: string;
   /** Draw a hairline separator before this item (without inserting invalid non-tab nodes into a tablist). */
   readonly separatedBefore?: boolean;
@@ -35,6 +36,8 @@ export interface SettingsShellProps<Id extends string = string> {
   readonly backTitle?: string;
   readonly onBack: () => void;
   readonly title: string;
+  /** Optional compact control shown in the top bar before the account menu (e.g. Preferences visit Undo). */
+  readonly headerAction?: ReactNode;
   readonly navLabel: string;
   readonly navMode: "tabs" | "links";
   readonly navItems: readonly SettingsNavItem<Id>[];
@@ -63,6 +66,7 @@ export function SettingsShell<Id extends string>(
     backTitle,
     onBack,
     title,
+    headerAction,
     navLabel,
     navMode,
     navItems,
@@ -104,6 +108,7 @@ export function SettingsShell<Id extends string>(
         >
           {title}
         </h1>
+        {headerAction}
         <TitleBarAccount />
       </header>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain @[42rem]:flex-row @[42rem]:overflow-hidden">
@@ -131,7 +136,15 @@ export function SettingsShell<Id extends string>(
                         "mt-2 before:absolute before:inset-x-0 before:-top-1 before:h-px before:bg-border",
                     )}
                   >
-                    <Row current={item.id === activeNavId} leading={item.icon}>
+                    <Row
+                      current={item.id === activeNavId}
+                      leading={item.icon}
+                      trailing={
+                        item.trailing === undefined
+                          ? undefined
+                          : [item.trailing]
+                      }
+                    >
                       {item.label}
                     </Row>
                   </TabsTrigger>

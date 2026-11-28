@@ -6,32 +6,54 @@ export interface EventStream {
   readonly response: Response;
   /** One `data:` frame; `data` holds no line break. */
   send(data: string): void;
+  /** Ends the stream from the server side and cancels its heartbeat timer. */
+  close(): void;
 }
 
 const encoder = new TextEncoder();
 const nothing = (): void => {};
 
-/** `onClose` runs once, when the page closes the stream; nothing is written after it. */
+/** `onClose` runs once, when the page closes the stream or `close()` is called; nothing is written after it. */
 export function createEventStream(options: {
   clock: Clock;
   heartbeatMs: number;
   onClose(): void;
 }): EventStream {
   const { clock, heartbeatMs } = options;
+  let closed = false;
   let write: (text: string) => void = nothing;
+  let endController: () => void = nothing;
   let cancelBeat: () => void = nothing;
+  const finish = (): void => {
+    if (closed) return;
+    closed = true;
+    write = nothing;
+    cancelBeat();
+    cancelBeat = nothing;
+    options.onClose();
+  };
   const beat = (): void => {
+    if (closed) return;
     write(": \n\n");
     cancelBeat = clock.schedule(beat, heartbeatMs);
   };
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
-      write = (text) => controller.enqueue(encoder.encode(text));
+      write = (text) => {
+        if (closed) return;
+        controller.enqueue(encoder.encode(text));
+      };
+      endController = () => {
+        try {
+          controller.close();
+        } catch {
+          // stream already closed or cancelled
+        }
+      };
       cancelBeat = clock.schedule(beat, heartbeatMs);
     },
     cancel() {
-      cancelBeat();
-      options.onClose();
+      finish();
     },
   });
   return {
@@ -42,5 +64,10 @@ export function createEventStream(options: {
       },
     }),
     send: (data) => write(`data: ${data}\n\n`),
+    close() {
+      if (closed) return;
+      finish();
+      endController();
+    },
   };
 }

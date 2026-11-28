@@ -1,5 +1,10 @@
 // Words for Choose who you are: studio craft pillars, persona desk summaries and miniature sheet lines.
 
+export interface ChoosePillar {
+  readonly title: string;
+  readonly body: string;
+}
+
 export interface ChooseSpotlightCopy {
   readonly deskTitle: string;
   readonly revisionLabel: string;
@@ -150,3 +155,23 @@ export const CHOOSE_WORDS = Object.freeze({
     },
   } as Readonly<Record<string, ChooseSpotlightCopy>>,
 } as const);
+
+const DESKTOP_PILLARS: readonly ChoosePillar[] = Object.freeze([
+  CHOOSE_WORDS.pillars[0],
+  Object.freeze({
+    title: CHOOSE_WORDS.pillars[1].title,
+    body: "Every change saves on this device first and syncs when the server is online.",
+  }),
+  CHOOSE_WORDS.pillars[2],
+]);
+
+const DESKTOP_TOUR_TIP =
+  "Once inside, open Tour in the side panel for ways to try Manent — or open Manent in a browser to see live cursors side by side.";
+
+export function pillarsFor(desktop: boolean): readonly ChoosePillar[] {
+  return desktop ? DESKTOP_PILLARS : CHOOSE_WORDS.pillars;
+}
+
+export function tourTipFor(desktop: boolean): string {
+  return desktop ? DESKTOP_TOUR_TIP : CHOOSE_WORDS.tourTip;
+}

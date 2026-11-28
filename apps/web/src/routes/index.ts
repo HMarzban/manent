@@ -2,6 +2,7 @@
 import type { AnyRoute } from "@tanstack/react-router";
 import type { Api } from "../api.ts";
 import type { PersonStore } from "../state/person.store.ts";
+import { aboutRoutes } from "./about.ts";
 import { developmentRoutes } from "./development.ts";
 import { documentRoutes } from "./document.ts";
 import { libraryRoutes } from "./library.ts";
@@ -27,6 +28,7 @@ export const ROUTE_GROUPS: readonly ((
   deps: AppRouterDeps,
 ) => readonly AnyRoute[])[] = [
   libraryRoutes,
+  aboutRoutes,
   documentRoutes,
   preferencesRoutes,
   developmentRoutes,

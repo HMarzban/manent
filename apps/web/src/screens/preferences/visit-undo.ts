@@ -6,7 +6,8 @@ import type {
   SettingKey,
   SettingsStore,
 } from "@manent/settings";
-import { messageFor } from "@manent/ui";
+import { createValue, messageFor } from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import type { PersonServices } from "../../services/ports.ts";
 import { readCustomShortcuts } from "./keyboard-pane.tsx";
 import type { ShortcutChange } from "./keyboard-pane.tsx";
@@ -16,6 +17,8 @@ export interface VisitUndo {
   record(key: SettingKey | "shortcuts", was: unknown): void;
   /** Puts back the last change recorded; false when there is none. */
   undo(): boolean;
+  /** How many changes are waiting to be undone during this visit. */
+  readonly count: Subscribable<number>;
 }
 
 /** `putBack` receives each record as it was given to `record`, the latest first. */
@@ -23,13 +26,17 @@ function createVisitUndo(options: {
   putBack(key: SettingKey | "shortcuts", was: unknown): void;
 }): VisitUndo {
   const records: { key: SettingKey | "shortcuts"; was: unknown }[] = [];
+  const count = createValue(0);
   return {
+    count,
     record(key, was) {
       records.push({ key, was });
+      count.set(records.length);
     },
     undo() {
       const last = records.pop();
       if (last === undefined) return false;
+      count.set(records.length);
       options.putBack(last.key, last.was);
       return true;
     },

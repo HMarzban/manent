@@ -169,3 +169,10 @@ export const DEMO_WORDS = {
   formatPodcast: "Podcast",
   formatBroadcastGraphics: "Graphics",
 } as const;
+
+const DESKTOP_CHOOSE_STAGE_HINT =
+  "Pick a person to start — works offline on this device and syncs when back online.";
+
+export function chooseStageHintFor(desktop: boolean): string {
+  return desktop ? DESKTOP_CHOOSE_STAGE_HINT : DEMO_WORDS.chooseStageHint;
+}

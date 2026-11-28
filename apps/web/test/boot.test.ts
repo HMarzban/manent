@@ -53,6 +53,7 @@ afterEach(() => {
   } catch {
     // ignore if a test replaced localStorage with a throwing getter
   }
+  Reflect.deleteProperty(window, "manentDesktop");
   for (const name of document.documentElement.getAttributeNames())
     if (name.startsWith("data-"))
       document.documentElement.removeAttribute(name);
@@ -148,8 +149,30 @@ test("the boot script is small and constant", () => {
   expect(BOOT_SCRIPT).not.toContain("appearance");
 });
 
+test("the boot script marks desktop chrome on macOS and Windows, never on Linux or web", () => {
+  Reflect.set(window, "manentDesktop", { v: 1, platform: "mac" });
+  runBootScript(() => fakeStorage());
+  expect(document.documentElement.getAttribute("data-desktop-chrome")).toBe(
+    "mac",
+  );
+
+  document.documentElement.removeAttribute("data-desktop-chrome");
+  Reflect.set(window, "manentDesktop", { v: 1, platform: "windows" });
+  runBootScript(() => fakeStorage());
+  expect(document.documentElement.getAttribute("data-desktop-chrome")).toBe(
+    "windows",
+  );
+
+  document.documentElement.removeAttribute("data-desktop-chrome");
+  Reflect.set(window, "manentDesktop", { v: 1, platform: "linux" });
+  runBootScript(() => fakeStorage());
+  expect(document.documentElement.hasAttribute("data-desktop-chrome")).toBe(
+    false,
+  );
+});
+
 test("the boot script's hash is the sha256 a content security policy names", () => {
   expect(bootScriptHash()).toBe(
-    "sha256-ymymEEYJB2rkNq4FdyVHrEqd0sN0B4teb1Vz8Y/ffco=",
+    "sha256-cxnQ3PHP0p/oLFauJx7Di9t7KbSQc1V0rauCCMxjbAU=",
   );
 });

@@ -44,6 +44,9 @@ export type FirstPaintWrite = readonly ["a", string, string | null];
 const WINDOW_ROLES = ["room", "prompter"] as const;
 const ENCODINGS = ["utf-8", "windows-1252"] as const;
 
+export const WINDOW_ACTIONS = ["minimize", "toggle_maximize", "close"] as const;
+export type WindowAction = (typeof WINDOW_ACTIONS)[number];
+
 export type PageMessage =
   | { v: 1; t: "menus"; menus: NativeMenu[] }
   | { v: 1; t: "first_frame" }
@@ -64,7 +67,13 @@ export type PageMessage =
       userId?: string;
     }
   /** The system's folder chooser; the shell answers `directory_chosen`. */
-  | { v: 1; t: "choose_directory" };
+  | { v: 1; t: "choose_directory" }
+  /** A window control action from the custom desktop titlebar. */
+  | { v: 1; t: "window_action"; action: WindowAction; windowKey?: string }
+  /** Keeps the OS window title in sync for Mission Control, Window switcher and taskbar previews. */
+  | { v: 1; t: "window_title"; title: string; windowKey?: string }
+  /** Applies a staged update and relaunches the app once `update_state` is `ready`. */
+  | { v: 1; t: "restart_to_update" };
 
 /** The prompter files written for one rundown. */
 export interface PrompterFilesStatus {
@@ -107,7 +116,17 @@ export type ShellMessage =
   /** The answer to `choose_directory`: null when the person cancelled. */
   | { v: 1; t: "directory_chosen"; path: string | null }
   /** Sent each time prompter files start, are written, stop or fail; null once none are written. */
-  | { v: 1; t: "prompter_files"; status: PrompterFilesStatus | null };
+  | { v: 1; t: "prompter_files"; status: PrompterFilesStatus | null }
+  /** Current main-window state for custom desktop titlebar chrome. */
+  | {
+      v: 1;
+      t: "window_state";
+      maximised: boolean;
+      fullScreen: boolean;
+      focused: boolean;
+    }
+  /** Live reachability of the remote/embedded cloud server from the local node. */
+  | { v: 1; t: "cloud_state"; online: boolean };
 
 /** `window.manentDesktop`, set by the local node's boot script. */
 export interface DesktopGlobal {
@@ -133,6 +152,7 @@ export const OPENED_FILE_LIMIT_BYTES = 32 * 1024 * 1024;
 const PLATFORMS = ["mac", "windows", "linux"] as const;
 const CHANNELS = ["stable", "canary"] as const;
 const COMMAND_ID = /^[a-z][A-Za-z0-9._-]{0,127}$/;
+const WINDOW_KEY = /^(?:main|(?:room|prompter):[A-Za-z0-9._-]{1,128})$/;
 const ACCELERATOR = new RegExp("^[a-z0-9,/[\\]]$");
 const GROUPS_LIMIT = 64;
 const ITEMS_LIMIT = 64;
@@ -233,12 +253,30 @@ function readPage(t: unknown, value: Fields): PageMessage | null {
         : null;
     case "open_window":
       return readOpenWindow(value);
+    case "window_action": {
+      if (!isOneOf(WINDOW_ACTIONS, value.action)) return null;
+      if (value.windowKey === undefined)
+        return { v: 1, t, action: value.action };
+      return typeof value.windowKey === "string" &&
+        WINDOW_KEY.test(value.windowKey)
+        ? { v: 1, t, action: value.action, windowKey: value.windowKey }
+        : null;
+    }
+    case "window_title": {
+      if (!isText(value.title, LABEL_LIMIT)) return null;
+      if (value.windowKey === undefined) return { v: 1, t, title: value.title };
+      return typeof value.windowKey === "string" &&
+        WINDOW_KEY.test(value.windowKey)
+        ? { v: 1, t, title: value.title, windowKey: value.windowKey }
+        : null;
+    }
     case "first_frame":
     case "open_in_browser":
     case "open_files":
     case "show_folder":
     case "check_for_updates":
     case "choose_directory":
+    case "restart_to_update":
       return { v: 1, t };
   }
   return null;
@@ -301,6 +339,18 @@ function readShell(t: unknown, value: Fields): ShellMessage | null {
       const read = readStatus(status);
       return read === null ? null : { v: 1, t, status: read };
     }
+    case "window_state": {
+      const { maximised, fullScreen, focused } = value;
+      return typeof maximised === "boolean" &&
+        typeof fullScreen === "boolean" &&
+        typeof focused === "boolean"
+        ? { v: 1, t, maximised, fullScreen, focused }
+        : null;
+    }
+    case "cloud_state":
+      return typeof value.online === "boolean"
+        ? { v: 1, t, online: value.online }
+        : null;
   }
   return null;
 }

@@ -1,6 +1,5 @@
 // The desktop app's entry: one local node per data directory, its cloud, and the window, menus and dialogs
 // that speak to the page over the node's shell channel.
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
@@ -20,22 +19,25 @@ import type {
   DesktopGlobal,
   NativeMenu,
   PageMessage,
-  ServerVersions,
   ShellMessage,
 } from "@manent/sync-protocol";
-import { startEmbeddedCloud } from "../cloud.ts";
+import { readBuildFile } from "../build-file.ts";
 import type { CloudProcess } from "../cloud.ts";
 import { createWindowStateWriter, readWindowState } from "../window-state.ts";
 import { SHELL_WORDS } from "../words.ts";
+import { ABOUT_WINDOW_KEY, createAboutWindow } from "./about-window.ts";
+import type { AboutWindow } from "./about-window.ts";
 import { alertNewerStore, chooseDirectory, chooseFiles } from "./dialogs.ts";
+import { freePort, onServeError, startCloud } from "./local-server.ts";
 import { createNativeMenu } from "./menus.ts";
 import { createPresentWindows } from "./present-window.ts";
 import type { PresentWindows } from "./present-window.ts";
 import { BrowserWindow, Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
 import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
+import type { RunningUpdates } from "./updater.ts";
 import { createUrlSchemeHandler } from "./url-scheme.ts";
 import type { UrlSchemeHandler } from "./url-scheme.ts";
-import { hold, openMainWindow } from "./window.ts";
+import { hold, openMainWindow, primaryWorkArea } from "./window.ts";
 import type { MainWindow } from "./window.ts";
 
 /** Where the build packs the script font's faces, under the app's resources. */
@@ -43,12 +45,6 @@ const FONT_FILES = "cloud/node_modules/@fontsource/courier-prime/files";
 
 /** After the last move or resize. */
 const WINDOW_STATE_SAVE_MS = 500;
-
-/** What the build packs beside the app: the repository its releases come from, and the versions it runs. */
-interface BuildFile {
-  repository: string;
-  versions: ServerVersions;
-}
 
 const clock: Clock = {
   now: Date.now,
@@ -58,59 +54,9 @@ const clock: Clock = {
   },
 };
 
-const VERSION_FIELDS = ["protocol", "schema", "engine", "table"] as const;
-
-function isVersionSet(value: unknown): value is ServerVersions["current"] {
-  if (typeof value !== "object" || value === null) return false;
-  const fields: Record<string, unknown> = { ...value };
-  return VERSION_FIELDS.every((field) => {
-    const version = fields[field];
-    return Number.isSafeInteger(version) && Number(version) >= 0;
-  });
-}
-
-/** Throws when the build packed no readable build.json: the app cannot run without one. */
-function readBuildFile(path: string): BuildFile {
-  const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-  const read =
-    typeof value === "object" &&
-    value !== null &&
-    "repository" in value &&
-    "versions" in value
-      ? { repository: value.repository, versions: value.versions }
-      : null;
-  if (typeof read?.repository !== "string" || !isVersionSet(read.versions))
-    throw new TypeError(`${path} is not a build file`);
-  return {
-    repository: read.repository,
-    versions: { current: read.versions, min: read.versions },
-  };
-}
-
 function platformOf(platform: NodeJS.Platform): DesktopGlobal["platform"] {
   if (platform === "darwin") return "mac";
   return platform === "win32" ? "windows" : "linux";
-}
-
-/** A port nothing listens on now: listened on and closed again. */
-function freePort(): number {
-  const probe = Bun.listen({
-    hostname: "127.0.0.1",
-    port: 0,
-    socket: { data() {} },
-  });
-  const { port } = probe;
-  probe.stop(true);
-  return port;
-}
-
-/** The answer to a request whose handler threw: nothing of the thrown value, which may name this machine's files. */
-function onServeError(_error: unknown): Response {
-  console.error("A request could not be answered.");
-  return new Response("Manent could not answer that request.", {
-    status: 500,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
 }
 
 /** What the page's messages act on, once the node listens and the window exists. */
@@ -119,10 +65,12 @@ interface App {
   cloudUrl: string;
   window: MainWindow;
   presentWindows: PresentWindows;
+  aboutWindow: AboutWindow;
   menu: { draw(menus: readonly NativeMenu[] | null): void } | null;
   windowState: ReturnType<typeof createWindowStateWriter>;
   firstFrame(): void;
-  updates: { check(): void };
+  updates: RunningUpdates;
+  urlScheme: UrlSchemeHandler;
   send(message: ShellMessage): void;
 }
 
@@ -134,6 +82,8 @@ function answer(app: App, message: PageMessage): void {
     case "first_frame":
       app.window.show();
       app.firstFrame();
+      app.send({ v: 1, t: "window_state", ...app.window.state() });
+      app.urlScheme.markReady();
       return;
     case "first_paint":
       app.windowState.update("main", { firstPaint: message.writes });
@@ -142,7 +92,7 @@ function answer(app: App, message: PageMessage): void {
       Utils.openExternal(app.cloudUrl);
       return;
     case "open_files":
-      void chooseFiles().then(({ files, refused }) =>
+      void chooseFiles(Utils).then(({ files, refused }) =>
         app.send({ v: 1, t: "files_opened", files, refused }),
       );
       return;
@@ -159,9 +109,39 @@ function answer(app: App, message: PageMessage): void {
       app.presentWindows.open(message);
       return;
     case "choose_directory":
-      void chooseDirectory().then((path) =>
+      void chooseDirectory(Utils).then((path) =>
         app.send({ v: 1, t: "directory_chosen", path }),
       );
+      return;
+    case "window_action":
+      if (
+        message.windowKey === ABOUT_WINDOW_KEY &&
+        app.aboutWindow.handleAction(message.action)
+      )
+        return;
+      if (
+        message.windowKey !== undefined &&
+        message.windowKey !== "main" &&
+        app.presentWindows.handleAction(message.windowKey, message.action)
+      )
+        return;
+      if (message.action === "minimize") app.window.minimize();
+      else if (message.action === "toggle_maximize")
+        app.window.toggleMaximize();
+      else app.window.requestClose();
+      return;
+    case "window_title":
+      if (message.windowKey === ABOUT_WINDOW_KEY) return;
+      if (
+        message.windowKey !== undefined &&
+        message.windowKey !== "main" &&
+        app.presentWindows.setTitle(message.windowKey, message.title)
+      )
+        return;
+      app.window.setTitle(message.title);
+      return;
+    case "restart_to_update":
+      void app.updates.applyNow();
       return;
     default:
       message satisfies never;
@@ -170,6 +150,7 @@ function answer(app: App, message: PageMessage): void {
 
 /** What is closed at quit, in this order. */
 interface Held {
+  stopUpdates(): void;
   closePresentWindows(): void;
   flush(): void;
   node: DesktopNode;
@@ -178,49 +159,27 @@ interface Held {
   cloud: Promise<CloudProcess | null>;
 }
 
-/** Vetoes the first quit, closes what runs, then quits for good. */
-function quitCleanly(held: Held): void {
+/** Vetoes the first quit, closes what runs, then quits for good. Returns the deduplicated shutdown helper. */
+function quitCleanly(held: Held): () => Promise<void> {
   let closed = false;
-  let closing = false;
-  Electrobun.events.on("before-quit", (event: unknown) => {
-    if (closed) return;
-    hold(event);
-    if (closing) return;
-    closing = true;
-    void (async () => {
+  let shutdown: Promise<void> | null = null;
+  const closeAll = (): Promise<void> =>
+    (shutdown ??= (async () => {
+      held.stopUpdates();
       held.closePresentWindows();
       held.flush();
       await held.node.close();
       await held.listener.stop();
       await (await held.cloud)?.stop();
       closed = true;
-      Utils.quit();
-    })();
+    })());
+  Electrobun.events.on("before-quit", (event: unknown) => {
+    if (closed) return;
+    hold(event);
+    if (shutdown !== null) return;
+    void closeAll().then(() => Utils.quit());
   });
-}
-
-/** The demo cloud packed with the app, on `port`; null, and the cause logged, when it does not start. */
-async function startCloud(
-  resources: string,
-  root: string,
-  port: number,
-): Promise<CloudProcess | null> {
-  try {
-    return await startEmbeddedCloud({
-      execPath: process.execPath,
-      entry: join(resources, "cloud", "main.js"),
-      dataDir: join(root, "cloud"),
-      webDir: join(resources, "web"),
-      seedDir: join(resources, "seed"),
-      // the node was given this port's address before the cloud started, so every attempt keeps it
-      freePort: () => Promise.resolve(port),
-      fetch,
-    });
-  } catch (error) {
-    // the node runs without its cloud, as it does offline
-    console.error(error instanceof Error ? error.message : String(error));
-    return null;
-  }
+  return closeAll;
 }
 
 /**
@@ -237,7 +196,7 @@ async function refuse(
     return;
   }
   console.error(SHELL_WORDS.newerStoreLine);
-  await alertNewerStore(repository);
+  await alertNewerStore(repository, Utils);
   process.exit(1);
 }
 
@@ -250,10 +209,8 @@ function openApp(options: {
   nodeUrl: string;
   statePath: string;
   urlScheme: UrlSchemeHandler;
-}): {
-  windowState: ReturnType<typeof createWindowStateWriter>;
-  presentWindows: PresentWindows;
-} {
+  beforeApply(): Promise<void>;
+}) {
   const { core, node } = options;
   const send = (message: ShellMessage): void => core.shell.send(message);
   const windowState = createWindowStateWriter({
@@ -267,27 +224,46 @@ function openApp(options: {
     statePath: options.statePath,
     platform: process.platform,
     windowState,
+    workArea: primaryWorkArea,
     openWindow: (init) => new BrowserWindow(init),
   });
-  const updates = createRunningUpdates(send);
+  const aboutWindow = createAboutWindow({
+    nodeUrl: options.nodeUrl,
+    launchToken: node.launchToken,
+    platform: process.platform,
+    workArea: primaryWorkArea,
+    openWindow: (init) => new BrowserWindow(init),
+  });
+  const updates = createRunningUpdates(send, options.beforeApply);
   const platform = platformOf(process.platform);
   const menu =
-    platform === "linux" ? null : createNativeMenu({ platform, send });
+    platform === "linux"
+      ? null
+      : createNativeMenu({
+          platform,
+          send,
+          onAbout: () => aboutWindow.open(),
+        });
   const window = openMainWindow({
     url: options.urlScheme.initialUrl(options.nodeUrl, node.launchToken),
     platform: process.platform,
     saved: readWindowState(options.statePath).roles.main ?? null,
     onPlaced: (patch) => windowState.update("main", patch),
+    onStateChange: (state) => send({ v: 1, t: "window_state", ...state }),
     onCloseRequested: () => send({ v: 1, t: "close_requested" }),
-    onShown: () => updates.check(),
+    onShown: () => {
+      updates.check();
+      updates.startPeriodic();
+    },
   });
-  options.urlScheme.attach(options.nodeUrl, window);
+  options.urlScheme.attach(options.nodeUrl, window, send);
   let marked = false;
   const app: App = {
     root: options.root,
     cloudUrl: options.cloudUrl,
     window,
     presentWindows,
+    aboutWindow,
     menu,
     windowState,
     firstFrame() {
@@ -296,15 +272,16 @@ function openApp(options: {
       node.markFirstFrame();
     },
     updates,
+    urlScheme: options.urlScheme,
     send,
   };
   core.shell.onMessage((message) => answer(app, message));
   core.onFocusRequest(() => window.focus());
-  return { windowState, presentWindows };
+  return { windowState, presentWindows, aboutWindow, updates };
 }
 
 async function launch(): Promise<void> {
-  const urlScheme = createUrlSchemeHandler(process.platform);
+  const urlScheme = createUrlSchemeHandler(process.platform, Electrobun.events);
   const root = appDataDir(process.platform, process.env, homedir());
   const { version, channel } = await Updater.getLocalInfo();
   // the app is quitting and the new version opens in its place
@@ -348,18 +325,18 @@ async function launch(): Promise<void> {
       ? Promise.resolve(null)
       : startCloud(resources, root, cloudPort);
   let core: NodeCore | null = null;
-  const server = (): ManentServer => {
-    if (core === null) throw new Error("the node is used before it listens");
-    return core.server;
-  };
   const listener = serveWithBun(
     { hostname: "127.0.0.1", port: 0 },
-    server,
+    (): ManentServer => {
+      if (core === null) throw new Error("the node is used before it listens");
+      return core.server;
+    },
     onServeError,
   );
   const nodeUrl = `http://127.0.0.1:${listener.port}`;
   core = node.listening(nodeUrl);
-  const { windowState, presentWindows } = openApp({
+  let closeHeld: (() => Promise<void>) | null = null;
+  const { windowState, presentWindows, aboutWindow, updates } = openApp({
     root,
     cloudUrl,
     node,
@@ -367,9 +344,14 @@ async function launch(): Promise<void> {
     nodeUrl,
     statePath,
     urlScheme,
+    beforeApply: () => closeHeld?.() ?? Promise.resolve(),
   });
-  quitCleanly({
-    closePresentWindows: () => presentWindows.closeAll(),
+  closeHeld = quitCleanly({
+    stopUpdates: () => updates.stop(),
+    closePresentWindows: () => {
+      aboutWindow.close();
+      presentWindows.closeAll();
+    },
     flush: () => windowState.flush(),
     node,
     listener,

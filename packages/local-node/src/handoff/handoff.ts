@@ -28,6 +28,8 @@ export interface Handover {
   /** Hands over, one at a time and oldest first, every document of that person that is still the node's own. */
   run(userId: string): Promise<void>;
   onDone(listener: (docId: string) => void): () => void;
+  /** Cancels any scheduled retry timers when the node shuts down. */
+  stop(): void;
 }
 
 type Outcome = "done" | "later" | "skipped";
@@ -58,6 +60,7 @@ export function createHandover(options: {
   upstream: UpstreamFactory;
   service: SyncService;
   tokenOf: (userId: string) => string | null;
+  reauthenticate?: (userId: string) => Promise<string | null>;
   clock: Clock;
   random: Random;
   /** `workspaceId`: what the window's POST /api/docs named, which the node keeps with the placement. */
@@ -67,6 +70,7 @@ export function createHandover(options: {
   const listeners = new Set<(docId: string) => void>();
   const runs = new Map<string, Promise<void>>();
   const retries = new Map<string, { delayMs: number; cancel: () => void }>();
+  let stopped = false;
 
   const scriptIdOf = (home: Home, docId: string): string | undefined =>
     storage.directory
@@ -227,6 +231,15 @@ export function createHandover(options: {
     let answer;
     try {
       answer = await cloud.adopt(token, request);
+      if (
+        !answer.ok &&
+        answer.code === "unauthenticated" &&
+        options.reauthenticate !== undefined
+      ) {
+        const fresh = await options.reauthenticate(userId);
+        if (fresh === null) return "later";
+        answer = await cloud.adopt(fresh, request);
+      }
     } catch (error) {
       if (!(error instanceof ConnectError)) throw error;
       return "later";
@@ -249,12 +262,14 @@ export function createHandover(options: {
 
   /** Another run after a wait that doubles each time nothing could be handed over, and starts again after one that could. */
   function retryLater(userId: string): void {
+    if (stopped) return;
     const delayMs = Math.min(
       (retries.get(userId)?.delayMs ?? HANDOFF_RETRY_MS / 2) * 2,
       HANDOFF_RETRY_CAP_MS,
     );
     const cancel = clock.schedule(() => {
       retries.set(userId, { delayMs, cancel: () => {} });
+      if (stopped) return;
       run(userId).catch(() => {
         // a retry cut short resumes from the key and snapshot it stored, at the person's next run
       });
@@ -264,9 +279,11 @@ export function createHandover(options: {
 
   async function handOverAll(userId: string): Promise<void> {
     retries.get(userId)?.cancel();
+    if (stopped) return;
     const token = options.tokenOf(userId);
     if (token === null) return;
     for (const docId of ownDocuments(userId)) {
+      if (stopped) return;
       if ((await handOver(userId, token, docId)) !== "later") continue;
       return retryLater(userId);
     }
@@ -275,6 +292,7 @@ export function createHandover(options: {
 
   /** One run per person at a time: one asked for meanwhile goes round again once that one ends. */
   function run(userId: string): Promise<void> {
+    if (stopped) return Promise.resolve();
     const running = runs.get(userId);
     if (running !== undefined) return running.then(() => run(userId));
     const going = handOverAll(userId).finally(() => runs.delete(userId));
@@ -287,6 +305,11 @@ export function createHandover(options: {
     onDone(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    stop() {
+      stopped = true;
+      for (const retry of retries.values()) retry.cancel();
+      retries.clear();
     },
   };
 }

@@ -107,6 +107,7 @@ test("every screen whose code loads on first visit has the same problem in its o
     [
       "/",
       "/choose",
+      "/about",
       "/s/$docId",
       "/s/$docId/send/$form",
       "/s/$docId/history",

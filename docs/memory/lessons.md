@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Mount required UI providers inside standalone routes, avoid negative margins under `overflow-auto`, and close SSE streams on node shutdown
+
+- Date: 2026-11-28
+
+### What happened
+
+Building the bespoke `/about` desktop window and running the packaged macOS `desktop:smoke` gate uncovered three subtle cross-layer pitfalls: (1) `/about` bypassed `<AppShell>` in `RootLayout`, so `<AboutScreen />`'s `<BusyButton />` threw at runtime for a missing `<TimingProvider>` while `about-screen.dom.test.tsx` had masked the error by wrapping `<TimingProvider>` around the screen in the test harness; (2) applying `-mt-2` inside `<main className="... overflow-auto">` clipped the top 8 px of the About icon tile's rounded border; and (3) `/api/local/shell/events` `EventStream` instances had no `close()` method wired into `NodeCore.close()`, leaving open SSE streams and heartbeat timers alive during shutdown until Electrobun's shutdown timeout fired.
+
+### How it was caught
+
+Items (1) and (2) were caught immediately by live visual review of **Manent → About Manent** in `Manent-dev.app`, and item (3) was caught by running `bun run desktop:smoke` and inspecting surviving `Manent-canary.app` processes after `SIGINT`.
+
+### Rule
+
+Any standalone route rendered outside `<AppShell>` must mount the UI providers it depends on (such as `<TimingProvider>`) directly inside the screen, and its DOM tests must render the screen standalone without extra test-only provider wrappers. Never pull top content with negative margins inside an `overflow-auto` container; adjust container padding and window frame height instead. Always expose `close()` on server-side `EventStream` / `ShellChannel` instances and close every open stream and heartbeat timer inside `NodeCore.close()`.
+
+### Enforced by
+
+`apps/web/src/screens/about/about-screen.tsx`, `apps/web/test/about-screen.dom.test.tsx`, `apps/desktop/src/shell/about-window.ts`, `apps/desktop/test/about-window.test.ts`, `packages/local-node/src/http/sse.ts`, `packages/local-node/src/http/shell-channel.ts`, and `packages/local-node/test/shell-channel.test.ts`.
+
 ## Never scan all documents, reload CRDTs or write per-keystroke durability transactions inside sync commit hooks, and guard background search catch-up against damaged files
 
 - Date: 2026-11-28
@@ -23,6 +43,26 @@ Keep `SyncHooks.committed` O(1) on the hot path: filter directory scans by kind 
 ### Enforced by
 
 `packages/storage/test/schema-golden.test.ts`, `packages/storage/test/queries.test.ts`, `packages/storage/test/checkpoints.test.ts`, `packages/crdt/test/measure.test.ts`, `packages/server-core/test/checkpointer.test.ts`, `packages/server-core/test/rundown-guards.test.ts`, `packages/server-core/test/search-caching.test.ts`, and `packages/server-core/test/sharing.test.ts`.
+
+## Gate HTTP CloudApi calls in offline mode, flush SSE headers on stream open, and wake offline-created scripts on reconnect
+
+- Date: 2026-11-28
+
+### What happened
+
+Auditing `packages/local-node` for zero-server and no-internet desktop reliability surfaced three silent offline gaps: (1) `POST /api/local/connection { mode: "offline" }` muted upstream WebSockets (`setOnline(false)`) but left HTTP `CloudApi` calls (`signIn`, `adopt`, `describe`, `demo`, `forward`) hitting the live network without a timeout; (2) `/api/local/shell/events` wrote zero bytes on connect, causing `Bun.serve` to buffer SSE response headers until `idleTimeout` closed the connection with `ECONNRESET` before the first 30 s heartbeat; and (3) a registered user who chose their person or created a script while offline (`cloudToken === null`) stayed stuck without retrying cloud sign-in or adoption once reachability returned.
+
+### How it was caught
+
+Caught by auditing every HTTP/WS code path in `packages/local-node/src/` and exercising a live `serveWithBun` local-node against both a dead loopback port and a toggled cloud server in `packages/local-node/test/offline-resilience.test.ts`.
+
+### Rule
+
+Wrap every `CloudApi` consumer in `createCloudStatus` so `"offline"` mode immediately refuses HTTP cloud calls with `ConnectError("unreachable")` and every remote HTTP fetch uses a bounded `AbortController` timeout (`fetchWithTimeout`). Flush an initial `cloud_state` SSE event immediately in `createShellChannel`'s `onOpen` hook so Bun commits response headers right away, and run `recover()` whenever cloud reachability returns so offline-chosen users re-authenticate, upstream sync wakes up, and offline-created documents hand off automatically.
+
+### Enforced by
+
+`packages/local-node/src/node/cloud-status.ts`, `packages/local-node/src/http/shell-channel.ts`, `packages/local-node/src/upstream/cloud-requests.ts`, `packages/local-node/src/node/core.ts`, and `packages/local-node/test/offline-resilience.test.ts`.
 
 ## Keep Book front matter additive on `titlePage`, gate blank-page keys and theme CSS, and settle DOM selections in Firefox/WebKit E2E
 

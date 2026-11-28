@@ -94,6 +94,8 @@ export function Pane(props: {
   deviceName: string | null;
   persisted: boolean;
   onShortcuts(changes: readonly ShortcutChange[]): void;
+  onResetShortcuts?: () => void;
+  onOpenWorkspace?: (workspaceId: string) => void;
 }): ReactNode {
   const { pane, deviceName, persisted } = props;
   const { where } = useEnvironment();
@@ -111,9 +113,13 @@ export function Pane(props: {
     ),
     appearance: () => <AppearancePane />,
     keyboard: () => (
-      <KeyboardPane deviceName={deviceName} onShortcuts={props.onShortcuts} />
+      <KeyboardPane
+        deviceName={deviceName}
+        onShortcuts={props.onShortcuts}
+        onResetShortcuts={props.onResetShortcuts}
+      />
     ),
-    account: () => <AccountPane />,
+    account: () => <AccountPane onOpenWorkspace={props.onOpenWorkspace} />,
     device: () => <DevicePane deviceName={deviceName} persisted={persisted} />,
   };
   return (

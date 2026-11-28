@@ -9,29 +9,48 @@ import {
 } from "@manent/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  probeDesktopCloudStatus,
+  useDesktopCloudOnline,
+} from "../../desktop/desktop-offline.ts";
 import { desktopDeviceRows } from "../../desktop/device-rows.ts";
 import type { DesktopDeviceRows } from "../../desktop/device-rows.ts";
 import { exportEverythingOnDevice } from "../../desktop/export-everything.ts";
 import type { DesktopHost } from "../../desktop/host.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readPerson } from "../../session.ts";
+import { DemoRestoreGroup } from "./demo-restore-group.tsx";
 import { About } from "./device-about.tsx";
 import { Group } from "./device-group.tsx";
 
-/** A row with its label, its value and the one button that acts on it. */
+const COPIED_RESET_MS = 1_500;
+
+/** A row with its label, its value and the one or two buttons that act on it. */
 function ActionRow(props: {
   label: string;
   value: string;
   action: string;
   onAction(): void;
+  secondaryAction?: string;
+  onSecondaryAction?: () => void;
 }): ReactNode {
   return (
-    <div className="flex min-h-row items-center justify-between gap-4 text-ui">
+    <div className="flex min-h-row flex-wrap items-center justify-between gap-3 text-ui">
       <span>{props.label}</span>
-      <span className="min-w-0 grow truncate text-fg-muted">{props.value}</span>
-      <Button variant="outline" size="sm" onClick={props.onAction}>
-        {props.action}
-      </Button>
+      <span className="min-w-0 grow truncate text-fg-muted" title={props.value}>
+        {props.value}
+      </span>
+      <div className="flex shrink-0 items-center gap-2">
+        {props.secondaryAction !== undefined &&
+        props.onSecondaryAction !== undefined ? (
+          <Button variant="ghost" size="sm" onClick={props.onSecondaryAction}>
+            {props.secondaryAction}
+          </Button>
+        ) : null}
+        <Button variant="outline" size="sm" onClick={props.onAction}>
+          {props.action}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -47,10 +66,17 @@ export interface DesktopDevice {
   rows: DesktopDeviceRows;
   loadingUsage: boolean;
   exportState: ExportState;
+  online: boolean;
+  checkingConnection: boolean;
+  updateReady: boolean;
+  copiedPath: boolean;
   showLibrary(): void;
   showFolder(): void;
+  copyFolderPath(): void;
   exportEverything(): void;
+  checkConnection(): void;
   checkForUpdates(): void;
+  restartToUpdate(): void;
 }
 
 /**
@@ -58,22 +84,28 @@ export interface DesktopDevice {
  * window's last word on updates, each outcome said politely as it comes.
  */
 function useDesktopDevice(host: DesktopHost): DesktopDevice {
-  const { dom, now, tabStorage, updateState } = useEnvironment();
+  const { dom, now, schedule, tabStorage, updateState } = useEnvironment();
   const services = useServices();
   const { commands, messages } = services;
+  const online = useDesktopCloudOnline(host);
   const [usage, setUsage] = useState<
     { scripts: number; bytes: number } | null | undefined
   >(undefined);
   const [exportState, setExportState] = useState<ExportState>(IDLE_EXPORT);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [copiedPath, setCopiedPath] = useState(false);
   const mounted = useRef(true);
   const requestId = useRef(0);
   const exportAbort = useRef<AbortController | null>(null);
+  const cancelCopyTimer = useRef<(() => void) | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       exportAbort.current?.abort();
       exportAbort.current = null;
+      cancelCopyTimer.current?.();
+      cancelCopyTimer.current = null;
     };
   }, []);
   const readUsage = useCallback(() => {
@@ -131,6 +163,34 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
       }
     });
   }, [host, messages, now, services, tabStorage]);
+  const checkConnection = useCallback(() => {
+    if (checkingConnection) return;
+    setCheckingConnection(true);
+    void probeDesktopCloudStatus().then((reachable) => {
+      if (!mounted.current) return;
+      setCheckingConnection(false);
+      if (reachable === true) dom.announce(DESKTOP_WORDS.connectionOnline);
+      else if (reachable === false)
+        dom.announce(DESKTOP_WORDS.connectionOffline);
+    });
+  }, [checkingConnection, dom]);
+  const copyFolderPath = useCallback(() => {
+    const clipboard = navigator.clipboard;
+    if (typeof clipboard?.writeText !== "function") return;
+    void clipboard.writeText(host.dataDir).then(
+      () => {
+        if (!mounted.current) return;
+        setCopiedPath(true);
+        cancelCopyTimer.current?.();
+        cancelCopyTimer.current = schedule(() => {
+          if (mounted.current) setCopiedPath(false);
+        }, COPIED_RESET_MS);
+      },
+      () => {
+        // clipboard unavailable
+      },
+    );
+  }, [host.dataDir, schedule]);
   const update = useSubscribable(updateState);
   const rows = desktopDeviceRows({ host, usage: usage ?? null, update });
   const { line } = rows.update;
@@ -144,15 +204,24 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
     rows,
     loadingUsage: usage === undefined,
     exportState,
+    online,
+    checkingConnection,
+    updateReady: update === "ready",
+    copiedPath,
     showLibrary: () => void commands.run("app.library", "control"),
     showFolder() {
       host.send({ v: 1, t: "show_folder" });
       readUsage();
     },
+    copyFolderPath,
     exportEverything,
+    checkConnection,
     checkForUpdates() {
       updateState.set("checking");
       host.send({ v: 1, t: "check_for_updates" });
+    },
+    restartToUpdate() {
+      host.send({ v: 1, t: "restart_to_update" });
     },
   };
 }
@@ -177,14 +246,52 @@ function StoredRowsSkeleton(): ReactNode {
   );
 }
 
+/** Live desktop server reachability and on-demand connection probe. */
+function DesktopConnection(props: { device: DesktopDevice }): ReactNode {
+  const { online, checkingConnection, checkConnection } = props.device;
+  return (
+    <Group heading={DESKTOP_WORDS.connectionGroup}>
+      <div className="flex min-h-row flex-wrap items-center justify-between gap-3 text-ui">
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={
+              online
+                ? "size-2 shrink-0 rounded-full bg-ok"
+                : "size-2 shrink-0 rounded-full bg-attention"
+            }
+          />
+          <span>
+            {online
+              ? DESKTOP_WORDS.connectionOnline
+              : DESKTOP_WORDS.connectionOffline}
+          </span>
+        </span>
+        <BusyButton
+          variant="outline"
+          size="sm"
+          label={DESKTOP_WORDS.checkConnection}
+          busyLabel={
+            checkingConnection ? DESKTOP_WORDS.checkingConnection : null
+          }
+          onClick={checkConnection}
+        />
+      </div>
+      <p className="text-meta text-fg-muted">{DESKTOP_WORDS.connectionNote}</p>
+    </Group>
+  );
+}
+
 /** What the node stores, and the folder it keeps it in; placeholder rows until the node answers. */
 function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
   const {
     rows,
     loadingUsage,
     exportState,
+    copiedPath,
     showLibrary,
     showFolder,
+    copyFolderPath,
     exportEverything,
   } = props.device;
   return (
@@ -206,6 +313,10 @@ function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
             value={rows.stored.folder}
             action={PREFERENCES_WORDS.showFolder}
             onAction={showFolder}
+            secondaryAction={
+              copiedPath ? DESKTOP_WORDS.copiedPath : DESKTOP_WORDS.copyPath
+            }
+            onSecondaryAction={copyFolderPath}
           />
           <div className="flex min-h-row items-center">
             <BusyButton
@@ -231,7 +342,9 @@ export function DesktopGroups(props: { host: DesktopHost }): ReactNode {
   const device = useDesktopDevice(props.host);
   return (
     <>
+      <DesktopConnection device={device} />
       <DesktopStoredHere device={device} />
+      <DemoRestoreGroup />
       <About desktop={device} />
     </>
   );

@@ -1376,6 +1376,7 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
   --control-h-lg: 2rem; /* 32 */
   --row-h: 1.75rem; /* 28: every one-line row */
   --row-h-2: 2.75rem; /* 44: every two-line row */
+  --windowbar-h: 2.25rem; /* 36: custom desktop window chrome */
   --titlebar-h: 2.75rem; /* 44 */
   --statebar-h: 2rem; /* 32 */
   --findbar-h: 2.5rem; /* 40 */
@@ -1645,6 +1646,7 @@ html:where([data-palette="nightwire"])[data-white-page] .mn-pages {
   --spacing-control-lg: var(--control-h-lg);
   --spacing-row: var(--row-h);
   --spacing-row-2: var(--row-h-2);
+  --spacing-windowbar: var(--windowbar-h);
   --spacing-titlebar: var(--titlebar-h);
   --spacing-statebar: var(--statebar-h);
   --spacing-findbar: var(--findbar-h);
@@ -6420,6 +6422,274 @@ html[data-gems="off"] .mn-gem-only {
     color: CanvasText;
     border-color: CanvasText;
     box-shadow: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   INSTALLED APP CHROME (standalone and window-controls-overlay).
+   Safe-area insets and draggable title-bar regions apply to the shell chrome
+   only, never to the page.
+   -------------------------------------------------------------------------- */
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  [data-region="title_bar"] {
+    padding-block-start: env(safe-area-inset-top, 0px);
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+  }
+  [data-region="status_bar"] {
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+  }
+}
+
+@media (display-mode: window-controls-overlay) {
+  .mn-titlebar-wco,
+  .mn-wco [data-region="title_bar"] {
+    min-block-size: max(
+      var(--titlebar-h),
+      env(titlebar-area-height, var(--titlebar-h))
+    );
+    padding-inline-start: env(titlebar-area-x, 0px);
+    padding-inline-end: calc(
+      100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%)
+    );
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .mn-titlebar-wco
+    :is(button, a, input, select, textarea, [role="button"], [tabindex]),
+  .mn-wco
+    [data-region="title_bar"]
+    :is(button, a, input, select, textarea, [role="button"], [tabindex]) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PRINT. The print DOM is archival white paper whatever the theme or palette,
+   and keeps its bands, tints and the writer's highlights.
+   -------------------------------------------------------------------------- */
+@page board-sheet {
+  size: landscape;
+  margin: 10mm;
+}
+@media print {
+  html,
+  body,
+  #root {
+    height: auto;
+    width: auto;
+    overflow: visible;
+  }
+  .mn-app-gem,
+  .mn-gem-popover {
+    display: none;
+  }
+  .mn-print {
+    color-scheme: light;
+    --page-paper: var(--p-warm-0);
+    --page-ink: var(--p-ink);
+    --page-ink-muted: var(--p-warm-700);
+    --page-edge: var(--p-warm-300);
+    --page-comment-line: var(--p-amber-700);
+    --page-comment-bg: rgb(214 150 0 / 0.28);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .mn-board-print-root {
+    page: board-sheet;
+    color-scheme: light;
+    --bg-desk: var(--p-warm-0);
+    --bg-chrome: var(--p-warm-50);
+    --bg-raised: var(--p-warm-0);
+    --fg: var(--p-ink);
+    --fg-muted: var(--p-warm-700);
+    --line: var(--p-warm-300);
+    --line-strong: var(--p-warm-500);
+    background-color: var(--p-warm-0);
+    color: var(--p-ink);
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .mn-board-print-root .mn-board-stage,
+  .mn-board-print-root .mn-board-viewport {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: none !important;
+  }
+  .mn-board-print-root .mn-board-corner,
+  .mn-board-print-root .mn-board-ep-head,
+  .mn-board-print-root .mn-board-rail {
+    position: static !important;
+    box-shadow: none !important;
+  }
+  .mn-board-print-root .mn-board-fade-start,
+  .mn-board-print-root .mn-board-fade-end,
+  .mn-board-print-root .mn-board-pan-btn,
+  .mn-board-print-root .mn-board-add-trigger,
+  .mn-board-print-root .mn-board-card-actions {
+    display: none !important;
+  }
+  .mn-board-print-root .mn-board-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+  .mn-board-print-root .mn-board-card-text {
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    overflow: visible !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   DESKTOP WINDOW TITLE BAR (macOS hiddenInset + Windows custom caption bar).
+   Keeps native traffic lights (left on macOS) and Windows caption controls
+   (right on Windows) clear of every screen, Demo Stage bar and title bar.
+   -------------------------------------------------------------------------- */
+.mn-windowbar {
+  block-size: var(--windowbar-h);
+  min-block-size: var(--windowbar-h);
+  background-color: var(--bg-chrome);
+  color: var(--fg);
+  border-block-end: 1px solid var(--line);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.mn-windowbar-no-drag,
+.mn-windowbar :is(button, a, input, select, textarea, [role="button"]) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.mn-windowbar[data-focused="false"] .mn-windowbar-title {
+  color: var(--fg-muted);
+}
+
+.mn-windowbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.875rem; /* 46 px: native Windows caption button width */
+  block-size: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+
+.mn-windowbar-btn:hover {
+  background-color: var(--bg-subtle);
+  color: var(--fg);
+}
+
+.mn-windowbar-btn:active {
+  background-color: var(--bg-selected);
+  color: var(--fg);
+}
+
+.mn-windowbar-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.mn-windowbar-btn-close:hover,
+.mn-windowbar-btn-close:active {
+  background-color: var(--fg-danger);
+  color: var(--fg-on-danger);
+}
+
+.mn-windowbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  block-size: 1.375rem;
+  padding-inline: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background-color: var(--bg-raised);
+  color: var(--fg);
+  font-size: var(--text-micro);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mn-windowbar-pill[data-tone="offline"] {
+  border-color: var(--line-strong);
+  background-color: var(--bg-well);
+  color: var(--fg);
+}
+
+.mn-windowbar-pill[data-tone="update"] {
+  border-color: var(--bg-accent);
+  background-color: var(--bg-accent);
+  color: var(--fg-on-accent);
+  cursor: pointer;
+}
+
+.mn-windowbar-pill[data-tone="update"]:hover {
+  filter: brightness(1.06);
+}
+
+.mn-windowbar-pill-dot {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 9999px;
+  background-color: var(--fg-attention);
+  flex-shrink: 0;
+}
+
+.mn-windowbar-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 1.5rem;
+  border-radius: var(--radius-control);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+
+.mn-windowbar-menu-btn:hover {
+  background-color: var(--bg-subtle);
+  color: var(--fg);
+}
+
+.mn-windowbar-menu-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+@media (forced-colors: active) {
+  .mn-windowbar {
+    border-block-end-color: CanvasText;
+  }
+  .mn-windowbar-btn {
+    color: ButtonText;
+  }
+  .mn-windowbar-btn:hover,
+  .mn-windowbar-btn:focus-visible {
+    background-color: Highlight;
+    color: HighlightText;
   }
 }
 
