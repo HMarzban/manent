@@ -27,17 +27,17 @@ make demo            # or: bun run demo
 
 [Getting started](../guide/getting-started.md) says what `make demo` does, its options for other ports and folders, and what to try. It builds the web app into `apps/web/dist`.
 
-| Command                            | What it does                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| `make demo` / `bun run demo`       | Build, create the demo data if needed, start and open the app            |
-| `make demo LAN=1`                  | The same, and listen on one private address for a second machine         |
-| `make desktop` / `bun run desktop` | Build and open the Electrobun desktop app against the running demo       |
-| `make stop` / `bun run stop`       | Stop the server and the supervisor                                       |
-| `make reset` / `bun run reset`     | Delete the demo data and create it again                                 |
-| `bun run build:web`                | Build the web app only                                                   |
-| `bun run demo:gems`                | Open the standalone 24-gem Museum showcase (`--out <file>` exports HTML) |
-| `bun tools/stamp-site.ts`          | Stamp `?v=<sha256>` hashes across `site/` (`--check` verifies)           |
-| `make` (no target)                 | List the targets                                                         |
+| Command                            | What it does                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `make demo` / `bun run demo`       | Install missing dependencies (`make demo` also installs Bun), build, seed, start and open the app |
+| `make demo LAN=1`                  | The same, and listen on one private address for a second machine                                  |
+| `make desktop` / `bun run desktop` | Build and open the Electrobun desktop app against the running demo                                |
+| `make stop` / `bun run stop`       | Stop the server and the supervisor                                                                |
+| `make reset` / `bun run reset`     | Delete the demo data and create it again                                                          |
+| `bun run build:web`                | Build the web app only                                                                            |
+| `bun run demo:gems`                | Open the standalone 24-gem Museum showcase (`--out <file>` exports HTML)                          |
+| `bun tools/stamp-site.ts`          | Stamp `?v=<sha256>` hashes across `site/` (`--check` verifies)                                    |
+| `make` (no target)                 | List the targets                                                                                  |
 
 After a change to the web app, stop the demo and run `make demo` again: it rebuilds the app before it starts. There is no watch mode.
 

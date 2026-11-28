@@ -17,7 +17,7 @@ An open-source, offline-first collaborative writing studio for screenplays, mult
 
 ## Quick start
 
-You need [Bun](https://bun.com) 1.4.4 (or later for the demo) and Git. Manent targets macOS, Linux and Windows (CI runs across all three; Windows has not yet been tested by hand) and modern browsers supporting CSS `light-dark()` (Chrome 123+, Safari 17.5+, Firefox 120+).
+You need Git and [Bun](https://bun.com) 1.4.4 (or later for the demo) — `make demo` installs or updates Bun and all project packages automatically if they are missing. Manent targets macOS, Linux and Windows (CI runs across all three; Windows has not yet been tested by hand) and modern browsers supporting CSS `light-dark()` (Chrome 123+, Safari 17.5+, Firefox 120+).
 
 ```sh
 git clone https://github.com/HMarzban/manent.git

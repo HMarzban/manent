@@ -4,11 +4,11 @@ How to run Manent on your own machine and find your way around the demo.
 
 ## What you need
 
-- [Bun](https://bun.com) 1.4.4, the version CI uses; `make demo` accepts later ones. It checks the version first and tells you how to install Bun if it is missing.
+- [Bun](https://bun.com) 1.4.4, the version CI uses; `make demo` accepts later ones and installs or updates Bun automatically if it is missing or older (along with missing installer tools such as `curl`, `unzip` and `bash` when a supported package manager is available).
 - Git, to get the code.
 - macOS, Linux or Windows. CI is set up to test all three; it does not pass on every one yet, and Windows has not been tried by hand.
 - Chrome 123, Safari 17.5 or Firefox 120, or a later version. The end-to-end tests run in Chromium, Firefox and WebKit.
-- `make` is optional. Every `make` target runs a `bun run` script of the same name, so `bun run demo` does the same as `make demo`.
+- `make` is optional. If you already have Bun 1.4.4 or later, every `make` target runs a `bun run` script of the same name, so `bun run demo` does the same as `make demo`.
 
 ## Start the demo
 
@@ -20,12 +20,13 @@ make demo
 
 `make demo`:
 
-1. checks your Bun version and that ports 4747 and 4748 are free;
-2. installs the dependencies from the lockfile;
-3. builds the web app;
-4. creates the demo data in `.manent-demo/` (the demo people and their workspaces);
-5. starts the server under a small supervisor, which restarts it if it stops on its own;
-6. opens `http://localhost:4747` in your browser.
+1. locates Bun 1.4.4 or later (checking `PATH` and `~/.bun/bin`), and installs or updates Bun (plus missing installer tools such as `curl`, `unzip` and `bash` where a package manager is available) if needed;
+2. checks that ports 4747 and 4748 are free;
+3. installs the dependencies from the lockfile;
+4. builds the web app;
+5. creates the demo data in `.manent-demo/` (the demo people and their workspaces);
+6. starts the server under a small supervisor, which restarts it if it stops on its own;
+7. opens `http://localhost:4747` in your browser.
 
 To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `make reset` deletes the demo data and creates it again; see [The demo's data](saving-and-syncing.md#the-demos-data).
 
@@ -122,7 +123,7 @@ Stop it with `bun tools/demo/cli.ts stop --data-dir <the same folder>`.
 
 ## If something goes wrong
 
-- **"Manent needs Bun 1.4.4 or later (found …)."** Install or update Bun with the command it prints, then run `make demo` again.
+- **"Manent needs Bun 1.4.4 or later (found …)."** Run `make demo` to install or update Bun automatically, or install it with the command it prints and run `make demo` again.
 - **"Port 4747 is in use."** Another demo may still be running. Run `make stop`, or stop whatever holds the port.
 - **"Manent is already running at …"** `make demo` found a demo that is still running and opened it, without building the web app again. After a change to the code, run `make stop` and then `make demo`.
 - **"The packages could not be installed."** The lines above it say why; most often there is no network. Run `make demo` again once it is back.
