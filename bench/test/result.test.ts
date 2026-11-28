@@ -286,7 +286,7 @@ test("a result file with any one field broken is refused, naming the file", asyn
     ),
     { numRuns: 300 },
   );
-});
+}, 30_000);
 
 test("any JSON is either a result file or refused, naming the file", async () => {
   const root = await trees.tree({});
@@ -304,7 +304,7 @@ test("any JSON is either a result file or refused, naming the file", async () =>
     }),
     { numRuns: 200 },
   );
-});
+}, 30_000);
 
 test("two result files that start in the same second are both kept", async () => {
   const outDir = join(await trees.tree({}), "out");

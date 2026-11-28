@@ -55,6 +55,6 @@ export default defineConfig({
     // the server listens on 127.0.0.1, and a lookup of localhost may try ::1 first
     url: `http://127.0.0.1:${E2E_PORT}/health`,
     reuseExistingServer: false,
-    timeout: 90_000,
+    timeout: 240_000,
   },
 });

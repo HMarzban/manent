@@ -17,6 +17,7 @@ import {
   NotMeasured,
   benchThrottle,
   benchTier,
+  formatProcessFailure,
   runEnvironment,
   scenarioEnv,
 } from "./env.ts";
@@ -26,7 +27,7 @@ import type { MetricSummary, Quiet, ScenarioResult } from "./result.ts";
 import { AREAS } from "./tiers/tiers.ts";
 import type { Area, ContainerLimits, TierId } from "./tiers/tiers.ts";
 
-export { UNITS, WORKLOADS };
+export { UNITS, WORKLOADS, formatProcessFailure };
 
 export interface Measurement {
   metric: string;
@@ -130,8 +131,10 @@ function parseScenario(value: unknown, file: string): Scenario {
 }
 
 async function loadScenario(file: string): Promise<Scenario> {
-  const { default: exported }: { default?: unknown } = await import(file);
-  return parseScenario(exported, file);
+  return parseScenario(
+    ((await import(file)) as { default?: unknown }).default,
+    file,
+  );
 }
 
 /** Every scenario file of every area under `root`, by path. */
@@ -205,14 +208,10 @@ async function runProcess(
     exitCode,
     output: output.slice(-OUTPUT_CHARS),
   });
-  if (exitCode !== 0) {
-    const note =
-      child.signalCode !== null
-        ? `${found.rel}: process terminated by ${child.signalCode} (exit ${exitCode})`
-        : `${found.rel}: process exited with code ${exitCode} and no output`;
-    if (printed.trim() === "") return failed(note);
-    return failed(child.signalCode !== null ? `${printed}\n${note}` : printed);
-  }
+  if (exitCode !== 0)
+    return failed(
+      formatProcessFailure(found.rel, exitCode, child.signalCode, printed),
+    );
   const read = readResultLine(found, stdout);
   return typeof read === "string" ? failed(`${printed}\n${read}`) : read;
 }
@@ -300,13 +299,13 @@ function suiteRun(
   scenarios: readonly ScenarioResult[],
   rows: { unproved: readonly Row[]; unmatched: readonly Row[] },
 ): SuiteRun {
-  const outcomes = (outcome: ScenarioResult["outcome"]): number =>
-    scenarios.filter((s) => s.outcome === outcome).length;
+  const outcomes = (o: ScenarioResult["outcome"]): number =>
+    scenarios.filter((s) => s.outcome === o).length;
   const metrics = scenarios.flatMap((s) =>
     s.outcome === "measured" ? s.metrics : [],
   );
-  const verdicts = (verdict: MetricSummary["verdict"]): number =>
-    metrics.filter((m) => m.verdict === verdict).length;
+  const verdicts = (v: MetricSummary["verdict"]): number =>
+    metrics.filter((m) => m.verdict === v).length;
   const named = (list: readonly Row[]): string[] =>
     list.map((r) => `${r.scenario} ${r.metric}`);
   return {

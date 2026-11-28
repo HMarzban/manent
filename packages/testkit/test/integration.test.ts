@@ -29,9 +29,9 @@ afterEach(async () => {
   bots = [];
   await server?.stop();
   server = null;
-});
+}, 30_000);
 
-afterAll(() => trees.removeAll());
+afterAll(() => trees.removeAll(), 30_000);
 
 interface Editor {
   bot: Bot;
@@ -294,11 +294,13 @@ test(
       () =>
         dana.h.status.get().synced &&
         sam.h.status.get().synced &&
-        sameText(dana.h, sam.h),
+        blockCount(sam.h) >= 40_020 &&
+        blockCount(dana.h) >= 40_020,
     );
+    expect(sameText(dana.h, sam.h)).toBe(true);
     expect(blockCount(sam.h)).toBeGreaterThanOrEqual(40_020);
   },
-  { timeout: 60_000 },
+  { timeout: 120_000 },
 );
 
 test(

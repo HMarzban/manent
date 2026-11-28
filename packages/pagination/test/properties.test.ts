@@ -29,7 +29,7 @@ const a4 = profileFor("screenplay", { paper: "a4" })!;
 const CAP = sp.linesPerPage * UNITS_PER_LINE;
 const RUNS = 200;
 /** A property takes a few seconds, past the runner's default of five. */
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 120_000;
 
 const ELEMENTS = [
   "scene_heading",

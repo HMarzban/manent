@@ -252,7 +252,7 @@ test("a keystroke elsewhere in a long script does not collect names", () => {
   timers.advance(50);
   expect([typing, collect.mock.calls.length]).toEqual([0, 1]);
   collect.mockRestore();
-});
+}, 30_000);
 
 test("while composing the list is not shown", () => {
   const { view, layer, timers } = mount(

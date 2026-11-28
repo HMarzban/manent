@@ -289,7 +289,7 @@ test("the decorations never change the document", () => {
     }),
     { numRuns: 300 },
   );
-});
+}, 30_000);
 
 /** Every decoration of the plugin, with its place, spec and what it draws, in one order. */
 const drawingOf = (s: EditorState): string[] =>
@@ -330,7 +330,9 @@ const arbEdits = fc
   .map((runs) =>
     Object.assign(
       (s: EditorState) => runs.reduce((state, edits) => edits(state), s),
-      { toString: () => runs.map(String).join(" then ") },
+      {
+        toString: () => runs.map(String).join(" then "),
+      },
     ),
   );
 

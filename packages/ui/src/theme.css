@@ -2992,6 +2992,7 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
   align-items: center;
   gap: 0.25rem;
   height: 1.75rem;
+  overflow: hidden;
   padding-inline-end: 0.1875rem;
   border-radius: 9999px;
   border: 1px solid var(--line);
@@ -3183,7 +3184,7 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-back-icon {
     display: none;
   }
 }
-@container mn-bar (width < 32rem) {
+@container mn-bar (width < 44rem) {
   .mn-bar .mn-demo-mission-wrap {
     display: none;
   }

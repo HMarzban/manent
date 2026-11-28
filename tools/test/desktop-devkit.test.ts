@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import {
   DEVKIT_KEYS,
@@ -13,6 +13,7 @@ import {
   fetchHutch,
   hutchCommand,
   hutchUrl,
+  tarExtractCommand,
 } from "../desktop/devkit.ts";
 
 const trees = createTempTrees("manent-devkit-");
@@ -132,6 +133,26 @@ test("a matching launcher is unpacked", async () => {
     existsSync(join(into, "old.txt")),
     existsSync(`${into}.download`),
   ]).toEqual([true, false, false]);
+});
+
+test("tarExtractCommand uses relative arguments so Windows drive letters never reach tar", () => {
+  const { cmd, cwd } = tarExtractCommand(
+    "D:\\a\\manent\\manent\\apps\\desktop\\.hutch-cli.download",
+    "D:\\a\\manent\\manent\\apps\\desktop\\.hutch-cli",
+    win32,
+  );
+  expect(cwd).toBe("D:\\a\\manent\\manent\\apps\\desktop");
+  expect(cmd).toEqual([
+    "tar",
+    "-xzf",
+    ".hutch-cli.download",
+    "-C",
+    ".hutch-cli",
+  ]);
+  for (const arg of cmd) {
+    expect(arg).not.toContain(":");
+    expect(arg).not.toContain("\\");
+  }
 });
 
 test("the core and Chromium the toolkit fetched must be the pinned ones", () => {

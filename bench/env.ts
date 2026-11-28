@@ -142,3 +142,18 @@ export function scenarioEnv(
   if (proveWaitMs !== null) env.MANENT_BENCH_PROVE_MS = String(proveWaitMs);
   return env;
 }
+
+/** Human-readable failure output for a scenario child that exited non-zero or was terminated by a signal. */
+export function formatProcessFailure(
+  rel: string,
+  exitCode: number,
+  signalCode: NodeJS.Signals | number | null,
+  printed: string,
+): string {
+  const note =
+    signalCode !== null
+      ? `${rel}: process terminated by ${signalCode} (exit ${exitCode})`
+      : `${rel}: process exited with code ${exitCode} and no output`;
+  if (printed.trim() === "") return note;
+  return signalCode !== null ? `${printed}\n${note}` : printed;
+}

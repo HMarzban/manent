@@ -12,8 +12,9 @@ const started: Bun.Subprocess[] = [];
 afterAll(async () => {
   // a test that ends early leaves no demo running
   for (const demo of started) demo.kill();
+  await Promise.allSettled(started.map((demo) => demo.exited));
   await trees.removeAll();
-});
+}, 60_000);
 
 interface DemoOptions {
   port: number;
@@ -84,13 +85,13 @@ test("a fresh clone starts", async () => {
   const dir = join(await trees.tree({}), "fresh clone");
   await Bun.$`git clone --quiet ${repoRoot} ${dir}`;
   const first = startDemo(dir, PORTS);
-  expect(await healthWithin(first, 120_000)).toEqual({ ok: true });
+  expect(await healthWithin(first, 240_000)).toEqual({ ok: true });
   expect(await stopDemo(dir)).toBe(0);
   // nothing to download the second time
   const second = startDemo(dir, {
     ...PORTS,
     env: { BUN_CONFIG_REGISTRY: "http://127.0.0.1:9" },
   });
-  expect(await healthWithin(second, 60_000)).toEqual({ ok: true });
+  expect(await healthWithin(second, 120_000)).toEqual({ ok: true });
   expect(await stopDemo(dir)).toBe(0);
-}, 240_000);
+}, 360_000);

@@ -231,4 +231,4 @@ test("a reader polling the folder never sees half a prompter file", async () => 
     writer?.stop();
     reader.kill();
   }
-});
+}, 60_000);

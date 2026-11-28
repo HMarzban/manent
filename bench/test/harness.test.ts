@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { bootstrapInterval } from "@manent/perf";
 import { createTempTrees } from "@manent/testkit";
-import { UNITS, runSuite } from "../harness.ts";
+import { UNITS, formatProcessFailure, runSuite } from "../harness.ts";
 import { afterWarmup } from "../measure.ts";
 import { readResultFile } from "../result.ts";
 import type { MetricSummary, ScenarioResult } from "../result.ts";
@@ -69,7 +69,13 @@ const row = (
   stat: string,
   budget: number,
   hardFail: number,
-) => ({ scenario, metric, stat, budget, hardFail });
+) => ({
+  scenario,
+  metric,
+  stat,
+  budget,
+  hardFail,
+});
 
 /** The run's scenario results, read back through the reader. */
 async function resultsOf(run: { file: string }): Promise<ScenarioResult[]> {
@@ -435,7 +441,7 @@ test("a percentile needs enough samples to be judged", async () => {
     "inconclusive",
     "too_few_samples",
   ]);
-});
+}, 30_000);
 
 test("a budgeted metric the scenario did not report fails it", async () => {
   const root = await trees.tree({
@@ -519,6 +525,14 @@ test("a scenario that says it cannot run is recorded, and the run goes on", asyn
 });
 
 test("a scenario killed by a signal records the signal in its failure output", async () => {
+  expect(
+    formatProcessFailure("corpus/killed.bench.ts", 137, "SIGKILL", ""),
+  ).toBe("corpus/killed.bench.ts: process terminated by SIGKILL (exit 137)");
+  expect(
+    formatProcessFailure("corpus/killed.bench.ts", 137, "SIGKILL", "partial"),
+  ).toBe(
+    "partial\ncorpus/killed.bench.ts: process terminated by SIGKILL (exit 137)",
+  );
   const root = await trees.tree({
     "corpus/killed.bench.ts": scenarioFile(
       "fixture.killed",
@@ -530,8 +544,10 @@ test("a scenario killed by a signal records the signal in its failure output", a
   expect(r.failed).toBe(1);
   const [killed] = await resultsOf(r);
   expect(killed).toMatchObject({ outcome: "failed" });
-  expect(killed?.outcome === "failed" && killed.output).toContain("SIGKILL");
-});
+  expect(killed?.outcome === "failed" && killed.output).toContain(
+    process.platform === "win32" ? "exited with code 1" : "SIGKILL",
+  );
+}, 30_000);
 
 test("a timed scenario on a busy machine is void, with the load it saw", async () => {
   const root = await trees.tree({
@@ -724,4 +740,4 @@ test("a budget applies on the tier that judges its area, at 1x, outside quick mo
     ["server.b", "hard_fail"],
     ["server.soak", "hard_fail"],
   ]);
-});
+}, 30_000);

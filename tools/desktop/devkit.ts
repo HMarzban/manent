@@ -2,7 +2,7 @@
 // system, lets it fetch the Electrobun core and Chromium into apps/desktop/.hutch/, and checks what it fetched.
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 
 export const HUTCH_VERSION = "0.29.0";
 
@@ -92,6 +92,32 @@ async function sha256Of(path: string): Promise<string> {
 }
 
 /**
+ * Relative `tar` arguments executed from `archive`'s parent directory so MSYS/GNU `tar` on Windows
+ * never mistakes a drive letter like `D:\...` for a remote host.
+ */
+export function tarExtractCommand(
+  archive: string,
+  dest: string,
+  pathMod: Pick<
+    typeof import("node:path"),
+    "basename" | "dirname" | "relative" | "resolve"
+  > = {
+    basename,
+    dirname,
+    relative,
+    resolve,
+  },
+): { cmd: string[]; cwd: string } {
+  const resolvedArchive = pathMod.resolve(archive);
+  const resolvedDest = pathMod.resolve(dest);
+  const cwd = pathMod.dirname(resolvedArchive);
+  const archiveArg = pathMod.basename(resolvedArchive);
+  const destArg =
+    pathMod.relative(cwd, resolvedDest).replaceAll("\\", "/") || ".";
+  return { cmd: ["tar", "-xzf", archiveArg, "-C", destArg], cwd };
+}
+
+/**
  * Downloads `url` to `<into>.download` and unpacks it into `into`, replacing what was there, when
  * its SHA-256 is `sha256`. Another SHA-256 deletes the download, leaves `into` as it was and
  * throws RangeError; a download that does not answer 200 throws Error.
@@ -102,7 +128,8 @@ export async function fetchHutch(options: {
   into: string;
   fetch: typeof fetch;
 }): Promise<void> {
-  const { url, sha256, into } = options;
+  const { url, sha256 } = options;
+  const into = resolve(options.into);
   const download = `${into}.download`;
   const response = await options.fetch(url);
   if (!response.ok)
@@ -113,16 +140,23 @@ export async function fetchHutch(options: {
     await Bun.write(download, response);
     if ((await sha256Of(download)) !== sha256)
       throw new RangeError("hutch checksum mismatch");
-    await rm(into, { recursive: true, force: true });
+    await rm(into, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
     await mkdir(into, { recursive: true });
-    const tar = Bun.spawn(["tar", "-xzf", download, "-C", into], {
+    const { cmd, cwd } = tarExtractCommand(download, into);
+    const tar = Bun.spawn(cmd, {
+      cwd,
       stdout: "inherit",
       stderr: "inherit",
     });
     const code = await tar.exited;
     if (code !== 0) throw new Error(`tar exited with ${code} on ${download}`);
   } finally {
-    await rm(download, { force: true });
+    await rm(download, { force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

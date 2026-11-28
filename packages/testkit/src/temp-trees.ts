@@ -25,7 +25,14 @@ export function createTempTrees(prefix: string): TempTrees {
     async removeAll() {
       const dirs = made.splice(0);
       await Promise.all(
-        dirs.map((dir) => rm(dir, { recursive: true, force: true })),
+        dirs.map((dir) =>
+          rm(dir, {
+            recursive: true,
+            force: true,
+            maxRetries: 10,
+            retryDelay: 100,
+          }),
+        ),
       );
     },
   };

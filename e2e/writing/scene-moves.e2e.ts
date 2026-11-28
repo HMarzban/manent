@@ -12,7 +12,7 @@ import {
   setConnection,
   test,
 } from "../offline/support.ts";
-import { pressKeyOf } from "../support/interface.ts";
+import { togglePanel } from "../support/interface.ts";
 
 const TIMEOUT_MS = 120_000;
 
@@ -127,7 +127,7 @@ async function dragOnto(
 /** Ensures the left panel is open on the Scenes tab. */
 async function openScenesPanel(page: Page): Promise<Locator> {
   const panel = page.locator("[data-region='left_panel']");
-  if (!(await panel.isVisible())) await pressKeyOf(page, "view.leftPanel");
+  if (!(await panel.isVisible())) await togglePanel(page, "view.leftPanel");
   await expect(panel).toBeVisible();
   const scenesTab = panel.getByRole("tab", { name: "Scenes", exact: true });
   if ((await scenesTab.getAttribute("aria-selected")) !== "true")

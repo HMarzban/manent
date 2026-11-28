@@ -106,10 +106,16 @@ test("a container whose limits are not the tier's is refused", () => {
   };
   expect(
     readContainerLimits((p) => files[p as keyof typeof files] ?? null),
-  ).toEqual({ cpus: 2, memoryBytes: 2_147_483_648 });
+  ).toEqual({
+    cpus: 2,
+    memoryBytes: 2_147_483_648,
+  });
   expect(
     checkTierLimits(TIERS["D-modest"], { cpus: 2, memoryBytes: 2_147_483_648 }),
-  ).toEqual({ ok: false, reason: "memory is 2 GB, not 4 GB" });
+  ).toEqual({
+    ok: false,
+    reason: "memory is 2 GB, not 4 GB",
+  });
   expect(readContainerLimits(() => null)).toEqual({
     cpus: null,
     memoryBytes: null,
@@ -123,13 +129,22 @@ test("an unlimited or unreadable cgroup is refused as well", () => {
   };
   expect(
     readContainerLimits((p) => unlimited[p as keyof typeof unlimited] ?? null),
-  ).toEqual({ cpus: null, memoryBytes: null });
+  ).toEqual({
+    cpus: null,
+    memoryBytes: null,
+  });
   expect(
     readContainerLimits((p) => (p.endsWith("cpu.max") ? "two" : "4g")),
-  ).toEqual({ cpus: null, memoryBytes: null });
+  ).toEqual({
+    cpus: null,
+    memoryBytes: null,
+  });
   expect(
     readContainerLimits((p) => (p.endsWith("cpu.max") ? "0 0" : "")),
-  ).toEqual({ cpus: null, memoryBytes: null });
+  ).toEqual({
+    cpus: null,
+    memoryBytes: null,
+  });
   expect(
     checkTierLimits(TIERS["D-modest"], {
       cpus: 4,
@@ -138,7 +153,10 @@ test("an unlimited or unreadable cgroup is refused as well", () => {
   ).toEqual({ ok: false, reason: "cpus are 4, not 2" });
   expect(
     checkTierLimits(TIERS["D-small"], { cpus: null, memoryBytes: null }),
-  ).toEqual({ ok: false, reason: "cpus are unlimited, not 1" });
+  ).toEqual({
+    ok: false,
+    reason: "cpus are unlimited, not 1",
+  });
   expect(
     checkTierLimits(TIERS["D-modest"], {
       cpus: 2,
@@ -369,10 +387,9 @@ test("a Docker tier runs in its container, built once, and keeps the file the co
     prove: true,
     docker: built,
   });
-  expect(files.map((f) => f.slice(join(root, "out").length))).toEqual([
-    "/2026-11-17T10-00-00Z.json",
-    "/2026-11-17T10-00-00Z-2.json",
-  ]);
+  expect(
+    files.map((f) => f.slice(join(root, "out").length).replaceAll("\\", "/")),
+  ).toEqual(["/2026-11-17T10-00-00Z.json", "/2026-11-17T10-00-00Z-2.json"]);
   expect((await readResultFile(files[0]!)).environment.limits).toEqual({
     cpus: 1,
     memoryBytes: 1_073_741_824,
@@ -380,7 +397,7 @@ test("a Docker tier runs in its container, built once, and keeps the file the co
   const runs = calls.filter((c) => c.startsWith("run "));
   expect(calls.filter((c) => c.startsWith("image inspect"))).toHaveLength(1);
   expect(builds).toHaveLength(1);
-  expect(builds[0]).toMatch(
+  expect(builds[0]!.replaceAll("\\", "/")).toMatch(
     new RegExp(
       "^build --build-arg MANENT_BENCH_COMMIT=[0-9a-f]{40} --build-arg MANENT_BENCH_DIRTY=(true|false) -f .*/bench/tiers/Dockerfile -t manent-bench:[0-9a-f]{12} ",
     ),

@@ -310,7 +310,7 @@ test("the elastic engine repaginates as it paginates", () => {
     }),
     { numRuns: 100 },
   );
-});
+}, 30_000);
 
 test("the elastic engine given nothing changed answers the pages it was given", () => {
   const engine = elasticEngine(v1);

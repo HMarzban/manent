@@ -45,13 +45,29 @@ test("duplicating a version from History opens a copy holding that version while
     "First draft",
   );
 
+  // Return from the read-only Version history screen before editing Working
+  const backButton = dana.getByRole("button", { name: /Back to script/ });
+  if (await backButton.isVisible()) {
+    await backButton.click();
+    await expect(
+      dana.locator("[data-editor-host] .ProseMirror[contenteditable='true']"),
+    ).toBeVisible();
+  }
+
   // Edit Working after First draft
   await typeIn(dana, SPEECH, " before the fog");
   await expect.poll(() => readStatus(dana)).toBe("Saved · Synced");
   const workingText = await pageText(dana);
   expect(workingText).toContain("before the fog");
 
-  // Open First draft's row menu in History and choose Duplicate
+  // Reopen Version history and choose Duplicate from First draft's row menu
+  const historyBtn = dana
+    .locator("[data-region='title_bar']")
+    .getByRole("button", {
+      name: DOCUMENT_WORDS.historyTab,
+      exact: true,
+    });
+  if (await historyBtn.isVisible()) await historyBtn.click();
   await dana
     .getByRole("button", { name: DOCUMENT_WORDS.rowMenuName("First draft") })
     .click();

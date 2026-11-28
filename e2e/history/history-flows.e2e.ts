@@ -1,5 +1,5 @@
-// Naming, viewing, comparing and restoring versions of a script as a person does, through the History tab.
-import { formatDate, formatDay, formatTime } from "@manent/ui";
+// Naming, viewing, comparing and restoring versions of a script as a person does, through Version history.
+import { DOCUMENT_WORDS, formatDate, formatDay, formatTime } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 import {
@@ -10,7 +10,11 @@ import {
   typeLine,
 } from "../editor/support.ts";
 import { editorHook, keepEveryHooks } from "../support/editor-hooks.ts";
-import { labelOf, pressKeyOf } from "../support/interface.ts";
+import {
+  labelOf,
+  pressKeyOf,
+  setDemoConnection,
+} from "../support/interface.ts";
 import { openMadeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 import { openHarness, until } from "../sync/support.ts";
@@ -31,11 +35,7 @@ const rowOf = (page: Page, text: string): Locator =>
   historyTab(page).getByRole("listitem").filter({ hasText: text });
 
 const connection = (page: Page, choice: "Online" | "Offline"): Promise<void> =>
-  page
-    .getByRole("region", { name: "Demo" })
-    .getByRole("group", { name: "Connection" })
-    .getByRole("button", { name: choice })
-    .click();
+  setDemoConnection(page, choice);
 
 const statusOf = (page: Page, text: string): Locator =>
   page.getByRole("button", { name: `Saved · ${text}` });
@@ -57,13 +57,24 @@ async function samsScript(page: Page): Promise<string> {
   return docId;
 }
 
-/** Opens History and waits for the focus it takes on arrival, so that it takes none from what the test does next. */
+/** Opens Version history and waits until the history list is drawn. */
 async function openHistory(page: Page): Promise<void> {
-  await pressKeyOf(page, "history.open");
-  await expect(historyTab(page).locator(":focus")).toHaveCount(1);
+  if (!new URL(page.url()).pathname.endsWith("/history"))
+    await pressKeyOf(page, "history.open");
+  await page.waitForURL((at) => at.pathname.endsWith("/history"));
+  await expect(historyTab(page)).toBeVisible();
 }
 
-/** History opened and the script as it is named with the name offered, "First draft". */
+/** Returns from the read-only Version history screen to the editable script. */
+async function backToScript(page: Page): Promise<void> {
+  const back = page.getByRole("button", { name: /Back to script/ });
+  if (await back.isVisible()) {
+    await back.click();
+    await expect(page.locator(EDITABLE)).toBeVisible();
+  }
+}
+
+/** History opened, the script named "First draft", and back on the editable script. */
 async function nameFirstDraft(page: Page): Promise<void> {
   await openHistory(page);
   await pressKeyOf(page, "history.nameDraft");
@@ -71,6 +82,7 @@ async function nameFirstDraft(page: Page): Promise<void> {
   await expect(field).toHaveValue("First draft");
   await field.press("Enter");
   await expect(rowOf(page, "First draft")).toBeVisible();
+  await backToScript(page);
 }
 
 /** Opens the script `docId` at its address and waits until its page takes typing. */
@@ -184,7 +196,9 @@ async function expectRestoredBy(
 }
 
 async function rowMenu(page: Page, text: string, item: string): Promise<void> {
-  await rowOf(page, text).getByRole("button", { name: text }).click();
+  await rowOf(page, text)
+    .getByRole("button", { name: DOCUMENT_WORDS.rowMenuName(text) })
+    .click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
 
@@ -219,6 +233,7 @@ test("name a draft, change the script, see what changed on the page", async ({
   await samsScript(page);
   await nameFirstDraft(page);
   await typeLater(page);
+  await openHistory(page);
   // Changes since's picker, which names the draft it offers, then the draft in its list
   await historyTab(page)
     .getByRole("button", { name: "First draft" })
@@ -226,7 +241,7 @@ test("name a draft, change the script, see what changed on the page", async ({
     .click();
   await page.getByRole("menuitem", { name: "First draft" }).click();
   await expect(
-    page.locator("[data-editor-host]").getByRole("insertion"),
+    page.locator("[data-history-canvas]").getByRole("insertion"),
   ).toHaveText([LATER]);
   const today = `${formatDay(Date.now())} ${formatDate(Date.now())}`;
   await expect(
@@ -241,9 +256,9 @@ test("restore a scene and undo it with its reverse", async ({ page }) => {
   await nameFirstDraft(page);
   // a page opened again holds no earlier step, so the one typed next is the only one Undo can take
   await reopen(page, docId);
-  await openHistory(page);
   await typeLater(page);
   await expect(statusOf(page, "Synced")).toBeVisible();
+  await openHistory(page);
   await rowMenu(page, "First draft", "Restore this scene");
   await expect(
     page.getByText(
@@ -251,6 +266,7 @@ test("restore a scene and undo it with its reverse", async ({ page }) => {
       { exact: true },
     ),
   ).toBeVisible();
+  await backToScript(page);
   await expect.poll(() => lines(page)).toEqual([HEADING, ACTION]);
   const [, action] = await blocks(page);
   if (action === undefined) throw new Error("the script has no action");
@@ -287,6 +303,7 @@ test("someone else's restore while you type keeps your later changes", async ({
   if (door === undefined) throw new Error("the script has no second scene");
   await caretAt(sam, door.id, "end");
   const from = Date.now();
+  await openHistory(page);
   await rowMenu(page, "First draft", "Restore");
   await confirm(
     page,
@@ -294,6 +311,7 @@ test("someone else's restore while you type keeps your later changes", async ({
     "The script as it is now is kept as 'Before restore'.",
     "Restore",
   );
+  await backToScript(page);
   await expectRestoredBy(
     sam,
     (time) =>
@@ -332,6 +350,7 @@ test("undo after someone else's restore skips what is gone", async ({
   if (action === undefined) throw new Error("the script has no action");
   await caretAt(page, action.id, "end");
   const from = Date.now();
+  await openHistory(page);
   await rowMenu(page, "First draft", "Restore this scene");
   await confirm(
     page,
@@ -339,6 +358,7 @@ test("undo after someone else's restore skips what is gone", async ({
     "Scene 1 as it is now is kept in 'Before restore'. The rest of the script is unchanged.",
     "Restore scene 1",
   );
+  await backToScript(page);
   await expectRestoredBy(
     sam,
     (time) =>
@@ -362,13 +382,25 @@ test("offline, History still restores from a version on this device", async ({
   browser,
 }) => {
   const docId = await samsScript(page);
-  await openHistory(page);
   await connection(page, "Offline");
   await expect(statusOf(page, "Offline")).toBeVisible();
-  await nameFirstDraft(page);
+  await openHistory(page);
+  await pressKeyOf(page, "history.nameDraft");
+  const field = page.getByRole("textbox", { name: "Name this draft" });
+  await expect(field).toHaveValue("First draft");
+  await field.press("Enter");
   await expect(rowOf(page, "First draft")).toContainText("On this device");
+  await backToScript(page);
   await typeLater(page);
+  await openHistory(page);
   await rowMenu(page, "First draft", "Restore");
+  await confirm(
+    page,
+    "Restore 'First draft'?",
+    "The script as it is now is kept as 'Before restore'.",
+    "Restore",
+  );
+  await backToScript(page);
   await expect.poll(() => lines(page)).toEqual([HEADING, ACTION]);
   await expect(statusOf(page, "Offline, 1 waiting")).toBeVisible();
   await connection(page, "Online");

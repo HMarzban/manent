@@ -22,7 +22,7 @@ Decision 0007 kept one local gate (`bun run verify`), running seven static check
 
 ## Consequences and trade-offs
 
-- Static checks finish in under a second on a multi-core developer machine (measured at 0.54 s across six checks on an 18-core Mac, excluding `.codex` local-only files), and unit tests scale across all CPU cores while preserving per-file isolation.
+- Static checks finish in under a second on a multi-core developer machine (measured at 0.54 s across six checks on an 18-core Mac, excluding local-only working notes), and unit tests scale across all CPU cores while preserving per-file isolation.
 - CI fans out across more concurrent runners per push, trading runner concurrency for substantially lower wall-clock latency and avoiding Firefox/WebKit installs on jobs that only need Chromium or no browser at all.
 - Subprocess CLI tests must strip `FORCE_COLOR` and set `NO_COLOR=1` because Bun's `--parallel` test workers can propagate colour environment flags.
 

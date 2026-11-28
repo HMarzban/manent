@@ -136,10 +136,30 @@ function convertPaste(
   return insertBlocks(tr, blocks, ids).scrollIntoView();
 }
 
+interface AsyncPastedTextPort extends PastedTextPort {
+  readAsync?(
+    text: string,
+    elements: readonly string[],
+    plainElement: string,
+  ): Promise<readonly BlockJSON[] | null>;
+}
+
 /** Every paste in one transaction, then a conversion: ids kept for HTML carrying the recorded marker, new ones otherwise. */
 function pasteHandler(
   options: ClipboardOptions,
 ): (view: EditorView, event: ClipboardEvent, slice: Slice) => boolean {
+  const applyConversion = (
+    view: EditorView,
+    before: EditorState,
+    pasted: Transaction,
+    blocks: readonly BlockJSON[],
+  ): void => {
+    view.dispatch(
+      convertPaste(view.state, before, pasted, blocks, options.ids),
+    );
+    options.history.closeStep(view.state);
+    options.pastedText.converted(blocks.length);
+  };
   return (view, event, slice) => {
     const before = view.state;
     const record = clipboardKey.getState(before)!;
@@ -154,17 +174,26 @@ function pasteHandler(
     // Manent's own clipboard HTML marks every block with its element
     if (html.includes("data-type=") || text === "") return true;
     options.history.closeStep(view.state);
-    const blocks = options.pastedText.read(
-      text,
-      options.formatElements(),
-      options.plainElement().type,
-    );
-    if (blocks === null) return true;
-    view.dispatch(
-      convertPaste(view.state, before, pasted, blocks, options.ids),
-    );
-    options.history.closeStep(view.state);
-    options.pastedText.converted(blocks.length);
+    const elements = options.formatElements();
+    const plainType = options.plainElement().type;
+    const blocks = options.pastedText.read(text, elements, plainType);
+    if (blocks !== null) {
+      applyConversion(view, before, pasted, blocks);
+      return true;
+    }
+    const readAsync = (options.pastedText as AsyncPastedTextPort).readAsync;
+    if (readAsync !== undefined) {
+      const plainDoc = view.state.doc;
+      void readAsync(text, elements, plainType).then((asyncBlocks) => {
+        if (
+          view.isDestroyed ||
+          asyncBlocks === null ||
+          !view.state.doc.eq(plainDoc)
+        )
+          return;
+        applyConversion(view, before, pasted, asyncBlocks);
+      });
+    }
     return true;
   };
 }

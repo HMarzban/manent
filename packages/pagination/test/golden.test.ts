@@ -197,18 +197,18 @@ test("each rule script shows its rule", () => {
 });
 
 test("a locked script never prints one label twice", () => {
+  const byName = new Map<string, string[]>();
   for (const name of ["locked-screenplay", "locked-a-pages"]) {
     const labels = record(GOLDENS.find((g) => g.name === name)!).pages.map(
       (x) => x.label,
     );
+    byName.set(name, labels);
     expect([new Set(labels).size, labels.toSorted(comparePageLabels)]).toEqual([
       labels.length,
       labels,
     ]);
   }
-  expect(
-    record(GOLDENS.find((g) => g.name === "locked-a-pages")!).pages.map(
-      (x) => x.label,
-    ),
-  ).toEqual(expect.arrayContaining(["12", "A12A", "12A", "12B", "13"]));
-});
+  expect(byName.get("locked-a-pages")).toEqual(
+    expect.arrayContaining(["12", "A12A", "12A", "12B", "13"]),
+  );
+}, 30_000);

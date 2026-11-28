@@ -75,38 +75,44 @@ test("manuscript single line spacing overrides chapter, body, break and quote wh
   expect(ms.elements.body.lineSpacing).toBe(2);
 });
 
+const makeOpeningBlock = (
+  text: string,
+  firstLine?: "flush" | "drop_cap" | "raised_cap",
+) => ({
+  id: "b1",
+  type: "body",
+  kind: null,
+  text,
+  styles: null,
+  dual: null,
+  num: null,
+  align: null,
+  indent: null,
+  width: null,
+  spaceBefore: null,
+  noContd: false,
+  ...(firstLine === undefined ? {} : { firstLine }),
+});
+
 test("manuscript body opening styles (flush, drop_cap, raised_cap) are measured accurately without drift", () => {
-  const mk = (
-    text: string,
-    firstLine?: "flush" | "drop_cap" | "raised_cap",
-  ) => ({
-    id: "b1",
-    type: "body",
-    kind: null,
-    text,
-    styles: null,
-    dual: null,
-    num: null,
-    align: null,
-    indent: null,
-    width: null,
-    spaceBefore: null,
-    noContd: false,
-    ...(firstLine === undefined ? {} : { firstLine }),
-  });
   // 63 chars wraps to 2 lines with default 5-cell indent (60 cells), but fits on 1 line when flush (65 cells).
   const line63 = "a".repeat(63);
-  expect(paginate([mk(line63)], ms).metrics[0]!.lines).toBe(2);
-  expect(paginate([mk(line63, "flush")], ms).metrics[0]!.lines).toBe(1);
+  expect(paginate([makeOpeningBlock(line63)], ms).metrics[0]!.lines).toBe(2);
+  expect(
+    paginate([makeOpeningBlock(line63, "flush")], ms).metrics[0]!.lines,
+  ).toBe(1);
   // Short drop_cap paragraph reserves at least 2 lines to match its floated initial height.
   expect(
-    paginate([mk("Short opener.", "drop_cap")], ms).metrics[0]!.lines,
+    paginate([makeOpeningBlock("Short opener.", "drop_cap")], ms).metrics[0]!
+      .lines,
   ).toBe(2);
   // Raised cap adds 1 extra cell on line 0 (2em initial, flush left): 64 chars fits on 1 line, 65 wraps to 2.
   expect(
-    paginate([mk("a".repeat(64), "raised_cap")], ms).metrics[0]!.lines,
+    paginate([makeOpeningBlock("a".repeat(64), "raised_cap")], ms).metrics[0]!
+      .lines,
   ).toBe(1);
   expect(
-    paginate([mk("a".repeat(65), "raised_cap")], ms).metrics[0]!.lines,
+    paginate([makeOpeningBlock("a".repeat(65), "raised_cap")], ms).metrics[0]!
+      .lines,
   ).toBe(2);
 });

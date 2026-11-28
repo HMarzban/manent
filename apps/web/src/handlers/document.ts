@@ -42,7 +42,14 @@ export function documentHandlers(
   };
   return {
     "view.leftPanel": toggle("left", "scenes", DOCUMENT_WORDS.leftPanel),
-    "view.sidePanel": toggle("side", "details", DOCUMENT_WORDS.sidePanel),
+    "view.sidePanel"() {
+      const current = shellState().panels.side;
+      // History is a standalone full-page screen off `/__stand-in`; toggling Side panel opens Details rather than hiding an already unrendered tab.
+      if (current === "history" && deps.router.here().routeId !== "/__stand-in")
+        panelsActions.open("side", "details");
+      else panelsActions.toggle("side", current ?? "details");
+      if (dom.pageFocused()) dom.announce(DOCUMENT_WORDS.sidePanel);
+    },
     "view.scenes": openLeft("scenes"),
     "view.cuts": openLeft("cuts"),
     "view.details": openSide("details"),

@@ -14,7 +14,7 @@ import {
   sharedScript,
   test,
 } from "../offline/support.ts";
-import { pressKeyOf } from "../support/interface.ts";
+import { togglePanel } from "../support/interface.ts";
 
 const TIMEOUT_MS = 120_000;
 const CUT_TEXT = "Gulls wheel over the water.";
@@ -83,7 +83,7 @@ test("an offline cut survives Reorganise with no Recovered text", async ({
   const restoreName = MATERIAL_WORDS.restoreName(CUT_TEXT);
   for (const person of [sam, dana]) {
     const panel = person.locator("[data-region='left_panel']");
-    if (!(await panel.isVisible())) await pressKeyOf(person, "view.leftPanel");
+    if (!(await panel.isVisible())) await togglePanel(person, "view.leftPanel");
     await expect(panel).toBeVisible();
     await panel
       .getByRole("tab", { name: MATERIAL_WORDS.cuts, exact: true })

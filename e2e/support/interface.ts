@@ -205,3 +205,32 @@ export async function runFromPalette(page: Page, label: string): Promise<void> {
   await page.keyboard.press("Enter");
   await page.keyboard.press("Escape");
 }
+
+/**
+ * Toggles the left or side panel on every OS (their shortcuts are macOS-only, so Linux and Windows use the
+ * palette) and waits until it opens or closes when `open` is specified.
+ */
+export async function togglePanel(
+  page: Page,
+  command: "view.leftPanel" | "view.sidePanel",
+): Promise<void> {
+  await runFromPalette(page, labelOf(command));
+}
+
+/** Switches the Demo bar's simulated connection state (opening the Demo controls popover when needed). */
+export async function setDemoConnection(
+  page: Page,
+  choice: "Online" | "Slow" | "Offline",
+): Promise<void> {
+  const group = page.getByRole("group", { name: "Connection" });
+  const openedHere = !(await group.isVisible().catch(() => false));
+  if (openedHere) {
+    await page
+      .getByRole("region", { name: "Demo" })
+      .getByRole("button", { name: "Demo controls" })
+      .click();
+    await expect(group).toBeVisible();
+  }
+  await group.getByRole("button", { name: choice, exact: true }).click();
+  if (openedHere) await page.keyboard.press("Escape");
+}

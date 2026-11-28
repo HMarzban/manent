@@ -185,7 +185,12 @@ async function unpack(app: string, install: Install): Promise<void> {
     await nodeFile(dataDir);
     await quit(install);
   } finally {
-    rmSync(dataDir, { recursive: true, force: true });
+    rmSync(dataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   }
 }
 
@@ -275,7 +280,12 @@ async function smoke(
     };
   } finally {
     await quit(install);
-    rmSync(dataDir, { recursive: true, force: true });
+    rmSync(dataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   }
 }
 

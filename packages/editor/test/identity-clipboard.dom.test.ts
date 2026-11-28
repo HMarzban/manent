@@ -1,7 +1,7 @@
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
 import { FORMAT_ELEMENTS } from "@manent/schema";
-import type { ActBreakKind, BlockType } from "@manent/schema";
+import type { ActBreakKind, BlockJSON, BlockType } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
@@ -17,6 +17,7 @@ import {
   staticBinding,
   toIndex,
 } from "../src/index.ts";
+import type { PastedTextPort } from "../src/index.ts";
 import { bid, counter, docOf, ids, sp, texts } from "./docs.ts";
 
 withDom();
@@ -27,6 +28,13 @@ interface ClipboardOptions {
     readonly kind: ActBreakKind | null;
   };
   readonly formatElements?: () => readonly string[];
+  readonly pastedText?: PastedTextPort & {
+    readAsync?(
+      text: string,
+      elements: readonly string[],
+      plainElement: string,
+    ): Promise<readonly BlockJSON[] | null>;
+  };
 }
 
 const isUndoRedo = (tr: Transaction): boolean => tr.getMeta("undo") === true;
@@ -53,7 +61,7 @@ function viewWithClipboard(
           random: () => `m${++cuts}`,
           isUndoRedo,
           history: staticBinding(doc).history,
-          pastedText: NO_PASTED_TEXT,
+          pastedText: options.pastedText ?? NO_PASTED_TEXT,
         }),
         sectionEditingPlugin({ ids: counter("e") }),
         paginationPlugin({
@@ -220,4 +228,65 @@ test("pasted text is made safe for the page", () => {
   const { view } = viewWithClipboard(docOf([["", "end"]]));
   pasteHtml(view, "<p>Rain­fall</p><p>​Thunder\tnow</p>");
   expect(texts(view.state.doc)).toEqual([["Rainfall", "Thunder now", "end"]]);
+});
+
+test("a lazy first external paste converts asynchronously once the reader resolves unless the doc changed", async () => {
+  const counts: number[] = [];
+  let resolveFirst: ((blocks: readonly BlockJSON[] | null) => void) | null =
+    null;
+  const { view } = viewWithClipboard(docOf([[""]]), {
+    pastedText: {
+      read: () => null,
+      readAsync: () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+      converted: (count) => counts.push(count),
+    },
+  });
+  pastePlain(view, "INT. LAMP ROOM - NIGHT\n\nRain falls.");
+  expect(types(view.state)).toEqual(["action", "action", "action"]);
+  resolveFirst!([
+    {
+      type: "block",
+      attrs: { type: "scene_heading" },
+      content: [{ type: "text", text: "INT. LAMP ROOM - NIGHT" }],
+    },
+    {
+      type: "block",
+      attrs: { type: "action" },
+      content: [{ type: "text", text: "Rain falls." }],
+    },
+  ]);
+  await Promise.resolve();
+  expect([texts(view.state.doc), types(view.state), counts]).toEqual([
+    [["INT. LAMP ROOM - NIGHT", "Rain falls."]],
+    ["scene_heading", "action"],
+    [2],
+  ]);
+
+  // If the document changes before the async reader resolves, the stale conversion is ignored.
+  let resolveSecond: ((blocks: readonly BlockJSON[] | null) => void) | null =
+    null;
+  const second = viewWithClipboard(docOf([[""]]), {
+    pastedText: {
+      read: () => null,
+      readAsync: () =>
+        new Promise((resolve) => {
+          resolveSecond = resolve;
+        }),
+      converted: (count) => counts.push(count),
+    },
+  });
+  pastePlain(second.view, "INT. HALL - DAY");
+  second.view.dispatch(second.view.state.tr.insertText(" later"));
+  resolveSecond!([
+    {
+      type: "block",
+      attrs: { type: "scene_heading" },
+      content: [{ type: "text", text: "INT. HALL - DAY" }],
+    },
+  ]);
+  await Promise.resolve();
+  expect([types(second.view.state), counts]).toEqual([["action"], [2]]);
 });

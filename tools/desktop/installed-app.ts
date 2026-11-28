@@ -110,6 +110,15 @@ export function launch(
   return { spawnedAt, exited: child.exited };
 }
 
+function killQuietly(pid: number, signal?: NodeJS.Signals): void {
+  try {
+    if (signal === undefined) process.kill(pid);
+    else process.kill(pid, signal);
+  } catch {
+    // process already exited
+  }
+}
+
 /** A clean quit where the system has one (SIGINT to the app's own process); elsewhere every process is ended. */
 export async function quit(install: Install): Promise<void> {
   const running = appProcesses(install.root);
@@ -117,8 +126,8 @@ export async function quit(install: Install): Promise<void> {
     command.endsWith(join("Resources", "main.js")),
   );
   if (process.platform !== "win32" && main !== undefined)
-    process.kill(main.pid, "SIGINT");
-  else for (const { pid } of running) process.kill(pid);
+    killQuietly(main.pid, "SIGINT");
+  else for (const { pid } of running) killQuietly(pid);
   try {
     await waitFor("the app quits", QUIT_WAIT_MS, () =>
       appProcesses(install.root).length === 0 ? true : null,
@@ -126,7 +135,7 @@ export async function quit(install: Install): Promise<void> {
   } catch {
     // a process that did not quit in time is ended, so the next launch starts alone
     for (const { pid } of appProcesses(install.root))
-      process.kill(pid, "SIGKILL");
+      killQuietly(pid, "SIGKILL");
   }
 }
 
@@ -138,6 +147,5 @@ export function idleRss(install: Install): number | null {
 /** Ends the app's embedded cloud, so the node is offline while the app runs. */
 export function stopCloud(install: Install): void {
   for (const { pid, command } of appProcesses(install.root))
-    if (command.endsWith(join("app", "cloud", "main.js")))
-      process.kill(pid, "SIGKILL");
+    if (isEmbeddedCloudProcess(command)) killQuietly(pid, "SIGKILL");
 }

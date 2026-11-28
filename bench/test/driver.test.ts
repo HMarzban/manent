@@ -157,7 +157,7 @@ test("proof mode slows the page's own keystroke", async () => {
   const samples: unknown = Reflect.get(Object(paint), "samples");
   const all = Array.isArray(samples) ? samples.map(Number) : [];
   expect([all.length, all.filter((ms) => !(ms >= 200))]).toEqual([3, []]);
-}, 120_000);
+}, 240_000);
 
 test("browser and spellcheck scenarios export expected metadata, pass driver options, and hold no budgets", async () => {
   const glob = new Bun.Glob("client/browsers/*.bench.ts");

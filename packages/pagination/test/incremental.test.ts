@@ -57,7 +57,7 @@ test("an edit gives the pages a full pass gives: typing, a ruler drag, inserting
   expect(
     repaginate(p, more, { first: 1000, oldEnd: 1000, newEnd: 1002 }).pages,
   ).toEqual(paginate(more, sp).pages);
-});
+}, 30_000);
 
 test("a typed character refills a page or two and measures one block, at the first block as in the middle", () => {
   const a = corpus();

@@ -94,7 +94,7 @@ jobs:
           mkdir -p results
           root=$(dirname "$(dirname "$MANENT_SMOKE_APP")")
           find "$root" -type f \( -perm -u+x -o -name '*.so*' \) |
-            while read -r file; do echo "== $file"; ldd "$file" 2>&1; done > results/ldd-linux.txt
+            while read -r file; do echo "== $file"; ldd "$file" 2>&1 || true; done > results/ldd-linux.txt
       - run: bun run desktop:build --channel canary --version 0.0.2 --update-url http://127.0.0.1:47471/
       - name: Keep the update
         run: |

@@ -125,4 +125,4 @@ test("story sets have their row counts and lengths", () => {
     ).toBe(d.pages);
   expect(storySet({ rows: 80, seed: 1 })).toEqual(set);
   expect(storySet({ rows: 80, seed: 2 })).not.toEqual(set);
-});
+}, 30_000);

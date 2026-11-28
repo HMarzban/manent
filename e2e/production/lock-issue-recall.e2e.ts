@@ -6,7 +6,11 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { EDITABLE, blocks, caretAt } from "../editor/support.ts";
 import { editorHook, keepEveryHooks } from "../support/editor-hooks.ts";
-import { labelOf, pressKeyOf } from "../support/interface.ts";
+import {
+  labelOf,
+  pressKeyOf,
+  setDemoConnection,
+} from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 // a message waits while the one before it is shown, for up to 30 s
@@ -77,8 +81,6 @@ const violationsOf = (page: Page): Promise<unknown> =>
     );
     return Reflect.apply(Reflect.get(Object(guard), "violations"), guard, []);
   });
-
-const demoBar = (page: Page) => page.locator('[data-region="demo_bar"]');
 
 test("a coordinator locks, edits a page into an A-page, issues Blue and recalls it", async ({
   page,
@@ -154,9 +156,7 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
   // one more word, typed in a second tab while Slow holds it back, waits to sync before Blue can go
   await stateBar.getByRole("button", { name: "Issue Blue…" }).click();
   await expect(page.getByRole("heading", { name: "Issue Blue" })).toBeVisible();
-  await demoBar(page)
-    .getByRole("button", { name: "Slow", exact: true })
-    .click();
+  await setDemoConnection(page, "Slow");
   const second = await page.context().newPage();
   await signedInAs(second, "priya", `/s/${docId}`);
   await expect(second.locator(EDITABLE)).toBeVisible();
@@ -173,9 +173,7 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
   await expect(issueBlue).toBeDisabled();
   await expect(waiting).toBeHidden({ timeout: 30_000 });
   await second.close();
-  await demoBar(page)
-    .getByRole("button", { name: "Online", exact: true })
-    .click();
+  await setDemoConnection(page, "Online");
 
   await page.getByRole("switch", { name: "Priya Nair" }).click();
   await issueBlue.click();
@@ -205,7 +203,9 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
   await page.getByRole("button", { name: "Recall Blue", exact: true }).click();
   await expect(
     slot.getByText("Sent Blue (corrected) to 1 person."),
-  ).toBeVisible({ timeout: QUEUED_MS });
+  ).toBeVisible({
+    timeout: QUEUED_MS,
+  });
   await expect(
     stateBar.getByText(`PINK revision · started ${started} · 0 pages revised`),
   ).toBeVisible();
@@ -220,11 +220,11 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
       ),
   ).toBeVisible();
 
+  const backButton = page.getByRole("button", { name: /Back to script/ });
+  if (await backButton.isVisible()) await backButton.click();
   await stateBar.getByRole("button", { name: "Issue Pink…" }).click();
   await expect(page.getByRole("heading", { name: "Issue Pink" })).toBeVisible();
-  await demoBar(page)
-    .getByRole("button", { name: "Offline", exact: true })
-    .click();
+  await setDemoConnection(page, "Offline");
   await expect(page.getByText("Issue Pink needs a connection.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Issue Pink", exact: true }),

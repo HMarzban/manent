@@ -16,7 +16,7 @@ const ROOT = join(import.meta.dirname, "..", "..");
 const PORT = E2E_PORT + 10;
 const APP_URL = `http://localhost:${PORT}`;
 // an install, a build of the web app and the foreground seed, at the hard fail of its budget
-const START_MS = 180_000;
+const START_MS = 240_000;
 const SLACK_WATER = docPath("medium/harbour-lights/205");
 const OLD_LINE = "OLD SEED LINE";
 
@@ -104,17 +104,16 @@ test("after Reset a tab's waiting edits from the old seed never reach the new on
       "seedId",
     );
     // useResetting may reload Sam onto the home route once the new seed answers, clearing the session and its Connection control
-    const online = sam
+    const demoControls = sam
       .getByRole("region", { name: "Demo" })
-      .getByRole("group", { name: "Connection" })
-      .getByRole("button", { name: "Online" });
+      .getByRole("button", { name: "Demo controls" });
     await expect(async () => {
       if (
         (await sam.evaluate(() => localStorage.getItem("manent.seed"))) ===
         seedId
       )
         return;
-      if (await online.isVisible()) {
+      if (await demoControls.isVisible()) {
         await setConnection(sam, "online");
         await sam.reload();
       }
@@ -140,6 +139,11 @@ test("after Reset a tab's waiting edits from the old seed never reach the new on
     // a demo stopped before it answered has written nothing that stop can find
     demo.kill("SIGTERM");
     await exitOf(demo);
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   }
 });

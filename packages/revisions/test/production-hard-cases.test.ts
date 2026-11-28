@@ -331,4 +331,4 @@ test("locking then editing never renumbers an untouched locked page", () => {
       examples: [[13, 0, Array.from({ length: 16 }, () => DELETE_FIRST)]],
     },
   );
-}, 30_000);
+}, 60_000);

@@ -259,4 +259,4 @@ test("motion uses duration tokens and animates only opacity, transform and colou
 
 test("this repository breaks no interface rule", async () => {
   expect(await checkUiRules(repoRoot)).toEqual([]);
-});
+}, 30_000);

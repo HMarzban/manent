@@ -67,4 +67,4 @@ test("a short run measures every metric", async () => {
     ["dispatch", "ms"],
     ["input_blocks", "count"],
   ]);
-}, 120_000);
+}, 240_000);

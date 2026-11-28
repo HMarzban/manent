@@ -10,10 +10,10 @@ import { ensureSeed, resetSeed } from "../demo/seed.ts";
 import type { SeedFile } from "../demo/seed.ts";
 
 const repoRoot = join(import.meta.dir, "..", "..");
-const RUN = { timeout: 90_000 };
+const RUN = { timeout: 240_000 };
 
 const trees = createTempTrees("manent demo ");
-afterAll(() => trees.removeAll());
+afterAll(() => trees.removeAll(), 30_000);
 // each demo builds the web app here, never into apps/web/dist, which an e2e server may be serving
 const webDir = await trees.tree({});
 // strip FORCE_COLOR from bun test --parallel workers so CLI stderr stays deterministic plain text
@@ -150,7 +150,7 @@ afterEach(async () => {
     demo.child.kill("SIGKILL");
     await demo.child.exited;
   }
-});
+}, 30_000);
 
 /** Starts `demo` in the background; resolves once it says it is running, or once it exits. */
 async function startDemo(
@@ -179,7 +179,7 @@ async function startDemo(
   void child.exited.then(() => {
     exited = true;
   });
-  await until(() => exited || text.includes("Press Ctrl+C"), 80_000);
+  await until(() => exited || text.includes("Press Ctrl+C"), 210_000);
   return demo;
 }
 

@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { docPath } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { pressKeyOf } from "../support/interface.ts";
+import { pressKeyOf, togglePanel } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const RULES = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
@@ -11,6 +11,11 @@ const EPISODE_PATH = docPath("medium/harbour-lights/204");
 const NEWS_RUNDOWN_PATH = docPath("medium/lannick-one-news/rundowns/day");
 
 async function violationsOf(page: Page): Promise<unknown[]> {
+  // Wait for any fading offline-ready toast to finish leaving so axe never measures mid-fade opacity contrast.
+  await page
+    .locator('aside[aria-label="Offline status"][data-leaving="true"]')
+    .waitFor({ state: "detached", timeout: 5_000 })
+    .catch(() => {});
   const axe = new AxeBuilder({ page })
     .withTags(RULES)
     .exclude("[data-base-ui-focus-guard]");
@@ -54,7 +59,7 @@ for (const scheme of ["light", "dark"] as const) {
       ).toBeVisible();
 
       // Open right side panel -> Details Inspector
-      await pressKeyOf(page, "view.sidePanel");
+      await togglePanel(page, "view.sidePanel");
       const detailsTab = page.locator("[data-tour='tab:details']");
       await expect(detailsTab).toBeVisible();
       await detailsTab.click();
@@ -107,7 +112,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.keyboard.press("Escape");
 
       // Open left panel (Scenes list & toolbar)
-      await pressKeyOf(page, "view.leftPanel");
+      await togglePanel(page, "view.leftPanel");
       await expect(page.locator("[data-region='left_panel']")).toBeVisible();
       await settleAnimations(page, "[data-region='left_panel']");
       expect(await violationsOf(page)).toEqual([]);
@@ -116,7 +121,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.goto(`${NEWS_RUNDOWN_PATH}?panels=closed`);
       await expect(page.locator("[data-tour='rundown:grid']")).toBeVisible();
       await expect(page.locator("[data-tour='rundown:footer']")).toBeVisible();
-      await pressKeyOf(page, "view.sidePanel");
+      await togglePanel(page, "view.sidePanel");
       await expect(page.locator("section[data-scope='rundown']")).toBeVisible();
       await settleAnimations(page, "body");
       expect(await violationsOf(page)).toEqual([]);

@@ -12,8 +12,8 @@ const RESTART_DELAY_MS = 250;
 const RESTART_WINDOW_MS = 10_000;
 const RESTARTS_PER_WINDOW = 3;
 const COULD_NOT_START = "The server could not start.";
-/** Seconds: longer than a reset's foreground seed may run (the 120 s child limit in tools/demo/seed.ts); Bun's maximum is 255. */
-const CONTROL_IDLE_TIMEOUT_S = 150;
+/** Seconds: longer than a reset's foreground seed may run (the 240 s child limit in tools/demo/seed.ts); Bun's maximum is 255. */
+const CONTROL_IDLE_TIMEOUT_S = 255;
 
 export interface SupervisorOptions {
   /** An argument array, never a shell string. */

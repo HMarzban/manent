@@ -31,7 +31,7 @@ export class SeedCommandError extends Error {
 
 const ROOT = join(import.meta.dir, "..", "..");
 /** A foreground seed still running this long is killed and counts as failed. */
-const SEED_CHILD_TIMEOUT_MS = 120_000;
+const SEED_CHILD_TIMEOUT_MS = 240_000;
 const TIMED_OUT = "the server did not answer in time";
 const UNEXPECTED = "something unexpected stopped it";
 
@@ -123,7 +123,12 @@ async function seedAgain(
   manifest: SeedManifest,
 ): Promise<SeedFile> {
   const data = join(dataDir, "data");
-  await rm(data, { recursive: true, force: true });
+  await rm(data, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
   try {
     const { seedAt, skipped } = await runSeedChild(dataDir, null);
     const file: SeedFile = {
@@ -136,7 +141,12 @@ async function seedAgain(
     await writeSeedFile(dataDir, file);
     return file;
   } catch (error) {
-    await rm(data, { recursive: true, force: true });
+    await rm(data, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
     throw error;
   }
 }

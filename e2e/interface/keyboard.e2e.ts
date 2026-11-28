@@ -53,13 +53,24 @@ const SPOTS: readonly Spot[] = [
         page.locator("[data-region='page'] .mn-page-view"),
       ).toBeFocused();
       const tabs = page.locator("[data-region='side_panel'] [role='tab']");
-      // the panel a press before left open comes back open for the same person
+      // Wait for any persisted panel state to settle, then ensure Side panel is open on a tab strip (never toggling an open panel closed).
       if ((await tabs.count()) === 0) {
         await page.getByRole("button", { name: "View" }).click();
-        await page
-          .getByRole("menuitemcheckbox", { name: /^Side panel/ })
-          .click();
-        await page.keyboard.press("Escape");
+        const item = page.getByRole("menuitemcheckbox", {
+          name: /^Side panel/,
+        });
+        if ((await item.getAttribute("aria-checked")) !== "true") {
+          await item.click();
+          await page.keyboard.press("Escape");
+        } else {
+          // Side panel was already checked (e.g. a standalone tab like History or restored asynchronously); close menu and ensure Details tab is open.
+          await page.keyboard.press("Escape");
+          if ((await tabs.count()) === 0) {
+            await page.getByRole("button", { name: "View" }).click();
+            await item.click();
+            await page.keyboard.press("Escape");
+          }
+        }
       }
       await tabs.first().focus();
     },
@@ -163,8 +174,10 @@ test("every default shortcut runs its command once, from the page, a panel and a
             prevented: outcome !== "passed",
             pages,
           });
-        // a command that changes screen loads it first; the next press starts from a fresh load
-        await page.waitForLoadState("networkidle");
+        // a command that changes screen loads it first; bound networkidle so background SW/demo traffic cannot stall the loop
+        await page
+          .waitForLoadState("networkidle", { timeout: 1_500 })
+          .catch(() => {});
         if (outcome === "disabled")
           await expect
             .soft(

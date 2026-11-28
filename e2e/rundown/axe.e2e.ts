@@ -8,7 +8,7 @@ import {
 } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { pressKeyOf } from "../support/interface.ts";
+import { togglePanel } from "../support/interface.ts";
 import { ensureNewsAirWindow } from "../support/rundown.ts";
 import { signedInAs } from "../support/tour.ts";
 
@@ -82,7 +82,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       await record(`${scheme} rundown + prompter column`);
 
-      await pressKeyOf(page, "view.sidePanel");
+      await togglePanel(page, "view.sidePanel");
       const detailsRundown = page.locator('section[data-scope="rundown"]');
       await expect(detailsRundown).toBeVisible();
       await expect(page.locator("[data-tour='rundown:air']")).toBeVisible();

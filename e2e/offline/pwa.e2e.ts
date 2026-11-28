@@ -81,7 +81,9 @@ test("manifest, icons, 404 asset guard, and zero CSP violations hold on live loa
   const offlineNotice = page.locator('aside[aria-label="Offline status"]');
   await expect(
     page.locator('aside[aria-label="Offline status"][data-state="ready"]'),
-  ).toBeVisible({ timeout: 25_000 });
+  ).toBeVisible({
+    timeout: 25_000,
+  });
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Choose who you are" }),
@@ -108,14 +110,17 @@ test("cold airplane-mode relaunch opens directly into Library without sessionSto
 
   let cold = page;
   try {
-    // Close every open tab and open a brand-new tab with NO sessionStorage injection.
-    for (const each of context.pages()) await each.close();
+    // Open the fresh tab before closing existing ones so Firefox does not tear down its persistent context when the last tab closes.
+    const existing = [...context.pages()];
     cold = await context.newPage();
+    for (const each of existing) await each.close();
     await keepEveryHooks(cold);
     await cold.goto("/");
     await expect(
       cold.getByRole("heading", { level: 1, name: "Library" }),
-    ).toBeVisible({ timeout: 20_000 });
+    ).toBeVisible({
+      timeout: 20_000,
+    });
     await cold.goto(`/s/${docId}`);
     await expect.poll(() => pageText(cold)).toBe(lines);
   } finally {
@@ -157,6 +162,8 @@ test("an update waiting in the background surfaces a calm reload action and acti
   );
   await expect(page.locator("[data-editor-host]")).toContainText(
     "The boats are in kept safe",
-    { timeout: 20_000 },
+    {
+      timeout: 20_000,
+    },
   );
 });

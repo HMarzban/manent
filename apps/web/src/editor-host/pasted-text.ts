@@ -7,17 +7,25 @@ import type { sayPastedAs } from "./pasted-message.ts";
 
 /**
  * Loads @manent/formats lazily on the first external paste so opening an editor never eagerly pulls in the formats
- * bundle. Until it has loaded, paste stays plain text; each conversion is said in a brief message whose action undoes it.
+ * bundle. When the first paste arrives before the chunk has loaded, `readAsync` finishes loading and converts it in a
+ * second undo step; each conversion is said in a brief message whose action undoes it.
  */
 export function createPastedText(options: {
   ids: IdSource;
   messages: MessageQueue;
-}): PastedTextPort {
+}): PastedTextPort & {
+  readAsync(
+    text: string,
+    elements: readonly string[],
+    plainElement: string,
+  ): Promise<ReturnType<PastedTextPort["read"]>>;
+} {
   let loaded: { read: typeof readPastedText; say: typeof sayPastedAs } | null =
     null;
   let loading: Promise<void> | null = null;
-  const loadOnce = (): void => {
-    if (loaded !== null || loading !== null) return;
+  const loadOnce = (): Promise<void> => {
+    if (loaded !== null) return Promise.resolve();
+    if (loading !== null) return loading;
     loading = Promise.all([
       import("@manent/formats"),
       import("./pasted-message.ts"),
@@ -28,19 +36,30 @@ export function createPastedText(options: {
       .catch(() => {
         loading = null;
       });
+    return loading;
   };
+  const parse = (
+    text: string,
+    elements: readonly string[],
+    plainElement: string,
+  ) =>
+    loaded?.read(text, {
+      ids: options.ids,
+      elements,
+      plainElement,
+    })?.blocks ?? null;
   return {
     read(text, elements, plainElement) {
       if (loaded === null) {
-        if (text.trim().length > 0) loadOnce();
+        if (text.trim().length > 0) void loadOnce();
         return null;
       }
-      const pasted = loaded.read(text, {
-        ids: options.ids,
-        elements,
-        plainElement,
-      });
-      return pasted?.blocks ?? null;
+      return parse(text, elements, plainElement);
+    },
+    async readAsync(text, elements, plainElement) {
+      if (text.trim().length === 0) return null;
+      await loadOnce();
+      return parse(text, elements, plainElement);
     },
     // only a paste that read returned blocks for is converted, so both have loaded by then
     converted(count) {

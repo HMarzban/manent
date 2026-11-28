@@ -12,7 +12,7 @@ import { throttlePage } from "./throttle.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 // as long as the end-to-end tests wait for the demo
-const DEMO_START_MS = 90_000;
+const DEMO_START_MS = 240_000;
 const DEMO_POLL_MS = 250;
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // not the Library: a first visit there opens the Tour in the side panel
@@ -261,8 +261,14 @@ export async function startBenchDemo(options?: {
   const ports = { port: freePort(), controlPort: freePort() };
   const url = `http://127.0.0.1:${ports.port}`;
   const removeDirs = async (): Promise<void> => {
-    await rm(webDir, { recursive: true, force: true });
-    if (ownData) await rm(dataDir, { recursive: true, force: true });
+    const opts = {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    };
+    await rm(webDir, opts);
+    if (ownData) await rm(dataDir, opts);
   };
   let demo: Subprocess;
   try {
