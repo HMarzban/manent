@@ -37,7 +37,9 @@ export function firstsOnPages(p: Pagination): Set<number> {
 }
 
 function overrideStyle(spec: ElementSpec): string {
-  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; --el-slack-left: ${SLACK_LEFT[spec.align]}; text-align: ${spec.align}`;
+  const first =
+    spec.align !== "left" && spec.firstLineIndent > 0 ? "; --el-first: 0" : "";
+  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; --el-slack-left: ${SLACK_LEFT[spec.align]}; text-align: ${spec.align}${first}`;
 }
 
 export interface BlockContext {

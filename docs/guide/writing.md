@@ -57,8 +57,9 @@ Some lines change element as you type them:
 - `[` starts a Bracket in Variety.
 - `*`, `+`, `-`, `{` or `#` starts a General line in Game Script, for choices, gathers, conditions and `#set` flags; choose **Play** in the title bar (or **Play from here** in the title menu) to test choices, flags and stage cues beside the script.
 - On Enter, a line in capitals ending in `TO:` becomes a Transition, and `ACT ONE`, `TEASER`, `TAG` or `END OF ACT ONE` becomes the act break of that name.
+- In **Manuscript (Book)**, typing `***` or `---` on a Body line and pressing Enter turns the line into a centred **Break** and starts a new Body paragraph below it.
 
-Ink and Manuscript have none of these.
+Ink has none of these.
 
 ## The element picker
 
@@ -91,13 +92,22 @@ While you type a Character, a Scene Heading or a Transition, Manent offers the n
 
 Open the command palette with **Ctrl+K** (⌘K) and type the name of a style:
 
-- Bold (Ctrl+B), Italic (Ctrl+I), Underline (Ctrl+U), Strikethrough, All-caps.
+- Bold (Ctrl+B), Italic (Ctrl+I), Underline (Ctrl+U), Strikethrough, All-caps, Superscript and Subscript.
 - Text colour and Highlight, each with a short list of colours.
 - Align left, Align centre, Align right, and Space before.
 - Dual dialogue (Ctrl+D) puts two speeches side by side. It needs two speeches in a row.
 - Page break (Ctrl+Enter).
 
 **Details → Selection → Layout** sets the alignment, indent, width and space before of the selected lines.
+
+### Writing a book (Manuscript)
+
+On a **Book (Manuscript)** document, a compact floating **Book Format Bar** sits top-centre over the page (toggleable from **View ▾ → Format bar**, and never shown on screenplays, stage plays, variety or Ink):
+
+- **Element & inline craft:** Switch between **Chapter**, **Body**, **Quote** and **Break**; toggle **Bold**, **Italic**, **Underline**; pick **Text colour** and **Highlight** with live swatch indicators; or open **More text styles** (`T ▾`) for **Strikethrough**, **All-caps**, **Superscript**, **Subscript**, inline **Link** and **Clear style** — keeping your caret and text selection intact as you click.
+- **Paragraph & opening styles:** Choose **Left / Centre / Right** alignment directly, toggle a 1-click **Drop cap** on the opening paragraph of a chapter, or open **Space & indent** (`¶ ▾`) for **Indent / Flush left / Drop cap / Raised cap** openings, **Space before** (`0–10` lines), **Indent** and **Width** steppers, the **Ruler**, and **Reset layout**.
+- **Insert & Page layout:** Insert a **New chapter**, **Quote**, **Break**, **Page break** or **Figure** (`+ ▾`), or open **Page layout** for **US Letter / A4**, **Single / Double** line spacing, **Lines per page**, running header presets (whose Section slot resolves chapter headings automatically), **White page**, and direct jumps to **Title page**, **Book style** and **Header and footer**.
+- **Book counts & chapters:** The status bar shows a live manuscript word count alongside the page number, **Details → Numbers** reports **Pages**, **Chapters**, **Words** and reading time, and the **Chapters** sidebar lets you add titled chapters directly.
 
 ## Paste
 

@@ -1,4 +1,4 @@
-// The bridge to the interface: the caret's facts once per frame, and the outline at most four times a second.
+// The bridge to the interface: the caret's facts once per frame, and the outline and word count at most four times a second.
 import type { FormatId } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
@@ -23,6 +23,7 @@ import { headingAt, inkOutlineOf, outlineOf } from "./outline.ts";
 import type { OutlineIndex } from "./outline.ts";
 import { viewedPublisher } from "./viewed.ts";
 import type { ViewedScrollPort } from "./viewed.ts";
+import { paginationWordCount } from "./word-count.ts";
 
 /** How often at most the outline is rebuilt after a change. */
 const OUTLINE_EVERY_MS = 250;
@@ -41,6 +42,7 @@ function trackedOf(state: EditorState, history: HistoryPort): unknown[] {
     $head.parentOffset,
     anchor,
     empty,
+    state.storedMarks,
     found.count,
     found.current,
     paginationKey.getState(state),
@@ -127,6 +129,7 @@ function factsPublisher(
   view: EditorView,
   options: BridgeOptions,
   outline: () => OutlineIndex,
+  wordCount: () => number | null,
 ): { request(): void; update(): void; destroy(): void } {
   const { history } = options;
   let facts: FactsShape | null = null;
@@ -140,6 +143,7 @@ function factsPublisher(
       words: options.words,
       format: options.format(),
       outline: outline(),
+      wordCount: wordCount(),
     });
     const changed = changedFacts(facts, next);
     facts = next;
@@ -245,14 +249,17 @@ function outlinePublisher(
   view: EditorView,
   options: BridgeOptions,
   published: () => void,
+  onWordsChanged: () => void,
 ): {
   readonly index: OutlineIndex;
+  readonly wordCount: number | null;
   update(prev: EditorState): void;
   destroy(): void;
 } {
   let index = NO_OUTLINE;
   let rows: readonly OutlineEntry[] | null = null;
   let currentIndex: number | null = null;
+  let words: number | null = null;
   let cancelTimer: (() => void) | null = null;
   let cancelCurrentFrame: (() => void) | null = null;
   const cancelCurrent = () => {
@@ -286,9 +293,17 @@ function outlinePublisher(
     cancelTimer = null;
     cancelCurrent();
     if (view.composing || isFrozen(view.state)) return later();
+    const pages = paginationKey.getState(view.state);
+    const nextWords =
+      pages === undefined ? null : paginationWordCount(pages.pagination.blocks);
+    const wordsChanged = nextWords !== words;
+    words = nextWords;
     const built = buildOutline(view.state, options.format());
     index = built.index;
-    if (rows !== null && isSameOutline(rows, built.rows)) return;
+    if (rows !== null && isSameOutline(rows, built.rows)) {
+      if (wordsChanged) onWordsChanged();
+      return;
+    }
     rows = built.rows;
     currentIndex = built.currentIndex;
     options.outline.publish(built.rows);
@@ -301,6 +316,9 @@ function outlinePublisher(
   return {
     get index() {
       return index;
+    },
+    get wordCount() {
+      return words;
     },
     update(prev) {
       if (
@@ -332,12 +350,24 @@ function outlinePublisher(
 export function bridgePlugin(options: BridgeOptions): Plugin {
   return new Plugin({
     view: (view) => {
-      const facts = factsPublisher(view, options, () => outline.index);
+      const facts = factsPublisher(
+        view,
+        options,
+        () => outline.index,
+        () => outline.wordCount,
+      );
       let syncViewed: (() => void) | null = null;
-      const outline = outlinePublisher(view, options, () => {
-        facts.request();
-        syncViewed?.();
-      });
+      const outline = outlinePublisher(
+        view,
+        options,
+        () => {
+          facts.request();
+          syncViewed?.();
+        },
+        () => {
+          facts.request();
+        },
+      );
       const viewed = viewedPublisher({
         view,
         scroll: options.scroll,

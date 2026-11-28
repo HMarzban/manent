@@ -7,7 +7,14 @@ import {
   SCENES_WORDS,
   useCommandState,
 } from "@manent/ui";
-import { useContext, useId, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
@@ -45,7 +52,8 @@ function SynopsisField(props: {
   const commit = (): void => {
     if (draft === null) return;
     setDraft(null);
-    editor.run({ kind: "synopsis", blockId: row.blockId, text: draft });
+    if (draft !== row.synopsis)
+      editor.run({ kind: "synopsis", blockId: row.blockId, text: draft });
   };
   return (
     <div className="flex flex-col gap-1">
@@ -76,15 +84,34 @@ function SynopsisField(props: {
   );
 }
 
-/** Drawn while the caret is in a scene; a chapter has no number and no synopsis. */
+/** Drawn while the caret is in a scene or chapter. */
 export function SceneSection(props: { docId: string }): ReactNode {
+  const services = useServices();
   const sceneId = useEditorFact("sceneId");
   const row = useOutlineRowOf(sceneId);
   const editable = useCanEdit(props.docId);
   const omitCmd = useCommandState("production.omitScene");
   const bringBackCmd = useCommandState("production.bringBackScene");
+  const scriptStore = useMemo(
+    () => services.openScriptStore(props.docId),
+    [services, props.docId],
+  );
+  const subscribeFormat = useCallback(
+    (notify: () => void) => scriptStore.subscribe("script.format", notify),
+    [scriptStore],
+  );
+  const isBook =
+    useSyncExternalStore(subscribeFormat, () =>
+      scriptStore.get("script.format"),
+    ) === "manuscript";
   if (row === null) return null;
   const showActions = omitCmd.visible || bringBackCmd.visible;
+  const pagesBadge =
+    row.eighths === null
+      ? null
+      : isBook
+        ? SCENES_WORDS.chapterPages(row.eighths)
+        : SCENES_WORDS.length(row.eighths);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex min-w-0 items-center gap-1.5">
@@ -98,16 +125,16 @@ export function SceneSection(props: { docId: string }): ReactNode {
             {SCENES_WORDS.omitted}
           </span>
         ) : null}
-        {row.eighths !== null ? (
+        {row.eighths !== null && pagesBadge !== null ? (
           <span
             title={SCENES_WORDS.lengthPages(row.eighths)}
             className="mn-tag shrink-0 tabular-nums"
           >
-            {SCENES_WORDS.length(row.eighths)}
+            {pagesBadge}
           </span>
         ) : null}
       </div>
-      {row.number === null ? null : (
+      {row.number === null && !isBook ? null : (
         <SynopsisField key={row.blockId} row={row} readOnly={!editable} />
       )}
       {showActions ? (

@@ -12,6 +12,7 @@ import { currentBeside } from "../beside/open-beside.ts";
 import type { Environment, PersonServices } from "../services/ports.ts";
 import type { FactsSelectors } from "../state/facts.store.ts";
 import { focusModeActions } from "../state/focus-mode.store.ts";
+import { formattingBarActions } from "../state/formatting-bar.store.ts";
 import { historyActions } from "../state/history.store.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { materialActions } from "../state/material.store.ts";
@@ -108,6 +109,7 @@ export function snapshotPaletteSignals(options: {
     historyPresent: shell.historyPresent,
     format,
     rulerShown: rulerActions.get(),
+    formattingBarShown: formattingBarActions.get(),
     layoutView: layoutViewActions.get(),
     spaceBeforeSet: shell.spaceBeforeSet,
     zoom: activeDocId === null ? null : zoomActions.get(),

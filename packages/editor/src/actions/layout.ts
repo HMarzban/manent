@@ -1,6 +1,6 @@
 // A block's own layout, set on every block the selection touches.
 import { schema } from "@manent/schema";
-import type { Alignment, BlockAttrs } from "@manent/schema";
+import type { Alignment, BlockAttrs, FirstLine } from "@manent/schema";
 import type { LayoutBlock } from "@manent/pagination";
 import type { Node } from "prosemirror-model";
 import type { EditorState, Transaction } from "prosemirror-state";
@@ -164,10 +164,28 @@ export function setLayout(
     : { ok: false, reason: "nothing_to_do" };
 }
 
+/** Sets or clears each selected block's opening-line style (`"flush"`, `"drop_cap"`, or `null` for element default). */
+export function setFirstLine(
+  state: EditorState,
+  value: FirstLine | null,
+  dispatch?: (tr: Transaction) => void,
+): ActionResult {
+  changeSelectedBlocks(state, () => ({ firstLine: value }), dispatch);
+  return { ok: true };
+}
+
 /** Toggles. */
 export const alignEntry: ActionEntry<{ kind: "align"; value: Alignment }> = {
   readOnly: false,
   run: (view, action) => toggleAlign(view.state, action.value, view.dispatch),
+};
+
+export const firstLineEntry: ActionEntry<{
+  kind: "first_line";
+  value: FirstLine | null;
+}> = {
+  readOnly: false,
+  run: (view, action) => setFirstLine(view.state, action.value, view.dispatch),
 };
 
 /** Toggles. */

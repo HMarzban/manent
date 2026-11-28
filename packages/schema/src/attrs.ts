@@ -6,6 +6,9 @@ export type Dual = (typeof DUALS)[number];
 export const ALIGNMENTS = ["left", "center", "right"] as const;
 export type Alignment = (typeof ALIGNMENTS)[number];
 
+export const FIRST_LINES = ["flush", "drop_cap", "raised_cap"] as const;
+export type FirstLine = (typeof FIRST_LINES)[number];
+
 /** What a General element may link to: an outline's beat or a script's scene heading. */
 export const LINK_KINDS = ["beat", "scene"] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
@@ -87,6 +90,8 @@ export interface BlockAttrs {
   linkTo: { kind: LinkKind; blockId: string } | null;
   /** On graphic only (schema 3): flat seven-primitive box and asset metadata. */
   graphic: GraphicAttrs | null;
+  /** On prose body blocks (schema 4): opening-line style ("flush" or "drop_cap"); null keeps the element's default indent. */
+  firstLine: FirstLine | null;
 }
 
 /** The defaults, in the order the block node declares its attributes. */
@@ -113,6 +118,7 @@ export const DEFAULT_BLOCK_ATTRS: BlockAttrs = Object.freeze({
   tags: Object.freeze([]),
   linkTo: null,
   graphic: null,
+  firstLine: null,
 });
 
 function isBlockAttrName(key: string): key is keyof BlockAttrs {

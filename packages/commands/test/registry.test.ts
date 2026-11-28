@@ -280,6 +280,37 @@ test("the editor's commands sit in these menus and answer to these palette words
         ["format.underline", "styles", 30],
         ["format.strike", "styles", 40],
         ["format.caps", "styles", 50],
+      ] as const
+    ).map(([id, group, order]) => [
+      id,
+      "format",
+      [{ menu: "format", group, order, submenu: null }],
+      { keywords: [] },
+      null,
+    ]),
+    [
+      "format.superscript",
+      "format",
+      [{ menu: "format", group: "styles", order: 52, submenu: null }],
+      { keywords: ["footnote", "exponent"] },
+      null,
+    ],
+    [
+      "format.subscript",
+      "format",
+      [{ menu: "format", group: "styles", order: 54, submenu: null }],
+      { keywords: ["chemical", "formula"] },
+      null,
+    ],
+    [
+      "format.clearFormatting",
+      "format",
+      [{ menu: "format", group: "styles", order: 60, submenu: null }],
+      { keywords: ["plain", "remove style", "reset style"] },
+      null,
+    ],
+    ...(
+      [
         ["format.alignLeft", "align", 10],
         ["format.alignCenter", "align", 20],
         ["format.alignRight", "align", 30],
@@ -304,6 +335,13 @@ test("the editor's commands sit in these menus and answer to these palette words
       "view",
       [{ menu: "view", group: "page", order: 2, submenu: null }],
       { keywords: [] },
+      null,
+    ],
+    [
+      "view.formattingBar",
+      "view",
+      [{ menu: "view", group: "page", order: 9, submenu: null }],
+      { keywords: ["book bar", "style bar", "format"] },
       null,
     ],
     [
@@ -402,6 +440,7 @@ test("the editor's commands belong to the page and appear only to people who can
   ).toEqual([
     "view.pageView",
     "view.reflow",
+    "view.formattingBar",
     "view.ruler",
     "format.titlePage",
     "doc.export",
@@ -829,6 +868,9 @@ test("the handler table names every command but the generated ones", () => {
     "format.underline": noop,
     "format.strike": noop,
     "format.caps": noop,
+    "format.superscript": noop,
+    "format.subscript": noop,
+    "format.clearFormatting": noop,
     "format.alignLeft": noop,
     "format.alignCenter": noop,
     "format.alignRight": noop,
@@ -847,6 +889,7 @@ test("the handler table names every command but the generated ones", () => {
     "format.highlight.violet": noop,
     "view.pageView": noop,
     "view.reflow": noop,
+    "view.formattingBar": noop,
     "view.ruler": noop,
     "format.titlePage": noop,
     "doc.export": noop,

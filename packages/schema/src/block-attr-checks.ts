@@ -1,6 +1,7 @@
 import {
   ALIGNMENTS,
   DUALS,
+  FIRST_LINES,
   GRAPHIC_ATTR_KEYS,
   GRAPHIC_KINDS,
   GRAPHIC_MAX_ALT_LENGTH,
@@ -102,4 +103,5 @@ export const BLOCK_ATTR_CHECKS: Readonly<
   tags: (value) => Array.isArray(value) && value.every(isTag),
   linkTo: orNull(isLinkTo),
   graphic: orNull(isGraphicAttrs),
+  firstLine: orNull(oneOf(FIRST_LINES)),
 };

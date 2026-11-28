@@ -7,8 +7,8 @@ import { MARK_SPECS } from "./marks.ts";
 import type { MarkName } from "./marks.ts";
 import { isObject, isString } from "./shape.ts";
 
-/** 3: inline graphic blocks (`type: "graphic"` and flat `graphic` attrs); a block holding either needs a reader of schema 3. */
-export const SCHEMA_VERSION = 3;
+/** 4: prose opening-line styles (`firstLine`) and superscript/subscript marks (`sup`, `sub`); blocks carrying them need schema 4. */
+export const SCHEMA_VERSION = 4;
 
 /** The number of blocks a section holds when a script is cut into sections. */
 export const SECTION_TARGET_BLOCKS = 100;
@@ -71,10 +71,18 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
       parseDOM: [
         {
           tag: "p[data-type]",
-          getAttrs: (dom) => ({
-            type: dom.getAttribute("data-type"),
-            id: dom.getAttribute("data-id"),
-          }),
+          getAttrs: (dom) => {
+            const firstLine = dom.getAttribute("data-first-line");
+            return {
+              type: dom.getAttribute("data-type"),
+              id: dom.getAttribute("data-id"),
+              ...(firstLine === "flush" ||
+              firstLine === "drop_cap" ||
+              firstLine === "raised_cap"
+                ? { firstLine }
+                : {}),
+            };
+          },
         },
         // A list item, quotation or cell that holds paragraphs is read through to them.
         ...FOREIGN_BLOCK_TAGS.map((tag): TagParseRule => ({
@@ -100,6 +108,13 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
           if (typeof graphic.heightLines === "number")
             attrs["data-graphic-lines"] = String(graphic.heightLines);
         }
+        if (
+          node.attrs.firstLine === "flush" ||
+          node.attrs.firstLine === "drop_cap" ||
+          node.attrs.firstLine === "raised_cap"
+        ) {
+          attrs["data-first-line"] = node.attrs.firstLine;
+        }
         return ["p", attrs, 0];
       },
     },
@@ -108,10 +123,27 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
   marks: MARK_SPECS,
 });
 
+function hasV4Mark(content: unknown): boolean {
+  if (!Array.isArray(content)) return false;
+  for (const child of content) {
+    if (!isObject(child) || !Array.isArray(child.marks)) continue;
+    for (const mark of child.marks) {
+      if (isObject(mark) && (mark.type === "sup" || mark.type === "sub"))
+        return true;
+    }
+  }
+  return false;
+}
+
 function blockMinSchemaVersion(block: unknown): number {
   if (!isObject(block) || block.type !== "block" || !isObject(block.attrs))
     return 1;
   const attrs = block.attrs;
+  if (
+    (attrs.firstLine !== null && attrs.firstLine !== undefined) ||
+    hasV4Mark(block.content)
+  )
+    return 4;
   if (
     attrs.type === "graphic" ||
     (attrs.graphic !== null && attrs.graphic !== undefined)

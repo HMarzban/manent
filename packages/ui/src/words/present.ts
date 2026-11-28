@@ -5,6 +5,7 @@ export const PRESENT_WORDS = Object.freeze({
   /** The room window's title, for the browser tab and the desktop window. */
   roomWindowTitle: (title: string): string => `Room window — ${title}`,
   backToScript: "Back to script",
+  backToBook: "Back to book",
   outline: "Outline",
   minimapLabel: "Script outline",
   toggleOutline: "Show script outline",
@@ -20,6 +21,10 @@ export const PRESENT_WORDS = Object.freeze({
   progressPercent: (pct: number): string => `${formatCount(pct)}%`,
   sceneProgress: (current: number, total: number): string =>
     `Scene ${formatCount(current)} of ${formatCount(total)}`,
+  chapterProgress: (current: number, total: number): string =>
+    `Chapter ${formatCount(current)} of ${formatCount(total)}`,
   previousScene: "Previous scene",
   nextScene: "Next scene",
+  previousChapter: "Previous chapter",
+  nextChapter: "Next chapter",
 });

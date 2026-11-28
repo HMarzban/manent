@@ -111,6 +111,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
     return null;
   }
 
+  const isBook = format === "manuscript";
   const lockedScenes = locked
     ? outlineRows.filter(
         (row): row is OutlineRow & { eighths: number } =>
@@ -130,10 +131,13 @@ export function NumbersSection(props: { docId: string }): ReactNode {
       <h3 className="text-ui font-semibold text-fg">
         {WRITING_TOOLS_WORDS.numbers}
       </h3>
-      <div className="flex flex-col gap-1.5">
-        <dl className="grid grid-cols-3 gap-1.5 tabular-nums">
+      <div className="@container flex flex-col gap-1.5">
+        <dl className="grid grid-cols-2 gap-1.5 tabular-nums @[17rem]:grid-cols-3">
           <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
-            <dt className="truncate text-micro text-fg-muted">
+            <dt
+              title={WRITING_TOOLS_WORDS.numbersPages}
+              className="truncate text-micro text-fg-muted"
+            >
               {WRITING_TOOLS_WORDS.numbersPages}
             </dt>
             <dd className="text-title font-semibold text-fg">
@@ -141,24 +145,48 @@ export function NumbersSection(props: { docId: string }): ReactNode {
             </dd>
           </div>
           <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
-            <dt className="truncate text-micro text-fg-muted">
-              {WRITING_TOOLS_WORDS.numbersScenes}
+            <dt
+              title={
+                isBook
+                  ? WRITING_TOOLS_WORDS.numbersChapters
+                  : WRITING_TOOLS_WORDS.numbersScenes
+              }
+              className="truncate text-micro text-fg-muted"
+            >
+              {isBook
+                ? WRITING_TOOLS_WORDS.numbersChapters
+                : WRITING_TOOLS_WORDS.numbersScenes}
             </dt>
             <dd className="text-title font-semibold text-fg">
-              {formatCount(numbers.scenes)}
+              {formatCount(isBook ? numbers.chapters : numbers.scenes)}
             </dd>
           </div>
-          <div className="flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5">
-            <dt className="truncate text-micro text-fg-muted">
-              {WRITING_TOOLS_WORDS.numbersEstimatedRuntime}
+          <div className="col-span-2 flex flex-col rounded-control border border-line bg-subtle px-2 py-1.5 @[17rem]:col-span-1">
+            <dt
+              title={
+                isBook
+                  ? WRITING_TOOLS_WORDS.numbersWords
+                  : WRITING_TOOLS_WORDS.numbersEstimatedRuntime
+              }
+              className="truncate text-micro text-fg-muted"
+            >
+              {isBook
+                ? WRITING_TOOLS_WORDS.numbersWords
+                : WRITING_TOOLS_WORDS.numbersEstimatedRuntime}
             </dt>
             <dd className="text-title font-semibold text-fg">
-              {formatDuration(numbers.estimatedRuntimeMinutes * MINUTE_MS)}
+              {isBook
+                ? formatCount(numbers.words)
+                : formatDuration(numbers.estimatedRuntimeMinutes * MINUTE_MS)}
             </dd>
           </div>
         </dl>
         <p className="text-meta text-fg-muted">
-          {WRITING_TOOLS_WORDS.numbersRuntimeNote}
+          {isBook
+            ? WRITING_TOOLS_WORDS.numbersReadingTimeNote(
+                formatDuration(numbers.estimatedReadingMinutes * MINUTE_MS),
+              )
+            : WRITING_TOOLS_WORDS.numbersRuntimeNote}
         </p>
       </div>
 
@@ -190,6 +218,7 @@ export function NumbersSection(props: { docId: string }): ReactNode {
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-expanded={eighthsExpanded}
                 className="h-control-sm cursor-pointer px-1.5 text-meta text-fg-muted hover:text-fg"
                 onClick={() => setEighthsExpanded((v) => !v)}
               >
@@ -202,12 +231,14 @@ export function NumbersSection(props: { docId: string }): ReactNode {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        <h4 className="text-meta font-semibold text-fg">
-          {WRITING_TOOLS_WORDS.numbersDialogueByCharacter}
-        </h4>
-        <NumbersCast characters={numbers.characters} />
-      </div>
+      {isBook ? null : (
+        <div className="flex flex-col gap-1.5">
+          <h4 className="text-meta font-semibold text-fg">
+            {WRITING_TOOLS_WORDS.numbersDialogueByCharacter}
+          </h4>
+          <NumbersCast characters={numbers.characters} />
+        </div>
+      )}
 
       {reportsState.visible ? (
         <div className="pt-1">

@@ -160,6 +160,7 @@ export const EDITOR_COMMANDS = defineCommands([
   pageCommand("format.dualDialogue", "Dual dialogue", {
     keys: same("Mod+D"),
     menus: inFormat("speech", 10),
+    visible: (ctx) => canEdit(ctx) && ctx.format !== "manuscript",
   }),
   pageCommand("format.pageBreak", "Page break", {
     keys: same("Mod+Enter"),
@@ -181,6 +182,18 @@ export const EDITOR_COMMANDS = defineCommands([
     menus: inFormat("styles", 40),
   }),
   pageCommand("format.caps", "All-caps", { menus: inFormat("styles", 50) }),
+  pageCommand("format.superscript", "Superscript", {
+    menus: inFormat("styles", 52),
+    keywords: ["footnote", "exponent"],
+  }),
+  pageCommand("format.subscript", "Subscript", {
+    menus: inFormat("styles", 54),
+    keywords: ["chemical", "formula"],
+  }),
+  pageCommand("format.clearFormatting", "Clear style", {
+    menus: inFormat("styles", 60),
+    keywords: ["plain", "remove style", "reset style"],
+  }),
   pageCommand("format.alignLeft", "Align left", {
     menus: inFormat("align", 10),
   }),
@@ -242,6 +255,26 @@ export const EDITOR_COMMANDS = defineCommands([
     passThrough: null,
     menus: [{ menu: "view", group: "page", order: 2, submenu: null }],
     palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "view.formattingBar",
+    label: "Format bar",
+    group: "view",
+    home: null,
+    scope: "global",
+    keys: same(),
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen && ctx.format === "manuscript",
+    whyNot: (ctx) =>
+      ctx.docOpen ? "works on a manuscript" : "needs a document open",
+    visible: (ctx) => ctx.docOpen && ctx.format === "manuscript",
+    checked: (ctx) => ctx.formattingBarShown !== false,
+    passThrough: null,
+    menus: [{ menu: "view", group: "page", order: 9, submenu: null }],
+    palette: { keywords: ["book bar", "style bar", "format"] },
     opens: null,
     reach: "self",
     setting: null,

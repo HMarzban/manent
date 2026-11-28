@@ -8,6 +8,10 @@ import { WRAP_MODE } from "./tuning.ts";
 export interface WrapOptions {
   /** Cells taken from the first line only; default 0. */
   readonly firstLineIndent?: number;
+  /** Cells taken from lines `1..hangingLines - 1` (e.g. beside a floated drop cap); default 0. */
+  readonly hangingIndent?: number;
+  /** Total leading lines indented (including line 0) when `hangingIndent > 0`; default 0. */
+  readonly hangingLines?: number;
   /** The whole block is shown in capitals. */
   readonly capitalized?: boolean;
   /** A unit with `STYLE.CAPS` is shown in capitals. */
@@ -61,6 +65,10 @@ export function wrap(
 ): Int32Array {
   const limit = Math.max(1, width);
   const forced = (options.forced ?? []).toSorted((a, b) => a - b);
+  const hangingIndent = options.hangingIndent ?? 0;
+  const hangingLines = options.hangingLines ?? 0;
+  const indentOfLine = (lineIndex: number): number =>
+    lineIndex < hangingLines ? hangingIndent : 0;
   const starts = [0];
   let col = options.firstLineIndent ?? 0;
   let lastBreak = 0; // the last place after the line's start where it may end; the start when none
@@ -74,11 +82,11 @@ export function wrap(
     }
     if (isForced && at > starts.at(-1)!) {
       starts.push(at);
-      col = 0;
+      col = indentOfLine(starts.length - 1);
     }
     if (text.charCodeAt(end - 1) === LINE_FEED) {
       starts.push(end);
-      col = 0;
+      col = indentOfLine(starts.length - 1);
       continue;
     }
     if (at > starts.at(-1)! && breakAllowed(text, at)) lastBreak = at;
@@ -87,11 +95,13 @@ export function wrap(
     if (col + cells > limit && !(space && WRAP_MODE === "pre-wrap")) {
       if (!space && lastBreak > starts.at(-1)!) {
         starts.push(lastBreak);
-        col = cellsBetween(text, lastBreak, at, options);
+        col =
+          indentOfLine(starts.length - 1) +
+          cellsBetween(text, lastBreak, at, options);
       }
       if (col + cells > limit && at > starts.at(-1)!) {
         starts.push(at);
-        col = 0;
+        col = indentOfLine(starts.length - 1);
       }
     }
     col += cells;

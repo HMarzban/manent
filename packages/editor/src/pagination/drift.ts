@@ -190,6 +190,8 @@ export function isDriftCandidate(
   node: Node,
   decorations: readonly Decoration[],
 ): boolean {
+  if (node.attrs["firstLine"] !== null && node.attrs["firstLine"] !== undefined)
+    return false;
   return !decorations.some(
     (d) => d.spec.changes !== undefined && d.spec.blockId === node.attrs["id"],
   );

@@ -91,6 +91,7 @@ function sectionOfPage(p: Pagination, pageIndex: number): string | null {
   for (let i = 0; i <= target.block && i < p.blocks.length; i++) {
     const block = p.blocks[i]!;
     if (
+      block.type === "chapter" ||
       block.type === "group" ||
       (block.type === "act_break" && block.kind !== "end_of_act")
     ) {

@@ -1,6 +1,13 @@
 // The side panel's Details tab: its scopes Selection, Scene, Script and Rundown, each drawn while it has a section.
 import { DOCUMENT_WORDS, useSubscribable } from "@manent/ui";
-import { Suspense, lazy, useEffect, useMemo } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
@@ -32,19 +39,37 @@ function DetailsPanel(props: { docId: string }): ReactNode {
     [services.library, docId],
   );
   const isRundown = useSubscribable(docKindSource) === "rundown";
+  const scriptStore = useMemo(
+    () => services.openScriptStore(docId),
+    [services, docId],
+  );
+  const subscribeFormat = useCallback(
+    (notify: () => void) => scriptStore.subscribe("script.format", notify),
+    [scriptStore],
+  );
+  const isBook =
+    useSyncExternalStore(subscribeFormat, () =>
+      scriptStore.get("script.format"),
+    ) === "manuscript";
   return SCOPES.map(({ scope, heading }) => {
     if (isRundown ? scope !== "rundown" : scope === "rundown") return null;
     const sections = DETAILS_SECTIONS.filter(
       (section) => section.scope === scope,
     );
     if (scope !== "script" && sections.length === 0) return null;
+    const scopeHeading =
+      isBook && scope === "scene"
+        ? DOCUMENT_WORDS.chapterScope
+        : isBook && scope === "script"
+          ? DOCUMENT_WORDS.bookScope
+          : heading;
     return (
       <section
         key={scope}
         data-scope={scope}
         className="mn-details-scope flex flex-col pb-2"
       >
-        <h2 className="mn-group-label">{heading}</h2>
+        <h2 className="mn-group-label">{scopeHeading}</h2>
         <div data-scope-body="" className="flex flex-col gap-2 px-3">
           {scope === "script" ? (
             <Suspense fallback={<PanelListSkeleton />}>

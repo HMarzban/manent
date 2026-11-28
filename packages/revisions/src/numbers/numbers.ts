@@ -12,7 +12,10 @@ export interface CharacterNumber {
 export interface ScriptNumbers {
   readonly pages: number;
   readonly scenes: number;
+  readonly chapters: number;
+  readonly words: number;
   readonly estimatedRuntimeMinutes: number;
+  readonly estimatedReadingMinutes: number;
   readonly characters: readonly CharacterNumber[];
 }
 
@@ -113,6 +116,8 @@ export function numbersOf(
   pageLabels?: readonly string[],
 ): ScriptNumbers {
   let scenes = 0;
+  let chapters = 0;
+  let words = 0;
   let currentScene = -1;
   let activeSpeaker: CharacterAccumulator | null = null;
   let speechCounted = false;
@@ -139,6 +144,15 @@ export function numbersOf(
 
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i]!;
+    if (block.type !== "page_break" && block.type !== "group") {
+      words += wordCount(block.text);
+    }
+    if (block.type === "chapter") {
+      chapters += 1;
+      activeSpeaker = null;
+      speechCounted = false;
+      continue;
+    }
     if (block.type === "scene_heading") {
       scenes += 1;
       currentScene += 1;
@@ -192,7 +206,11 @@ export function numbersOf(
   return {
     pages: pageCount,
     scenes,
+    chapters,
+    words,
     estimatedRuntimeMinutes: Math.round(pageCount),
+    estimatedReadingMinutes:
+      words === 0 ? 0 : Math.max(1, Math.round(words / 250)),
     characters,
   };
 }

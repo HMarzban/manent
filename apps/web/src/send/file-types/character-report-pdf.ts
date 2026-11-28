@@ -1,5 +1,5 @@
 import { WRITING_TOOLS_WORDS } from "@manent/ui";
-import { PAGED_FORMATS } from "../script-file.ts";
+import { SCRIPT_ONLY_FORMATS } from "../script-file.ts";
 import type { ExportFileType } from "../script-file.ts";
 
 export const characterReportPdfFileType: ExportFileType = {
@@ -7,7 +7,7 @@ export const characterReportPdfFileType: ExportFileType = {
   label: WRITING_TOOLS_WORDS.characterReportPdf,
   mime: "application/pdf",
   docKinds: ["script"],
-  formats: PAGED_FORMATS,
+  formats: SCRIPT_ONLY_FORMATS,
   forms: ["export"],
   print: { offered: false, reason: null },
   lockedOnly: false,

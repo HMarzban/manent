@@ -1,5 +1,6 @@
-// The facts the interface shows about the caret: its element, page, scene and block layout, and the undo state.
-import type { FormatId } from "@manent/schema";
+// The facts the interface shows about the caret: its element, page, scene, block layout, inline marks and undo state.
+import type { FirstLine, FormatId } from "@manent/schema";
+import type { Mark } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import { findCount } from "../find/find-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
@@ -12,6 +13,18 @@ import type {
 } from "../script-editor/ports.ts";
 import { headingAt } from "./outline.ts";
 import type { OutlineIndex } from "./outline.ts";
+
+/** Bitmask constants for `FactsShape.marksMask` (O(1) caret inline marks). */
+export const MARK_BIT = Object.freeze({
+  bold: 1,
+  italic: 2,
+  underline: 4,
+  strike: 8,
+  caps: 16,
+  link: 32,
+  sup: 64,
+  sub: 128,
+} as const);
 
 type PageFacts = Pick<
   FactsShape,
@@ -33,6 +46,67 @@ const NO_PAGES: PageFacts = Object.freeze({
   blockSpaceBefore: null,
   columnCells: null,
 });
+
+interface CaretMarkFacts {
+  readonly marksMask: number;
+  readonly markColor: string | null;
+  readonly markHighlight: string | null;
+  readonly markLink: string | null;
+}
+
+const NO_MARKS: CaretMarkFacts = Object.freeze({
+  marksMask: 0,
+  markColor: null,
+  markHighlight: null,
+  markLink: null,
+});
+
+function marksAtCaret(state: EditorState): CaretMarkFacts {
+  const { $from } = state.selection;
+  const active: readonly Mark[] = state.storedMarks ?? $from.marks();
+  if (active.length === 0) return NO_MARKS;
+  let marksMask = 0;
+  let markColor: string | null = null;
+  let markHighlight: string | null = null;
+  let markLink: string | null = null;
+  for (const mark of active) {
+    switch (mark.type.name) {
+      case "bold":
+        marksMask |= MARK_BIT.bold;
+        break;
+      case "italic":
+        marksMask |= MARK_BIT.italic;
+        break;
+      case "underline":
+        marksMask |= MARK_BIT.underline;
+        break;
+      case "strike":
+        marksMask |= MARK_BIT.strike;
+        break;
+      case "caps":
+        marksMask |= MARK_BIT.caps;
+        break;
+      case "sup":
+        marksMask |= MARK_BIT.sup;
+        break;
+      case "sub":
+        marksMask |= MARK_BIT.sub;
+        break;
+      case "link":
+        marksMask |= MARK_BIT.link;
+        if (typeof mark.attrs.href === "string") markLink = mark.attrs.href;
+        break;
+      case "color":
+        if (typeof mark.attrs.value === "string") markColor = mark.attrs.value;
+        break;
+      case "highlight":
+        if (typeof mark.attrs.value === "string")
+          markHighlight = mark.attrs.value;
+        break;
+    }
+  }
+  return { marksMask, markColor, markHighlight, markLink };
+}
 
 /** The caret block's page and layout as the engine draws them; `block` null: the caret is in no block. */
 function pageFacts(
@@ -80,6 +154,7 @@ export function factsOf(
     words: EditorWords;
     format: FormatId;
     outline: OutlineIndex;
+    wordCount?: number | null;
   },
 ): FactsShape {
   const { selection } = state;
@@ -93,6 +168,7 @@ export function factsOf(
   const heading = block === null ? null : headingAt(options.outline, block);
   const entry = heading === null ? null : options.outline.entries[heading]!;
   const found = findCount(state);
+  const marks = marksAtCaret(state);
   return {
     element:
       node === null
@@ -102,6 +178,7 @@ export function factsOf(
             node.attrs.type,
             node.attrs.kind,
           ),
+    blockType: node === null ? null : String(node.attrs.type),
     ...(pages === null
       ? NO_PAGES
       : pageFacts(pages, block, $head.parentOffset)),
@@ -109,8 +186,17 @@ export function factsOf(
     blockId: node?.attrs.id ?? null,
     sceneId: entry?.blockId ?? null,
     blockSpaceBeforeSet: node === null ? null : node.attrs.spaceBefore !== null,
+    blockFirstLine:
+      node !== null &&
+      (node.attrs.firstLine === "flush" ||
+        node.attrs.firstLine === "drop_cap" ||
+        node.attrs.firstLine === "raised_cap")
+        ? (node.attrs.firstLine as FirstLine)
+        : null,
     pageRevision: null,
     pageOrdinal: null,
+    ...marks,
+    wordCount: options.wordCount ?? null,
     canUndo: options.history.canUndo(state),
     canRedo: options.history.canRedo(state),
     selectionEmpty: selection.empty,

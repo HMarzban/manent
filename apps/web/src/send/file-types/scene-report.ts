@@ -1,5 +1,5 @@
 import { WRITING_TOOLS_WORDS } from "@manent/ui";
-import { PAGED_FORMATS } from "../script-file.ts";
+import { SCRIPT_ONLY_FORMATS } from "../script-file.ts";
 import type { ExportFileType } from "../script-file.ts";
 
 export const sceneReportFileType: ExportFileType = {
@@ -7,7 +7,7 @@ export const sceneReportFileType: ExportFileType = {
   label: WRITING_TOOLS_WORDS.sceneReportCsv,
   mime: "text/csv;charset=utf-8",
   docKinds: ["script"],
-  formats: PAGED_FORMATS,
+  formats: SCRIPT_ONLY_FORMATS,
   forms: ["export"],
   print: { offered: false, reason: null },
   lockedOnly: false,

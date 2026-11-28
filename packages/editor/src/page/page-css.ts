@@ -89,8 +89,44 @@ del.el {
 p.el.pg-first {
   padding-top: calc(var(--el-drop, 0) * var(--geo-line));
 }
+p.el.el-body[data-first-line="flush"],
+p.el.el-body[data-first-line="drop_cap"],
+p.el.el-body[data-first-line="raised_cap"] {
+  text-indent: 0;
+}
+p.el.el-body[data-first-line="drop_cap"] {
+  min-height: calc(2 * var(--el-spacing) * var(--geo-line));
+}
+p.el.el-body[data-first-line="drop_cap"]::first-letter {
+  float: left;
+  font-size: calc((var(--el-spacing) + 1) * 1em);
+  line-height: 0.9;
+  padding-inline-end: var(--geo-cell);
+  margin-top: 0.08em;
+  font-weight: 700;
+}
+p.el.el-body[data-first-line="raised_cap"]::first-letter {
+  font-size: 2em;
+  line-height: 0;
+  font-weight: 700;
+}
+.mn-page-view sup,
+.mn-page-view sub {
+  font-size: 0.72em;
+  letter-spacing: calc(0.28 * var(--geo-cell));
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+.mn-page-view sup {
+  top: -0.45em;
+}
+.mn-page-view sub {
+  bottom: -0.2em;
+}
 .pb {
   display: block;
+  clear: both;
   user-select: none;
   margin-left: calc(-1 * var(--geo-left));
   width: var(--geo-page-w);

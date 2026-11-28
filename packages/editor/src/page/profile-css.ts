@@ -46,7 +46,14 @@ export function screenPagePx(profile: PageProfile): {
   };
 }
 
-function elementRule(selector: string, spec: ElementSpec): string {
+/** Lines kept beneath a page-start drop, matching engine `keep.ts` `LINES_UNDER_DROP`. */
+const LINES_UNDER_DROP = 8;
+
+function elementRule(
+  selector: string,
+  spec: ElementSpec,
+  linesPerPage: number,
+): string {
   const declarations = [
     `--el-indent: ${spec.indent}`,
     `--el-width: ${spec.width}`,
@@ -57,7 +64,11 @@ function elementRule(selector: string, spec: ElementSpec): string {
     `text-align: ${spec.align}`,
   ];
   if (spec.capitalized) declarations.push("text-transform: uppercase");
-  if (spec.dropLines > 0) declarations.push(`--el-drop: ${spec.dropLines}`);
+  const drop = Math.max(
+    0,
+    Math.min(spec.dropLines, linesPerPage - LINES_UNDER_DROP),
+  );
+  if (drop > 0) declarations.push(`--el-drop: ${drop}`);
   return `${selector} { ${declarations.join("; ")}; }`;
 }
 
@@ -81,7 +92,11 @@ export function profileCss(profile: PageProfile): string {
   // A block's class carries its type, not its kind, so an act break is styled as a new act whatever its kind.
   for (const type of BLOCK_TYPES) {
     rules.push(
-      elementRule(`.el-${type}`, profile.elements[specKey(type, null)]),
+      elementRule(
+        `.el-${type}`,
+        profile.elements[specKey(type, null)],
+        profile.linesPerPage,
+      ),
     );
   }
   return rules.join("\n");

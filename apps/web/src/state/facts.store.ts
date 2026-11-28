@@ -1,13 +1,14 @@
 // The editor's facts, one primitive each: written by the bridge, published once per frame, read one key at a time.
 
 import { mark } from "@manent/perf";
-import type { Alignment } from "@manent/schema";
+import type { Alignment, FirstLine } from "@manent/schema";
 import { useContext, useMemo, useSyncExternalStore } from "react";
 import { FactsContext } from "./bridge-contexts.ts";
 import type { Guard } from "./guard.ts";
 
 export interface EditorFacts {
   element: string | null;
+  blockType: string | null;
   page: string | null;
   pageCount: number | null;
   scene: string | null;
@@ -21,11 +22,20 @@ export interface EditorFacts {
   blockSpaceBefore: number | null;
   /** The caret block's own spaceBefore attribute is not null (Space before shows checked). */
   blockSpaceBeforeSet: boolean | null;
+  /** The caret block's opening-line style ("flush" or "drop_cap"); null for element default. */
+  blockFirstLine: FirstLine | null;
   /** The page's text column, cells; null without pages (Ink). */
   columnCells: number | null;
   /** The caret page's revision name and its place in the pages; null outside production. */
   pageRevision: string | null;
   pageOrdinal: number | null;
+  /** Active inline marks at the caret (bitmask over MARK_BIT). */
+  marksMask: number;
+  markColor: string | null;
+  markHighlight: string | null;
+  markLink: string | null;
+  /** Total word count of the document, updated off the keystroke path. */
+  wordCount: number | null;
   canUndo: boolean;
   canRedo: boolean;
   selectionEmpty: boolean;
@@ -57,6 +67,7 @@ type FactValue = string | number | boolean | null;
 const INITIAL_FACTS: EditorFacts & Readonly<Record<FactKey, FactValue>> =
   Object.freeze({
     element: null,
+    blockType: null,
     page: null,
     pageCount: null,
     scene: null,
@@ -67,9 +78,15 @@ const INITIAL_FACTS: EditorFacts & Readonly<Record<FactKey, FactValue>> =
     blockAlign: null,
     blockSpaceBefore: null,
     blockSpaceBeforeSet: null,
+    blockFirstLine: null,
     columnCells: null,
     pageRevision: null,
     pageOrdinal: null,
+    marksMask: 0,
+    markColor: null,
+    markHighlight: null,
+    markLink: null,
+    wordCount: null,
     canUndo: false,
     canRedo: false,
     selectionEmpty: false,

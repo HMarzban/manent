@@ -1,7 +1,7 @@
 // Sides PDF export file type: clean locked pages for the chosen scene range with unselected scenes struck through.
 import { PRODUCTION_OUTPUTS_WORDS } from "@manent/ui";
 import { loadPdfFonts } from "../pdf-fonts.ts";
-import { PAGED_FORMATS, fileName } from "../script-file.ts";
+import { SCRIPT_ONLY_FORMATS, fileName } from "../script-file.ts";
 import type {
   ExportFileType,
   ExportWork,
@@ -49,7 +49,7 @@ export const sidesFileType: ExportFileType = {
   label: PRODUCTION_OUTPUTS_WORDS.sides,
   mime: "application/pdf",
   docKinds: ["script"],
-  formats: PAGED_FORMATS,
+  formats: SCRIPT_ONLY_FORMATS,
   forms: ["export", "send_draft"],
   print: { offered: false, reason: null },
   lockedOnly: true,

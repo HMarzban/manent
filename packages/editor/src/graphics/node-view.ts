@@ -64,6 +64,7 @@ export const GRAPHIC_CSS = [
   "  border: 1px solid var(--page-edge); padding: 0 calc(var(--geo-cell) * 0.75); cursor: pointer;",
   "}",
   ".mn-pages .mn-graphic-caption { display: block; min-height: 0; }",
+  ".mn-pages .mn-graphic-caption:has(> br.ProseMirror-trailingBreak:only-child) { font-size: 0; line-height: 0; }",
   ".mn-pages p.mn-graphic[data-selected] .mn-graphic-box {",
   "  outline: 1px solid var(--page-ink); outline-offset: -1px;",
   "}",
@@ -110,21 +111,43 @@ function readGraphicAttrs(node: PMNode): GraphicAttrs {
   };
 }
 
-function syncPlainBlockAttrs(dom: HTMLElement, node: PMNode): void {
+function syncPlainBlockAttrs(
+  dom: HTMLElement,
+  node: PMNode,
+  prevTypeClass: string | null,
+): string {
   const type = typeof node.attrs.type === "string" ? node.attrs.type : "";
   const id = typeof node.attrs.id === "string" ? node.attrs.id : null;
-  dom.className = `el el-${renderedType(type)}`;
+  const nextTypeClass = `el-${renderedType(type)}`;
+  if (prevTypeClass !== null && prevTypeClass !== nextTypeClass) {
+    dom.classList.remove(prevTypeClass);
+  }
+  dom.classList.add("el", nextTypeClass);
   dom.setAttribute("data-type", type);
   if (id !== null) dom.setAttribute("data-id", id);
   else dom.removeAttribute("data-id");
   if (UNSPELLED_TYPES.includes(type)) dom.setAttribute("spellcheck", "false");
   else dom.removeAttribute("spellcheck");
+  const firstLine = node.attrs.firstLine;
+  const align = node.attrs.align;
+  if (
+    type === "body" &&
+    (align === null || align === undefined || align === "left") &&
+    (firstLine === "flush" ||
+      firstLine === "drop_cap" ||
+      firstLine === "raised_cap")
+  ) {
+    dom.setAttribute("data-first-line", firstLine);
+  } else {
+    dom.removeAttribute("data-first-line");
+  }
+  return nextTypeClass;
 }
 
 function createPlainBlockView(initial: PMNode, doc: Document): NodeView {
   let current = initial;
   const dom = doc.createElement("p");
-  syncPlainBlockAttrs(dom, current);
+  let typeClass = syncPlainBlockAttrs(dom, current, null);
   return {
     dom,
     contentDOM: dom,
@@ -132,7 +155,7 @@ function createPlainBlockView(initial: PMNode, doc: Document): NodeView {
       if (next.type !== current.type || next.attrs.type === "graphic")
         return false;
       current = next;
-      syncPlainBlockAttrs(dom, current);
+      typeClass = syncPlainBlockAttrs(dom, current, typeClass);
       return true;
     },
   };
@@ -158,7 +181,7 @@ function createGraphicBlockView(
   dom.append(box, caption);
 
   const syncOuterAttrs = (node: PMNode, graphic: GraphicAttrs): void => {
-    dom.className = "el el-graphic mn-graphic";
+    dom.classList.add("el", "el-graphic", "mn-graphic");
     dom.setAttribute("data-type", "graphic");
     if (typeof node.attrs.id === "string")
       dom.setAttribute("data-id", node.attrs.id);

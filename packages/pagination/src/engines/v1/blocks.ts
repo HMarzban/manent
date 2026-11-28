@@ -51,6 +51,7 @@ export function toLayoutBlock(view: BlockView): LayoutBlock {
     noContd: attrs.noContd,
     ...(attrs.noTiming === true ? { noTiming: true } : {}),
     ...(attrs.graphic !== null ? { graphic: attrs.graphic } : {}),
+    ...(attrs.firstLine !== null ? { firstLine: attrs.firstLine } : {}),
   });
 }
 

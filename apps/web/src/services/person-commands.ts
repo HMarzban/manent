@@ -22,6 +22,7 @@ import { zoomAnnouncement } from "../editor-host/zoom.ts";
 import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
 import { focusModeActions } from "../state/focus-mode.store.ts";
+import { formattingBarActions } from "../state/formatting-bar.store.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { materialActions } from "../state/material.store.ts";
 import { outlineStartActions } from "../state/outline-start.store.ts";
@@ -126,6 +127,7 @@ function commandContext(
     format:
       docId === null ? null : parts.openScriptStore(docId).get("script.format"),
     rulerShown: rulerActions.get(),
+    formattingBarShown: formattingBarActions.get(),
     layoutView: layoutViewActions.get(),
     spaceBeforeSet,
     zoom: docId === null ? null : zoomActions.get(),
@@ -351,6 +353,7 @@ export function createCommands(
     parts.network.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
+    formattingBarActions.subscribe(service.notify),
     layoutViewActions.subscribe(service.notify),
     productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),

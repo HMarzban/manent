@@ -99,10 +99,11 @@ function productionCommand<const Id extends string>(
     keysFixed: false,
     when: more.need?.holds ?? null,
     whyNot: more.need?.reason ?? null,
-    // a script without pages (Ink) has nothing to lock
+    // a script without pages (Ink) has nothing to lock; unlocked manuscripts hide screenplay production locking
     visible: (ctx) =>
       ctx.format !== "ink" &&
       ctx.production !== null &&
+      (ctx.format !== "manuscript" || ctx.production.locked) &&
       more.shown(ctx.production),
     checked: more.checked ?? null,
     passThrough: null,

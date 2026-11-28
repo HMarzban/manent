@@ -46,6 +46,7 @@ export function readWorkingSnapshot(
   for (const key of [
     "script.format",
     "script.paper",
+    "script.lineSpacing",
     "script.linesPerPage",
     "script.moresAtBreaks",
     "script.sameSpeakerContd",

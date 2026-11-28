@@ -13,6 +13,8 @@ export const MARK_NAMES = [
   "link",
   "suggest_insert",
   "suggest_delete",
+  "sup",
+  "sub",
 ] as const;
 export type MarkName = (typeof MARK_NAMES)[number];
 
@@ -152,6 +154,14 @@ export const MARK_SPECS: Record<MarkName, MarkSpec> = {
   },
   suggest_insert: suggestion("ins"),
   suggest_delete: suggestion("del"),
+  sup: {
+    parseDOM: [{ tag: "sup" }],
+    toDOM: () => ["sup", 0],
+  },
+  sub: {
+    parseDOM: [{ tag: "sub" }],
+    toDOM: () => ["sub", 0],
+  },
 };
 
 /** The attributes of each mark, with their valid values. */
@@ -168,4 +178,6 @@ export const MARK_ATTR_CHECKS: Readonly<
   link: { href: isString },
   suggest_insert: SUGGESTION_CHECKS,
   suggest_delete: SUGGESTION_CHECKS,
+  sup: {},
+  sub: {},
 };

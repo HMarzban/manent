@@ -177,10 +177,13 @@ test("each editor command asks the page for its own action", () => {
     ].map((slot) => ({ kind: "element", slot })),
     { kind: "dual_dialogue" },
     { kind: "page_break" },
-    ...["bold", "italic", "underline", "strike", "caps"].map((mark) => ({
-      kind: "style",
-      mark,
-    })),
+    ...["bold", "italic", "underline", "strike", "caps", "sup", "sub"].map(
+      (mark) => ({
+        kind: "style",
+        mark,
+      }),
+    ),
+    { kind: "clear_formatting" },
     { kind: "align", value: "left" },
     { kind: "align", value: "center" },
     { kind: "align", value: "right" },

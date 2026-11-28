@@ -230,6 +230,7 @@ function ScenesReady(props: {
   canEdit: boolean;
   movable: boolean;
   parts: SceneParts;
+  onAddChapter?: () => void;
 }): ReactNode {
   const {
     filter,
@@ -242,6 +243,7 @@ function ScenesReady(props: {
     canEdit,
     movable,
     parts,
+    onAddChapter,
   } = props;
   const allRows = useListedRows("");
   const filteredRows = useListedRows(filter);
@@ -262,6 +264,7 @@ function ScenesReady(props: {
         totalCount={countFilterable(allRows)}
         format={format}
         kind={kind}
+        onAddChapter={onAddChapter}
       />
       <GhostFollowBar rows={allRows} />
       <OutlineRows
@@ -284,7 +287,7 @@ function ScenesReady(props: {
 
 function ScenesList(props: { docId: string }): ReactNode {
   const { docId } = props;
-  const { library } = useServices();
+  const { library, editor } = useServices();
   const { platform } = useCommands();
   const format = useFormat(docId);
   const isInk = format === "ink";
@@ -324,12 +327,17 @@ function ScenesList(props: { docId: string }): ReactNode {
             canEdit={canEdit}
             movable={canEdit && !isInk}
             parts={parts}
+            onAddChapter={
+              format === "manuscript" && canEdit
+                ? () => editor.run({ kind: "insert_chapter", atEnd: true })
+                : undefined
+            }
           />
         ),
         empty: () => (
           <div className="flex h-full min-h-0 flex-col">
             {viewSwitch === null ? null : (
-              <div className="border-b border-line p-2">{viewSwitch}</div>
+              <div className="border-b border-line px-3 py-2">{viewSwitch}</div>
             )}
             {activeView === "cards" && canEdit ? (
               <div className="p-2.5">

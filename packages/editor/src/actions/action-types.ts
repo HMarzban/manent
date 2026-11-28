@@ -27,6 +27,8 @@ export const STYLE_MARKS = [
   "underline",
   "strike",
   "caps",
+  "sup",
+  "sub",
 ] as const;
 export type StyleMark = (typeof STYLE_MARKS)[number];
 

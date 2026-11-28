@@ -102,6 +102,13 @@ function SetBy(props: {
   return null;
 }
 
+function SettingsHeading(): ReactNode {
+  const format = useSetting("script.format");
+  return format === "manuscript"
+    ? DOCUMENT_WORDS.bookSettingsHeading
+    : DOCUMENT_WORDS.scriptSettingsHeading;
+}
+
 /** Concise summary shown while Script settings is collapsed, e.g. "Screenplay · US Letter". */
 function Summary(): ReactNode {
   const format = useSetting("script.format");
@@ -150,7 +157,7 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
             aria-hidden="true"
             className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/disclosure:text-fg group-data-panel-open/disclosure:rotate-90 motion-safe:transition-transform"
           />
-          {DOCUMENT_WORDS.scriptSettingsHeading}
+          <SettingsHeading />
         </CollapsibleTrigger>
         {open ? null : <Summary />}
         <CollapsibleContent className="flex animate-in flex-col gap-2 duration-(--dur-fast) ease-out fade-in-0">

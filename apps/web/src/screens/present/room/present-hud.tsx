@@ -10,6 +10,7 @@ import { firstNameOf } from "../../../room/driver.ts";
 export function PresentHud(props: {
   readonly docId: string;
   readonly title: string;
+  readonly format?: string;
   readonly driver: Identity | null;
   readonly driverColour: number | null;
   readonly currentScene: number;
@@ -20,6 +21,7 @@ export function PresentHud(props: {
   const {
     docId,
     title,
+    format,
     driver,
     driverColour,
     currentScene,
@@ -27,6 +29,7 @@ export function PresentHud(props: {
     onPrevScene,
     onNextScene,
   } = props;
+  const isBook = format === "manuscript";
   const navigate = useNavigate();
   const hasStepper = totalScenes > 1;
   return (
@@ -37,7 +40,9 @@ export function PresentHud(props: {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={PRESENT_WORDS.backToScript}
+        aria-label={
+          isBook ? PRESENT_WORDS.backToBook : PRESENT_WORDS.backToScript
+        }
         onClick={() => void navigate({ href: `/s/${docId}` })}
       >
         <ArrowLeftIcon
@@ -85,7 +90,11 @@ export function PresentHud(props: {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={PRESENT_WORDS.previousScene}
+                aria-label={
+                  isBook
+                    ? PRESENT_WORDS.previousChapter
+                    : PRESENT_WORDS.previousScene
+                }
                 disabled={onPrevScene === undefined}
                 onClick={onPrevScene}
               >
@@ -99,14 +108,18 @@ export function PresentHud(props: {
               aria-live="polite"
               className="shrink-0 px-0.5 text-meta tabular-nums text-fg-muted"
             >
-              {PRESENT_WORDS.sceneProgress(currentScene, totalScenes)}
+              {isBook
+                ? PRESENT_WORDS.chapterProgress(currentScene, totalScenes)
+                : PRESENT_WORDS.sceneProgress(currentScene, totalScenes)}
             </span>
             {hasStepper ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={PRESENT_WORDS.nextScene}
+                aria-label={
+                  isBook ? PRESENT_WORDS.nextChapter : PRESENT_WORDS.nextScene
+                }
                 disabled={onNextScene === undefined}
                 onClick={onNextScene}
               >

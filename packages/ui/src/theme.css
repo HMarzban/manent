@@ -3987,14 +3987,17 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   background-color: var(--bg-overlay);
   border: 1px solid var(--line);
   box-shadow: var(--elev-overlay);
-  transition: opacity var(--dur-slow) var(--curve-enter);
+  transition:
+    background-color var(--dur-slow) var(--curve-enter),
+    border-color var(--dur-slow) var(--curve-enter);
 }
 .mn-book-pill[data-writing="true"]:not(
     :hover,
     :focus-within,
     :has([aria-expanded="true"], [data-popup-open])
   ) {
-  opacity: 0.38;
+  background-color: var(--bg-chrome);
+  box-shadow: none;
 }
 .mn-book-pill[data-writing="true"]:is(
     :hover,
@@ -4144,6 +4147,51 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: -2px;
   background-color: var(--bg-subtle);
+}
+/* Floating Book format bar: live text colour bar and highlight indicator dot on the Colour trigger. */
+.mn-colour-bar {
+  display: block;
+  width: 0.875rem;
+  height: 2px;
+  border-radius: 1px;
+  background-color: var(--fg-muted);
+}
+.mn-colour-bar[data-color="red"] {
+  background-color: var(--page-text-red);
+}
+.mn-colour-bar[data-color="orange"] {
+  background-color: var(--page-text-orange);
+}
+.mn-colour-bar[data-color="green"] {
+  background-color: var(--page-text-green);
+}
+.mn-colour-bar[data-color="blue"] {
+  background-color: var(--page-text-blue);
+}
+.mn-colour-bar[data-color="violet"] {
+  background-color: var(--page-text-violet);
+}
+.mn-colour-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line-strong);
+}
+.mn-colour-dot[data-swatch="hl-yellow"] {
+  background-color: light-dark(rgb(240 190 0 / 0.85), rgb(227 179 65 / 0.85));
+}
+.mn-colour-dot[data-swatch="hl-green"] {
+  background-color: light-dark(rgb(40 170 90 / 0.8), rgb(90 200 130 / 0.8));
+}
+.mn-colour-dot[data-swatch="hl-pink"] {
+  background-color: light-dark(rgb(230 70 140 / 0.78), rgb(240 110 160 / 0.78));
+}
+.mn-colour-dot[data-swatch="hl-orange"] {
+  background-color: light-dark(rgb(240 130 20 / 0.82), rgb(240 150 70 / 0.82));
+}
+.mn-colour-dot[data-swatch="hl-violet"] {
+  background-color: light-dark(rgb(130 90 230 / 0.8), rgb(150 120 240 / 0.8));
 }
 
 /* Progress bar (Tour and demo reset) and closed-panel floating Tour bar. */
@@ -5798,9 +5846,6 @@ html[data-gems="off"] .mn-gem-only {
     box-shadow: none;
     border-color: var(--fg);
   }
-  .mn-book-pill[data-writing="true"] {
-    opacity: 1;
-  }
   .mn-board-fade-start,
   .mn-board-fade-end {
     display: none;
@@ -6179,9 +6224,6 @@ html[data-gems="off"] .mn-gem-only {
     color: CanvasText;
     border-color: CanvasText;
     box-shadow: none;
-  }
-  .mn-book-pill[data-writing="true"] {
-    opacity: 1;
   }
   .mn-card[data-new]:focus-within {
     border-color: Highlight;

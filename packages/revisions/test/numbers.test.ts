@@ -64,7 +64,10 @@ test("numbersOf counts pages, scenes, estimated runtime and dialogue sorted by w
   expect(result).toEqual({
     pages: 4,
     scenes: 2,
+    chapters: 0,
+    words: 23,
     estimatedRuntimeMinutes: 4,
+    estimatedReadingMinutes: 1,
     characters: [
       { name: "MIRA", speeches: 2, words: 7, scenes: 2, firstPage: "1" },
       { name: "TOM", speeches: 1, words: 2, scenes: 1, firstPage: "1" },

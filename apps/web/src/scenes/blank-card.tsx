@@ -18,15 +18,38 @@ const headingTypeFor = (
       ? "slug"
       : "scene_heading";
 
-/** Writes a heading of the script's format with empty text and `synopsis` at the end of the script, as one undo step; false when the script cannot be changed here. */
-function writeSceneCard(
-  docId: string,
-  synopsis: string,
-  format: string,
-): boolean {
+/** Writes a heading of the script's format at the end of the script, as one undo step; false when the script cannot be changed here. */
+function writeSceneCard(docId: string, text: string, format: string): boolean {
   const editor = liveEditor(docId);
   if (editor === null || !editor.editable) return false;
   const last = scriptBlocks(editor.doc).at(-1)?.attrs?.id;
+  if (format === "manuscript") {
+    const chapterId = randomBlockId();
+    applyBlockOpsAsOne(
+      editor.doc,
+      [
+        {
+          op: "insert",
+          after: typeof last === "string" ? last : null,
+          block: {
+            type: "block",
+            attrs: { id: chapterId, type: "chapter" },
+            content: [{ type: "text", text }],
+          },
+        },
+        {
+          op: "insert",
+          after: chapterId,
+          block: {
+            type: "block",
+            attrs: { id: randomBlockId(), type: "body" },
+          },
+        },
+      ],
+      ORIGIN_MATERIAL,
+    );
+    return true;
+  }
   applyBlockOpsAsOne(
     editor.doc,
     [
@@ -38,7 +61,7 @@ function writeSceneCard(
           attrs: {
             id: randomBlockId(),
             type: headingTypeFor(format),
-            synopsis,
+            synopsis: text,
           },
         },
       },
@@ -86,7 +109,12 @@ export function BlankCard(props: { docId: string }): ReactNode {
         className="w-full resize-none bg-transparent text-ui text-fg placeholder:text-fg-muted focus:outline-none"
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          if (
+            event.key !== "Enter" ||
+            event.shiftKey ||
+            event.nativeEvent.isComposing
+          )
+            return;
           event.preventDefault();
           submit();
         }}

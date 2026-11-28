@@ -1,5 +1,5 @@
 // What the engine reads of a block, and a caller's changes to it before it is measured.
-import type { Alignment, Dual, GraphicAttrs } from "@manent/schema";
+import type { Alignment, Dual, FirstLine, GraphicAttrs } from "@manent/schema";
 
 /** Flat graphic metadata carried by a `"graphic"` LayoutBlock. */
 export type LayoutGraphic = GraphicAttrs;
@@ -24,6 +24,8 @@ export interface LayoutBlock {
   readonly noTiming?: boolean;
   /** Present on `"graphic"` blocks (schema 3). */
   readonly graphic?: LayoutGraphic | null;
+  /** Present on prose `"body"` blocks with an opening-line override (schema 4). */
+  readonly firstLine?: FirstLine | null;
 }
 
 /** A caller's change to one block before it is measured. */

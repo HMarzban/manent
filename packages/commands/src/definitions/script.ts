@@ -30,6 +30,9 @@ const whyNotReadAloud = (ctx: CommandContext): string => {
 const onPagedScript = (ctx: CommandContext): boolean =>
   ctx.docOpen && ctx.docKind === "script" && ctx.format !== "ink";
 
+const onDramaticScript = (ctx: CommandContext): boolean =>
+  onPagedScript(ctx) && ctx.format !== "manuscript";
+
 const whyNotPagedScript = (ctx: CommandContext): string => {
   if (!ctx.docOpen) return "needs a document open";
   if (ctx.docKind !== "script") return "works on a script";
@@ -55,7 +58,7 @@ export const SCRIPT_COMMANDS = defineCommands([
     keysFixed: false,
     when: editableScript,
     whyNot: whyNotEditableScript,
-    visible: onPagedScript,
+    visible: onDramaticScript,
     checked: null,
     passThrough: null,
     menus: [
@@ -205,7 +208,7 @@ export const SCRIPT_COMMANDS = defineCommands([
     keysFixed: false,
     when: onPagedScript,
     whyNot: whyNotPagedScript,
-    visible: onPagedScript,
+    visible: onDramaticScript,
     checked: null,
     passThrough: null,
     menus: [

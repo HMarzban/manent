@@ -190,12 +190,16 @@ function suggestedCandidates(signals: RecommendationSignals): string[] {
   }
 
   if (signals.hasSelection || ctx.material?.selection) {
+    add("comment.add", "note.add", "material.moveToCuts");
+    if (ctx.format !== "manuscript") add("format.dualDialogue");
+    add("edit.find");
+  }
+  if (ctx.format === "manuscript") {
     add(
-      "comment.add",
-      "note.add",
-      "material.moveToCuts",
-      "format.dualDialogue",
-      "edit.find",
+      "graphics.insertImage",
+      "format.pageBreak",
+      "format.titlePage",
+      "script.numbers",
     );
   }
 
@@ -276,7 +280,9 @@ function quickSettingCandidates(signals: RecommendationSignals): string[] {
         "setting.appearance.whitePage",
         oppositeTheme,
         "setting.writing.showCursors",
-        "setting.script.sameSpeakerContd",
+        ...(ctx.format === "manuscript"
+          ? []
+          : ["setting.script.sameSpeakerContd"]),
       ];
     }
     return [

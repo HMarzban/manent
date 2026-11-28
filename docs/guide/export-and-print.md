@@ -1,6 +1,6 @@
 # Export, print and import
 
-A script leaves Manent as a PDF, Sides PDF, Final Draft (FDX), Fountain, Game Script line data (JSON or XML), Ink (`.ink` or compiled JSON), CSV or PDF report, rundown export, Project archive zip or on paper, and comes in from FDX, Fountain, text-based PDF, Word (`.docx`) or plain text. The PDF and the print are drawn from the same page layout you see while you write, so the pages break in the same places.
+A script leaves Manent as a PDF, Word (`.docx`, for Books), Sides PDF, Final Draft (FDX), Fountain, Game Script line data (JSON or XML), Ink (`.ink` or compiled JSON), CSV or PDF report, rundown export, Project archive zip or on paper, and comes in from FDX, Fountain, text-based PDF, Word (`.docx`) or plain text. The PDF and the print are drawn from the same page layout you see while you write, so the pages break in the same places.
 
 ## Export a file
 
@@ -8,6 +8,7 @@ A script leaves Manent as a PDF, Sides PDF, Final Draft (FDX), Fountain, Game Sc
 2. Choose **Export…** from **Title ▾** (click the script's title), or open the command palette with Ctrl+K (⌘K on a Mac) and type "Export".
 3. The Export screen shows what will go and the pages as they will look. Under **As**, choose the format for that kind of document:
    - **Scripts:** **Clean PDF**, **Sides PDF** (locked scripts, choosing scenes so other scenes' lines are struck through), **FDX**, **Fountain**, CSV or PDF **Character / Scene / Location reports**, **Game Script JSON** or **XML** line data, and **Animation Pickup lines CSV**. Inline images and broadcast chyrons render at their chosen line height in PDF and print, round-trip in Project archives, and write cleanly to FDX and Fountain with their cue tags and captions.
+   - **Books (Manuscripts):** **Clean PDF** and **Word (`.docx`)** (pure offline OOXML preserving chapters, quotes, scene breaks, page breaks, inline styles, text colours, highlights, superscripts, subscripts, links, drop caps, raised caps, flush openings, paper geometry and single/double line spacing).
    - **Ink:** whole-project **`.ink`** source (in Library order) or **compiled Ink JSON**.
    - **Rundowns:** **Rundown PDF** (with selectable columns), **All scripts as one PDF**, **Two-column PDF**, **Prompter text**, **Brackets list** or **Rundown JSON**.
    - **Projects:** **Project archive (`.zip`)** holding every script's FDX, Fountain, named-draft JSON files, cached project images and a manifest.

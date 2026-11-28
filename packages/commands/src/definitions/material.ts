@@ -21,7 +21,7 @@ function alternatesCommand<const Id extends string>(
     keysFixed: false,
     when: (ctx) => ctx.material?.caretInSpeech === true,
     whyNot: () => "needs the caret in a speech",
-    visible: canWrite,
+    visible: (ctx) => canWrite(ctx) && ctx.format !== "manuscript",
     checked: null,
     passThrough: null,
     palette: { keywords: [] },

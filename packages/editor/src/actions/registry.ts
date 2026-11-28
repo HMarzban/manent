@@ -4,7 +4,12 @@ import type { ActionEntry } from "./action-types.ts";
 import { dualDialogueEntry } from "./dual.ts";
 import { elementEntry, pickerEntry } from "./element.ts";
 import { goToEntry } from "./go-to.ts";
-import { alignEntry, layoutEntry, spaceBeforeEntry } from "./layout.ts";
+import {
+  alignEntry,
+  firstLineEntry,
+  layoutEntry,
+  spaceBeforeEntry,
+} from "./layout.ts";
 import {
   findEntry,
   findNextEntry,
@@ -15,12 +20,19 @@ import {
   stepSceneEntry,
   synopsisEntry,
 } from "./loaded-apart.ts";
+import { insertBreakEntry, insertChapterEntry } from "./book-blocks.ts";
 import { pageBreakEntry } from "./page-break.ts";
 import {
   renameCharacterEntry,
   renameLocationEntry,
 } from "./rename-character.ts";
-import { colourEntry, highlightEntry, styleEntry } from "./styles.ts";
+import {
+  clearFormattingEntry,
+  colourEntry,
+  highlightEntry,
+  linkEntry,
+  styleEntry,
+} from "./styles.ts";
 import { redoEntry, undoEntry } from "./undo.ts";
 
 export const EDITOR_ACTIONS = Object.freeze({
@@ -28,10 +40,15 @@ export const EDITOR_ACTIONS = Object.freeze({
   picker: pickerEntry,
   dual_dialogue: dualDialogueEntry,
   page_break: pageBreakEntry,
+  insert_break: insertBreakEntry,
+  insert_chapter: insertChapterEntry,
   style: styleEntry,
   colour: colourEntry,
   highlight: highlightEntry,
+  link: linkEntry,
+  clear_formatting: clearFormattingEntry,
   align: alignEntry,
+  first_line: firstLineEntry,
   space_before: spaceBeforeEntry,
   layout: layoutEntry,
   undo: undoEntry,

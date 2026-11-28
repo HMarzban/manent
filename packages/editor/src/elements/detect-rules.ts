@@ -92,6 +92,17 @@ const RULES = Object.freeze({
     after: null,
     read: actBreakNamed,
   },
+  manuscript_break: {
+    when: "enter",
+    from: Object.freeze(["body"]),
+    after: null,
+    read: (text) => {
+      const trimmed = text.trim();
+      return trimmed === "***" || trimmed === "* * *" || trimmed === "---"
+        ? plain("break")
+        : null;
+    },
+  },
 } satisfies Record<string, Rule>);
 type RuleName = keyof typeof RULES;
 
@@ -119,7 +130,7 @@ const FORMAT_RULES: Readonly<Record<FormatId, readonly RuleName[]>> =
       "act_break",
     ),
     ink: rules(),
-    manuscript: rules(),
+    manuscript: rules("manuscript_break"),
     // a stage play has no transition
     stage_play: rules("scene_intro", "parenthetical", "act_break"),
   });

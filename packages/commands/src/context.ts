@@ -23,6 +23,8 @@ export interface CommandContext {
   /** The open script's format; null off a document. */
   format: SettingValue<"script.format"> | null;
   rulerShown: boolean;
+  /** Whether the contextual Book formatting bar is shown (defaults to true when omitted). */
+  formattingBarShown?: boolean;
   /** Which view the open script's pages are drawn in. */
   layoutView: "page" | "reflow";
   /** The caret block has its own space before. */

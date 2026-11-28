@@ -72,6 +72,9 @@ export function setElement(element: ElementRef): Command {
           "kind",
           element.kind,
         );
+        if (element.type !== "body" && node.attrs.firstLine !== null) {
+          tr.setNodeAttribute(pos, "firstLine", null);
+        }
         return false;
       },
     );

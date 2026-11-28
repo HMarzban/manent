@@ -41,6 +41,7 @@ import { mountEditor } from "./mount-view.ts";
 import {
   createPageControls,
   createScrollPorts,
+  goToMarginPx,
   pageAtHeight,
 } from "./page-controls.ts";
 import type { Desk, PageControls } from "./page-controls.ts";
@@ -173,9 +174,6 @@ function elementContext(
   };
 }
 
-// how far below the view's top a block gone to sits, px at 100 %, so its first line is clear of the bars
-const GO_TO_MARGIN_PX = 48;
-
 /** What the actions read of this editor: the element keys' context, the page's column and whether it is editable. */
 function actionContext(
   context: ElementContext,
@@ -188,7 +186,7 @@ function actionContext(
     editable: parts.editable,
     goTo(blockId, offset) {
       const at = { blockId, offset };
-      const top = { blockId, offsetPx: -GO_TO_MARGIN_PX };
+      const top = { blockId, offsetPx: -goToMarginPx(parts.ports.scroller()) };
       restorePlace(view, parts.ports, { anchor: at, head: at, top });
       view.focus();
     },

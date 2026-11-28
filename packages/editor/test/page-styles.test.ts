@@ -171,6 +171,13 @@ test("each element's box is its cells plus the slack, and space before is paddin
   expect(rule(profileCss(profileFor("manuscript")!), ".el-body")).toEqual(
     expect.arrayContaining(["--el-first: 5", "--el-spacing: 2"]),
   );
+  // Clamped --el-drop matches engine keep.ts (linesPerPage - 8) when linesPerPage < 26.
+  expect(
+    rule(
+      profileCss(profileFor("manuscript", { linesPerPage: 16 })!),
+      ".el-chapter",
+    ),
+  ).toContain("--el-drop: 8");
 });
 
 test("an element the format has no row for is styled as General", () => {

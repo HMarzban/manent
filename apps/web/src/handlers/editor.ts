@@ -9,6 +9,7 @@ import type { PageCommandId } from "../editor-host/command-actions.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import { zoomStep } from "../editor-host/zoom.ts";
 import { sendPath } from "../screens/send/form-ids.ts";
+import { formattingBarActions } from "../state/formatting-bar.store.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
@@ -100,6 +101,7 @@ export function createEditorHandlers(deps: {
     ...pages,
     "view.pageView": () => layoutViewActions.set("page"),
     "view.reflow": () => layoutViewActions.set("reflow"),
+    "view.formattingBar": () => formattingBarActions.toggle(),
     "view.ruler": () => rulerActions.toggle(),
     "format.titlePage": () => control.showTitlePage(),
     "doc.export": send("export"),

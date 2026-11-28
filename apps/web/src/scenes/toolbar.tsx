@@ -1,7 +1,14 @@
 // The Scenes panel's toolbar (full-width filter with clear button, List / Cards switch, live count) and empty-filter state.
-import { Button, HISTORY_WORDS, Input, SCENE_MOVE_WORDS } from "@manent/ui";
+import {
+  Button,
+  DOCUMENT_WORDS,
+  HISTORY_WORDS,
+  Input,
+  SCENE_MOVE_WORDS,
+} from "@manent/ui";
 import type { NEW_PROJECT_CARDS } from "@manent/ui";
-import { SearchIcon, XIcon } from "lucide-react";
+import { PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { useRef } from "react";
 import type { ReactNode } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
 
@@ -15,6 +22,7 @@ export function ScenesToolbar(props: {
   totalCount: number;
   format: string;
   kind: Kind | null;
+  onAddChapter?: () => void;
 }): ReactNode {
   const {
     filter,
@@ -24,7 +32,9 @@ export function ScenesToolbar(props: {
     totalCount,
     format,
     kind,
+    onAddChapter,
   } = props;
+  const inputRef = useRef<HTMLInputElement>(null);
   const countText = SCENE_MOVE_WORDS.countLabel(
     shownCount,
     totalCount,
@@ -39,6 +49,7 @@ export function ScenesToolbar(props: {
           className="pointer-events-none absolute start-2.5 size-3.5 text-fg-muted"
         />
         <Input
+          ref={inputRef}
           type="search"
           aria-label={HISTORY_WORDS.filter}
           placeholder={HISTORY_WORDS.filter}
@@ -49,15 +60,18 @@ export function ScenesToolbar(props: {
             event.preventDefault();
             onFilterChange("");
           }}
-          className="h-control w-full ps-8 pe-7 text-ui"
+          className="h-control w-full ps-8 pe-8 text-ui"
         />
         {filter === "" ? null : (
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label={SCENE_MOVE_WORDS.clearFilter}
-            onClick={() => onFilterChange("")}
+            onClick={() => {
+              onFilterChange("");
+              inputRef.current?.focus();
+            }}
             className="absolute end-1 text-fg-muted hover:text-fg"
           >
             <XIcon aria-hidden="true" className="size-3" />
@@ -72,6 +86,19 @@ export function ScenesToolbar(props: {
         >
           {countText}
         </span>
+        {onAddChapter === undefined ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={DOCUMENT_WORDS.bookToolbar.newChapter}
+            title={DOCUMENT_WORDS.bookToolbar.newChapter}
+            className="shrink-0 text-fg-muted hover:text-fg"
+            onClick={onAddChapter}
+          >
+            <PlusIcon aria-hidden="true" className="size-icon" />
+          </Button>
+        )}
       </div>
     </div>
   );

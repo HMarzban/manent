@@ -203,6 +203,7 @@ export function sectionsOfPagination(p: Pagination): (string | null)[] {
     while (blockIdx <= page.block && blockIdx < p.blocks.length) {
       const block = p.blocks[blockIdx]!;
       if (
+        block.type === "chapter" ||
         block.type === "group" ||
         (block.type === "act_break" && block.kind !== "end_of_act")
       ) {

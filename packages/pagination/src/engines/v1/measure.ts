@@ -83,14 +83,40 @@ export function measure(
   if (block.type === "graphic")
     return measureGraphic(block, spec, context.forced ?? []);
   const [open, close] = spec.enclosure ?? ["", ""];
+  const openCells = clusterCells(open, 0, open.length, false);
+  const firstLine =
+    block.type === "body" && spec.align === "left"
+      ? (block.firstLine ?? null)
+      : null;
+  let firstLineIndent =
+    spec.align === "left" ? spec.firstLineIndent + openCells : openCells;
+  let hangingIndent = 0;
+  let hangingLines = 0;
+  let minLines = 1;
+  if (firstLine === "flush") {
+    firstLineIndent = openCells;
+  } else if (firstLine === "raised_cap") {
+    firstLineIndent = openCells + (block.text.length > 0 ? 1 : 0);
+  } else if (firstLine === "drop_cap" && block.text.length > 0) {
+    const dropCells = spec.lineSpacing === 1 ? 3 : 4;
+    firstLineIndent = openCells + (dropCells - 1);
+    hangingIndent = dropCells;
+    hangingLines = 2;
+    minLines = 2;
+  }
   const starts = wrap(block.text + (context.suffix ?? "") + close, spec.width, {
-    firstLineIndent:
-      spec.firstLineIndent + clusterCells(open, 0, open.length, false),
+    firstLineIndent,
+    hangingIndent,
+    hangingLines,
     capitalized: spec.capitalized,
     styles: block.styles,
     forced: context.forced ?? [],
   });
-  return Object.freeze({ lines: starts.length, starts, spec });
+  return Object.freeze({
+    lines: Math.max(minLines, starts.length),
+    starts,
+    spec,
+  });
 }
 
 /**

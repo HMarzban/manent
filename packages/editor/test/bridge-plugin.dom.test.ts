@@ -177,6 +177,7 @@ test("a fact that changes is published once per frame, alone", () => {
     [
       {
         element: "Action",
+        blockType: "action",
         blockId: "n000000000000001",
         blockIndent: 0,
         blockWidth: 60,

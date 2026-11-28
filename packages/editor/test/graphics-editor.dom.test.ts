@@ -7,7 +7,7 @@ import {
   profileFor,
 } from "@manent/pagination";
 import type { LayoutBlock } from "@manent/pagination";
-import { schema } from "@manent/schema";
+import { attrsForNewBlock, schema } from "@manent/schema";
 import type { Node as PMNode } from "prosemirror-model";
 import { TextSelection } from "prosemirror-state";
 import {
@@ -417,4 +417,84 @@ test("graphicExtraPx and drift monitor produce zero false positives for graphic 
 
   for (const run of idle.splice(0)) run();
   expect(reports).toEqual([]);
+});
+
+test("blockNodeView preserves outer decoration classes like pg-first across edits and syncs data-first-line", () => {
+  const place = document.createElement("div");
+  document.body.append(place);
+  const nextId = counter("b");
+  const blk = (type: string, text: string) =>
+    schema.nodes.block.create(
+      attrsForNewBlock(type, nextId()),
+      schema.text(text),
+    );
+  const doc = schema.nodes.doc.create(null, [
+    schema.nodes.section.create(null, [
+      blk("chapter", "1. High Water"),
+      blk("body", "Every harbour keeps two clocks."),
+      blk("chapter", "2. The Bar and the Buoy"),
+      blk("body", "Beyond the outer breakwater."),
+    ]),
+  ]);
+  const mounted = mountPageView({
+    place,
+    doc,
+    profile: profileFor("manuscript")!,
+    ids: counter("b"),
+    nextElement: () => ({ type: "body", kind: null }),
+    offFontNote: "note",
+    ports: readyPorts(() => {}),
+  });
+  cleanups.push(() => mounted.destroy());
+
+  const chapters = (): NodeListOf<HTMLElement> =>
+    mounted.view.dom.querySelectorAll<HTMLElement>("p.el.el-chapter");
+  const bodies = (): NodeListOf<HTMLElement> =>
+    mounted.view.dom.querySelectorAll<HTMLElement>("p.el.el-body");
+
+  expect(chapters()[0]!.classList.contains("pg-first")).toBe(true);
+  expect(chapters()[1]!.classList.contains("pg-first")).toBe(true);
+
+  // Applying an inline mark on chapter 2 must NEVER strip pg-first.
+  let chapter2Pos = 0;
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (
+      node.type.name === "block" &&
+      node.textContent.startsWith("2. The Bar")
+    ) {
+      chapter2Pos = pos;
+      return false;
+    }
+    return true;
+  });
+  mounted.view.dispatch(
+    mounted.view.state.tr.addMark(
+      chapter2Pos + 4,
+      chapter2Pos + 10,
+      schema.marks.underline.create(),
+    ),
+  );
+  expect(chapters()[1]!.classList.contains("pg-first")).toBe(true);
+
+  // Setting firstLine on a body block syncs data-first-line without stripping classes, and clears on center align.
+  let body1Pos = 0;
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (
+      node.type.name === "block" &&
+      node.textContent.startsWith("Every harbour")
+    ) {
+      body1Pos = pos;
+      return false;
+    }
+    return true;
+  });
+  mounted.view.dispatch(
+    mounted.view.state.tr.setNodeAttribute(body1Pos, "firstLine", "drop_cap"),
+  );
+  expect(bodies()[0]!.getAttribute("data-first-line")).toBe("drop_cap");
+
+  mounted.view.dispatch(
+    mounted.view.state.tr.setNodeAttribute(body1Pos, "align", "center"),
+  );
+  expect(bodies()[0]!.getAttribute("data-first-line")).toBeNull();
 });

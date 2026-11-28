@@ -4,6 +4,7 @@ import type { EditorState, Plugin, Transaction } from "prosemirror-state";
 import type {
   Alignment,
   BlockJSON,
+  FirstLine,
   FormatId,
   TitlePageField,
   TitlePageFields,
@@ -86,6 +87,8 @@ export interface EditorBinding {
 /** Field for field the web app's editor facts. */
 export interface FactsShape {
   element: string | null;
+  /** The caret block's schema type (`chapter`, `body`, `quote`, `break`, …); null with no block. */
+  blockType: string | null;
   page: string | null;
   pageCount: number | null;
   scene: string | null;
@@ -99,11 +102,23 @@ export interface FactsShape {
   blockSpaceBefore: number | null;
   /** The caret block's own spaceBefore attribute is not null (Space before shows checked). */
   blockSpaceBeforeSet: boolean | null;
+  /** The caret block's opening-line style (`"flush"`, `"drop_cap"`), or null for default. */
+  blockFirstLine: FirstLine | null;
   /** The page's text column, cells; null without pages (Ink). */
   columnCells: number | null;
   /** The caret page's revision name and its place among the pages; null outside production. */
   pageRevision: string | null;
   pageOrdinal: number | null;
+  /** Active inline marks at the caret (O(1) bitmask over MARK_BIT). */
+  marksMask: number;
+  /** Active text colour mark at the caret; null when none. */
+  markColor: string | null;
+  /** Active highlight mark at the caret; null when none. */
+  markHighlight: string | null;
+  /** Active link href at the caret; null when none. */
+  markLink: string | null;
+  /** Total word count of the document, updated off the keystroke path on the coalesced outline cadence. */
+  wordCount: number | null;
   canUndo: boolean;
   canRedo: boolean;
   selectionEmpty: boolean;

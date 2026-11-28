@@ -35,6 +35,8 @@ export interface ProfileOptions {
     readonly sceneStartingPage?: boolean;
     readonly scenesLettered?: boolean;
   };
+  /** Read by the manuscript format only; default 2 (double-spaced). */
+  readonly manuscriptLineSpacing?: 1 | 2;
   /** A project's style, applied last. */
   readonly elements?: ElementChanges;
 }
@@ -159,9 +161,19 @@ const MULTICAM = Object.freeze<FormatLayout>({
     scriptFurniture(options, true, options.multicam?.scenesLettered ?? true),
 });
 
+const MANUSCRIPT_SINGLE_ROWS: ElementChanges = Object.freeze({
+  chapter: Object.freeze({ ...MANUSCRIPT_ROWS.chapter, lineSpacing: 1 }),
+  body: Object.freeze({ ...MANUSCRIPT_ROWS.body, lineSpacing: 1 }),
+  break: Object.freeze({ ...MANUSCRIPT_ROWS.break, lineSpacing: 1 }),
+  quote: Object.freeze({ ...MANUSCRIPT_ROWS.quote, lineSpacing: 1 }),
+});
+
 const MANUSCRIPT = Object.freeze<FormatLayout>({
   page: MANUSCRIPT_PAGE,
-  changes: () => MANUSCRIPT_ROWS,
+  changes: (options) =>
+    options.manuscriptLineSpacing === 1
+      ? MANUSCRIPT_SINGLE_ROWS
+      : MANUSCRIPT_ROWS,
   // prose has no speeches or scenes to continue or number
   furniture: () => ({
     speechContinued: false,

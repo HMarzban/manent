@@ -76,7 +76,7 @@ function isoDay(at: number): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Nearest Act or Section heading above each page's first line. */
+/** Nearest Chapter, Act or Section heading above each page's first line. */
 export function sectionsOf(p: Pagination): readonly (string | null)[] {
   const result: (string | null)[] = [];
   let current: string | null = null;
@@ -85,6 +85,7 @@ export function sectionsOf(p: Pagination): readonly (string | null)[] {
     while (blockIdx <= page.block && blockIdx < p.blocks.length) {
       const block = p.blocks[blockIdx]!;
       if (
+        block.type === "chapter" ||
         block.type === "group" ||
         (block.type === "act_break" && block.kind !== "end_of_act")
       ) {

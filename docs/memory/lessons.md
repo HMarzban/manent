@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Never clobber `dom.className` in a ProseMirror NodeView, guard Base UI floating controls against stealing focus, and keep writing-mode pills at full AA contrast
+
+- Date: 2026-11-28
+
+### What happened
+
+During the floating Book Format Bar rollout on _The Salt Almanac_, four distinct defects surfaced in live browser verification: (1) `blockNodeView`'s `syncPlainBlockAttrs` assigned `dom.className = "el el-..."` on every block update, permanently wiping ProseMirror's outer `Decoration.node` classes (`.pg-first`, `.dual-l`, `.dual-r`, `.lb-forced`, `.el-hidden`) because `patchAttributes` skips re-applying classes whose decoration value did not change — collapsing Chapter `dropLines: 18` top padding by `272 px` and sending following prose across `.mn-sheet` gaps; (2) Base UI `PopoverContent` renders `role="dialog"` (causing `focusKind() === "dialog"` and silently short-circuiting `commands.run(...)` to `"passed"`), while `DropdownMenu` and `Popover` popups stole focus from `.ProseMirror` on pointer clicks so the caret and highlighted selection disappeared; (3) an uncaptioned inline `graphic` block still rendered ProseMirror's `<br class="ProseMirror-trailingBreak">` inside `.mn-graphic-caption`, adding `+1 line` (`16 px`) of DOM height relative to `measure.ts`; and (4) `.mn-book-pill[data-writing="true"]` dimmed the floating pill to `opacity: 0.38`, failing WCAG 2.2 AA `color-contrast` (`3.16:1`) in Chromium axe scans.
+
+### How it was caught
+
+Items (1) and (2) were caught by live visual testing of the Book Format Bar on _The Salt Almanac_ (highlighting a phrase in Chapter 2 and clicking toolbar styles) and an audit of `node-view.ts`, `prosemirror-view`, Base UI `MenuPopup`/`PopoverPopup`, and `menu-focus.ts`; item (3) was caught by comparing DOM heights of uncaptioned graphics against `measure.ts`; item (4) was caught directly by `@axe-core/playwright` in `e2e/interface/book-format-bar.e2e.ts`.
+
+### Rule
+
+In any ProseMirror `NodeView`, mutate only the element's own classes with `classList.add`/`classList.remove` (never assign `dom.className = ...`) so outer decoration classes survive updates, collapse trailing-break-only empty captions (`.mn-graphic-caption:has(> br.ProseMirror-trailingBreak:only-child)`) to zero line-height, and keep every schema-rendered block attribute (`data-first-line`) synced in the NodeView whenever it overrides `toDOM`. On editor-adjacent floating toolbars, popovers and dropdown menus, prevent focus loss on pointer `mousedown` (except on text inputs) via `keepEditorFocus`, pass `initialFocus={false}` (on popovers) and `finalFocus={false}`, restore focus to `.ProseMirror` (`dom.focusPage()`) on non-outside close, and dispatch editor actions directly from popover controls instead of routing through keyboard-guarded `commands.run(...)`. For `[data-writing="true"]` floating chrome, settle onto `--bg-chrome` with `box-shadow: none` (never fractional `opacity`, and never transitioning `box-shadow`) so WCAG 2.2 AA text contrast and Manent's motion rule hold in every state.
+
+### Enforced by
+
+`packages/editor/src/graphics/node-view.ts`, `packages/ui/src/theme.css`, `apps/web/src/screens/document/book-toolbar/keep-editor-focus.ts`, `packages/editor/test/graphics-editor.dom.test.ts`, `apps/web/test/book-toolbar.dom.test.tsx`, `tools/test/ui-rules.test.ts`, and `e2e/interface/book-format-bar.e2e.ts`.
+
 ## Seed aged multi-session benchmarks directly into storage, cache aged corpora and exclude Base UI focus guards in WebKit axe scans
 
 - Date: 2026-11-27

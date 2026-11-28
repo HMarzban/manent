@@ -36,6 +36,7 @@ import { ShareDialog } from "../../sharing/share-dialog.tsx";
 import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
+import { BookFormatBar } from "./book-toolbar/book-format-bar.tsx";
 import { DocumentStateBar } from "./document-state-bar.tsx";
 import { FindBarRow } from "./find-bar.tsx";
 import { LeftPanel } from "./left-panel.tsx";
@@ -351,6 +352,7 @@ function Frame(props: {
       <TitleBar docId={docId} doc={doc} />
       <DocumentStateBar docId={docId} facts={doc.stateFacts} />
       <FindBarRow docId={docId} />
+      <BookFormatBar docId={docId} />
       <RulerBar docId={docId} />
       <SelectionToolbar docId={docId} />
       <LeftPanel docId={docId} overlay={overPage} />

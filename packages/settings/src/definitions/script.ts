@@ -178,10 +178,22 @@ export function paperForRegion(language: string): "letter" | "a4" {
   return region !== undefined && LETTER_REGIONS.has(region) ? "letter" : "a4";
 }
 
-/** Whether a script setting does something in `format`: a script without pages (Ink) has its format and nothing else. */
+const SCREENPLAY_ONLY_SETTINGS: ReadonlySet<string> = new Set([
+  "script.moresAtBreaks",
+  "script.sameSpeakerContd",
+  "script.sceneContinued",
+  "script.sceneNumbers",
+  "script.numbering",
+  "script.colourOrder",
+]);
+
+/** Whether a script setting does something in `format`: Ink has only its format, Manuscript hides screenplay-only settings, and line spacing is manuscript-only. */
 export function appliesToFormat(
   key: string,
   format: SettingValue<"script.format">,
 ): boolean {
-  return format !== "ink" || key === "script.format";
+  if (key === "script.lineSpacing") return format === "manuscript";
+  if (format === "ink") return key === "script.format";
+  if (format === "manuscript") return !SCREENPLAY_ONLY_SETTINGS.has(key);
+  return true;
 }

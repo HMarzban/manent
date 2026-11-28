@@ -13,11 +13,18 @@ export type {
 export { toggleDualDialogue } from "./dual.ts";
 export {
   changeSelectedBlocks,
+  setFirstLine,
   setLayout,
   toggleAlign,
   toggleSpaceBefore,
 } from "./layout.ts";
+export { insertChapter, insertSceneBreak } from "./book-blocks.ts";
 export { insertPageBreak } from "./page-break.ts";
 export type { EditorAction } from "./registry.ts";
 export { runAction } from "./run-action.ts";
-export { setNamedMark, toggleStyle } from "./styles.ts";
+export {
+  clearFormatting,
+  setLink,
+  setNamedMark,
+  toggleStyle,
+} from "./styles.ts";

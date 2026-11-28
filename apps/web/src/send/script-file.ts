@@ -56,6 +56,11 @@ export const PAGED_FORMATS: readonly FormatId[] = Object.freeze(
   FORMATS.filter((format) => format !== "ink"),
 );
 
+/** Paged dramatic script formats excluding prose manuscripts (for FDX, Fountain, Sides and screenplay reports). */
+export const SCRIPT_ONLY_FORMATS: readonly FormatId[] = Object.freeze(
+  PAGED_FORMATS.filter((format) => format !== "manuscript"),
+);
+
 const NAME_LIMIT = 120;
 // the characters a file system refuses in a name
 const REFUSED_IN_NAME = new RegExp('[/\\\\:*?"<>|]', "g");

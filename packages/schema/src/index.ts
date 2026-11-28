@@ -17,6 +17,7 @@ export {
   ALIGNMENTS,
   DEFAULT_BLOCK_ATTRS,
   DUALS,
+  FIRST_LINES,
   GRAPHIC_ATTR_KEYS,
   GRAPHIC_KINDS,
   GRAPHIC_MAX_ALT_LENGTH,
@@ -30,6 +31,7 @@ export type {
   Alignment,
   BlockAttrs,
   Dual,
+  FirstLine,
   GraphicAttrs,
   GraphicKind,
 } from "./attrs.ts";

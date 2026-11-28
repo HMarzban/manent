@@ -232,6 +232,14 @@ export function RoomMode(props: { docId: string }): ReactNode {
   const title = useDocumentTitle(docId);
   const services = useServices();
   const { frame } = useEnvironment();
+  const scriptStore = services.openScriptStore(docId);
+  const format = useSyncExternalStore(
+    useCallback(
+      (notify: () => void) => scriptStore.subscribe("script.format", notify),
+      [scriptStore],
+    ),
+    () => scriptStore.get("script.format"),
+  );
   const noAccess = useNoAccess(doc?.status ?? null);
   const driver = useDriver(services.userId, docId);
   const people = usePresentPeople(doc?.people ?? null);
@@ -285,6 +293,7 @@ export function RoomMode(props: { docId: string }): ReactNode {
           <PresentHud
             docId={docId}
             title={title}
+            format={format}
             driver={driver}
             driverColour={driverColour}
             currentScene={currentScene}

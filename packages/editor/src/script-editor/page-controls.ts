@@ -54,6 +54,14 @@ function blockAtHeight(
     : { block: blockNumber(view.state, $pos), pos, top: blockTop };
 }
 
+/** How far below the viewport top a `goTo` target sits so its first line clears floating bars. */
+export function goToMarginPx(scroller: HTMLElement, floorPx = 48): number {
+  const pad = Number.parseFloat(getComputedStyle(scroller).scrollPaddingTop);
+  return Number.isFinite(pad)
+    ? Math.max(floorPx, Math.ceil(pad) + 12)
+    : floorPx;
+}
+
 /** The index of the page under the page's middle at viewport height `top`; null without pages or where there is none. */
 export function pageAtHeight(view: EditorView, top: number): number | null {
   const at = posAtHeight(view, top);
@@ -251,6 +259,7 @@ export function createPageControls(options: {
       ) {
         return;
       }
+      const anchor = zoomAnchor(view, ports);
       scaffold.setProfile(nextProfile);
       view.dispatch(
         setPagination(view.state.tr, {
@@ -259,6 +268,8 @@ export function createPageControls(options: {
         }).setMeta("addToHistory", false),
       );
       fit();
+      const top = anchor?.read() ?? null;
+      if (anchor !== null && top !== null) scrollBy(top - anchor.top);
     },
     setZoom(zoom) {
       setting = zoom;

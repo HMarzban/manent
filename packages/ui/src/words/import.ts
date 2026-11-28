@@ -150,6 +150,7 @@ export const IMPORT_WORDS = {
   unread: UNREAD_LABELS,
   asFdx: "FDX",
   asFountain: "Fountain",
+  asDocx: "Word (.docx)",
   leftOut: (names: string, format: string): string =>
     `! ${names} can't be written in ${format} and are left out of the file`,
   leftOutOne: (name: string, format: string): string =>

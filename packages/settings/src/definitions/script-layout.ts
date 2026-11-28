@@ -4,6 +4,26 @@ import { t } from "../types.ts";
 
 export const SCRIPT_LAYOUT_SETTINGS = Object.freeze([
   setting({
+    key: "script.lineSpacing",
+    scope: "script",
+    type: t.choice([
+      { value: "double", label: "Double" },
+      { value: "single", label: "Single" },
+    ]),
+    default: "double" as const,
+    label: "Line spacing",
+    description: null,
+    noun: "line spacing",
+    surfaces: [
+      { in: "scriptSettings", group: "page_setup", order: 25 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: ["spacing", "single", "double"],
+  }),
+  setting({
     key: "script.linesPerPage",
     scope: "script",
     type: t.numberOrNull({ min: 10, max: 70, step: 1 }),

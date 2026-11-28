@@ -10,7 +10,7 @@ export function scrollToPageOne(
     region.scrollTo({ top: 0 });
     return;
   }
-  const sheets = scaffold.front.querySelectorAll(".mn-sheet");
+  const sheets = scaffold.front.querySelectorAll(".mn-front-sheet, .mn-sheet");
   const lastFront = sheets.item(sheets.length - 1);
   if (lastFront === null || lastFront.getBoundingClientRect().height <= 0) {
     region.scrollTo({ top: 0 });
@@ -19,9 +19,10 @@ export function scrollToPageOne(
   const regionTop = region.getBoundingClientRect().top;
   const frontBottom = lastFront.getBoundingClientRect().bottom;
   const pagesTop = scaffold.pages.getBoundingClientRect().top;
+  const pad = Number.parseFloat(getComputedStyle(region).scrollPaddingTop) || 0;
   const shift = Math.max(
     frontBottom - regionTop + 8,
-    pagesTop - regionTop - 20,
+    pagesTop - regionTop - Math.max(20, pad),
   );
   if (shift > 0) region.scrollTop += shift;
 }

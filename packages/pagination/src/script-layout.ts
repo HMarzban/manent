@@ -30,6 +30,8 @@ export interface ScriptLayoutSettings {
   readonly sceneNumberSides: SceneNumberSides | null;
   /** Per-element style overrides from `script.style`, in layout units. */
   readonly elements?: ProfileOptions["elements"];
+  /** Manuscript line spacing override from `script.lineSpacing` (1 = single); omitted for default double-spacing. */
+  readonly lineSpacing?: 1 | 2;
 }
 
 /** The script settings the page profile is made from. */
@@ -42,6 +44,7 @@ export const LAYOUT_SETTING_KEYS: readonly string[] = Object.freeze([
   "script.style",
   "script.linesPerPage",
   "script.sceneNumbers",
+  "script.lineSpacing",
 ]);
 
 /** The defaults of the `script.*` layout settings, and scenes not numbered. */
@@ -175,6 +178,7 @@ export function readLayoutSettings(
 ): ScriptLayoutSettings {
   const d = DEFAULT_LAYOUT_SETTINGS;
   const elements = readElementStyle(read("script.style"));
+  const lineSpacing = read("script.lineSpacing") === "single" ? 1 : undefined;
   return {
     format: stringOr(read("script.format"), d.format),
     paper: stringOr(read("script.paper"), d.paper),
@@ -188,6 +192,7 @@ export function readLayoutSettings(
     scenesNumbered: false,
     sceneNumberSides: readSceneNumberSides(read("script.sceneNumbers")),
     ...(elements === undefined ? {} : { elements }),
+    ...(lineSpacing === undefined ? {} : { lineSpacing }),
   };
 }
 
@@ -207,5 +212,8 @@ export function profileFromSettings(
       ? {}
       : { sceneNumberSides: s.sceneNumberSides }),
     ...(s.elements === undefined ? {} : { elements: s.elements }),
+    ...(s.lineSpacing === undefined
+      ? {}
+      : { manuscriptLineSpacing: s.lineSpacing }),
   });
 }

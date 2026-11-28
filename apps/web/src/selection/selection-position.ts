@@ -10,6 +10,8 @@ const PAGE_REGION = "[data-region='page']";
 const TOOLBAR = "[data-selection-toolbar]";
 // the bar's height and its gap, rem: with less of the page than this above the selection, the bar stands under it
 const BAR_ROOM_REM = 2.5;
+// extra top clearance when the floating Book format bar sits over the top of the page
+const FLOATING_BAR_ROOM_REM = 5.75;
 
 type Side = "above" | "below";
 
@@ -49,10 +51,14 @@ function placeOfSelection(): Place | null {
   const visibleBottom = Math.min(rect.bottom, page.bottom);
   const rootPx =
     parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const room = BAR_ROOM_REM * rootPx;
+  const hasFloatingBar = region.getAttribute("data-floating-bar") === "true";
+  const topRoom =
+    (hasFloatingBar ? FLOATING_BAR_ROOM_REM : BAR_ROOM_REM) * rootPx;
+  const bottomRoom = BAR_ROOM_REM * rootPx;
   const x = rect.left + rect.width / 2;
-  if (visibleTop - page.top >= room) return { x, y: visibleTop, side: "above" };
-  if (page.bottom - visibleBottom >= room)
+  if (visibleTop - page.top >= topRoom)
+    return { x, y: visibleTop, side: "above" };
+  if (page.bottom - visibleBottom >= bottomRoom)
     return { x, y: visibleBottom, side: "below" };
   return { x, y: page.top + EDGE_PX, side: "below" };
 }

@@ -66,8 +66,12 @@ export const WRITING_TOOLS_WORDS = Object.freeze({
   reports: "Reports…",
   numbersPages: "Pages",
   numbersScenes: "Scenes",
+  numbersChapters: "Chapters",
+  numbersWords: "Words",
   numbersEstimatedRuntime: "Estimated runtime",
   numbersRuntimeNote: "An estimate: one minute a page.",
+  numbersReadingTimeNote: (duration: string): string =>
+    `Estimated reading time: ${duration} (at 250 words a minute).`,
   numbersEighths: "Eighths",
   numbersScene: (number: string): string => `Sc. ${number}`,
   numbersDialogueByCharacter: "Dialogue by character",

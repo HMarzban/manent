@@ -1,8 +1,8 @@
 // The script as a Fountain file, written from the open editor's script.
 import { IMPORT_WORDS } from "@manent/ui";
 import {
-  PAGED_FORMATS,
   SCRIPT_FILES,
+  SCRIPT_ONLY_FORMATS,
   writeScriptFile,
   scriptFileLeftOut,
 } from "../script-file.ts";
@@ -13,7 +13,7 @@ export const fountainFileType: ExportFileType = {
   label: IMPORT_WORDS.asFountain,
   mime: SCRIPT_FILES.fountain.mime,
   docKinds: ["script"],
-  formats: PAGED_FORMATS,
+  formats: SCRIPT_ONLY_FORMATS,
   forms: ["export"],
   print: { offered: false, reason: null },
   lockedOnly: false,

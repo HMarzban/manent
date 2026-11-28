@@ -21,7 +21,7 @@ function unitNouns(format: string, kind: Kind | null): UnitNouns {
 
 function describeFor(format: string, kind: Kind | null): string {
   if (format === "manuscript")
-    return "Describe a chapter. It becomes a chapter when you write it.";
+    return "Title a new chapter to add it to your book.";
   if (format === "variety" && kind === "podcast")
     return "Describe a segment. It becomes a segment when you write it.";
   if (format === "variety")
