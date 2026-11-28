@@ -4,6 +4,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,6 +16,7 @@ import {
   parseMacFootprintBytes,
   sumDesktopRss,
 } from "../desktop/installed-app.ts";
+import { installedVersion } from "../desktop/smoke.ts";
 
 test("installOf resolves symlinked install roots to their canonical path and falls back to resolve when absent", () => {
   const base = mkdtempSync(join(tmpdir(), "manent-installed-app-"));
@@ -133,4 +135,18 @@ test("parseMacFootprintBytes extracts physical footprint in bytes from footprint
     ),
   ).toBe(Math.round(142.5 * 1024 * 1024));
   expect(parseMacFootprintBytes("no footprint line here\n")).toBeNull();
+});
+
+test("installedVersion reads the version field from Resources/version.json and returns null when absent", () => {
+  const base = mkdtempSync(join(tmpdir(), "manent-version-"));
+  try {
+    expect(installedVersion(base)).toBeNull();
+    writeFileSync(
+      join(base, "version.json"),
+      JSON.stringify({ version: "0.0.2", channel: "canary" }),
+    );
+    expect(installedVersion(base)).toBe("0.0.2");
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
 });

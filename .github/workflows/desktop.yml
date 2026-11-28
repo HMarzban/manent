@@ -52,6 +52,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test --parallel ./packages/local-node/test/instance-lock.test.ts ./packages/local-node/test/open-store.test.ts
       - run: bun run desktop:build --channel canary --version 0.0.1 --update-url http://127.0.0.1:47471/
+        env:
+          MANENT_CEF_DISABLE_GPU: ${{ runner.os == 'Linux' && '1' || '' }}
       - run: bun run desktop:check
       - run: bun tools/desktop/check-size.ts apps/desktop/artifacts/Manent-0.0.1-canary-*
       - name: Keep the installer
@@ -101,6 +103,8 @@ jobs:
           find "$root" -type f \( -perm -u+x -o -name '*.so*' \) |
             while read -r file; do echo "== $file"; ldd "$file" 2>&1 || true; done > results/ldd-linux.txt
       - run: bun run desktop:build --channel canary --version 0.0.2 --update-url http://127.0.0.1:47471/
+        env:
+          MANENT_CEF_DISABLE_GPU: ${{ runner.os == 'Linux' && '1' || '' }}
       - name: Keep the update
         run: |
           mkdir -p "${{ runner.temp }}/update-0.0.2"

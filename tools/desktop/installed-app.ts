@@ -191,6 +191,11 @@ export async function quit(install: Install): Promise<void> {
   }
 }
 
+/** True when at least one process under `install.root` is currently running. */
+export function isRunning(install: Install): boolean {
+  return appProcesses(install.root).length > 0;
+}
+
 /** Resident memory summed over the desktop app's own processes (excluding the embedded demo cloud); null where the system lists none. */
 export function idleRss(install: Install): number | null {
   return sumDesktopRss(appProcesses(install.root));

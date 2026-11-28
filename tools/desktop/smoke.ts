@@ -18,6 +18,7 @@ import type { NodeFile } from "@manent/local-node";
 import {
   idleRss,
   installOf,
+  isRunning,
   launch,
   quit,
   stopCloud,
@@ -134,6 +135,23 @@ function serveUpdates(dir: string): { stop(): Promise<void> } {
   });
 }
 
+/** The version written inside an installed app's `Resources/version.json`, or null when unreadable. */
+export function installedVersion(resourcesDir: string): string | null {
+  try {
+    const value: unknown = JSON.parse(
+      readFileSync(join(resourcesDir, "version.json"), "utf8"),
+    );
+    return typeof value === "object" &&
+      value !== null &&
+      "version" in value &&
+      typeof value.version === "string"
+      ? value.version
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The update: checked for while running, applied at the next launch, and the waiting edit then synced. */
 async function updated(
   app: string,
@@ -151,6 +169,23 @@ async function updated(
     await quit(install);
     void launch(app, dataDir).exited;
     const version = offeredVersion(from);
+    if (process.platform === "win32") {
+      // Electrobun applies Windows updates through Task Scheduler, whose session does not
+      // inherit our temporary MANENT_DATA_DIR. Wait for the on-disk swap to `version`, stop
+      // the default-profile instance it relaunched, and reopen on `dataDir`.
+      await waitFor("the updated binary", UPDATE_WAIT_MS, () =>
+        installedVersion(install.resources) === version ? true : null,
+      );
+      try {
+        await waitFor("the relaunched app", 5_000, () =>
+          isRunning(install) ? true : null,
+        );
+      } catch {
+        // helper exited without leaving a running instance
+      }
+      await quit(install);
+      void launch(app, dataDir).exited;
+    }
     const node = await waitFor("the updated app", UPDATE_WAIT_MS, async () => {
       const file = readNodeFile(dataDir);
       return file !== null &&

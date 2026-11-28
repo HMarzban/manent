@@ -1,15 +1,26 @@
 // The build of the desktop app. The version and the update address are set in the environment by the build script.
-const memoryFlags: Record<string, string> = {
+const memoryFlags: Record<string, string | boolean> = {
   "disable-features": "SpareRendererForSitePerProcess,BackForwardCache",
   "renderer-process-limit": "1",
   "disk-cache-size": "16777216",
 };
-const debugFlags: Record<string, string> = process.env.MANENT_DEBUG_PORT
+const debugFlags: Record<string, string | boolean> = process.env
+  .MANENT_DEBUG_PORT
   ? { "remote-debugging-port": process.env.MANENT_DEBUG_PORT }
   : {};
-const chromiumFlags: Record<string, string> = {
+const chromiumFlags: Record<string, string | boolean> = {
   ...memoryFlags,
   ...debugFlags,
+};
+// Electrobun's Linux launcher preloads libvk_swiftshader.so; disable Vulkan so Ubuntu 24.04
+// stack-protected helpers do not abort in software/Xvfb environments, and allow CI to skip GPU.
+const linuxChromiumFlags: Record<string, string | boolean> = {
+  ...chromiumFlags,
+  "disable-features": "SpareRendererForSitePerProcess,BackForwardCache,Vulkan",
+  "disable-vulkan": true,
+  ...(process.env.MANENT_CEF_DISABLE_GPU === "1"
+    ? { "disable-gpu": true, "disable-gpu-compositing": true }
+    : {}),
 };
 
 const urlSchemes: string[] = ["manent"];
@@ -56,7 +67,7 @@ export default {
     linux: {
       bundleCEF: true,
       defaultRenderer: "cef",
-      chromiumFlags,
+      chromiumFlags: linuxChromiumFlags,
       icon: "assets/icon.png",
     },
   },

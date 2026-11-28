@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Wait for Windows Task Scheduler binary swaps before reopening `MANENT_DATA_DIR`, and disable Linux Vulkan SwiftShader under CEF
+
+- Date: 2026-11-28
+
+### What happened
+
+The third cross-platform `desktop` workflow run confirmed Windows built, installed, launched, synced and downloaded `0.0.2` cleanly, and Linux PSS dropped `idleRssBytes` from `1.17 GB` to `536.8 MB`, leaving two runtime quirks: (1) on Windows, Electrobun's `Updater.applyUpdate()` hands off to a Windows Task Scheduler job (`schtasks.exe /run`) whose clean session does not inherit `smoke.ts`'s temporary `MANENT_DATA_DIR`, so `smoke.ts` timed out waiting for `node.json` in the temp directory while `0.0.2` had already relaunched under `%APPDATA%\Manent`; and (2) on Linux (`ubuntu-24.04`), Electrobun preloads `libvk_swiftshader.so`, causing CEF GPU/SwiftShader helper processes to abort with `*** stack smashing detected ***` and stall `firstFrameMs` to `27.5 s` under Xvfb.
+
+### How it was caught
+
+By reading `windowsTaskPlan` in Electrobun's `updater_handoff.zig` alongside the `desktop (windows-2025)` and `desktop (ubuntu-24.04)` smoke logs.
+
+### Rule
+
+In Windows update smoke checks, wait for `Resources/version.json` inside the install root to reach the offered version, stop the Task-Scheduler-relaunched default-profile process, and relaunch the updated binary with `MANENT_DATA_DIR` so pending outbox sync is verified on the exact data folder. In `apps/desktop/electrobun.config.ts`, disable Vulkan on Linux CEF builds (`disable-vulkan` + `Vulkan` in `disable-features`) and allow `MANENT_CEF_DISABLE_GPU=1` for headless Linux Xvfb CI runs.
+
+### Enforced by
+
+`tools/desktop/smoke.ts`, `tools/test/desktop-installed-app.test.ts`, `apps/desktop/electrobun.config.ts`, and `.github/workflows/desktop.yml`.
+
 ## Drive Electrobun's Windows installer with `ELECTROBUN_INSTALLER_UI_AUTOCLOSE=1`, use 24-bit Xvfb + PSS on Linux smoke, and construct OS-native `file://` URLs in tests
 
 - Date: 2026-11-28
