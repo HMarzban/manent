@@ -75,6 +75,7 @@ test("storage connections default to full durability and set cache and temporary
     ),
   ).toEqual([
     { name: "doc_directory_by_home" },
+    { name: "doc_directory_by_home_kind" },
     { name: "draft_links_by_send" },
     { name: "draft_links_by_token" },
     { name: "share_links_by_doc" },
@@ -375,6 +376,27 @@ test("an aborted storage transaction rolls back every control write across drive
       }),
     ).toThrow(StorageError);
     expect(s.directory.placeOf(DOC2)).toBeNull();
+    s.close();
+  }
+});
+
+test("directory.documentsIn filters by document kind across drivers", async () => {
+  const drivers: (() => Promise<Storage>)[] = [
+    async () => openSqliteStorage({ dir: await trees.tree(), now }),
+    async () => createMemoryStorage({ now }),
+  ];
+  const DOC3 = "33333333-3333-7333-8333-333333333333";
+  for (const make of drivers) {
+    const s = await make();
+    s.directory.place(DOC, HOME, "script", "sam");
+    s.directory.place(DOC2, HOME, "rundown", "sam");
+    s.directory.place(DOC3, HOME, "script", "sam");
+    expect(s.directory.documentsIn(HOME)).toEqual([DOC, DOC2, DOC3].toSorted());
+    expect(s.directory.documentsIn(HOME, "rundown")).toEqual([DOC2]);
+    expect(s.directory.documentsIn(HOME, "script")).toEqual(
+      [DOC, DOC3].toSorted(),
+    );
+    expect(s.directory.documentsIn(HOME, "notes")).toEqual([]);
     s.close();
   }
 });

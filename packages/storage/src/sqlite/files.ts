@@ -40,7 +40,10 @@ export function openDatabase(
   let db: Database | null = null;
   try {
     db = new Database(path, { create: true, strict: true });
-    db.run("PRAGMA journal_mode = WAL");
+    const mode = db
+      .query<{ journal_mode: string }, []>("PRAGMA journal_mode")
+      .get()?.journal_mode;
+    if (mode !== "wal") db.run("PRAGMA journal_mode = WAL");
     applyDurability(db, options?.durability ?? "full");
     db.run("PRAGMA cache_size = -16000");
     db.run("PRAGMA temp_store = MEMORY");

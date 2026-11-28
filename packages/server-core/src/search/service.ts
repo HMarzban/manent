@@ -1,5 +1,4 @@
 // The search service: session-end and post-seed indexing, query parsing, strict server-side access filtering, and shutdown.
-import type { SearchIndex, Storage } from "@manent/storage";
 import {
   SEARCH_QUERY_MAX_LEN,
   SEARCH_RESULT_LIMIT,
@@ -8,12 +7,11 @@ import {
 } from "@manent/sync-protocol";
 import type {
   DocKind,
-  HttpErrorCode,
   SearchResponse,
   SearchResult,
 } from "@manent/sync-protocol";
 import { createSessions } from "../history/sessions.ts";
-import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
+import type { SyncHooks } from "../sync/ports.ts";
 import type { Room } from "../sync/rooms.ts";
 import { SEARCH_EXTRACTORS } from "./extractors.ts";
 import { createSearchMetadataCache } from "./metadata-cache.ts";
@@ -29,43 +27,26 @@ import {
 } from "./metadata.ts";
 import type { FolderInfo, IndexedDocMeta } from "./metadata.ts";
 import { parseSearchQuery } from "./query-parser.ts";
+import type {
+  SearchOutcome,
+  SearchRefusal,
+  SearchRequest,
+  SearchService,
+  SearchServiceOptions,
+} from "./types.ts";
+
+export type {
+  SearchOutcome,
+  SearchRefusal,
+  SearchRequest,
+  SearchService,
+  SearchServiceOptions,
+} from "./types.ts";
 
 const SESSION_IDLE_MS = 600_000;
+/** Pause between background catch-up documents when debounced, keeping the serving event loop responsive. */
+const CATCH_UP_STEP_MS = 10;
 const WORKSPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-export type SearchRefusal = Extract<HttpErrorCode, "bad_request" | "forbidden">;
-
-export type SearchOutcome<T> =
-  { ok: true; value: T } | { ok: false; code: SearchRefusal };
-
-export interface SearchRequest {
-  readonly q: string;
-  /** Workspace slug (e.g. `"heavy"`), or null for cross-workspace palette search. */
-  readonly workspaceId: string | null;
-  readonly tz?: string | null;
-  /** Workspace slugs the caller belongs to (from server directory) for mapping index ids back to slugs. */
-  readonly knownWorkspaces?: readonly string[];
-}
-
-export interface SearchService {
-  readonly hooks: SyncHooks;
-  search(userId: string, request: SearchRequest): SearchOutcome<SearchResponse>;
-  /** Indexes or refreshes every placed searchable document whose head or metadata changed, removing gone/tombstoned entries. */
-  catchUpNow(): void;
-  /** Cancels background catch-up and closes the derived search index. */
-  stop(): void;
-}
-
-export interface SearchServiceOptions {
-  readonly storage: Storage;
-  readonly sync: () => SyncService;
-  readonly clock: Clock;
-  readonly searchIndex: SearchIndex;
-  /** When true, runs incremental startup catch-up via `clock.schedule` one document per yield. */
-  readonly scheduleCatchUp?: boolean;
-  /** Debounce window before starting post-commit catch-up; defaults to 0 so test clocks run immediately. */
-  readonly catchUpDebounceMs?: number;
-}
 
 const refused = (code: SearchRefusal) => ({ ok: false, code }) as const;
 
@@ -75,6 +56,8 @@ export function createSearchService(
   const { storage, sync, clock, searchIndex } = options;
   const debounceMs = options.catchUpDebounceMs ?? 0;
   const maxWaitMs = debounceMs * 5;
+  const stepDelay = (): number =>
+    debounceMs > 0 && pendingQueue.length > 8 ? CATCH_UP_STEP_MS : 0;
   const metadata = createSearchMetadataCache(storage);
   /** Last indexed metadata fingerprint per docId so title/folder renames refresh even when body seq is unchanged. */
   const metaCache = new Map<string, string>();
@@ -93,22 +76,24 @@ export function createSearchService(
     liveRoom?: Room,
   ): void {
     if (stopped) return;
-    if (storage.directory.tombstoneOf(docId) !== null) {
-      searchIndex.remove(docId);
-      metaCache.delete(docId);
-      return;
-    }
+    const removeStale = (id: string): void => {
+      searchIndex.remove(id);
+      metaCache.delete(id);
+    };
+    if (storage.directory.tombstoneOf(docId) !== null)
+      return removeStale(docId);
     const place = storage.directory.placeOf(docId);
-    if (place === null || !isDocKind(place.kind)) {
-      searchIndex.remove(docId);
-      metaCache.delete(docId);
-      return;
-    }
+    if (place === null || !isDocKind(place.kind)) return removeStale(docId);
     const kind = place.kind;
     if (!SEARCH_EXTRACTORS.some((e) => e.kind === kind)) return;
     const resolvedMeta = meta ?? fallbackMeta(docId, kind, storage);
     const fingerprint = metaFingerprint(resolvedMeta);
     const head = searchIndex.headOf(docId);
+    const isUpToDate = (generation: number, seq: number): boolean =>
+      head !== null &&
+      head.generation === generation &&
+      head.seq === seq &&
+      metaCache.get(docId) === fingerprint;
     const putExtracted = (
       doc: Parameters<typeof extractForKind>[1],
       generation: number,
@@ -126,20 +111,17 @@ export function createSearchService(
         changedAt: resolvedMeta.changedAt,
         generation,
         seq,
-        text: extracted.text,
-        editorText: extracted.editorText,
+        ...extracted,
       });
       metaCache.set(docId, fingerprint);
     };
-    const isUpToDate = (generation: number, seq: number): boolean =>
-      head !== null &&
-      head.generation === generation &&
-      head.seq === seq &&
-      metaCache.get(docId) === fingerprint;
     if (liveRoom !== undefined && liveRoom.doc !== null) {
-      const { generation, headSeq } = liveRoom.row;
-      if (isUpToDate(generation, headSeq)) return;
-      putExtracted(liveRoom.doc, generation, headSeq);
+      if (!isUpToDate(liveRoom.row.generation, liveRoom.row.headSeq))
+        putExtracted(
+          liveRoom.doc,
+          liveRoom.row.generation,
+          liveRoom.row.headSeq,
+        );
       return;
     }
     const logRow = storage.open(place.home).log.get(docId);
@@ -179,11 +161,17 @@ export function createSearchService(
     if (stopped) return;
     const docId = pendingQueue.shift();
     if (docId !== undefined) {
-      const metaByDoc = catchUpMeta ?? metadata.collectAll();
-      indexDoc(docId, metaByDoc.get(docId) ?? null);
+      try {
+        indexDoc(
+          docId,
+          (catchUpMeta ?? metadata.collectAll()).get(docId) ?? null,
+        );
+      } catch {
+        // derived search cache skips unreadable documents; primary sync/healing handles them
+      }
     }
     if (pendingQueue.length > 0 && !stopped) {
-      cancelStep = clock.schedule(stepCatchUp, 0);
+      cancelStep = clock.schedule(stepCatchUp, stepDelay());
       return;
     }
     catchUpMeta = null;
@@ -199,10 +187,17 @@ export function createSearchService(
       catchUpAgain = true;
       return;
     }
-    pruneStaleEntries();
-    catchUpMeta = metadata.collectAll();
-    pendingQueue = collectSearchableIds(storage);
-    if (pendingQueue.length > 0) cancelStep = clock.schedule(stepCatchUp, 0);
+    try {
+      pruneStaleEntries();
+      catchUpMeta = metadata.collectAll();
+      pendingQueue = collectSearchableIds(storage);
+    } catch {
+      catchUpMeta = null;
+      pendingQueue = [];
+      return;
+    }
+    if (pendingQueue.length > 0)
+      cancelStep = clock.schedule(stepCatchUp, stepDelay());
     else catchUpMeta = null;
   }
 
@@ -239,8 +234,12 @@ export function createSearchService(
       return;
     }
     if (!SEARCH_EXTRACTORS.some((e) => e.kind === room.kind)) return;
-    const metaByDoc = metadata.collectAll();
-    indexDoc(room.docId, metaByDoc.get(room.docId) ?? null, room);
+    try {
+      const metaByDoc = metadata.collectAll();
+      indexDoc(room.docId, metaByDoc.get(room.docId) ?? null, room);
+    } catch {
+      // derived search cache never crashes a room lifecycle hook
+    }
   }
 
   const sessions = createSessions({
@@ -347,19 +346,17 @@ export function createSearchService(
       editorDocIds,
       limit: SEARCH_RESULT_LIMIT,
     });
-
     const results: SearchResult[] = [];
     for (const hit of hits) {
       const meta = candidates.get(hit.docId);
       const kind = resolvedKinds.get(hit.docId);
       if (meta === undefined || kind === undefined) continue;
-      const slug =
-        meta.workspaceIndexId === null
-          ? null
-          : (indexIdToSlug.get(meta.workspaceIndexId) ?? request.workspaceId);
       results.push({
         docId: hit.docId,
-        workspaceId: slug,
+        workspaceId:
+          meta.workspaceIndexId === null
+            ? null
+            : (indexIdToSlug.get(meta.workspaceIndexId) ?? request.workspaceId),
         title: meta.title,
         projectTitle: meta.projectTitle,
         kind,
@@ -383,13 +380,10 @@ export function createSearchService(
     stop() {
       stopped = true;
       cancelDebounce?.();
-      cancelDebounce = null;
-      debounceStartedAt = null;
       cancelStep?.();
-      cancelStep = null;
+      cancelDebounce = cancelStep = debounceStartedAt = catchUpMeta = null;
       catchUpAgain = false;
       pendingQueue = [];
-      catchUpMeta = null;
       dirtyUserIndexes.clear();
       metadata.clear();
       searchIndex.close();

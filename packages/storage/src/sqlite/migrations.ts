@@ -43,6 +43,9 @@ export const MIGRATIONS: {
     ],
     [`ALTER TABLE draft_links ADD COLUMN open INTEGER NOT NULL DEFAULT 0`],
     [...ASSETS_MIGRATION.control],
+    [
+      `CREATE INDEX IF NOT EXISTS doc_directory_by_home_kind ON doc_directory (home, kind, doc_id)`,
+    ],
   ],
   documents: [
     [
@@ -123,6 +126,7 @@ export const MIGRATIONS: {
     ],
     [`ALTER TABLE draft_sends ADD COLUMN direct_recipient_count INTEGER`],
     [...ASSETS_MIGRATION.documents],
+    [],
   ],
   checkpoints: [
     [
@@ -153,5 +157,8 @@ export const MIGRATIONS: {
     ],
     [],
     [...ASSETS_MIGRATION.checkpoints],
+    [
+      `ALTER TABLE doc_checkpoints ADD COLUMN encoding INTEGER NOT NULL DEFAULT 0`,
+    ],
   ],
 });

@@ -338,3 +338,119 @@ test("rundown root fields and columns are type-checked on every client push", as
   badColArrDoc.destroy();
   sync.detach(sam);
 });
+
+test("multiple linked stories coalesce into a single rundown duration commit", async () => {
+  const fc = fakeClock(10_000);
+  const { storage, sync } = createWorld(fc);
+  const home = `project:${PROJECT}`;
+  const SCRIPT_B = "33333333-3333-7333-8333-333333333334";
+  sync.access.create("sam", { docId: RUNDOWN, kind: "rundown", home });
+  sync.access.create("sam", { docId: SCRIPT, kind: "script", home });
+  sync.access.create("sam", { docId: SCRIPT_B, kind: "script", home });
+  storage.directory.setRole(RUNDOWN, "sam", "owner", ["edit_rundowns"]);
+
+  const sam = fakePeer({ userId: "sam", name: "Sam" });
+  sync.attach(sam);
+  const writeScript = (docId: string, clientId: number, text: string) => {
+    const doc = createDoc({ clientId });
+    scriptBody(doc).write((w) =>
+      w.insertBlocks(null, [
+        {
+          type: "block",
+          attrs: { id: BLK_LINE, type: "dialogue" },
+          content: [{ type: "text", text }],
+        },
+      ]),
+    );
+    sync.receive(sam, {
+      type: "SUBSCRIBE",
+      docId,
+      generation: 0,
+      mode: "edit",
+      clientIds: [clientId],
+      lastServerSeq: 0,
+    });
+    sync.receive(sam, {
+      type: "PUSH",
+      docId,
+      generation: 1,
+      clientSeq: 1,
+      update: doc.encodeState(),
+      heal: false,
+    });
+    doc.destroy();
+  };
+  writeScript(
+    SCRIPT,
+    31,
+    "One two three four five six seven eight. ".repeat(8),
+  );
+  writeScript(
+    SCRIPT_B,
+    32,
+    "Alpha beta gamma delta epsilon zeta eta theta. ".repeat(8),
+  );
+
+  const rdDoc = createDoc({ clientId: 33 });
+  initRundown(
+    rdDoc,
+    {
+      airDate: "2026-11-25",
+      airAt: 20_000,
+      windowLeadMs: 15_000,
+      targetMs: 60_000,
+    },
+    SHOW_COLUMNS,
+  );
+  insertRows(
+    rdDoc,
+    [
+      { id: "row-a-0000000001", kind: "script", docId: SCRIPT, blockId: null },
+      {
+        id: "row-b-0000000002",
+        kind: "script",
+        docId: SCRIPT_B,
+        blockId: null,
+      },
+    ],
+    null,
+  );
+  sync.receive(sam, {
+    type: "SUBSCRIBE",
+    docId: RUNDOWN,
+    generation: 0,
+    mode: "edit",
+    clientIds: [33],
+    lastServerSeq: 0,
+  });
+  sync.receive(sam, {
+    type: "PUSH",
+    docId: RUNDOWN,
+    generation: 1,
+    clientSeq: 1,
+    update: rdDoc.encodeState(),
+    heal: false,
+  });
+  await flushAll(fc);
+  const file = storage.open({ kind: "project", id: PROJECT });
+  expect(file.log.get(RUNDOWN)!.headSeq).toBe(1);
+
+  fc.advance(500);
+  await flushAll(fc);
+
+  // Both rows timed in ONE coalesced authorityWrite (headSeq 1 -> 2, not 3)
+  expect(file.log.get(RUNDOWN)!.headSeq).toBe(2);
+  const loaded = createDoc();
+  for (const entry of file.log.tail(RUNDOWN, 1, 0).rows)
+    loaded.applyUpdate(entry.update, "load");
+  const rows = readRundown(loaded).rows;
+  expect(
+    rows.find((r) => r.id === "row-a-0000000001")?.durationMs,
+  ).toBeGreaterThan(0);
+  expect(
+    rows.find((r) => r.id === "row-b-0000000002")?.durationMs,
+  ).toBeGreaterThan(0);
+  loaded.destroy();
+  rdDoc.destroy();
+  sync.detach(sam);
+});

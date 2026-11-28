@@ -1,4 +1,5 @@
 // A home's checkpoints and measures, in a file of their own beside its document file, so writing one never holds the log's writer.
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import type { Database } from "bun:sqlite";
 import { sha256 } from "../checksum.ts";
 import type { Checkpoints, Measures } from "../ports/index.ts";
@@ -6,6 +7,41 @@ import { CHECKPOINTS_KEPT } from "../ports/index.ts";
 import { migrate, openDatabase, transact } from "./files.ts";
 import type { SqliteDurability } from "./files.ts";
 import { createSqliteMeasures } from "./measures.ts";
+
+/** Raw stored bytes (`0`) or raw-deflate compressed (`1`); small states stay raw. */
+const ENCODING_RAW = 0;
+const ENCODING_DEFLATE = 1;
+const COMPRESS_MIN_BYTES = 128;
+
+function encodeState(state: Uint8Array): {
+  bytes: Uint8Array;
+  encoding: number;
+} {
+  if (state.byteLength < COMPRESS_MIN_BYTES)
+    return { bytes: state, encoding: ENCODING_RAW };
+  const compressed = deflateRawSync(state, { level: 1 });
+  if (compressed.byteLength >= state.byteLength)
+    return { bytes: state, encoding: ENCODING_RAW };
+  return {
+    bytes: new Uint8Array(
+      compressed.buffer,
+      compressed.byteOffset,
+      compressed.byteLength,
+    ),
+    encoding: ENCODING_DEFLATE,
+  };
+}
+
+function decodeState(bytes: Uint8Array, encoding: number): Uint8Array | null {
+  if (encoding === ENCODING_RAW) return bytes;
+  if (encoding !== ENCODING_DEFLATE) return null;
+  try {
+    const out = inflateRawSync(bytes);
+    return new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
+  } catch {
+    return null;
+  }
+}
 
 /** The checkpoints file's repositories, which the storage closes when it closes. */
 interface CheckpointsFile {
@@ -18,16 +54,17 @@ interface StoredCheckpoint {
   seq: number;
   state: Uint8Array;
   sha: Uint8Array;
+  encoding: number;
 }
 
 function prepare(db: Database) {
   return {
     put: db.query<
       never,
-      [string, number, number, Uint8Array, Uint8Array, number]
+      [string, number, number, Uint8Array, Uint8Array, number, number]
     >(
-      `INSERT INTO doc_checkpoints (doc_id, generation, seq, state, sha256, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-       ON CONFLICT (doc_id, generation, seq) DO UPDATE SET state = excluded.state, sha256 = excluded.sha256, created_at = excluded.created_at`,
+      `INSERT INTO doc_checkpoints (doc_id, generation, seq, state, sha256, created_at, encoding) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       ON CONFLICT (doc_id, generation, seq) DO UPDATE SET state = excluded.state, sha256 = excluded.sha256, created_at = excluded.created_at, encoding = excluded.encoding`,
     ),
     // a pin keeps the newest checkpoint at or before its seq; a pin with none keeps nothing, and NULL never reaches NOT IN
     trim: db.query<never, [string, number, number]>(
@@ -51,7 +88,7 @@ function prepare(db: Database) {
       "DELETE FROM checkpoint_pins WHERE doc_id = ?1 AND generation = ?2",
     ),
     newestOne: db.query<StoredCheckpoint, [string, number, number]>(
-      "SELECT seq, state, sha256 AS sha FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq <= ?3 ORDER BY seq DESC LIMIT 1",
+      "SELECT seq, state, sha256 AS sha, encoding FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq <= ?3 ORDER BY seq DESC LIMIT 1",
     ),
     drop: db.query<never, [string, number, number]>(
       "DELETE FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq = ?3",
@@ -67,8 +104,18 @@ function createCheckpoints(
   const sql = () => (prepared ??= prepare(open()));
   const checkpoints: Checkpoints = {
     put(docId, generation, seq, state) {
+      const digest = sha256(state);
+      const encoded = encodeState(state);
       transact(open(), () => {
-        sql().put.run(docId, generation, seq, state, sha256(state), now());
+        sql().put.run(
+          docId,
+          generation,
+          seq,
+          encoded.bytes,
+          digest,
+          now(),
+          encoded.encoding,
+        );
         sql().trim.run(docId, generation, CHECKPOINTS_KEPT);
       });
     },
@@ -79,8 +126,9 @@ function createCheckpoints(
       for (;;) {
         const row = sql().newestOne.get(docId, generation, bound);
         if (row === null) return null;
-        if (sha256(row.state).toHex() === row.sha.toHex())
-          return { seq: row.seq, state: row.state };
+        const decoded = decodeState(row.state, row.encoding);
+        if (decoded !== null && sha256(decoded).toHex() === row.sha.toHex())
+          return { seq: row.seq, state: decoded };
         transact(open(), () => sql().drop.run(docId, generation, row.seq));
         bound = row.seq - 1;
       }

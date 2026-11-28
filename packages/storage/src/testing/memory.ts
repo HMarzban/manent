@@ -229,9 +229,13 @@ function createDirectory(ctx: Context): Storage["directory"] {
       return { home: { ...home }, kind, created: true };
     },
     placeOf: placed,
-    documentsIn: (home) =>
+    documentsIn: (home, kind) =>
       [...state().places]
-        .filter(([, place]) => homeKey(place.home) === homeKey(home))
+        .filter(
+          ([, place]) =>
+            homeKey(place.home) === homeKey(home) &&
+            (kind === undefined || place.kind === kind),
+        )
         .map(([docId]) => docId)
         .toSorted(),
     homes: () =>

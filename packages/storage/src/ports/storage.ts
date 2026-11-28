@@ -7,7 +7,7 @@ import type { ShareLinkStore } from "./sharing.ts";
 import type { TrashStore } from "./trash.ts";
 import type { WorkspaceSettingsStore } from "./workspace.ts";
 
-export const STORAGE_SCHEMA_VERSION = 12;
+export const STORAGE_SCHEMA_VERSION = 13;
 
 /** Maximum combined binary asset size per project file: 200 MiB. */
 export const PROJECT_ASSETS_MAX_BYTES = 200 * 1024 * 1024;

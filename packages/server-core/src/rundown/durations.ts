@@ -24,8 +24,9 @@ interface StoryTiming {
   readonly slugTimes: ReadonlyMap<string, number>;
 }
 
-interface PendingRecompute {
+interface PendingRundownRecompute {
   cancel: () => void;
+  stories: Set<string>;
   isRetry: boolean;
 }
 
@@ -92,15 +93,16 @@ function linkChangedStories(
   return [...stories];
 }
 
-function writeStoryDurations(
+function writeStoriesDurations(
   doc: CrdtDoc,
-  storyDocId: string,
-  timing: StoryTiming,
+  timings: ReadonlyMap<string, StoryTiming>,
 ): { ok: true } {
   const live = readRundown(doc);
   const updates = new Map<string, number | null>();
   for (const row of live.rows) {
-    if (row.kind !== "script" || row.docId !== storyDocId) continue;
+    if (row.kind !== "script" || row.docId === null) continue;
+    const timing = timings.get(row.docId);
+    if (timing === undefined) continue;
     const next =
       row.blockId === null
         ? timing.wholeMs
@@ -113,7 +115,7 @@ function writeStoryDurations(
 
 /**
  * Sync hooks that time each story with linked rundown rows in a coalesced 500 ms window
- * and write `durationMs` on every linked `script` row via one `authorityWrite` per rundown.
+ * per rundown and write `durationMs` for all dirty stories in one `authorityWrite` per rundown.
  * Rooms in `relay` mode write nothing.
  */
 export function createRundownDurations(options: {
@@ -125,7 +127,7 @@ export function createRundownDurations(options: {
   const { clock, storage, sync, readRateOf } = options;
   const storyLinks = createStoryLinks(storage);
   const liveScripts = new Map<string, Room>();
-  const pending = new Map<string, PendingRecompute>();
+  const pending = new Map<string, PendingRundownRecompute>();
 
   function timeStory(storyDocId: string, home: Home): StoryTiming | null {
     const readRate = readRateOf(home);
@@ -141,57 +143,66 @@ export function createRundownDurations(options: {
     }
   }
 
-  function schedule(storyDocId: string, isRetry: boolean): void {
-    const existing = pending.get(storyDocId);
+  function scheduleForRundown(
+    rundownId: string,
+    storyDocId: string,
+    isRetry: boolean,
+  ): void {
+    const existing = pending.get(rundownId);
     if (existing !== undefined) {
+      existing.stories.add(storyDocId);
       if (!isRetry) existing.isRetry = false;
       return;
     }
-    const entry: PendingRecompute = { cancel: () => {}, isRetry };
-    pending.set(storyDocId, entry);
+    const entry: PendingRundownRecompute = {
+      cancel: () => {},
+      stories: new Set([storyDocId]),
+      isRetry,
+    };
+    pending.set(rundownId, entry);
     entry.cancel = clock.schedule(() => {
-      pending.delete(storyDocId);
-      recompute(storyDocId, entry.isRetry);
+      pending.delete(rundownId);
+      recomputeRundown(rundownId, entry.stories, entry.isRetry);
     }, DURATION_COALESCE_MS);
   }
 
-  function writeRundown(
+  function recomputeRundown(
     rundownId: string,
-    storyDocId: string,
-    timing: StoryTiming,
+    stories: ReadonlySet<string>,
     isRetry: boolean,
   ): void {
+    if (storage.directory.tombstoneOf(rundownId) !== null) return;
+    const timings = new Map<string, StoryTiming>();
+    for (const storyDocId of stories) {
+      if (storage.directory.tombstoneOf(storyDocId) !== null) continue;
+      const place = storage.directory.placeOf(storyDocId);
+      if (place === null || place.kind !== "script") continue;
+      const linked = storyLinks
+        .linksOf(storyDocId)
+        .some((link) => link.kind === "script" && link.rundownId === rundownId);
+      if (!linked) continue;
+      const timing = timeStory(storyDocId, place.home);
+      if (timing !== null) timings.set(storyDocId, timing);
+    }
+    if (timings.size === 0) return;
     void sync()
       .authorityWrite(rundownId, {
         userId: SYSTEM_USER_ID,
         origin: "system",
-        edit: (doc) => writeStoryDurations(doc, storyDocId, timing),
+        edit: (doc) => writeStoriesDurations(doc, timings),
         inTransaction() {},
       })
       .then((result) => {
         if (result.ok) return;
         const retryable =
           result.code === "busy" || result.code === "commit_failed";
-        if (retryable && !isRetry) schedule(storyDocId, true);
+        if (retryable && !isRetry)
+          for (const storyDocId of timings.keys())
+            scheduleForRundown(rundownId, storyDocId, true);
       })
       .catch(() => {
         // the rundown was removed before the write ran: drop until the next commit
       });
-  }
-
-  function recompute(storyDocId: string, isRetry: boolean): void {
-    if (storage.directory.tombstoneOf(storyDocId) !== null) return;
-    const place = storage.directory.placeOf(storyDocId);
-    if (place === null || place.kind !== "script") return;
-    const links = storyLinks
-      .linksOf(storyDocId)
-      .filter((link) => link.kind === "script");
-    if (links.length === 0) return;
-    const timing = timeStory(storyDocId, place.home);
-    if (timing === null) return;
-    const rundowns = new Set(links.map((link) => link.rundownId));
-    for (const rundownId of rundowns)
-      writeRundown(rundownId, storyDocId, timing, isRetry);
   }
 
   return {
@@ -201,22 +212,33 @@ export function createRundownDurations(options: {
         storyLinks.refreshRundown(room.home, room.docId, rundown);
         if (room.mode !== "authority") return;
         for (const storyDocId of linkChangedStories(room.doc, update, rundown))
-          schedule(storyDocId, false);
+          scheduleForRundown(room.docId, storyDocId, false);
         return;
       }
       if (room.kind !== "script" || room.mode !== "authority") return;
       liveScripts.set(room.docId, room);
-      const linked = storyLinks
-        .linksOf(room.docId)
-        .some((link) => link.kind === "script");
-      if (linked) schedule(room.docId, false);
+      const rundowns = new Set<string>();
+      for (const link of storyLinks.linksOf(room.docId))
+        if (link.kind === "script") rundowns.add(link.rundownId);
+      for (const rundownId of rundowns)
+        scheduleForRundown(rundownId, room.docId, false);
     },
     forgotten(room) {
       liveScripts.delete(room.docId);
-      const entry = pending.get(room.docId);
-      if (entry === undefined) return;
-      entry.cancel();
-      pending.delete(room.docId);
+      if (room.kind === "rundown") {
+        const entry = pending.get(room.docId);
+        if (entry === undefined) return;
+        entry.cancel();
+        pending.delete(room.docId);
+        return;
+      }
+      for (const [rundownId, entry] of pending) {
+        entry.stories.delete(room.docId);
+        if (entry.stories.size === 0) {
+          entry.cancel();
+          pending.delete(rundownId);
+        }
+      }
     },
   };
 }

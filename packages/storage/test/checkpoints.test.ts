@@ -101,3 +101,34 @@ test(
   },
   { timeout: 20_000 },
 );
+
+test(
+  "compressible checkpoints are stored deflated and corrupt compressed bytes drop cleanly",
+  () => {
+    const big = new Uint8Array(2_048);
+    for (let i = 0; i < big.length; i++) big[i] = i % 13;
+    f.checkpoints.put(DOC, 1, 10, big);
+    const db = rawConnection(checkpointsPath(dir, HOME));
+    const stored = db
+      .query<{ seq: number; len: number; encoding: number }, [string]>(
+        "SELECT seq, length(state) AS len, encoding FROM doc_checkpoints WHERE doc_id = ?1",
+      )
+      .all(DOC);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]!.encoding).toBe(1);
+    expect(stored[0]!.len).toBeLessThan(big.byteLength / 4);
+    expect(f.checkpoints.newest(DOC, 1)).toEqual({ seq: 10, state: big });
+
+    // Corrupt the compressed payload and verify atOrBefore drops it cleanly instead of throwing
+    db.run(
+      "UPDATE doc_checkpoints SET state = x'ff00ff00' WHERE doc_id = ?1 AND seq = 10",
+      [DOC],
+    );
+    db.close();
+    expect(f.checkpoints.newest(DOC, 1)).toBeNull();
+    expect(
+      rawRows(checkpointsPath(dir, HOME), "SELECT seq FROM doc_checkpoints"),
+    ).toEqual([]);
+  },
+  { timeout: 20_000 },
+);

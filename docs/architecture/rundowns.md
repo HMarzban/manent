@@ -31,7 +31,7 @@ A show day or newscast is a syncing CRDT document (`kind: "rundown"`) backed by 
 Writers editing stories linked from a rundown need only `edit` access to each story, never `edit_rundowns`. Keeping the rundown's durations consistent across collaborators is the server's job:
 
 ```text
-  story commit ──► createStoryLinks ──► 500 ms coalesce per story
+  story commit ──► createStoryLinks ──► 500 ms coalesce per rundown
                                                  │
                                                  ▼
                                  timeScript() + project Read rate
@@ -43,7 +43,7 @@ Writers editing stories linked from a rundown need only `edit` access to each st
                               timeRundown() ──► Dur, Cume, Start, Back, Over
 ```
 
-- **Coalesced authority writes:** `createRundownDurations` (`packages/server-core/src/rundown/durations.ts`) listens to committed story and rundown updates via `createStoryLinks`, coalesces commits per story over 500 ms (`DURATION_COALESCE_MS`), computes whole-story and per-slug durations rounded to whole seconds at the project's Read rate, and writes changed `durationMs` values into every linked rundown through `authorityWrite` with `ORIGIN_SYSTEM` ([decision 0051](../decisions/0051-coalesced-server-durations.md)). Rooms running in `relay` mode do not write durations locally.
+- **Coalesced authority writes:** `createRundownDurations` (`packages/server-core/src/rundown/durations.ts`) listens to committed story and rundown updates via `createStoryLinks` (backed by kind-filtered `directory.documentsIn(home, "rundown")` queries and a per-home O(1) reverse story index), coalesces dirty linked stories per rundown over 500 ms (`DURATION_COALESCE_MS`), computes whole-story and per-slug durations rounded to whole seconds at the project's Read rate, and writes all changed `durationMs` values for that rundown in one `authorityWrite` with `ORIGIN_SYSTEM` ([decision 0051](../decisions/0051-coalesced-server-durations.md)). Rooms running in `relay` mode do not write durations locally.
 - **Front and back timing:** `timeRundown` (`packages/pagination/src/timing/rundown-clock.ts`) derives row numbers (skipping `header` and `unnumbered` rows), effective `durMs` (a producer's typed `dur` cell overrides `durationMs` until cleared), cumulative time (`cumeMs`), front-timed `startAt`, back-timed `backAt` and overall `overMs` (`totalMs - targetMs`), preserving `startAt - backAt === overMs` on every timed row. While a writer edits a story open Beside the rundown, the grid shows a live local duration indicator immediately alongside the authoritative server column.
 
 ## The air window
@@ -67,7 +67,5 @@ A rundown opens at `/s/$docId` inside the shared document frame via `DOCUMENT_BO
 ## Known limits
 
 - A rundown document is created and synced, but is never reorganised on the server.
-- A Can-view reader of a rundown itself is not served; read-only inspection relies on holding an edit role without `edit_rundowns`.
 - Viewers are not shown as a count in the interface.
-- Rundowns do not yet have full version History; single-step cell recovery uses each cell's `previous` value.
-- Daily-show and newsroom timing, duration-write and 300-row scroll benchmarks have not yet been measured.
+- Newsroom scale (`rundown.w5`) and 300-row scroll benchmarks have not yet been published in [../benchmark/report.md](../benchmark/report.md).

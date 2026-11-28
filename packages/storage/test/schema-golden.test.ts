@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(12);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(12);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(12);
+  expect(STORAGE_SCHEMA_VERSION).toBe(13);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(13);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(13);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -411,6 +411,15 @@ test("every kind of file carries the one storage version", () => {
     "generation INTEGER",
     "seq INTEGER",
   ]);
+  expect(tableColumns(checkpointsPath(dir, HOME)).doc_checkpoints).toEqual([
+    "doc_id TEXT",
+    "generation INTEGER",
+    "seq INTEGER",
+    "state BLOB",
+    "sha256 BLOB",
+    "created_at INTEGER",
+    "encoding INTEGER",
+  ]);
   expect(tableColumns(checkpointsPath(dir, HOME)).doc_measures).toEqual([
     "doc_id TEXT",
     "generation INTEGER",
@@ -557,7 +566,7 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
+  expect(Object.values(files).map(userVersion)).toEqual([13, 13, 13]);
   expect(
     rawRows(
       files.documents,
@@ -600,9 +609,10 @@ test("a file written at version 9 gains the eight lookup indexes on open", async
   file.checkpoints.newest(DOC, 1);
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
+  expect(Object.values(files).map(userVersion)).toEqual([13, 13, 13]);
   expect(indexNamesOf(files.control)).toEqual([
     { name: "doc_directory_by_home" },
+    { name: "doc_directory_by_home_kind" },
     { name: "draft_links_by_send" },
     { name: "draft_links_by_token" },
     { name: "share_links_by_doc" },
@@ -654,7 +664,7 @@ test("a file written at version 10 upgrades to 11 with draft_links.open defaulti
   const send = file.sharing.sendOf("s-1");
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
+  expect(Object.values(files).map(userVersion)).toEqual([13, 13, 13]);
   expect(link).toEqual({
     id: "dl-1",
     sendId: "s-1",
@@ -716,7 +726,7 @@ test("a file written at version 11 upgrades cleanly to 12 with project_assets in
   const docRow = file.log.get(DOC);
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([12, 12, 12]);
+  expect(Object.values(files).map(userVersion)).toEqual([13, 13, 13]);
   expect(tableNames(files.documents)).toContain("project_assets");
   expect(tableNames(files.control)).not.toContain("project_assets");
   expect(tableNames(files.checkpoints)).not.toContain("project_assets");
@@ -733,4 +743,48 @@ test("a file written at version 11 upgrades cleanly to 12 with project_assets in
       createdAt: 1_000,
     },
   });
+});
+
+test("a file written at version 12 upgrades cleanly to 13 with compressed checkpoints and home/kind lookup index", async () => {
+  const old = await trees.tree();
+  const files = {
+    control: join(old, "control.sqlite"),
+    documents: docPath(old, HOME),
+    checkpoints: checkpointsPath(old, HOME),
+  };
+  for (const kind of ["control", "documents", "checkpoints"] as const) {
+    await Bun.write(files[kind], "");
+    for (const statement of MIGRATIONS[kind].slice(0, 12).flat())
+      rawSql(files[kind], statement);
+    rawSql(files[kind], "PRAGMA user_version = 12");
+  }
+  rawSql(
+    files.checkpoints,
+    "INSERT INTO doc_checkpoints (doc_id, generation, seq, state, sha256, created_at) VALUES (?1, 1, 5, x'010203', x'039058C6F2C0CB492C533B0A4D14EF77CC0F78ABCCCED5287D84A1A2011CFB81', 900)",
+    DOC,
+  );
+
+  const storage = openSqliteStorage({ dir: old, now });
+  storage.directory.place(DOC, HOME, "script", "dana");
+  const file = storage.open(HOME);
+  const legacy = file.checkpoints.newest(DOC, 1);
+  const large = new Uint8Array(2048).fill(65);
+  file.checkpoints.put(DOC, 1, 10, large);
+  const compressed = file.checkpoints.newest(DOC, 1);
+  const scripts = storage.directory.documentsIn(HOME, "script");
+  const rundowns = storage.directory.documentsIn(HOME, "rundown");
+  storage.close();
+
+  expect(Object.values(files).map(userVersion)).toEqual([13, 13, 13]);
+  expect(legacy).toEqual({ seq: 5, state: new Uint8Array([1, 2, 3]) });
+  expect(compressed).toEqual({ seq: 10, state: large });
+  expect(scripts).toEqual([DOC]);
+  expect(rundowns).toEqual([]);
+  const stored = rawRows(
+    files.checkpoints,
+    "SELECT seq, length(state) AS len, encoding FROM doc_checkpoints ORDER BY seq",
+  ) as { seq: number; len: number; encoding: number }[];
+  expect(stored[0]).toEqual({ seq: 5, len: 3, encoding: 0 });
+  expect(stored[1]?.encoding).toBe(1);
+  expect(stored[1]?.len).toBeLessThan(200);
 });

@@ -248,3 +248,66 @@ test(
   },
   { timeout: 10_000 },
 );
+
+test(
+  "the worker reuses its warm document across consecutive checkpoints and resets on generation bump",
+  async () => {
+    const dir = await trees.tree({});
+    const sqlite = openSqliteStorage({ dir, now: () => 1_000 });
+    const typist = seedLog(sqlite, 250);
+    const cp = createWorkerCheckpointer({ entry: WORKER, data: { dir } });
+
+    cp.request({ home: HOME, docId: DOC });
+    await cp.idle();
+    const first = sqlite.open(HOME).checkpoints.newest(DOC, 1)!;
+    expect(first.seq).toBe(250);
+
+    // Append more rows on the same generation: worker increments its cached CRDT doc
+    for (let n = 1; n <= 150; n++) appendOne(sqlite, typist, n);
+    cp.request({ home: HOME, docId: DOC });
+    await cp.idle();
+    const second = sqlite.open(HOME).checkpoints.newest(DOC, 1)!;
+    expect(second.seq).toBe(400);
+    expect(scriptBody(loadDoc(second.state)).materialize()).toEqual(
+      replayAll(sqlite),
+    );
+
+    // Bump generation (e.g. after a rebuild/restore) and verify cached doc is discarded
+    const base = createDoc();
+    scriptBody(base).write((w) =>
+      w.insertBlocks(null, [
+        {
+          type: "block",
+          attrs: { id: BLOCK, type: "action" },
+          content: [{ type: "text", text: "Fresh generation" }],
+        },
+      ]),
+    );
+    const gen2State = base.encodeState();
+    base.destroy();
+    sqlite.open(HOME).generations.freeze({
+      docId: DOC,
+      finalSeq: 400,
+      finalState: second.state,
+      frozenAt: 2_000,
+      purgeAfter: 10_000,
+      reason: "restore",
+      initialUpdate: gen2State,
+      rebuiltByClientId: 99,
+      userId: "sam",
+    });
+    cp.request({ home: HOME, docId: DOC });
+    await cp.idle();
+    const third = sqlite.open(HOME).checkpoints.newest(DOC, 2)!;
+    expect(third.seq).toBe(1);
+    expect(
+      blocksOf(scriptBody(loadDoc(third.state)).materialize()).map((b) =>
+        blockText(b),
+      ),
+    ).toEqual(["Fresh generation"]);
+
+    await cp.close();
+    sqlite.close();
+  },
+  { timeout: 30_000 },
+);

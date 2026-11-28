@@ -359,3 +359,92 @@ test("steady workspace index writes never starve search catch-up past the maximu
   expect(h.searchIndex.headOf(DOC)).toEqual({ generation: 1, seq: 1 });
   h.search.stop();
 });
+
+test("background catch-up survives a corrupt project file without crashing", async () => {
+  const h = makeHarness(0);
+  const GOOD_DOC = "bbbb2222-2222-7222-8222-222222222222";
+  const BAD_PROJ = "22222222-2222-7222-8222-222222222222";
+  const BAD_DOC = "cccc3333-3333-7333-8333-333333333333";
+  h.sync.access.create("sam", {
+    docId: WS_INDEX,
+    kind: "index",
+    home: workspaceHome(WS),
+  });
+  h.sync.access.create("sam", {
+    docId: GOOD_DOC,
+    kind: "script",
+    home: projectHome(PROJ),
+  });
+  h.sync.access.create("sam", {
+    docId: BAD_DOC,
+    kind: "script",
+    home: projectHome(BAD_PROJ),
+  });
+  for (let i = 0; i < 4; i++) h.fc.advance(1);
+
+  const originalOpen = h.storage.open.bind(h.storage);
+  h.storage.open = (home) => {
+    if (home.id === BAD_PROJ)
+      throw new Error("database disk image is malformed");
+    return originalOpen(home);
+  };
+
+  const editGood = h.sync.authorityWrite(GOOD_DOC, {
+    userId: "sam",
+    origin: "system",
+    edit(doc) {
+      scriptBody(doc).write((w) =>
+        w.insertBlocks(null, [
+          {
+            type: "block",
+            attrs: { id: "blk-000000000004", type: "action" },
+            content: [{ type: "text", text: "Storm clears by dawn." }],
+          },
+        ]),
+      );
+      return { ok: true };
+    },
+    inTransaction() {},
+  });
+  await h.flush();
+  await editGood;
+
+  const wsWrite = h.sync.authorityWrite(WS_INDEX, {
+    userId: "sam",
+    origin: "system",
+    edit(doc) {
+      jsonMap(doc, "projects").set(PROJ, {
+        title: "Harbour",
+        kind: "film",
+        folderId: null,
+      });
+      jsonMap(doc, "projects").set(BAD_PROJ, {
+        title: "Damaged",
+        kind: "film",
+        folderId: null,
+      });
+      jsonMap(doc, "documents").set(GOOD_DOC, {
+        projectId: PROJ,
+        title: "Good Draft",
+        kind: "script",
+        createdAt: 100,
+      });
+      jsonMap(doc, "documents").set(BAD_DOC, {
+        projectId: BAD_PROJ,
+        title: "Bad Draft",
+        kind: "script",
+        createdAt: 101,
+      });
+      return { ok: true };
+    },
+    inTransaction() {},
+  });
+  await h.flush();
+  await wsWrite;
+
+  expect(() => {
+    for (let i = 0; i < 10; i++) h.fc.advance(10);
+  }).not.toThrow();
+  expect(h.searchIndex.headOf(GOOD_DOC)).toEqual({ generation: 1, seq: 1 });
+  h.search.stop();
+});

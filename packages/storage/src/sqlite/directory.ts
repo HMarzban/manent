@@ -53,6 +53,9 @@ export function createSqliteDirectory(options: {
     documentsIn: db.query<{ doc_id: string }, [string]>(
       "SELECT doc_id FROM doc_directory WHERE home = ?1 ORDER BY doc_id",
     ),
+    documentsInByKind: db.query<{ doc_id: string }, [string, string]>(
+      "SELECT doc_id FROM doc_directory WHERE home = ?1 AND kind = ?2 ORDER BY doc_id",
+    ),
     homes: db.query<{ home: string }, []>(
       "SELECT DISTINCT home FROM doc_directory ORDER BY home",
     ),
@@ -98,8 +101,11 @@ export function createSqliteDirectory(options: {
       });
     },
     placeOf: (docId) => readPlace(sql.placeOf.get(docId)),
-    documentsIn: (home) =>
-      sql.documentsIn.all(homeKey(home)).map((row) => row.doc_id),
+    documentsIn: (home, kind) =>
+      (kind === undefined
+        ? sql.documentsIn.all(homeKey(home))
+        : sql.documentsInByKind.all(homeKey(home), kind)
+      ).map((row) => row.doc_id),
     homes: () => sql.homes.all().map((row) => readHome(row.home)),
     setRole: (docId, userId, role, capabilities) =>
       write(() =>

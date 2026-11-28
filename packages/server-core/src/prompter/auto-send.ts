@@ -5,7 +5,7 @@ import {
   writePrompterState,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { RundownJSON } from "@manent/schema";
+import type { BlockJSON, RundownJSON } from "@manent/schema";
 import type { Storage } from "@manent/storage";
 import { SYSTEM_USER_ID } from "../rebuild/rebuilder.ts";
 import type { AirWindows } from "../rundown/air-window.ts";
@@ -13,6 +13,7 @@ import { createStoryLinks } from "../rundown/story-links.ts";
 import type { Clock, SyncService } from "../sync/ports.ts";
 import type { Room } from "../sync/rooms.ts";
 import {
+  createRundownSnapshotCache,
   isRowChanged,
   isValidStoryInHome,
   readRundownSnapshot,
@@ -80,6 +81,7 @@ export function createAutoSender(options: {
   const { storage, sync, clock, airWindows, feed, sender } = options;
   const storyLinks = createStoryLinks(storage);
   const liveScripts = new Map<string, Room>();
+  const rundownCache = createRundownSnapshotCache(storage);
   const autoTimers = new Map<string, () => void>();
   const windowEndTimers = new Map<string, () => void>();
   const insideWindow = new Set<string>();
@@ -279,28 +281,39 @@ export function createAutoSender(options: {
           link.rowId,
         ]);
       for (const [rundownId, rowIds] of byRundown) {
-        const snap = readRundownSnapshot(storage, rundownId, null);
+        const snap = rundownCache.get(rundownId);
         if (snap === null) continue;
         const file = storage.open(snap.home);
-        const headBlocks = readStoryHeadBlocks(
-          storage,
-          snap.home,
-          room.docId,
-          room.doc,
-        );
-        if (headBlocks === null) continue;
         const rowsById = new Map(snap.rundown.rows.map((row) => [row.id, row]));
         const changedIds: string[] = [];
+        const prompterRowIds: string[] = [];
+        let headBlocks: BlockJSON[] | null | undefined = undefined;
+        const readHead = (): BlockJSON[] | null => {
+          if (headBlocks === undefined)
+            headBlocks = readStoryHeadBlocks(
+              storage,
+              snap.home,
+              room.docId,
+              room.doc,
+            );
+          return headBlocks;
+        };
         for (const rowId of rowIds) {
           const row = rowsById.get(rowId);
           if (row === undefined) continue;
-          if (
-            isRowChanged(storage, snap.home, file, rundownId, row, headBlocks)
-          )
+          if (row.prompter !== null) prompterRowIds.push(rowId);
+          const latest = file.prompter.latest(rundownId, row.id);
+          if (latest === null || latest.storyId !== row.docId) {
+            changedIds.push(rowId);
+            continue;
+          }
+          const blocks = readHead();
+          if (blocks === null) continue;
+          if (isRowChanged(storage, snap.home, file, rundownId, row, blocks))
             changedIds.push(rowId);
           else cancelRow(rundownId, rowId);
         }
-        syncRowStates(rundownId, rowIds);
+        if (prompterRowIds.length > 0) syncRowStates(rundownId, prompterRowIds);
         if (airWindows.isInside(rundownId, clock.now())) {
           for (const rowId of rowIds) cancelRow(rundownId, rowId);
           syncWindowEnd(rundownId);
@@ -313,6 +326,12 @@ export function createAutoSender(options: {
     onRundownCommitted(room, update) {
       if (room.doc === null) return;
       const rundown = readRundown(room.doc);
+      rundownCache.put(room.docId, {
+        home: room.home,
+        rundown,
+        generation: room.row.generation,
+        headSeq: room.row.headSeq,
+      });
       storyLinks.refreshRundown(room.home, room.docId, rundown);
       feed.publish(room.docId, room.doc);
       if (room.mode !== "authority") return;
@@ -374,6 +393,7 @@ export function createAutoSender(options: {
       windowEndTimers.clear();
       insideWindow.clear();
       liveScripts.clear();
+      rundownCache.clear();
     },
   };
 }

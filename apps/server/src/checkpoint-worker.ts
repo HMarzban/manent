@@ -22,6 +22,7 @@ if (!isMainThread) {
     const storage = openSqliteStorage({
       dir: readDir(init.data),
       now: Date.now,
+      durability: "normal",
     });
     serveCheckpointJobs(storage, {
       onMessage: (h) =>

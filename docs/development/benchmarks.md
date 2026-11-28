@@ -27,19 +27,19 @@ bun run bench publish bench/results/*.json # copy clean runs to docs/benchmark/r
 | `MANENT_BENCH_THROTTLE` | The processor slowdown a client scenario applies: 1 (the default), 4 or 6                                                                                                                             |
 | `MANENT_SOAK_MINUTES`   | Overrides the client and server soak duration in minutes (defaulting by mode: 1 in `quick`, 10 in `standard`, and 120 client / 480 server in `full`); forwarded into Docker tier containers           |
 
-Each run prints its tier, slowdown and mode, and how many scenarios were measured, could not finish, were not measured or were void. It writes one JSON file to `bench/results/` (not tracked) recording the commit, Bun's version, the platform and, for each metric, its unit, the number of samples, p50, p95, p99 and max, with a bootstrap interval for each percentile. A mean is never reported. A timing run first checks that the machine is quiet; on a busy machine the scenario is recorded as void, not measured.
+Each run prints its tier, slowdown and mode, and how many scenarios were measured, could not finish, were not measured or were void. It writes one JSON file to `bench/results/` (not tracked) recording the commit, Bun's version, the platform and, for each metric, its unit, the number of samples, p50, p95, p99 and max, with a bootstrap interval for each percentile. A mean is never reported. A timing run first checks that the machine is quiet; on a busy machine the scenario is recorded as void, not measured. Docker tier images (`manent-bench:<hash>`, keyed by `bun.lock` and `HEAD` in `bench/tiers/orchestrate.ts`) are reused across runs at the same commit, so remove the cached image with `docker rmi` when iterating on uncommitted edits before a commit.
 
 ## Scenarios
 
-| Folder                     | Scenarios                                                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bench/client/`            | `pagination-engine-120`, `-400`, `-2000`: laying out a script of that many pages; `typing-120`, `typing-2000` and `paste-50` in the real editor                |
-| `bench/client/history/`    | `history.compare.120`, `history.compare.2000`: comparing two versions 400 edits apart, as Version history does                                                 |
-| `bench/client/production/` | `production.lock`, `production.issue`: locking a 120-page script and issuing a revision; `production.marks`: revision marks per keystroke, twelve revisions in |
-| `bench/crdt/`              | `crdt.rebuild-size`, `crdt.rebuild-time`: an aged script's size against its text, and the time to rebuild it                                                   |
-| `bench/server/`            | `server.durability`, `fanout`, `join-storm`, `persistence`, `push-cost`, `rebuild-stall`, `room-memory`, `soak`                                                |
-| `bench/server/history/`    | `history.list.first_page`: the first page of 5,000 thinned versions; `history.version.2000`: the version a session leaves; `history.restore.120`, `.2000`      |
-| `bench/demo/`              | `demo.seed`: the seeds of `make demo`, from an empty data folder to the end of the large workspace's background seed                                           |
+| Folder                     | Scenarios                                                                                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bench/client/`            | `pagination-engine-120`, `-400`, `-2000`: laying out a script of that many pages; `typing-120`, `typing-2000` and `paste-50` in the real editor                                        |
+| `bench/client/history/`    | `history.compare.120`, `history.compare.2000`: comparing two versions 400 edits apart, as Version history does                                                                         |
+| `bench/client/production/` | `production.lock`, `production.issue`: locking a 120-page script and issuing a revision; `production.marks`: revision marks per keystroke, twelve revisions in                         |
+| `bench/crdt/`              | `crdt.rebuild-size`, `crdt.rebuild-time`: an aged script's size against its text, and the time to rebuild it                                                                           |
+| `bench/server/`            | `server.durability`, `server.power-loss`, `fanout`, `join-storm`, `persistence`, `push-cost`, `rebuild-stall`, `room-memory`, `soak`, `prompter.staleness`, `rundown.w4`, `rundown.w5` |
+| `bench/server/history/`    | `history.list.first_page`: the first page of 5,000 thinned versions; `history.version.2000`: the version a session leaves; `history.restore.120`, `.2000`                              |
+| `bench/demo/`              | `demo.seed`: the seeds of `make demo`, from an empty data folder to the end of the large workspace's background seed                                                                   |
 
 A scenario is a `*.bench.ts` file whose default export is a `Scenario` (`bench/harness.ts`): an id, a workload, how many processes to run and a `run()` that returns measurements. Timing scenarios run in five or more fresh processes and pool their samples; counting scenarios run once. A scenario that cannot run on this machine says why and is recorded as not measured.
 

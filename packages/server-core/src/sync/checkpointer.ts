@@ -1,12 +1,85 @@
 // Checkpoints: the state of a document at a sequence, built through a document from the log, on
 // the calling thread for tests or on one long-lived worker thread for the server.
 import { ORIGIN_LOAD, createDoc, loadDoc, measureDoc } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import type { Home, Storage } from "@manent/storage";
 import type { Checkpointer } from "./ports.ts";
+
+/** Maximum warm CRDT documents kept across consecutive checkpoint jobs on the worker thread. */
+const WORKER_DOC_CACHE_MAX = 2;
 
 interface Job {
   home: Home;
   docId: string;
+}
+
+interface CachedWorkerDoc {
+  generation: number;
+  seq: number;
+  doc: CrdtDoc;
+}
+
+const docKeyOf = (job: Job): string =>
+  `${job.home.kind}:${job.home.id}:${job.docId}`;
+
+/**
+ * Worker-thread checkpoint runner: reuses a tiny warm LRU of active CRDT documents across
+ * consecutive jobs so each checkpoint applies only the incremental tail instead of reloading
+ * the full state from SQLite.
+ */
+function runWorkerCheckpointJob(
+  storage: Storage,
+  job: Job,
+  cache: Map<string, CachedWorkerDoc>,
+): { seq: number } | null {
+  const file = storage.open(job.home);
+  const row = file.log.get(job.docId);
+  if (row === null) return null;
+  const key = docKeyOf(job);
+  let cached = cache.get(key);
+  if (cached !== undefined && cached.generation !== row.generation) {
+    cached.doc.destroy();
+    cache.delete(key);
+    cached = undefined;
+  }
+  let from: number;
+  let doc: CrdtDoc;
+  if (cached !== undefined) {
+    from = cached.seq;
+    doc = cached.doc;
+    // refresh LRU order
+    cache.delete(key);
+    cache.set(key, cached);
+  } else {
+    const checkpoint = file.checkpoints.newest(job.docId, row.generation);
+    from = checkpoint?.seq ?? 0;
+    doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
+  }
+  const tail = file.log.tail(job.docId, row.generation, from, {
+    quarantine: false,
+  });
+  const last = tail.rows.at(-1);
+  if (last === undefined || tail.corrupt.length > 0) {
+    if (cached === undefined) doc.destroy();
+    return null;
+  }
+  for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
+  const state = doc.encodeState();
+  file.checkpoints.put(job.docId, row.generation, last.seq, state);
+  const measure = { seq: last.seq, ...measureDoc(doc, state.byteLength) };
+  file.measures.put(job.docId, row.generation, measure);
+  if (cached !== undefined) {
+    cached.seq = last.seq;
+  } else {
+    cache.set(key, { generation: row.generation, seq: last.seq, doc });
+    while (cache.size > WORKER_DOC_CACHE_MAX) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey === undefined) break;
+      cache.get(oldestKey)?.doc.destroy();
+      cache.delete(oldestKey);
+    }
+  }
+  return { seq: last.seq };
 }
 
 /**
@@ -32,8 +105,9 @@ export function runCheckpointJob(
   if (last === undefined || tail.corrupt.length > 0) return null;
   const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
   for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
-  file.checkpoints.put(job.docId, row.generation, last.seq, doc.encodeState());
-  const measure = { seq: last.seq, ...measureDoc(doc) };
+  const state = doc.encodeState();
+  file.checkpoints.put(job.docId, row.generation, last.seq, state);
+  const measure = { seq: last.seq, ...measureDoc(doc, state.byteLength) };
   file.measures.put(job.docId, row.generation, measure);
   doc.destroy();
   return { seq: last.seq };
@@ -119,19 +193,25 @@ export function serveCheckpointJobs(
     post(message: unknown): void;
   },
 ): void {
+  const cache = new Map<string, CachedWorkerDoc>();
   port.onMessage((raw) => {
     const message = readToWorker(raw);
     if (message === null) return;
     if (message.t === "stop") {
+      for (const entry of cache.values()) entry.doc.destroy();
+      cache.clear();
       storage.close();
       port.post({ t: "stopped" } satisfies FromWorker);
       return;
     }
     try {
-      runCheckpointJob(storage, message.job);
+      runWorkerCheckpointJob(storage, message.job, cache);
     } catch {
       // a job that failed (a file busy or unreadable) is ignored: a checkpoint is a disposable
       // cache, the log stays whole and the next load replays it, so the worker serves the next job
+      const key = docKeyOf(message.job);
+      cache.get(key)?.doc.destroy();
+      cache.delete(key);
     }
     port.post({ t: "done", id: message.id } satisfies FromWorker);
   });

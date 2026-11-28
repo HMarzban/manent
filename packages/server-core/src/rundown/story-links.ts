@@ -84,42 +84,42 @@ function readRundownLinks(
 }
 
 /**
- * Resolves a story's linked rundowns strictly from `storage.directory.documentsIn(home)`
- * and each rundown's own rows, cached per home and refreshed when a rundown commits.
+ * Resolves a story's linked rundowns strictly from `storage.directory.documentsIn(home, "rundown")`
+ * and each rundown's own rows, cached per home with a story reverse index and refreshed when a rundown commits.
  */
 export function createStoryLinks(storage: Storage): StoryLinks {
   const { directory } = storage;
-  const homes = new Map<string, Map<string, readonly StoredLink[]>>();
+  const homes = new Map<
+    string,
+    {
+      byRundown: Map<string, readonly StoredLink[]>;
+      byStory: Map<string, StoryRowLink[]>;
+    }
+  >();
 
-  function ensureHome(home: Home): Map<string, readonly StoredLink[]> {
+  function getHome(home: Home) {
     const key = homeKey(home);
-    let byRundown = homes.get(key);
-    if (byRundown === undefined) {
-      byRundown = new Map();
-      homes.set(key, byRundown);
+    let entry = homes.get(key);
+    if (entry === undefined) {
+      entry = { byRundown: new Map(), byStory: new Map() };
+      homes.set(key, entry);
     }
-    const active = new Set<string>();
-    for (const id of directory.documentsIn(home)) {
-      if (directory.tombstoneOf(id) !== null) continue;
-      if (directory.placeOf(id)?.kind !== "rundown") continue;
-      active.add(id);
-      if (!byRundown.has(id)) byRundown.set(id, readRundownLinks(storage, id));
-    }
-    for (const cachedId of byRundown.keys())
-      if (!active.has(cachedId)) byRundown.delete(cachedId);
-    return byRundown;
+    return entry;
   }
 
-  function linksOf(storyDocId: string): readonly StoryRowLink[] {
-    if (directory.tombstoneOf(storyDocId) !== null) return [];
-    const place = directory.placeOf(storyDocId);
-    if (place === null) return [];
-    const byRundown = ensureHome(place.home);
-    const out: StoryRowLink[] = [];
-    for (const [rundownId, links] of byRundown) {
+  function rebuildIndex(entry: {
+    byRundown: Map<string, readonly StoredLink[]>;
+    byStory: Map<string, StoryRowLink[]>;
+  }): void {
+    entry.byStory.clear();
+    for (const [rundownId, links] of entry.byRundown) {
       for (const link of links) {
-        if (link.docId !== storyDocId) continue;
-        out.push({
+        let list = entry.byStory.get(link.docId);
+        if (list === undefined) {
+          list = [];
+          entry.byStory.set(link.docId, list);
+        }
+        list.push({
           rundownId,
           rowId: link.rowId,
           kind: link.kind,
@@ -127,7 +127,34 @@ export function createStoryLinks(storage: Storage): StoryLinks {
         });
       }
     }
-    return out;
+  }
+
+  function ensureHome(home: Home) {
+    const entry = getHome(home);
+    const active = new Set<string>();
+    let changed = false;
+    for (const id of directory.documentsIn(home, "rundown")) {
+      if (directory.tombstoneOf(id) !== null) continue;
+      active.add(id);
+      if (!entry.byRundown.has(id)) {
+        entry.byRundown.set(id, readRundownLinks(storage, id));
+        changed = true;
+      }
+    }
+    for (const cachedId of entry.byRundown.keys())
+      if (!active.has(cachedId)) {
+        entry.byRundown.delete(cachedId);
+        changed = true;
+      }
+    if (changed) rebuildIndex(entry);
+    return entry;
+  }
+
+  function linksOf(storyDocId: string): readonly StoryRowLink[] {
+    if (directory.tombstoneOf(storyDocId) !== null) return [];
+    const place = directory.placeOf(storyDocId);
+    if (place === null) return [];
+    return ensureHome(place.home).byStory.get(storyDocId) ?? [];
   }
 
   function refreshRundown(
@@ -135,13 +162,9 @@ export function createStoryLinks(storage: Storage): StoryLinks {
     rundownId: string,
     rundown: RundownJSON,
   ): void {
-    const key = homeKey(home);
-    let byRundown = homes.get(key);
-    if (byRundown === undefined) {
-      byRundown = new Map();
-      homes.set(key, byRundown);
-    }
-    byRundown.set(rundownId, extractLinks(rundown));
+    const entry = getHome(home);
+    entry.byRundown.set(rundownId, extractLinks(rundown));
+    rebuildIndex(entry);
   }
 
   return { linksOf, refreshRundown };

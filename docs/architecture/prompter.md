@@ -22,7 +22,7 @@ Every prompter output reads through one pure projection in `packages/schema/src/
 
 - **Manual Send (`send.ts`):** verifies access and `send_to_prompter`, checks the stored idempotency key, writes the row's server-only `prompter` state (`state: "on"`, `versionId`, `sentAt`, `sentByUserId`) via `authorityWrite`, records a `prompter` History version and `PrompterSendRow` in the same SQLite transaction, broadcasts `CONTROL` `sent_to_prompter` and publishes the updated feed.
 - **Send previous:** walks back one step along the row's send trail (`send-trail.ts`), restores that earlier sent snapshot onto the prompter without altering the script or creating a version, and sets the row state to `on` or `changed` depending on whether the restored snapshot matches the script's current head.
-- **Automatic sends (`auto-send.ts`):** outside the rundown's air window, commits to a linked story arm a 2 s quiet timer (`AUTO_SEND_QUIET_MS = 2_000`) per row ([decision 0055](../decisions/0055-automatic-prompter-sends-wait-two-seconds.md)). When the story stays quiet for two seconds, `sendAutomatic` records the send with `versionId: null` and `senderUserId: null` and publishes the feed. Inside the air window, automatic timers cancel immediately, edits and offline merges mark rows `Changed — not on prompter`, and a window-end timer flushes changed rows automatically once the air window closes.
+- **Automatic sends (`auto-send.ts`):** outside the rundown's air window, commits to a linked story arm a 2 s quiet timer (`AUTO_SEND_QUIET_MS = 2_000`) per row ([decision 0055](../decisions/0055-automatic-prompter-sends-wait-two-seconds.md)). `createRundownSnapshotCache` (`projection.ts`) caches parsed rundown snapshots by `(generation, headSeq)` and `onStoryCommitted` checks `file.prompter.latest` before loading story blocks, keeping unsent stories O(1) on every keystroke. When the story stays quiet for two seconds, `sendAutomatic` records the send with `versionId: null` and `senderUserId: null` and publishes the feed. Inside the air window, automatic timers cancel immediately, edits and offline merges mark rows `Changed — not on prompter`, and a window-end timer flushes changed rows automatically once the air window closes.
 
 ## The live prompter feed and viewer scale
 
@@ -57,14 +57,10 @@ Opening Present on prompter launches `/s/<rundown>/prompter` (`apps/web/src/scre
 
 ## Prompter file output
 
-[Decision 0057](../decisions/0057-plain-text-prompter-files.md) defines the desktop folder output format: `run-order.txt` (tab-separated rows including header rows) plus one `NN-<slug>.txt` file per story in `UTF-8` or `Windows-1252` (with CRLF line endings, no byte-order mark, `?` substitution counts for unencodable characters, and hidden-temporary atomic renames so polling readers never observe partial files).
-
-Implementation of desktop Prompter files output is currently deferred until the web app finishes: `packages/local-node/src/prompter-files/` holds a stub service and routes today, and no desktop folder writer is active yet.
+[Decision 0057](../decisions/0057-plain-text-prompter-files.md) defines the desktop folder output format: `run-order.txt` (tab-separated rows including header rows) plus one `NN-<slug>.txt` file per story in `UTF-8` or `Windows-1252` (with CRLF line endings, no byte-order mark, `?` substitution counts for unencodable characters, and hidden-temporary atomic renames so polling readers never observe partial files). The desktop local node implements this folder writer under `packages/local-node/src/prompter-files/`.
 
 ## Known limits
 
-- Desktop Prompter files output is deferred and not yet implemented.
-- Once implemented, prompter file output will be verified against Manent's own reader only, not against vendor prompter software, whose formats are not public.
-- A Can-view reader of a rundown itself is not served.
+- Prompter file output and the MOS 2.8.5 / Autoscript WinPlus-IP bridge are verified against Manent's own reader and mock servers, not against real studio hardware.
 - Viewers are not shown as a count in the interface.
-- Prompter-feed staleness and 200-viewer fan-out latency have not yet been measured in the benchmark suite.
+- Prompter-feed staleness passes on `D-small` (`p99` 251 ms across 5 processes, 1,100 samples in [../benchmark/report.md](../benchmark/report.md)); `rundown.w5` 200-viewer fan-out latency remains to be published.

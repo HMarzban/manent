@@ -2,7 +2,6 @@
 import { ORIGIN_LOAD, createDoc, discardPending, loadDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { Home, Storage } from "@manent/storage";
-import { isDocKind } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import type { Committed } from "../sync/write-path-ports.ts";
 import { SEARCH_EXTRACTORS } from "./extractors.ts";
@@ -165,18 +164,17 @@ export function extractForKind(
   return { text, editorText };
 }
 
+const SEARCHABLE_KINDS: readonly DocKind[] = Object.freeze([
+  ...new Set(SEARCH_EXTRACTORS.map((e) => e.kind)),
+]);
+
 export function collectSearchableIds(storage: Storage): string[] {
   const ids: string[] = [];
   for (const home of storage.directory.homes()) {
-    for (const docId of storage.directory.documentsIn(home)) {
-      if (storage.directory.tombstoneOf(docId) !== null) continue;
-      const place = storage.directory.placeOf(docId);
-      if (
-        place !== null &&
-        isDocKind(place.kind) &&
-        SEARCH_EXTRACTORS.some((e) => e.kind === place.kind)
-      )
-        ids.push(docId);
+    for (const kind of SEARCHABLE_KINDS) {
+      for (const docId of storage.directory.documentsIn(home, kind)) {
+        if (storage.directory.tombstoneOf(docId) === null) ids.push(docId);
+      }
     }
   }
   return ids;

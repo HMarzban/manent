@@ -165,3 +165,79 @@ test("sharing barrel exports findGroups and readProjectGroups", () => {
     readProjectGroups(world.storage, DOC).size,
   ]).toEqual(["function", "function", 1, 1]);
 });
+
+test("committed throttles markActive to once per 30 s per user and resets on remove", () => {
+  const { world, sharing } = sharingWorld([]);
+  sharing.grant("sam", DOC, "rob", "edit");
+  const file = world.storage.open(HOME);
+  const docRoom: Room = {
+    docId: DOC,
+    home: HOME,
+    file,
+    kind: "script",
+    mode: "authority",
+    row: file.log.get(DOC)!,
+    doc: null,
+    sizeBytes: 0,
+    sinceCheckpoint: 0,
+    editors: new Map(),
+    viewers: new Map(),
+    owners: new Map(),
+    colors: new Map(),
+  };
+  const report: TransactionReport = {
+    update: new Uint8Array([1]),
+    origin: null,
+    inserted: [],
+    changed: [],
+    removed: [],
+    maps: [],
+    touched: () => [],
+    before: () => undefined,
+  };
+  const sender = {
+    userId: "rob",
+    name: "rob",
+    deviceId: "dev-rob",
+    versions: { protocol: 1, schema: 1, engine: 0, table: 0 },
+    address: "127.0.0.1",
+    send() {},
+    close() {},
+  };
+
+  let markCalls = 0;
+  const origMarkActive = world.storage.shareLinks.markActive.bind(
+    world.storage.shareLinks,
+  );
+  world.storage.shareLinks.markActive = (docId, userId) => {
+    markCalls += 1;
+    origMarkActive(docId, userId);
+  };
+
+  const emit = (seq: number) =>
+    sharing.committed?.({
+      room: docRoom,
+      sender,
+      seq,
+      update: new Uint8Array([1]),
+      report,
+      echo: false,
+    });
+
+  emit(1);
+  world.clock.advance(5_000);
+  emit(2);
+  world.clock.advance(24_999);
+  emit(3);
+  expect(markCalls).toBe(1);
+
+  world.clock.advance(1);
+  emit(4);
+  expect(markCalls).toBe(2);
+
+  // Removing and re-granting clears the throttle for that user
+  sharing.remove("sam", DOC, "rob");
+  sharing.grant("sam", DOC, "rob", "edit");
+  emit(5);
+  expect(markCalls).toBe(3);
+});

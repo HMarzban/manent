@@ -273,3 +273,40 @@ export function readRundownSnapshot(
     stored.destroy();
   }
 }
+
+/** Caches rundown snapshots by `(generation, headSeq)` to avoid repeated CRDT loads on story commits. */
+export function createRundownSnapshotCache(storage: Storage): {
+  get(rundownId: string): RundownSnapshot | null;
+  put(rundownId: string, snapshot: RundownSnapshot): void;
+  clear(): void;
+} {
+  const cache = new Map<string, RundownSnapshot>();
+  return {
+    get(rundownId) {
+      if (storage.directory.tombstoneOf(rundownId) !== null) {
+        cache.delete(rundownId);
+        return null;
+      }
+      const cached = cache.get(rundownId);
+      if (cached !== undefined) {
+        const head = storage.open(cached.home).log.get(rundownId);
+        if (
+          head !== null &&
+          head.generation === cached.generation &&
+          head.headSeq === cached.headSeq
+        )
+          return cached;
+      }
+      const fresh = readRundownSnapshot(storage, rundownId, null);
+      if (fresh === null) cache.delete(rundownId);
+      else cache.set(rundownId, fresh);
+      return fresh;
+    },
+    put(rundownId, snapshot) {
+      cache.set(rundownId, snapshot);
+    },
+    clear() {
+      cache.clear();
+    },
+  };
+}

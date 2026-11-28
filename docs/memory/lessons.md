@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Never scan all documents, reload CRDTs or write per-keystroke durability transactions inside sync commit hooks, and guard background search catch-up against damaged files
+
+- Date: 2026-11-28
+
+### What happened
+
+Diagnosing the `D-small` benchmark failures in `rundown.w4`, `server.persistence` and `server.power-loss` uncovered five compounding server hot-path and recovery bugs: (1) `StoryLinks.ensureHome()` called `directory.documentsIn(home)` across all 4,021 project documents on startup and on every commit hook (two instances × 8,042 SQLite queries); (2) `prompter/auto-send.ts` reloaded both rundown and story CRDTs from SQLite and queued `syncRowStates` on every keystroke even when no row had ever been sent to the prompter; (3) `sharing/service.ts:committed` ran a `FULL`-durability `control.sqlite` `markActive` transaction on every keystroke, while `rundown/durations.ts` fired one separate `authorityWrite(rundownId)` per dirty story instead of coalescing per rundown; (4) `measureDoc` materialised the entire ProseMirror JSON tree and called `encodeState()` a second time on the checkpoint worker (`103.4 ms` on a 12,000-block script); and (5) an uncaught `SQLiteError: database disk image is malformed` inside `search/service.ts:stepCatchUp` crashed the server during `server.power-loss` recovery. Additionally, `bench/tiers/orchestrate.ts` caches Docker tier images by `sha256(bun.lock + commit)`, so benchmarking uncommitted edits requires removing the cached `manent-bench:<hash>` image first.
+
+### How it was caught
+
+By profiling `rundown.w4` and `server.persistence` directly inside a 1-core `D-small` Docker container (`--cpus=1 --memory=1g`), inspecting the `server.power-loss` failure in `docs/benchmark/runs/2026-11-27T11-06-09Z-D-small-1x.json`, and isolating SQLite `PRAGMA synchronous = FULL` tail latency on Docker-for-Mac virtual disks.
+
+### Rule
+
+Keep `SyncHooks.committed` O(1) on the hot path: filter directory scans by kind via `directory.documentsIn(home, kind)` (backed by `doc_directory_by_home_kind`), cache rundown link/snapshot views by `(generation, headSeq)` and check cheap database flags (`file.prompter.latest`) before loading any CRDT from storage, coalesce multi-story duration writes into one `authorityWrite` per rundown, and throttle best-effort metadata writes (`markActive`) to bounded intervals. On the checkpoint worker, reuse a tiny warm CRDT LRU, pass pre-encoded `liveBytes` into a direct Yjs XML tree walk in `measureDoc`, compress checkpoints with level-1 `deflateRawSync`, and wrap every derived background indexer step (`stepCatchUp`, `triggerCatchUp`, `refreshRoom`) in `try/catch` so a damaged cache or project file never terminates the server.
+
+### Enforced by
+
+`packages/storage/test/schema-golden.test.ts`, `packages/storage/test/queries.test.ts`, `packages/storage/test/checkpoints.test.ts`, `packages/crdt/test/measure.test.ts`, `packages/server-core/test/checkpointer.test.ts`, `packages/server-core/test/rundown-guards.test.ts`, `packages/server-core/test/search-caching.test.ts`, and `packages/server-core/test/sharing.test.ts`.
+
 ## Keep Book front matter additive on `titlePage`, gate blank-page keys and theme CSS, and settle DOM selections in Firefox/WebKit E2E
 
 - Date: 2026-11-28

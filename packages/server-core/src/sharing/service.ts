@@ -110,6 +110,8 @@ const refused = (code: SharingRefusal) => ({ ok: false, code }) as const;
 
 /** How long after a failed reconciliation the next attempt is made, unless a share read or change makes it first. */
 const RECONCILE_RETRY_MS = 1_000;
+/** Minimum interval between persisting `last_active_at` updates for one person on one document. */
+const MARK_ACTIVE_INTERVAL_MS = 30_000;
 
 /**
  * `users` is the directory a share's gate asks; `tokens` makes a link's token: 32 random bytes in base64url; `log`
@@ -130,6 +132,8 @@ export function createSharingService(options: {
   const { directory, shareLinks: store } = storage;
   /** The documents whose group grants wait to be reconciled after a failure. */
   const unsettled = new Set<string>();
+  /** Last persisted `markActive` timestamp per `${docId}\0${userId}` to avoid full-fsync writes on every keystroke. */
+  const lastMarkedActive = new Map<string, number>();
   let cancelRetry: (() => void) | null = null;
 
   const stateOf = (docId: string): ShareState => ({
@@ -286,6 +290,7 @@ export function createSharingService(options: {
         if (row === undefined) return null;
         if (row.role === "owner") return "forbidden";
         store.ungrant(docId, target, row.source);
+        lastMarkedActive.delete(`${docId}\0${target}`);
         tell(docId, [{ userId: target, role: null }], userId);
         return null;
       }),
@@ -373,7 +378,15 @@ export function createSharingService(options: {
         log(error);
       }
       try {
-        if (byUserId !== SYSTEM_USER_ID) store.markActive(room.docId, byUserId);
+        if (byUserId !== SYSTEM_USER_ID) {
+          const activeKey = `${room.docId}\0${byUserId}`;
+          const now = clock.now();
+          const prev = lastMarkedActive.get(activeKey);
+          if (prev === undefined || now - prev >= MARK_ACTIVE_INTERVAL_MS) {
+            store.markActive(room.docId, byUserId);
+            lastMarkedActive.set(activeKey, now);
+          }
+        }
       } catch {
         // a hook never throws: a refused write leaves the last-active time older, and the next push writes it again
       }
