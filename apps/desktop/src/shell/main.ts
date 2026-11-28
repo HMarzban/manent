@@ -14,7 +14,12 @@ import {
   readScriptFonts,
   serveWithBun,
 } from "@manent/server-core";
-import type { Clock, Listener, ManentServer } from "@manent/server-core";
+import type {
+  Clock,
+  Listener,
+  ManentServer,
+  RenderPdf,
+} from "@manent/server-core";
 import type {
   DesktopGlobal,
   NativeMenu,
@@ -299,6 +304,13 @@ async function launch(): Promise<void> {
   const cloudPort = process.env.MANENT_CLOUD_URL ? null : freePort();
   const cloudUrl =
     process.env.MANENT_CLOUD_URL || `http://127.0.0.1:${cloudPort}`;
+  let pdfRenderer: Promise<RenderPdf> | null = null;
+  const renderPdf: RenderPdf = async (input) => {
+    pdfRenderer ??= readScriptFonts((key) =>
+      join(resources, FONT_FILES, `courier-prime-${key}.woff`),
+    ).then(createPacketRenderPdf);
+    return (await pdfRenderer)(input);
+  };
   const start = await createDesktopNode({
     root,
     cloudUrl,
@@ -308,11 +320,7 @@ async function launch(): Promise<void> {
     versions: build.versions,
     build: version,
     platform: process.platform,
-    renderPdf: createPacketRenderPdf(
-      await readScriptFonts((key) =>
-        join(resources, FONT_FILES, `courier-prime-${key}.woff`),
-      ),
-    ),
+    renderPdf,
     boot: () => ({
       global,
       boot: readWindowState(statePath).roles.main?.firstPaint ?? [],

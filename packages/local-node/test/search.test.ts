@@ -1008,3 +1008,27 @@ test("after cloud reseed and wipe, stale pre-reseed documents disappear and newl
   expect(h.cloudCallsWhileOffline()).toBe(0);
   await h.close();
 });
+
+test("local-node defers opening search.sqlite until a document is indexed or searched", async () => {
+  const searchDir = makeTempDir();
+  const h = createHarness({ searchDir });
+
+  // Clean cold boot with no indexed scripts must not allocate search.sqlite yet
+  expect(existsSync(join(searchDir, SEARCH_INDEX_FILE))).toBe(false);
+
+  // Once a local document is created and searched, search.sqlite opens lazily and returns exact hits
+  await h.chooses("you");
+  await h.createLocalPrivateDoc(
+    "you",
+    "Lazy Index Check",
+    "Copperplate lantern glows over the dry dock.",
+  );
+  h.goOffline();
+  const res = await h.search("you", "q=Copperplate");
+  expect(res.status).toBe(200);
+  expect((res.body as SearchResponse).results.map((r) => r.title)).toEqual([
+    "Lazy Index Check",
+  ]);
+  expect(existsSync(join(searchDir, SEARCH_INDEX_FILE))).toBe(true);
+  await h.close();
+});

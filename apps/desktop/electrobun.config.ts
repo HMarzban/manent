@@ -1,7 +1,16 @@
 // The build of the desktop app. The version and the update address are set in the environment by the build script.
+const memoryFlags: Record<string, string> = {
+  "disable-features": "SpareRendererForSitePerProcess,BackForwardCache",
+  "renderer-process-limit": "1",
+  "disk-cache-size": "16777216",
+};
 const debugFlags: Record<string, string> = process.env.MANENT_DEBUG_PORT
   ? { "remote-debugging-port": process.env.MANENT_DEBUG_PORT }
   : {};
+const chromiumFlags: Record<string, string> = {
+  ...memoryFlags,
+  ...debugFlags,
+};
 
 const urlSchemes: string[] = ["manent"];
 const fileAssociations: Array<{
@@ -35,11 +44,21 @@ export default {
     mac: {
       bundleCEF: true,
       defaultRenderer: "cef",
-      chromiumFlags: debugFlags,
+      chromiumFlags,
       icons: "icon.iconset",
     },
-    win: { bundleCEF: true, defaultRenderer: "cef", icon: "assets/icon.png" },
-    linux: { bundleCEF: true, defaultRenderer: "cef", icon: "assets/icon.png" },
+    win: {
+      bundleCEF: true,
+      defaultRenderer: "cef",
+      chromiumFlags,
+      icon: "assets/icon.png",
+    },
+    linux: {
+      bundleCEF: true,
+      defaultRenderer: "cef",
+      chromiumFlags,
+      icon: "assets/icon.png",
+    },
   },
   runtime: { exitOnLastWindowClosed: true },
   release: {

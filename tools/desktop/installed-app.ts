@@ -57,6 +57,7 @@ export function sumDesktopRss(processes: readonly AppProcess[]): number | null {
 
 const LISTING = new RegExp("^\\s*(\\d+)\\s+(\\d+)\\s+(.+)$");
 const LINUX_PSS = /^Pss:\s+(\d+)\s+kB$/m;
+const MAC_FOOTPRINT = /Footprint:\s+(\d+(?:\.\d+)?)\s*(B|KB|MB|GB)\b/i;
 const WINDOWS_LISTING = (root: string): string =>
   `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith('${root.replaceAll("'", "''")}') } | ForEach-Object { "$($_.ProcessId) $($_.WorkingSetSize) $($_.CommandLine)" }`;
 
@@ -64,6 +65,21 @@ const WINDOWS_LISTING = (root: string): string =>
 export function parseLinuxPssBytes(smaps: string): number | null {
   const match = LINUX_PSS.exec(smaps);
   return match === null ? null : Number(match[1]) * 1024;
+}
+
+const MAC_UNITS: Record<string, number> = {
+  B: 1,
+  KB: 1024,
+  MB: 1024 * 1024,
+  GB: 1024 * 1024 * 1024,
+};
+
+/** Extracts physical footprint in bytes from macOS `footprint` output so shared CEF framework pages are not double-counted across helper processes. */
+export function parseMacFootprintBytes(output: string): number | null {
+  const match = MAC_FOOTPRINT.exec(output);
+  if (match === null) return null;
+  const scale = MAC_UNITS[match[2]!.toUpperCase()];
+  return scale === undefined ? null : Math.round(Number(match[1]) * scale);
 }
 
 function linuxPssOrFallback(pid: number, fallbackBytes: number): number {
@@ -77,10 +93,21 @@ function linuxPssOrFallback(pid: number, fallbackBytes: number): number {
   }
 }
 
-/** Every process whose executable is inside `root`; resident memory in bytes (Linux uses PSS when readable). */
+function macFootprintOrFallback(pid: number, fallbackBytes: number): number {
+  try {
+    const out = Bun.spawnSync(["footprint", "-p", String(pid), "-f", "bytes"]);
+    if (out.exitCode !== 0) return fallbackBytes;
+    return parseMacFootprintBytes(out.stdout.toString()) ?? fallbackBytes;
+  } catch {
+    return fallbackBytes;
+  }
+}
+
+/** Every process whose executable is inside `root`; physical memory in bytes (Linux uses PSS and macOS uses `footprint` when readable). */
 function appProcesses(root: string): AppProcess[] {
   const windows = process.platform === "win32";
   const linux = process.platform === "linux";
+  const darwin = process.platform === "darwin";
   const listed = windows
     ? Bun.spawnSync([
         "powershell",
@@ -98,9 +125,13 @@ function appProcesses(root: string): AppProcess[] {
         return [];
       if (!windows && !command.startsWith(root)) return [];
       const pidNum = Number(pid);
-      // ps gives kibibytes, Windows bytes; on Linux prefer PSS so shared libcef.so pages count once.
+      // ps gives kibibytes, Windows bytes; on Linux prefer PSS and on macOS prefer phys_footprint so shared CEF pages count once.
       const rawBytes = Number(rss) * (windows ? 1 : 1024);
-      const rssBytes = linux ? linuxPssOrFallback(pidNum, rawBytes) : rawBytes;
+      const rssBytes = linux
+        ? linuxPssOrFallback(pidNum, rawBytes)
+        : darwin
+          ? macFootprintOrFallback(pidNum, rawBytes)
+          : rawBytes;
       return [{ pid: pidNum, rssBytes, command }];
     });
 }

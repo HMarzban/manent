@@ -12,6 +12,7 @@ import {
   installOf,
   isEmbeddedCloudProcess,
   parseLinuxPssBytes,
+  parseMacFootprintBytes,
   sumDesktopRss,
 } from "../desktop/installed-app.ts";
 
@@ -113,4 +114,23 @@ test("parseLinuxPssBytes extracts proportional set size in bytes from smaps_roll
   ].join("\n");
   expect(parseLinuxPssBytes(sample)).toBe(98_304 * 1024);
   expect(parseLinuxPssBytes("Rss: 1234 kB\n")).toBeNull();
+});
+
+test("parseMacFootprintBytes extracts physical footprint in bytes from footprint output", () => {
+  expect(
+    parseMacFootprintBytes(
+      "bun [1234]: 64-bit    Footprint: 48234496 B (16384 bytes per page)\n",
+    ),
+  ).toBe(48_234_496);
+  expect(
+    parseMacFootprintBytes(
+      "bun Helper [1235]: 64-bit    Footprint: 2064 KB (16384 bytes per page)\n",
+    ),
+  ).toBe(2064 * 1024);
+  expect(
+    parseMacFootprintBytes(
+      "Manent [1236]: 64-bit    Footprint: 142.5 MB (16384 bytes per page)\n",
+    ),
+  ).toBe(Math.round(142.5 * 1024 * 1024));
+  expect(parseMacFootprintBytes("no footprint line here\n")).toBeNull();
 });

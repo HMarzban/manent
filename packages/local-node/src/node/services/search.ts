@@ -1,7 +1,9 @@
 // Offline full-text search for the desktop local node: indexes both authority and relayed documents locally.
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { createSearchService } from "@manent/server-core";
 import type { SearchService, SyncHooks } from "@manent/server-core";
-import { openSqliteSearchIndex } from "@manent/storage";
+import { SEARCH_INDEX_FILE, openSqliteSearchIndex } from "@manent/storage";
 import type { SearchIndex } from "@manent/storage";
 import type { NodeService } from "../services.ts";
 
@@ -9,16 +11,31 @@ const CATCH_UP_DEBOUNCE_MS = 2_000;
 
 export const searchService: NodeService = {
   create({ storage, sync, clock, searchDir }) {
-    const searchIndex = openSqliteSearchIndex(
-      searchDir === undefined ? { path: ":memory:" } : { dir: searchDir },
-    );
+    let index: SearchIndex | null = null;
+    const ensureOpen = (): SearchIndex => {
+      if (index !== null) return index;
+      index = openSqliteSearchIndex(
+        searchDir === undefined ? { path: ":memory:" } : { dir: searchDir },
+      );
+      return index;
+    };
+    const openIfExists = (): SearchIndex | null => {
+      if (index !== null) return index;
+      if (
+        searchDir !== undefined &&
+        existsSync(join(searchDir, SEARCH_INDEX_FILE))
+      )
+        return ensureOpen();
+      return null;
+    };
     // Recreating the inner SearchService on catchUpNow (reseed wipe) clears stale metadata caches without closing searchIndex.
+    // Opening search.sqlite lazily keeps idle cold boots with no scripts from allocating an empty FTS5 database.
     const sharedIndex: SearchIndex = {
-      put: (entry) => searchIndex.put(entry),
-      remove: (docId) => searchIndex.remove(docId),
-      headOf: (docId) => searchIndex.headOf(docId),
-      indexedDocIds: () => searchIndex.indexedDocIds(),
-      query: (query) => searchIndex.query(query),
+      put: (entry) => ensureOpen().put(entry),
+      remove: (docId) => openIfExists()?.remove(docId),
+      headOf: (docId) => openIfExists()?.headOf(docId) ?? null,
+      indexedDocIds: () => openIfExists()?.indexedDocIds() ?? [],
+      query: (query) => ensureOpen().query(query),
       close() {},
     };
     const makeInner = (): SearchService =>
@@ -59,7 +76,8 @@ export const searchService: NodeService = {
         if (stopped) return;
         stopped = true;
         inner.stop();
-        searchIndex.close();
+        index?.close();
+        index = null;
       },
     };
 
