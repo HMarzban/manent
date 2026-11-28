@@ -11,6 +11,7 @@ import { expect, test } from "bun:test";
 import {
   installOf,
   isEmbeddedCloudProcess,
+  parseLinuxPssBytes,
   sumDesktopRss,
 } from "../desktop/installed-app.ts";
 
@@ -101,4 +102,15 @@ test("sumDesktopRss excludes the embedded demo cloud server and its background s
   expect(isEmbeddedCloudProcess(processes[4]!.command)).toBe(true);
   expect(sumDesktopRss(processes)).toBe(492_000_000);
   expect(sumDesktopRss([processes[3]!, processes[4]!])).toBeNull();
+});
+
+test("parseLinuxPssBytes extracts proportional set size in bytes from smaps_rollup", () => {
+  const sample = [
+    "55e0c0000000-7fff00000000 ---p 00000000 00:00 0                          [rollup]",
+    "Rss:              245760 kB",
+    "Pss:               98304 kB",
+    "Shared_Clean:     147456 kB",
+  ].join("\n");
+  expect(parseLinuxPssBytes(sample)).toBe(98_304 * 1024);
+  expect(parseLinuxPssBytes("Rss: 1234 kB\n")).toBeNull();
 });

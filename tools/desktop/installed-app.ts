@@ -1,6 +1,6 @@
 // The installed desktop app as the smoke drives it from outside: where it lives, its processes judged by
 // executable path (the launcher can outlive the app), launching it, quitting it and measuring it.
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const QUIT_WAIT_MS = 15_000;
@@ -56,12 +56,31 @@ export function sumDesktopRss(processes: readonly AppProcess[]): number | null {
 }
 
 const LISTING = new RegExp("^\\s*(\\d+)\\s+(\\d+)\\s+(.+)$");
+const LINUX_PSS = /^Pss:\s+(\d+)\s+kB$/m;
 const WINDOWS_LISTING = (root: string): string =>
   `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith('${root.replaceAll("'", "''")}') } | ForEach-Object { "$($_.ProcessId) $($_.WorkingSetSize) $($_.CommandLine)" }`;
 
-/** Every process whose executable is inside `root`; resident memory in bytes. */
+/** Extracts proportional set size in bytes from Linux `/proc/<pid>/smaps_rollup` so shared CEF mappings are not double-counted across helper processes. */
+export function parseLinuxPssBytes(smaps: string): number | null {
+  const match = LINUX_PSS.exec(smaps);
+  return match === null ? null : Number(match[1]) * 1024;
+}
+
+function linuxPssOrFallback(pid: number, fallbackBytes: number): number {
+  try {
+    return (
+      parseLinuxPssBytes(readFileSync(`/proc/${pid}/smaps_rollup`, "utf8")) ??
+      fallbackBytes
+    );
+  } catch {
+    return fallbackBytes;
+  }
+}
+
+/** Every process whose executable is inside `root`; resident memory in bytes (Linux uses PSS when readable). */
 function appProcesses(root: string): AppProcess[] {
   const windows = process.platform === "win32";
+  const linux = process.platform === "linux";
   const listed = windows
     ? Bun.spawnSync([
         "powershell",
@@ -78,9 +97,11 @@ function appProcesses(root: string): AppProcess[] {
       if (pid === undefined || rss === undefined || command === undefined)
         return [];
       if (!windows && !command.startsWith(root)) return [];
-      // ps gives kibibytes, Windows bytes
-      const rssBytes = Number(rss) * (windows ? 1 : 1024);
-      return [{ pid: Number(pid), rssBytes, command }];
+      const pidNum = Number(pid);
+      // ps gives kibibytes, Windows bytes; on Linux prefer PSS so shared libcef.so pages count once.
+      const rawBytes = Number(rss) * (windows ? 1 : 1024);
+      const rssBytes = linux ? linuxPssOrFallback(pidNum, rawBytes) : rawBytes;
+      return [{ pid: pidNum, rssBytes, command }];
     });
 }
 

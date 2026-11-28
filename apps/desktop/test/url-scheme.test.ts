@@ -94,18 +94,23 @@ test("parseManentUrl rejects non-script hosts, traversal segments, backslashes, 
 });
 
 test("parseFileUrl decodes local file:// URLs and rejects invalid or remote URLs", () => {
-  expect(parseFileUrl("file:///Users/test/script.fdx")).toBe(
-    "/Users/test/script.fdx",
-  );
-  expect(parseFileUrl("FILE:///Users/test/My%20Script.fountain")).toBe(
-    "/Users/test/My Script.fountain",
-  );
-  expect(parseFileUrl("file://localhost/Users/test/caf%C3%A9.ink")).toBe(
-    "/Users/test/café.ink",
-  );
-  expect(parseFileUrl("file:///Users/test/Draft%20%231.docx")).toBe(
-    "/Users/test/Draft #1.docx",
-  );
+  const baseDir =
+    process.platform === "win32" ? "C:\\Users\\test" : "/Users/test";
+  const scriptPath = join(baseDir, "script.fdx");
+  const spacedPath = join(baseDir, "My Script.fountain");
+  const accentPath = join(baseDir, "café.ink");
+  const hashPath = join(baseDir, "Draft #1.docx");
+
+  expect(parseFileUrl(pathToFileURL(scriptPath).href)).toBe(scriptPath);
+  expect(
+    parseFileUrl(pathToFileURL(spacedPath).href.replace(/^file:/, "FILE:")),
+  ).toBe(spacedPath);
+  expect(
+    parseFileUrl(
+      pathToFileURL(accentPath).href.replace("file:///", "file://localhost/"),
+    ),
+  ).toBe(accentPath);
+  expect(parseFileUrl(pathToFileURL(hashPath).href)).toBe(hashPath);
 
   for (const rejected of [
     "",
@@ -113,24 +118,29 @@ test("parseFileUrl decodes local file:// URLs and rejects invalid or remote URLs
     "https://manent.app/script.fdx",
     "file:",
     "file:///",
-    "file:///Users/test/",
+    pathToFileURL(`${baseDir}${process.platform === "win32" ? "\\" : "/"}`)
+      .href,
     "file://evil.example/Users/test/script.fdx",
-    "file:///Users/test/bad%00.fdx",
-    "file:///Users/test/bad\n.fdx",
-    "file:///Users/test/bad\x7f.fdx",
+    `${pathToFileURL(baseDir).href}/bad%00.fdx`,
+    `${pathToFileURL(baseDir).href}/bad\n.fdx`,
+    `${pathToFileURL(baseDir).href}/bad\x7f.fdx`,
   ]) {
     expect(parseFileUrl(rejected)).toBeNull();
   }
 });
 
 test("parseOpenUrl discriminates manent:// script links and file:// file opens", () => {
+  const pilotPath = join(
+    process.platform === "win32" ? "C:\\Users\\test" : "/Users/test",
+    "pilot.fdx",
+  );
   expect(parseOpenUrl("manent://s/abc-123")).toEqual({
     kind: "script",
     path: "/s/abc-123",
   });
-  expect(parseOpenUrl("file:///Users/test/pilot.fdx")).toEqual({
+  expect(parseOpenUrl(pathToFileURL(pilotPath).href)).toEqual({
     kind: "file",
-    path: "/Users/test/pilot.fdx",
+    path: pilotPath,
   });
   expect(parseOpenUrl("https://example.com")).toBeNull();
 });

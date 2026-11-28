@@ -154,11 +154,11 @@ test("pages deploys site/ on pushes to main touching site/** and manual dispatch
   expect(uploadIdx).toBeGreaterThan(testIdx);
 });
 
-test("desktop workflow installs Electrobun Linux runtime libraries including WebKitGTK 4.1", async () => {
+test("desktop workflow installs Electrobun Linux runtime libraries, uses 24-bit Xvfb and autoclose Windows setup", async () => {
   const desktop = Bun.YAML.parse(
     await Bun.file(join(repoRoot, ".github/workflows/desktop.yml")).text(),
   ) as {
-    jobs: { desktop: { steps: Array<Step & { if?: string }> } };
+    jobs: { desktop: { steps: Array<Step & { if?: string; name?: string }> } };
   };
   const aptStep = desktop.jobs.desktop.steps.find(
     (s) =>
@@ -168,4 +168,15 @@ test("desktop workflow installs Electrobun Linux runtime libraries including Web
   expect(aptStep?.run).toContain("libwebkit2gtk-4.1-0");
   expect(aptStep?.run).toContain("libayatana-appindicator3-1");
   expect(aptStep?.run).toContain("xvfb");
+
+  const linuxSmoke = desktop.jobs.desktop.steps.find(
+    (s) => s.if === "runner.os == 'Linux'" && s.run?.includes("desktop:smoke"),
+  );
+  expect(linuxSmoke?.run).toContain("-screen 0 1440x940x24");
+
+  const winInstall = desktop.jobs.desktop.steps.find(
+    (s) => s.name === "Install (Windows)",
+  );
+  expect(winInstall?.run).toContain("ELECTROBUN_INSTALLER_UI_AUTOCLOSE");
+  expect(winInstall?.run).not.toContain('"/S"');
 });

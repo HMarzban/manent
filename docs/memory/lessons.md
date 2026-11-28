@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Drive Electrobun's Windows installer with `ELECTROBUN_INSTALLER_UI_AUTOCLOSE=1`, use 24-bit Xvfb + PSS on Linux smoke, and construct OS-native `file://` URLs in tests
+
+- Date: 2026-11-28
+
+### What happened
+
+The second cross-platform GitHub Actions `desktop` and `ci` run uncovered three Windows/Linux harness defects after both platforms built cleanly: (1) `.github/workflows/desktop.yml`'s `Install (Windows)` passed `/S` and `--silent` to Electrobun's self-extractor (`Manent-Setup-canary.exe`), which expects no CLI flags and `ELECTROBUN_INSTALLER_UI_AUTOCLOSE=1` (leaving `MANENT_SMOKE_APP` empty); (2) Linux `desktop:smoke` passed every functional and live-update check (`saved`, `synced`, `secondInstanceDeferred`, `offlineSaved`, `updatedWithOutbox`, `noticesBeside`) but ran under `xvfb-run -a`'s default `640×480×8` paletted screen (triggering SwiftShader crashes and a 25 s first frame) while `ps -axo rss=` double-counted shared `libcef.so` mappings across all CEF helper processes (`1.17 GB`); and (3) `apps/desktop/test/url-scheme.test.ts` passed POSIX-only `file:///` paths without a drive letter to Node's `fileURLToPath`, which throws on Windows where absolute file URLs require a drive letter.
+
+### How it was caught
+
+By inspecting the `desktop (windows-2025)`, `desktop (ubuntu-24.04)` and `verify (windows-2025)` GitHub Actions logs alongside Electrobun's official `normal-installer.integration.test.mjs`.
+
+### Rule
+
+Run Electrobun's Windows setup executable with `ELECTROBUN_INSTALLER_UI_AUTOCLOSE=1` and no `/S`/`--silent` switches, fail loudly if `launcher.exe` is missing, and terminate any auto-launched instance before smoke begins. Run Linux `desktop:smoke` under a 24-bit `1440x940x24` Xvfb display and read Linux `/proc/<pid>/smaps_rollup` PSS in `tools/desktop/installed-app.ts` so shared `libcef.so` pages count once. Build `file://` URL test fixtures with `pathToFileURL` from OS-native absolute paths.
+
+### Enforced by
+
+`apps/desktop/test/url-scheme.test.ts`, `tools/test/desktop-installed-app.test.ts`, and `tools/test/ci-workflow.test.ts`.
+
 ## Keep Windows desktop PNG icons within `256 × 256` and install `libwebkit2gtk-4.1-0` on Linux Electrobun runners
 
 - Date: 2026-11-28

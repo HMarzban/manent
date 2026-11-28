@@ -67,18 +67,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $env:ELECTROBUN_INSTALLER_UI_AUTOCLOSE = "1"
           $setup = Join-Path $env:RUNNER_TEMP "setup"
           Expand-Archive (Get-Item "apps/desktop/artifacts/Manent-0.0.1-canary-*.zip") -DestinationPath $setup
           $exe = Get-ChildItem $setup -Recurse -Filter *.exe | Select-Object -First 1
-          $deadline = (Get-Date).AddMinutes(5)
-          foreach ($flag in @("/S", "--silent")) {
-            $left = [int]($deadline - (Get-Date)).TotalMilliseconds
-            if ($left -le 0) { break }
-            $run = Start-Process $exe.FullName -ArgumentList $flag -WindowStyle Hidden -PassThru
-            if ($run.WaitForExit($left) -and $run.ExitCode -eq 0) { break }
-            if (-not $run.HasExited) { $run.Kill() }
+          if (-not $exe) { throw "No setup executable found in $setup" }
+          $run = Start-Process $exe.FullName -PassThru
+          if (-not $run.WaitForExit(300000)) {
+            $run.Kill()
+            throw "Windows installer timed out after 5 minutes"
           }
-          $app = Get-ChildItem (Join-Path $env:LOCALAPPDATA "app.manent.desktop") -Recurse -Filter launcher.exe | Select-Object -First 1
+          if ($run.ExitCode -ne 0) {
+            throw "Windows installer exited with code $($run.ExitCode)"
+          }
+          $installRoot = Join-Path $env:LOCALAPPDATA "app.manent.desktop"
+          $app = Get-ChildItem $installRoot -Recurse -Filter launcher.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw "launcher.exe not found under $installRoot" }
+          Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
           "MANENT_SMOKE_APP=$($app.FullName)" >> $env:GITHUB_ENV
       - name: Install (Linux)
         if: runner.os == 'Linux'
@@ -104,7 +109,7 @@ jobs:
       - if: runner.os != 'Linux'
         run: bun run desktop:smoke --app "$MANENT_SMOKE_APP" --update-from "${{ runner.temp }}/update-0.0.2"
       - if: runner.os == 'Linux'
-        run: xvfb-run -a bun run desktop:smoke --app "$MANENT_SMOKE_APP" --update-from "${{ runner.temp }}/update-0.0.2"
+        run: xvfb-run -a -s "-screen 0 1440x940x24" bun run desktop:smoke --app "$MANENT_SMOKE_APP" --update-from "${{ runner.temp }}/update-0.0.2"
       - if: always()
         uses: actions/upload-artifact@v4
         with:
