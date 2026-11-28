@@ -4,6 +4,26 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Run headless Linux CEF smoke inside `dbus-run-session` with portals and keyring disabled to avoid 25 s D-Bus stalls
+
+- Date: 2026-11-28
+
+### What happened
+
+Even after switching Linux `desktop:smoke` to a 24-bit Xvfb display and disabling GPU/Vulkan, `firstFrameMs` consistently stayed at `25.3–27.5 s` (`25,000 ms` plus normal startup), while `windows-2025` passed in `966 ms` and `macos-26` in `1,351 ms`. Under headless Xvfb on Ubuntu 24.04 without a live desktop session bus, GTK and Chromium synchronously wait for the hardcoded 25-second D-Bus timeout querying `org.freedesktop.portal.Desktop`, AT-SPI and GNOME Keyring/KWallet.
+
+### How it was caught
+
+By comparing `firstFrameMs` across three consecutive `desktop (ubuntu-24.04)` smoke runs (`25,368 ms`, `27,570 ms`, `26,462 ms`) against the GTK/D-Bus warnings printed at launch.
+
+### Rule
+
+Wrap headless Linux `desktop:smoke` in `dbus-run-session` with `GTK_USE_PORTAL=0` and `NO_AT_BRIDGE=1`, install `dbus`, and pass `"password-store": "basic"` in `apps/desktop/electrobun.config.ts` when `MANENT_CEF_DISABLE_GPU=1` is set.
+
+### Enforced by
+
+`.github/workflows/desktop.yml`, `apps/desktop/electrobun.config.ts`, and `tools/test/ci-workflow.test.ts`.
+
 ## Wait for Windows Task Scheduler binary swaps before reopening `MANENT_DATA_DIR`, and disable Linux Vulkan SwiftShader under CEF
 
 - Date: 2026-11-28

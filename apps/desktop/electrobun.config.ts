@@ -19,7 +19,11 @@ const linuxChromiumFlags: Record<string, string | boolean> = {
   "disable-features": "SpareRendererForSitePerProcess,BackForwardCache,Vulkan",
   "disable-vulkan": true,
   ...(process.env.MANENT_CEF_DISABLE_GPU === "1"
-    ? { "disable-gpu": true, "disable-gpu-compositing": true }
+    ? {
+        "disable-gpu": true,
+        "disable-gpu-compositing": true,
+        "password-store": "basic",
+      }
     : {}),
 };
 

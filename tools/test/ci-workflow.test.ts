@@ -172,7 +172,12 @@ test("desktop workflow installs Electrobun Linux runtime libraries, uses 24-bit 
   const linuxSmoke = desktop.jobs.desktop.steps.find(
     (s) => s.if === "runner.os == 'Linux'" && s.run?.includes("desktop:smoke"),
   );
+  expect(linuxSmoke?.run).toContain("dbus-run-session");
   expect(linuxSmoke?.run).toContain("-screen 0 1440x940x24");
+  expect(linuxSmoke?.env).toEqual({
+    GTK_USE_PORTAL: "0",
+    NO_AT_BRIDGE: "1",
+  });
 
   const winInstall = desktop.jobs.desktop.steps.find(
     (s) => s.name === "Install (Windows)",
