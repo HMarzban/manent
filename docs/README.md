@@ -5,10 +5,10 @@ Start with the part that matches what you want to do. Each page says what works 
 ## Use Manent
 
 - [Getting started](guide/getting-started.md): run the demo, choose a person, and what to try first.
-- [Writing a script](guide/writing.md): formats, elements, Tab and Enter, the element picker, inline images and chyrons, Show and News templates, and writing tools.
+- [Writing a script](guide/writing.md): formats, elements, Tab and Enter, the element picker, Book studio (floating format bar, cover & front/back matter, footnotes and Engine 3 book layout), inline images and chyrons, Show and News templates, and writing tools.
 - [Saving and syncing](guide/saving-and-syncing.md): what "Saved", "Synced" and "waiting" mean, working without a connection, and versions.
 - [Working together](guide/working-together.md): live changes, cursors, Following, sharing, comments and rounds, suggestions, private copies, the Room window, rundowns, Rundown History, remote prompter and external MOS.
-- [Export and print](guide/export-and-print.md): PDF, EPUB 3, Word (`.docx`), Sides, FDX, Fountain, Game Script, Ink, rundown exports, inline graphics, Project archives, paper and importing a script.
+- [Export and print](guide/export-and-print.md): PDF, facing spreads, EPUB 3, Word (`.docx`), Markdown (`.md`), Multi-part Book Compile, Sides, FDX, Fountain, Game Script, Ink, rundown exports, inline graphics, Project archives, paper and importing a script.
 - [Keyboard shortcuts](guide/keyboard-shortcuts.md): every default key and the smart command palette (`Ctrl+K` / `⌘K`).
 - [Preferences and accessibility](guide/preferences-and-accessibility.md): what you can set, and how Manent works with a keyboard and a screen reader.
 - [Public API and notifications](guide/api.md): workspace API keys, read-only HTTP endpoints, webhooks, Slack and email delivery.

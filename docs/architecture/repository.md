@@ -43,10 +43,10 @@ packages/
 ├── settings/        the settings registry, the store, and every preference and script setting (src/definitions/)
 ├── sync-protocol/   frames, messages, codec, chunking, version gating, error codes, HTTP bodies
 ├── perf/            timing marks, off by default
-├── pagination/      the page engine, versioned (src/engines/v1/), with generated font and Unicode tables
-├── revisions/       compare/, merge/, restore/ and the production model in production/
-├── crdt/            the only importer of Yjs
-├── formats/         pdf/ (the PDF writer), production/ (the issued packet), fdx/ and fountain/ (read and write), script/, text/ and xml/
+├── pagination/      the page engine, versioned (src/engines/v1/, v2/, v3/), shared running headers, book TOC, with generated font and Unicode tables
+├── revisions/       compare/, merge/, restore/, checks/ (including manuscript-only Book checks) and the production model in production/
+├── crdt/            the only importer of Yjs (including additive bookMatter over titlePage)
+├── formats/         pdf/ (the PDF writer), epub/ (EPUB 3), docx/ (Word round-trip), markdown/ (lossless .md), book/ (multi-part compile), production/ (the issued packet), fdx/ and fountain/ (read and write), script/, text/ and xml/
 ├── sync-client/     link/, session/, outbox/, tabs/, recovery/, review/, move/, upstream/, history/, production/ and the ports it is driven through
 ├── client-web/      the browser drivers: IndexedDB store, leader election, socket transport, production cache
 ├── storage/         the ports, sqlite/ and an in-memory driver in testing/
@@ -101,7 +101,7 @@ bench/
 e2e/
 ├── playwright.config.ts    three engines, against one demo on ports of its own
 ├── smoke/ editor/ interface/ sync/ offline/ typesetting/   the suites
-├── tour/                   one test per Tour scenario (92 scenarios across web and desktop)
+├── tour/                   one test per Tour scenario (93 scenarios across web and desktop)
 ├── clone/                  clones the repository and starts the demo from the clone
 └── support/                shared helpers
 
