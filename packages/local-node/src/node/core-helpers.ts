@@ -87,7 +87,6 @@ export function resumeCloudPeople(options: {
   }
 }
 
-
 export async function closeNodeParts(parts: {
   stopWake(): void;
   stopCloud(): void;

@@ -37,7 +37,6 @@ function readConnection(
   return { mode: known, delayMs };
 }
 
-
 /** What each entry of `LOCAL_ROUTES` is given. */
 export interface LocalRouteContext {
   records: NodeRecords;
@@ -112,7 +111,6 @@ const connectionRoutes = (
     return noContent();
   },
 });
-
 
 /** The node's own routes, one entry per feature, each keyed `<METHOD> <path>`. */
 export const LOCAL_ROUTES: readonly ((
